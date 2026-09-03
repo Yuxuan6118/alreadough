@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "AlreaDough",
-    short_name: "AlreaDough",
+    name: "Already",
+    short_name: "Already",
     description: "Your living desire space.",
     start_url: "/",
     display: "standalone",

@@ -2,7 +2,6 @@
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Pause, Play, X } from "@phosphor-icons/react";
-import { DoughGlyph } from "./DoughGlyph";
 
 export type PracticeCheckIn = {
   date: string;
@@ -682,7 +681,7 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
 
   return <section className="full-view subliminal-view">
     <div className="studio-heading">
-      <div className="view-heading-row"><div className="view-heading"><p className="eyebrow">{copy.eyebrow}</p><h1>{copy.heading}</h1><p>{copy.intro}</p></div><DoughGlyph state="sound" size="page"/></div>
+      <div className="view-heading"><p className="eyebrow">{copy.eyebrow}</p><h1>{copy.heading}</h1><p>{copy.intro}</p></div>
       <button className="tutorial-button" onClick={() => setTutorialOpen(true)}>ⓘ {copy.tutorial}</button>
     </div>
 
@@ -690,11 +689,11 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
 
     <div className="dreamscape-workspace">
       <div className="sub-player-card">
-        <div className="sub-player-identity"><div className="sub-orbit"><span>ALREADOUGH</span><i/></div><div><p>{copy.current}</p><h2>{profile.title}</h2></div></div>
+        <div className="sub-player-identity"><div className="sub-orbit"><span>ALREADY</span><i/></div><div><p>{copy.current}</p><h2>{profile.title}</h2></div></div>
         <div className="sub-player-time"><strong>{(profile.durationMode || "timer") === "continuous" ? timeLabel(elapsedSeconds) : timeLabel(secondsLeft)}</strong></div>
         <div className="sub-wave" aria-hidden="true">{Array.from({ length: 35 }, (_, index) => <i key={index}/>)}</div>
         <div className="mini-timeline"><span>{copy.timeline}</span><i className="voice">VOICE · {profile.mode.toUpperCase()}</i><i className="music">MUSIC</i><i className="ambience">{librarySound ? librarySound.title : profile.ambience.toUpperCase()}</i></div>
-        <div className="player-actions"><button className="sub-play dough-action" onClick={startPractice}>{isPlaying ? "Ⅱ" : "▶"}<span>{isPlaying ? copy.pause : copy.play}</span></button></div>
+        <div className="player-actions"><button className="sub-play" onClick={startPractice}>{isPlaying ? "Ⅱ" : "▶"}<span>{isPlaying ? copy.pause : copy.play}</span></button></div>
       </div>
       <aside className="session-summary">
         <p className="eyebrow">SESSION</p><h3>{lang === "zh" ? "今天怎么听" : "How you are listening"}</h3>
@@ -725,7 +724,7 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
       </div>
       <section className="mixer-footer">
         <div className="mix-options"><label>{copy.speed}<input type="range" min="0.1" max="10" step="0.1" value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))}/><b>{playbackSpeed.toFixed(1)}×</b></label><label className="loop-check"><input type="checkbox" checked={loopAudio} onChange={(event) => setLoopAudio(event.target.checked)}/><span className="toggle-control" aria-hidden="true"><i/></span><span>{copy.loop}</span></label></div>
-        <div className="mixer-commit"><p className="desire-reference"><span>{lang === "zh" ? "当前愿望" : "Active desire"}</span><strong>{desire}</strong></p><button className={`primary dough-action pocket-action ${savedPulse ? "saved" : ""}`} onClick={saveProfile}>{savedPulse ? (lang === "zh" ? "Dough 已替你收好" : "Kept by Dough") : copy.save}</button></div>
+        <div className="mixer-commit"><p className="desire-reference"><span>{lang === "zh" ? "当前愿望" : "Active desire"}</span><strong>{desire}</strong></p><button className="primary" onClick={saveProfile}>{savedPulse ? copy.saved : copy.save}</button></div>
       </section>
       {audioError && <p className="audio-error">{audioError}</p>}
     </div>}
