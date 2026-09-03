@@ -133,7 +133,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .message.typing { display: flex; gap: 5px; align-items: center; }
 .message.typing i { width: 5px; height: 5px; border-radius: 50%; background: var(--app-muted); }
 .composer { position: sticky; bottom: 16px; display: grid; grid-template-columns: minmax(0,1fr) 48px; gap: 8px; padding: 10px; border: 1px solid var(--app-line); border-radius: 18px; background: color-mix(in srgb,var(--app-panel) 88%,transparent); backdrop-filter: blur(18px); box-shadow: var(--app-shadow); }
+.composer-main { min-width: 0; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; }
 .composer input { min-width: 0; border: 0; padding: 0 9px; color: var(--app-ink); background: transparent; outline: 0; }
+.coach-model-select { display: grid; gap: 2px; padding: 5px 10px; border-left: 1px solid var(--app-line); }
+.coach-model-select span { color: var(--app-muted); font-size: 7px; letter-spacing: .08em; }
+.coach-model-select select { max-width: 142px; border: 0; padding: 0 18px 0 0; color: var(--app-ink); background: transparent; outline: 0; font: 500 11px/1.3 var(--font-geist-sans),sans-serif; }
 .composer input::placeholder, textarea::placeholder, input::placeholder { color: color-mix(in srgb,var(--app-muted) 82%,transparent); }
 .composer button { width: 48px; height: 48px; border: 0; border-radius: 14px; color: var(--app-accent-ink); background: var(--app-accent); }
 .ai-notice { margin: 12px 0; padding: 14px 16px; border: 1px solid var(--app-line); border-radius: var(--app-radius-control); color: var(--app-muted); background: var(--app-panel); font-size: 11px; line-height: 1.6; }
@@ -354,6 +358,125 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 
 /* Taste palette lock: legacy studios inherit the same four-color world. */
 .app-shell .subliminal-view { background: transparent; }
+
+.app-shell.acknowledge-shell { min-height: 100dvh; grid-template-columns: 1fr; place-items: center; padding: 24px; }
+.acknowledge-card { position: relative; z-index: 1; width: min(760px,100%); padding: clamp(28px,5vw,64px); border: 1px solid var(--app-line); border-radius: 32px; background: color-mix(in srgb,var(--app-panel) 94%,transparent); box-shadow: var(--app-shadow); }
+.acknowledge-card > .brand { margin-bottom: 54px; }
+.acknowledge-card h1 { max-width: 650px; margin: 13px 0 18px; font: 400 clamp(36px,5vw,66px)/1.04 Georgia,"Songti SC",serif; letter-spacing: -.04em; }
+.acknowledge-card > p:not(.eyebrow) { max-width: 620px; color: var(--app-muted); font-size: 14px; line-height: 1.8; }
+.acknowledge-links { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin: 30px 0 22px; }
+.acknowledge-links a { padding: 14px; border: 1px solid var(--app-line); border-radius: 14px; color: var(--app-ink); background: var(--app-bg); text-align: center; text-decoration: none; font-size: 11px; }
+.acknowledge-check { display: flex; align-items: center; gap: 10px; color: var(--app-muted); font-size: 12px; }
+.acknowledge-check input { width: 18px; height: 18px; accent-color: var(--app-accent); }
+.acknowledge-actions { display: grid; grid-template-columns: auto minmax(220px,1fr); gap: 10px; margin-top: 24px; }
+
+.welcome-title-row { display: flex; align-items: center; justify-content: center; gap: 18px; }
+.welcome-title-row h1 { margin: 0; }
+.memory-entry { display: inline-flex; align-items: center; gap: 6px; flex: none; border: 1px solid var(--app-line); border-radius: 999px; padding: 9px 12px; color: var(--app-muted); background: var(--app-panel); }
+.memory-overview { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin: 30px 0 12px; }
+.memory-overview article,.memory-library-grid article { padding: 24px; border: 1px solid var(--app-line); border-radius: var(--app-radius); background: var(--app-panel); }
+.memory-overview span,.memory-library-grid header strong { color: var(--app-accent); font-size: 10px; letter-spacing: .12em; }
+.memory-overview p { margin: 20px 0 0; font: 400 22px/1.55 Georgia,"Songti SC",serif; }
+.memory-library-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.memory-library-grid header { display: flex; align-items: center; justify-content: space-between; }
+.memory-library-grid header small { color: var(--app-muted); font-size: 9px; }
+.memory-library-grid ul { margin: 20px 0 0; padding: 0; list-style: none; }
+.memory-library-grid li { padding: 10px 0; border-top: 1px solid var(--app-line); font: 400 14px/1.55 Georgia,"Songti SC",serif; }
+.memory-library-grid article > p { margin: 20px 0 0; color: var(--app-muted); line-height: 1.7; }
+.memory-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+
+.dreamscape-workspace { display: grid; grid-template-columns: minmax(0,1.65fr) minmax(260px,.55fr); gap: 14px; margin-top: 28px; }
+.app-shell .sub-player-card { min-height: 480px; display: grid; grid-template-rows: auto auto 1fr auto auto; align-content: center; padding: clamp(28px,4vw,56px); text-align: left; border-radius: 28px; }
+.sub-player-identity { display: flex; align-items: center; gap: 20px; }
+.app-shell .sub-player-identity .sub-orbit { width: 72px; height: 72px; flex: none; margin: 0; }
+.sub-player-identity p { margin: 0 0 6px; color: #d7aaa0; font-size: 9px; letter-spacing: .14em; }
+.sub-player-identity h2 { margin: 0; font-size: clamp(22px,2.4vw,34px); }
+.sub-player-time { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-top: 44px; }
+.sub-player-time strong { font: 400 clamp(52px,6vw,88px)/1 Georgia,"Songti SC",serif; }
+.sub-player-time small { max-width: 180px; color: #cbbcb7; font-size: 10px; line-height: 1.5; text-align: right; }
+.app-shell .sub-wave { justify-content: flex-start; margin: 20px 0; }
+.app-shell .mini-timeline { width: 100%; max-width: 540px; margin: 0; grid-template-columns: 70px 1fr; }
+.app-shell .mini-timeline i { height: 18px; font-size: 7px; line-height: 14px; }
+.player-actions { display: flex; align-items: center; gap: 20px; margin-top: 24px; }
+.app-shell .sub-play { margin: 0; }
+.app-shell .sub-edit { display: inline-block; margin: 0; }
+.session-summary { padding: 28px; border: 1px solid var(--app-line); border-radius: 28px; background: var(--app-panel); }
+.session-summary h3 { margin: 10px 0 28px; font: 400 26px/1.2 Georgia,"Songti SC",serif; }
+.session-summary dl { margin: 0 0 28px; }
+.session-summary dl div { padding: 15px 0; border-top: 1px solid var(--app-line); }
+.session-summary dt { color: var(--app-muted); font-size: 9px; letter-spacing: .1em; }
+.session-summary dd { margin: 7px 0 0; font: 400 15px/1.4 Georgia,"Songti SC",serif; }
+.practice-progress-separated { margin: 18px 0 0; border-radius: 20px; overflow: hidden; }
+
+.app-shell .sub-editor { margin-top: 18px; padding: clamp(24px,3vw,42px); border-radius: 28px; }
+.delivery-cards { display: grid !important; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin: 26px 0 !important; }
+.delivery-cards legend { grid-column: 1/-1; }
+.app-shell .delivery-cards button { position: relative; min-height: 128px; display: grid; align-content: end; gap: 6px; margin: 0; padding: 18px; border-radius: 18px; text-align: left; }
+.delivery-cards button strong { font: 500 18px/1.2 Georgia,"Songti SC",serif; }
+.delivery-cards button small { max-width: 210px; font-size: 10px; line-height: 1.5; opacity: .75; }
+.delivery-cards button i { position: absolute; right: 14px; top: 14px; font: 500 9px/1 var(--font-geist-sans),sans-serif; }
+.duration-studio { display: grid; grid-template-columns: 1fr auto; gap: 18px 24px; margin: 24px 0; padding: 24px; border-radius: 20px; background: var(--app-panel-strong); }
+.duration-studio h3 { margin: 6px 0 0; font: 400 24px/1.2 Georgia,"Songti SC",serif; }
+.duration-mode-tabs { display: flex; align-self: start; padding: 4px; border: 1px solid var(--app-line); border-radius: 14px; background: var(--app-panel); }
+.duration-mode-tabs button { border: 0; border-radius: 10px; padding: 10px 14px; color: var(--app-muted); background: transparent; }
+.duration-mode-tabs button.selected { color: var(--app-accent-ink); background: var(--app-accent); }
+.duration-inputs { display: flex; gap: 10px; }
+.duration-inputs label { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border: 1px solid var(--app-line); border-radius: 14px; background: var(--app-panel); }
+.duration-inputs input { width: 58px !important; margin: 0 !important; padding: 0 !important; border: 0 !important; font: 400 24px/1 Georgia,"Songti SC",serif; }
+.completion-goal { display: grid !important; grid-template-columns: 1fr 70px 34px; align-items: center; gap: 8px; grid-column: 1/-1; }
+.completion-goal input { margin: 0 !important; }
+.completion-goal small { grid-column: 1/-1; }
+.background-play { grid-column: 1/-1; display: flex !important; align-items: flex-start; gap: 10px; }
+.background-play input { width: auto !important; }
+.background-play strong,.background-play small { display: block; }
+.background-play small { margin-top: 5px; }
+.app-shell .audio-track { grid-template-columns: 58px 1fr; border-radius: 16px; }
+.app-shell .track-main { padding: 20px; }
+.app-shell .track-main strong { font-size: 14px; }
+.app-shell .track-main small { font-size: 10px; }
+.sound-search { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin: 16px 0; }
+.sound-search input { min-width: 0; height: 44px; border: 1px solid var(--app-line); border-radius: 12px; padding: 0 13px; color: var(--app-ink); background: var(--app-bg); }
+.sound-search button { border: 0; border-radius: 12px; padding: 0 18px; color: var(--app-accent-ink); background: var(--app-accent); }
+.sound-results { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px; margin-bottom: 16px; }
+.sound-results article > button { width: 100%; min-height: 88px; display: grid; grid-template-columns: 28px 1fr; gap: 8px; align-items: center; margin: 0; padding: 12px; border: 1px solid var(--app-line); border-radius: 14px; color: var(--app-ink); background: var(--app-panel); text-align: left; }
+.sound-results button > span { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: var(--app-panel-strong); }
+.sound-results button strong,.sound-results button small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sound-results button b { grid-column: 2; color: var(--app-accent); font-size: 8px; }
+.sound-empty { display: block; margin: 8px 0 16px !important; }
+
+@media (max-width: 760px) {
+  .acknowledge-card { padding: 26px 20px; border-radius: 24px; }
+  .acknowledge-card > .brand { margin-bottom: 36px; }
+  .acknowledge-links { grid-template-columns: 1fr 1fr; }
+  .acknowledge-actions { grid-template-columns: 1fr; }
+  .welcome-title-row { align-items: flex-end; gap: 8px; }
+  .memory-entry { padding: 8px; }
+  .memory-entry svg { margin: 0; }
+  .memory-entry { font-size: 0; }
+  .composer-main { grid-template-columns: 1fr; }
+  .coach-model-select { width: max-content; border-left: 0; padding: 7px 9px 1px; }
+  .coach-model-select span { display: none; }
+  .coach-model-select select { max-width: 155px; }
+  .memory-overview,.memory-library-grid { grid-template-columns: 1fr; }
+  .memory-overview p { font-size: 18px; }
+  .memory-actions { display: grid; }
+  .dreamscape-workspace { grid-template-columns: 1fr; }
+  .app-shell .sub-player-card { min-height: 430px; padding: 24px; }
+  .sub-player-time { display: block; margin-top: 34px; }
+  .sub-player-time small { display: block; margin-top: 10px; text-align: left; }
+  .session-summary { padding: 22px; }
+  .delivery-cards { grid-template-columns: 1fr; }
+  .app-shell .delivery-cards button { min-height: 104px; }
+  .duration-studio { grid-template-columns: 1fr; padding: 18px; }
+  .duration-mode-tabs { justify-self: start; }
+  .duration-inputs { grid-column: 1; }
+  .completion-goal { grid-column: 1; }
+  .background-play { grid-column: 1; }
+  .sound-results { grid-template-columns: 1fr; }
+  .app-shell .audio-track { grid-template-columns: 42px 1fr; }
+  .app-shell .track-main { padding: 15px; }
+  .practice-progress-separated { grid-template-columns: 78px 1fr; }
+}
 .app-shell .tutorial-button,
 .app-shell .add-line,
 .app-shell .voice-recorder,

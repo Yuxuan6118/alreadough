@@ -89,11 +89,7 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
     layouts: { editorial: "杂志感", grid: "整齐网格", mosaic: "错落拼贴", film: "胶片故事", scrapbook: "手帐剪贴" },
     ratios: { phone: "手机壁纸", square: "正方形", landscape: "横向" },
     empty: "先选择几张真实照片，预览会出现在这里",
-    rights: "我确认上传的照片为本人拥有、已获授权，或仅用于法律允许的私人用途。",
     export: "导出愿景板 PNG",
-    needRights: "导出前请确认图片使用权。",
-    local: "LOCAL-ONLY WORKSPACE",
-    localCopy: "这个工具在浏览器内完成拼贴，不把上传照片发送给 AI 或图片搜索服务。作品会留在这个浏览器的本机存储中；清除网站数据会同时删除它。",
     remove: "移除",
     editPhoto: "画面调整",
     zoom: "缩放",
@@ -116,11 +112,7 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
     layouts: { editorial: "Editorial", grid: "Clean grid", mosaic: "Asymmetric", film: "Film story", scrapbook: "Scrapbook" },
     ratios: { phone: "Phone wallpaper", square: "Square", landscape: "Landscape" },
     empty: "Choose a few real photos to see your preview here",
-    rights: "I confirm that I own these photos, have permission to use them, or will use them only as privately permitted by law.",
     export: "Export vision board PNG",
-    needRights: "Confirm your image rights before exporting.",
-    local: "LOCAL-ONLY WORKSPACE",
-    localCopy: "Your collage is created inside this browser. Uploaded photos are not sent to AI or image search and remain in this browser's on-device storage until site data is cleared.",
     remove: "Remove",
     editPhoto: "FRAME EDITING",
     zoom: "Zoom",
@@ -137,7 +129,6 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
   const [title, setTitle] = useState(lang === "zh" ? "我已经拥有的生活" : "The Life I Already Have");
   const [layout, setLayout] = useState<Layout>("editorial");
   const [ratio, setRatio] = useState<Ratio>("phone");
-  const [rights, setRights] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [draggedId, setDraggedId] = useState("");
   const [gap, setGap] = useState(5);
@@ -209,7 +200,6 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
   };
 
   const exportBoard = async () => {
-    if (!rights) { window.alert(copy.needRights); return; }
     if (!images.length) return;
     const [width, height] = sizes[ratio];
     const canvas = document.createElement("canvas");
@@ -268,8 +258,6 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
       {images.length ? <div>{images.map((item) => <div role="button" tabIndex={0} aria-label={`${copy.selected}: ${item.name}`} className={`vision-frame ${selectedId === item.id ? "selected" : ""}`} draggable key={item.id} onDragStart={() => setDraggedId(item.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => reorder(item.id)} onClick={() => setSelectedId(item.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedId(item.id); }}><img src={item.url} alt={item.name} style={{ transform: `translate(${item.x}%, ${item.y}%) scale(${item.zoom}) rotate(${item.rotate}deg)` }}/><button onClick={(event) => { event.stopPropagation(); removeImage(item.id); }} aria-label={`${copy.remove} ${item.name}`}>×</button></div>)}</div> : <p>{copy.empty}</p>}
     </div>
     {selected && <div className="frame-editor"><div><span>{copy.selected}</span><strong>{selected.name}</strong></div><label>{copy.zoom}<input type="range" min="1" max="2.5" step="0.05" value={selected.zoom} onChange={(event) => updateSelected({ zoom: Number(event.target.value) })}/></label><label>{copy.horizontal}<input type="range" min="-35" max="35" value={selected.x} onChange={(event) => updateSelected({ x: Number(event.target.value) })}/></label><label>{copy.vertical}<input type="range" min="-35" max="35" value={selected.y} onChange={(event) => updateSelected({ y: Number(event.target.value) })}/></label><label>{copy.rotate}<input type="range" min="-12" max="12" value={selected.rotate} onChange={(event) => updateSelected({ rotate: Number(event.target.value) })}/></label></div>}
-    <label className="rights-check"><input type="checkbox" checked={rights} onChange={(event) => setRights(event.target.checked)}/><span>{copy.rights}</span></label>
     <button className="primary" disabled={!images.length} onClick={exportBoard}>{copy.export}</button>
-    <div className="studio-notice"><strong>{copy.local}</strong><p>{copy.localCopy}</p></div>
   </div>;
 }

@@ -14,13 +14,14 @@ import {
   Trash,
   Waveform,
   ArrowsClockwise,
+  Brain,
 } from "@phosphor-icons/react";
 import SubliminalStudio, { PracticeCheckIn, practiceStreak, todayKey } from "./components/SubliminalStudio";
 import VisionCanvasStudio from "./components/VisionCanvasStudio";
 import DoughPet from "./components/DoughPet";
 import { validateSpName } from "@/lib/name-policy";
 
-type View = "home" | "subliminal" | "story" | "revision" | "board" | "settings";
+type View = "home" | "subliminal" | "story" | "revision" | "board" | "memory" | "settings";
 type Lang = "zh" | "en";
 type Message = { role: "ai" | "user"; text: string };
 type BoardItem = { id: number; title: string; source: string; image?: string };
@@ -187,6 +188,8 @@ export default function Home() {
   const [imageSearchError, setImageSearchError] = useState("");
   const [savedPulse, setSavedPulse] = useState(false);
   const [goalSavedPulse, setGoalSavedPulse] = useState(false);
+  const [acknowledged, setAcknowledged] = useState<boolean | null>(null);
+  const [declined, setDeclined] = useState(false);
 
   /* eslint-disable react-hooks/set-state-in-effect -- one-time restoration from device storage */
   useEffect(() => {
@@ -224,7 +227,10 @@ export default function Home() {
         setSessionId(created);
       }
     } catch { /* the private space can always start fresh */ }
-    finally { setHydrated(true); }
+    finally {
+      setAcknowledged(localStorage.getItem("already-acknowledged-v1") === "yes");
+      setHydrated(true);
+    }
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -565,6 +571,23 @@ export default function Home() {
     return <main className="app-shell onboarding-shell" data-theme={dark ? "dark" : "light"}><div className="onboarding-loading" aria-label={lang === "zh" ? "正在打开 Already" : "Opening Already"}><span className="brand-mark"><Sparkle weight="fill" /></span><strong>Already</strong></div></main>;
   }
 
+  if (!acknowledged) {
+    return <main className="app-shell acknowledge-shell" data-theme={dark ? "dark" : "light"}>
+      <div className="app-grain" aria-hidden="true" />
+      <section className="acknowledge-card">
+        <span className="brand"><span className="brand-mark"><Sparkle weight="fill" /></span><strong>Already</strong></span>
+        {declined ? <><p className="eyebrow">YOUR CHOICE</p><h1>{lang === "zh" ? "你尚未进入 Already" : "You have not entered Already"}</h1><p>{lang === "zh" ? "这台设备没有保存同意记录。你可以关闭页面，或返回重新查看。" : "No consent record was saved on this device. You may close this page or go back to review."}</p><button className="outline-button" onClick={() => setDeclined(false)}>{lang === "zh" ? "返回" : "Go back"}</button></> : <>
+          <p className="eyebrow">BEFORE YOU ENTER</p>
+          <h1>{lang === "zh" ? "先确认这是一段你愿意进入的体验。" : "Confirm that this is an experience you choose to enter."}</h1>
+          <p>{lang === "zh" ? "继续即表示你已阅读并同意测试版条款、隐私说明、AI 与安全说明及素材与版权规则。完整文本会一直保留在“我的空间”。" : "By continuing, you confirm that you have read and accept the beta terms, privacy notice, AI and safety notice, and content and copyright rules. They remain available in My Space."}</p>
+          <div className="acknowledge-links"><a href="/terms" target="_blank">{lang === "zh" ? "测试版条款" : "Beta terms"}</a><a href="/privacy" target="_blank">{lang === "zh" ? "隐私说明" : "Privacy"}</a><a href="/trust" target="_blank">{lang === "zh" ? "AI 与安全" : "AI & safety"}</a><a href="/copyright" target="_blank">{lang === "zh" ? "素材与版权" : "Content & copyright"}</a></div>
+          <label className="acknowledge-check"><input type="checkbox" id="acknowledge-choice"/><span>{lang === "zh" ? "我已阅读并同意以上说明。" : "I have read and agree to the notices above."}</span></label>
+          <div className="acknowledge-actions"><button className="outline-button" onClick={() => setDeclined(true)}>{lang === "zh" ? "不同意并退出" : "Decline and exit"}</button><button className="primary" onClick={() => { const input = document.querySelector<HTMLInputElement>("#acknowledge-choice"); if (!input?.checked) { input?.focus(); return; } localStorage.setItem("already-acknowledged-v1", "yes"); setAcknowledged(true); }}>{lang === "zh" ? "同意并进入" : "Agree and enter"}</button></div>
+        </>}
+      </section>
+    </main>;
+  }
+
   if (!goal.setupComplete) {
     const steps = lang === "zh"
       ? ["语言", "你的称呼", "唯一愿望", "愿望焦点", "信念触发点", "陪伴方式", "确认"]
@@ -615,21 +638,32 @@ export default function Home() {
       {view === "home" && <section className="home-ai-view">
         <div className="home-ai-welcome">
           <p className="eyebrow" suppressHydrationWarning>{dateLabel}</p>
-          <h1>{lang === "zh" ? `欢迎回来，${goal.companionName}` : `Welcome back, ${goal.companionName}`}</h1>
+          <div className="welcome-title-row"><h1>{lang === "zh" ? `欢迎回来，${goal.companionName}` : `Welcome back, ${goal.companionName}`}</h1><button className="memory-entry" onClick={() => setView("memory")}><Brain size={17}/>{lang === "zh" ? "记忆库" : "Memory"}</button></div>
           <p>{t.hero}</p>
         </div>
-        <div className="coach-switcher" aria-label={lang === "zh" ? "选择陪练方法" : "Choose a guidance method"}>{coachModes.map((coach) => <button key={coach.id} className={goal.coachMode === coach.id ? "selected" : ""} onClick={() => setGoal((current) => ({ ...current, coachMode: coach.id }))}><strong>{lang === "zh" ? coach.zh : coach.en}</strong><small>{lang === "zh" ? coach.zhDescription : coach.enDescription}</small></button>)}</div>
         <div className="home-ai-thread">
           {messages.map((message, index) => <div className={`message ${message.role}`} key={`${index}-${message.text.slice(0, 8)}`}>{message.text}</div>)}
           {isTyping && <div className="message ai typing"><i/><i/><i/></div>}
         </div>
         {messages.length < 3 && activeThoughts.length > 0 && <div className="home-suggestions">{activeThoughts.slice(0, 4).map((thought) => <button key={thought} onClick={() => sendChat(thought)}>{thought}</button>)}</div>}
         {aiError && <div className="ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
-        <div className="composer home-composer"><input value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={onChatKey} placeholder={t.chatPlaceholder} aria-label={t.chatPlaceholder}/><button onClick={() => sendChat()} disabled={isTyping} aria-label={t.send}>↑</button></div>
+        <div className="composer home-composer"><div className="composer-main"><input value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={onChatKey} placeholder={t.chatPlaceholder} aria-label={t.chatPlaceholder}/><label className="coach-model-select"><span>{lang === "zh" ? "引导模型" : "GUIDANCE MODEL"}</span><select value={goal.coachMode} onChange={(event) => setGoal((current) => ({ ...current, coachMode: event.target.value as CoachMode }))} aria-label={lang === "zh" ? "切换引导模型" : "Switch guidance model"}>{coachModes.map((coach) => <option value={coach.id} key={coach.id}>{lang === "zh" ? coach.zh : coach.en}</option>)}</select></label></div><button onClick={() => sendChat()} disabled={isTyping} aria-label={t.send}>↑</button></div>
         <p className="pet-checkin-hint">{checkedToday ? (lang === "zh" ? `今天已打卡，连续 ${streak} 天` : `Checked in today. ${streak}-day streak.`) : (lang === "zh" ? "点击右下角的面团完成今日打卡" : "Tap the dough in the corner to check in today.")}</p>
       </section>}
 
       {view === "subliminal" && <SubliminalStudio lang={lang} desire={goal.desire[lang]} checkIns={checkIns} onCheckIn={recordCheckIn}/>} 
+
+      {view === "memory" && <section className="full-view memory-view">
+        <div className="view-heading"><p className="eyebrow">ALREADY MEMORY</p><h1>{lang === "zh" ? "它如何记住你" : "How Already remembers you"}</h1><p>{lang === "zh" ? "围绕当前唯一愿望形成的透明记忆库。你可以看见 AI 正在携带哪些上下文。" : "A transparent memory library built around your one active desire. See exactly what context the AI carries."}</p></div>
+        <div className="memory-overview"><article><span>{lang === "zh" ? "当前愿望" : "ACTIVE DESIRE"}</span><p>{goal.desire[lang]}</p></article><article><span>{lang === "zh" ? "愿望焦点" : "DESIRE FOCUS"}</span><p>{goal.spName || (lang === "zh" ? "未设置" : "Not set")}</p></article></div>
+        <div className="memory-library-grid">
+          <article><header><strong>{lang === "zh" ? "信念触发点" : "BELIEF TRIGGERS"}</strong><small>{goal.beliefs[lang].length}</small></header>{goal.beliefs[lang].length ? <ul>{goal.beliefs[lang].map((item) => <li key={item}>{item}</li>)}</ul> : <p>{lang === "zh" ? "还没有记录" : "Nothing recorded yet"}</p>}</article>
+          <article><header><strong>{lang === "zh" ? "回应偏好" : "RESPONSE PREFERENCES"}</strong><small>{goal.responsePreferences[lang].length}</small></header><ul>{goal.responsePreferences[lang].map((item) => <li key={item}>{item}</li>)}</ul></article>
+          <article><header><strong>{lang === "zh" ? "已接纳的新场景" : "ACCEPTED SCENES"}</strong><small>{goal.acceptedSceneLedger[lang].length}</small></header>{goal.acceptedSceneLedger[lang].length ? <ul>{goal.acceptedSceneLedger[lang].map((item) => <li key={item}>{item}</li>)}</ul> : <p>{lang === "zh" ? "在故事或重写中接纳的场景会出现在这里。" : "Scenes accepted from Stories or Revision will appear here."}</p>}</article>
+          <article className="journey-memory"><header><strong>{lang === "zh" ? "旅程摘要" : "JOURNEY SUMMARY"}</strong><small>{lang === "zh" ? "自动压缩" : "AUTO-COMPRESSED"}</small></header><p>{goal.journeySummary[lang] || (lang === "zh" ? "对话开始后，这里会形成一段简短摘要。" : "A short summary will form here after conversations begin.")}</p></article>
+        </div>
+        <div className="memory-actions"><button className="outline-button" onClick={() => setView("settings")}>{lang === "zh" ? "编辑愿望与偏好" : "Edit desire and preferences"}</button><button className="primary" onClick={() => setView("home")}>{lang === "zh" ? "回到对话" : "Back to chat"}</button></div>
+      </section>}
 
 
       {view === "story" && !storyReading && <section className="full-view story-library-view">
@@ -667,7 +701,6 @@ export default function Home() {
         <div className="view-heading"><p className="eyebrow">VISION BOARD</p><h1>{t.boardTitle}</h1><p>{t.boardCopy}</p></div>
         <div className="vision-mode-tabs"><button className={boardMode === "licensed" ? "active" : ""} onClick={() => setBoardMode("licensed")}>{lang === "zh" ? "寻梦灵感" : "Discover Dreamscapes"}</button><button className={boardMode === "mine" ? "active" : ""} onClick={() => setBoardMode("mine")}>{lang === "zh" ? "编织我的愿景" : "Weave My Vision"}</button></div>
         {boardMode === "licensed" ? <>
-        <div className="studio-notice vision-license-notice"><strong>{lang === "zh" ? "授权素材说明" : "LICENSED MATERIALS"}</strong><p>{lang === "zh" ? "自动搜索只接入允许商业使用的素材库，并显示摄影师、原始来源和许可。图片版权仍属于原作者；收藏或排版不代表作者为本产品背书，请保留署名与来源信息。" : "Automatic search uses sources that permit commercial reuse and shows the creator, original page, and license. Copyright remains with each creator; collecting an image does not imply their endorsement. Keep credits and source details."}</p></div>
         <div className="real-search">
           <div className="search-title"><span>✦</span><div><strong>{t.realPhotos}</strong><small>{t.photoCopy}</small></div></div>
           <div className="search-bar"><input value={imageQuery} onChange={(e) => setImageQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") searchRealImages(); }} placeholder={t.searchPlaceholder} aria-label={t.realPhotos}/><button onClick={() => searchRealImages()}>{imageSearching ? t.searching : t.search}</button></div>
