@@ -1,0 +1,10 @@
+.vision-preview .vision-frame{position:relative;margin:0;min-height:0;overflow:hidden;border-radius:var(--vision-corner,0);transition:box-shadow .2s,transform .2s;cursor:grab}
+.vision-preview .vision-frame.selected{box-shadow:inset 0 0 0 3px #f0b5a7,0 0 0 2px #513b35}
+.vision-preview .vision-frame:active{cursor:grabbing}
+.vision-preview .vision-frame>button{position:absolute;right:4px;top:4px;border:0;border-radius:50%;width:20px;height:20px;background:#30231fc4;color:#fff}
+.vision-preview.film .vision-frame{border:4px solid #f4eee8}
+.vision-preview.scrapbook .vision-frame{position:absolute;width:55%;height:42%;border:6px solid #fff;box-shadow:0 6px 15px #3b2a2322}
+.vision-preview.scrapbook .vision-frame:nth-child(1){left:2%;top:2%;transform:rotate(-4deg)}
+.vision-preview.scrapbook .vision-frame:nth-child(2){right:1%;top:20%;transform:rotate(5deg)}
+.vision-preview.scrapbook .vision-frame:nth-child(3){left:8%;bottom:2%;transform:rotate(2deg)}
+.vision-preview.scrapbook .vision-frame:nth-child(n+4){right:8%;bottom:5%;transform:rotate(-3deg)}

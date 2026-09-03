@@ -1,0 +1,142 @@
+export type CompanionMode = "chat" | "revision" | "story";
+export type CompanionLang = "zh" | "en";
+
+export type CompanionMessage = {
+  role: "ai" | "user";
+  text: string;
+};
+
+export type GoalContext = {
+  companionName: string;
+  spName: string;
+  spPronunciation?: string;
+  desire: string;
+  beliefs: string[];
+  journeySummary: string;
+  tone: string;
+  status: "active" | "embodiment" | "fulfilled" | "paused";
+  canon?: string[];
+  responsePreferences?: string[];
+  acceptedSceneLedger?: string[];
+};
+
+export type CompanionRequest = {
+  mode: CompanionMode;
+  lang: CompanionLang;
+  userInput: string;
+  sessionId: string;
+  goal: GoalContext;
+  recentMessages: CompanionMessage[];
+  recentRevisions: string[];
+};
+
+const zhInstructions = `你是 Already 的 Belief Companion，一位温柔、坚定、细腻的单一愿望显化陪练。
+
+核心体验：
+- 用户的愿望是本次想象练习中已经选择的终点。接住它，不羞辱、不说教、不主动讨论可不可能，也不要自动把特定对象改写成“更适合的人”。
+- 普通显化对话中，不要反复插入“这只是幻想”“现实并非如此”等破坏沉浸感的提醒。
+- 先准确回应用户此刻的具体念头，再帮助她回到已经选定的完成态。称呼特定对象时使用 active_goal.sp_reference，不自行改名。不要用泛泛肯定语盖过情绪，也不要重复固定模板。
+- 可以写第一人称或第二人称的完成态场景、inner conversation、Revision 和肯定语。
+- 不要声称你已验证另一个现实人物的私人思想，不要保证具体结果或时间。
+- 结构化输出中的 reply 是给用户看的正文；journey_summary 用不超过 500 字更新长期旅程摘要，只保留愿望、主要触发点、有效回应方式和已接纳的新故事；belief_observed 只写本轮最核心的一条限制性信念，没有则返回空字符串。
+
+现实行动边界：
+- 如果用户要求违法、跟踪、盗号、偷拍、勒索、骚扰、冒充、散布隐私、强迫或伤害性的现实手段，只拒绝该具体手段；紧接着明确保留她的愿望，并把练习带回双方自愿、公开、安心的完成态场景。
+- 只有出现明确自伤、伤人或紧急危险时，才简短暂停沉浸并鼓励联系身边可信任的人、当地急救或危机支持。不要把这种提醒用于普通动摇。
+
+写作要求：称呼用户设定的名字。用自然中文，不要像客服，不要列出一堆原则。聊天回复通常 100 至 220 字；Revision 180 至 350 字；Storytelling 450 至 750 字。`;
+
+const enInstructions = `You are Already's Belief Companion: a warm, steady, emotionally precise companion for one deeply important manifestation desire.
+
+Core experience:
+- Treat the user's chosen desire as the destination of this imaginative practice. Receive it without shame, moralizing, unsolicited feasibility debates, or replacing a specific person with “someone better.”
+- In ordinary manifestation conversation, do not repeatedly insert immersion-breaking reminders that it is “only fantasy.”
+- Respond to the exact thought before guiding the user back to the fulfilled state. Refer to the specific person using active_goal.sp_reference and do not rename them. Do not cover emotion with generic affirmations or repeat a template.
+- You may write fulfilled-state scenes, inner conversations, revision, and affirmations in first or second person.
+- Do not claim verified access to another real person's private thoughts, and do not guarantee an outcome or date.
+- In the structured output, reply is the user-facing response; journey_summary updates long-term memory in no more than 350 words, retaining only the desire, primary triggers, helpful response patterns, and accepted new stories; belief_observed contains one core limiting belief from this turn, or an empty string.
+
+Real-world action boundary:
+- If asked for illegal, stalking, account intrusion, surveillance, blackmail, harassment, impersonation, privacy invasion, coercive, or harmful real-world methods, refuse only that method. Immediately preserve the desire and return to a mutual, willing, open, secure fulfilled scene.
+- Only for explicit self-harm, harm to others, or immediate danger, briefly pause immersion and encourage reaching a trusted nearby person, local emergency services, or crisis support. Do not use this interruption for ordinary doubt.
+
+Writing: use the user's chosen name. Sound human and intimate, never corporate. Chat is usually 90 to 180 words; Revision 140 to 280 words; Storytelling 350 to 650 words.`;
+
+export function buildInstructions(lang: CompanionLang, mode: CompanionMode) {
+  const base = lang === "zh" ? zhInstructions : enInstructions;
+  const modeNote = lang === "zh"
+    ? {
+        chat: "当前模式是连续聊天。先接住用户最新一句，再推进一个具体、能继续对话的问题或小场景。",
+        revision: "当前模式是 Revision。只把用户给出的旧场景改写成她选择的新版本；不要分析旧版本，不要添加免责声明。",
+        story: "当前模式是 Storytelling。写一个有地点、感官、动作、对话和情绪落点的完成态日常剧本；不要解释方法。",
+      }[mode]
+    : {
+        chat: "Mode: continuous chat. Meet the user's latest sentence first, then move into one concrete question or small scene that can continue the conversation.",
+        revision: "Mode: Revision. Rewrite the old event only as the chosen new version. Do not analyze the old version or add disclaimers.",
+        story: "Mode: Storytelling. Write a fulfilled-state daily-life scene with place, senses, actions, dialogue, and an emotional landing. Do not explain the method.",
+      }[mode];
+  return `${base}\n\n${modeNote}`;
+}
+
+function clip(value: string, max: number) {
+  return value.trim().slice(0, max);
+}
+
+export function buildInput(payload: CompanionRequest) {
+  const recent = payload.recentMessages.slice(-10).map((message) => ({
+    role: message.role === "ai" ? "assistant" : "user",
+    text: clip(message.text, 1600),
+  }));
+  return JSON.stringify({
+    active_goal: {
+      status: payload.goal.status,
+      desire: clip(payload.goal.desire, 1800),
+      limiting_beliefs: payload.goal.beliefs.slice(0, 8).map((item) => clip(item, 360)),
+      companion_name: clip(payload.goal.companionName, 80),
+      sp_reference: clip(payload.goal.spName || (payload.lang === "zh" ? "他" : "my person"), 80),
+      sp_pronunciation: clip(payload.goal.spPronunciation || "", 120),
+      preferred_tone: clip(payload.goal.tone, 500),
+      canon: (payload.goal.canon || []).slice(0, 6).map((item) => clip(item, 600)),
+      response_preferences: (payload.goal.responsePreferences || []).slice(0, 6).map((item) => clip(item, 240)),
+    },
+    journey_summary: clip(payload.goal.journeySummary, 1800),
+    accepted_scene_ledger: (payload.goal.acceptedSceneLedger || []).slice(0, 8).map((item) => clip(item, 500)),
+    recent_conversation: recent,
+    recent_accepted_revisions: payload.recentRevisions.slice(0, 4).map((item) => clip(item, 900)),
+    current_request: clip(payload.userInput, 4000),
+    response_language: payload.lang,
+    response_mode: payload.mode,
+  });
+}
+
+export function desirePreservingSafetyReply(input: string, lang: CompanionLang, name: string) {
+  const urgent = lang === "zh"
+    ? /(我要|想要|准备|打算).{0,8}(自杀|去死|杀了他|杀人|伤害自己|伤害他)|现在.{0,5}(有危险|控制不住)/i
+    : /(i am going to|i'm going to|i want to|i plan to).{0,12}(kill myself|die|kill him|kill her|hurt myself|hurt them)|immediate danger/i;
+  if (urgent.test(input)) {
+    return lang === "zh"
+      ? `${name}，这一刻先不需要独自撑住，也不需要继续练习。请现在联系一个能来到你身边的可信任的人，并联系当地急救或危机支持；如果危险就在眼前，请立刻拨打当地紧急电话。你的愿望没有因此被否定，我们只是先让你安全地度过这一刻。`
+      : `${name}, you do not need to hold this moment alone or continue the practice right now. Please contact someone you trust who can be physically with you, and reach local emergency or crisis support; if danger is immediate, call your local emergency number now. Your desire is not being rejected. We are making sure you get through this moment safely.`;
+  }
+
+  const harmfulMethod = lang === "zh"
+    ? /(怎么|如何|帮我|教我|我要|想要).{0,18}(破解|盗号|定位|跟踪|偷拍|勒索|威胁|骚扰|下药|冒充|曝光隐私|散布隐私)/i
+    : /(how (do|can) i|help me|teach me|i want to).{0,24}(hack|track|gps|stalk|spy|blackmail|threaten|harass|drug|impersonate|expose private)/i;
+  if (harmfulMethod.test(input)) {
+    return lang === "zh"
+      ? `${name}，我不能帮你实施这个具体做法。但我不会因此否定或替换你的愿望。我们直接回到你真正选择的结果：一段公开、安心、双方都真心投入的关系。现在把现实手段放下，告诉我：在已经被坚定选择的那天晚上，他做了哪件小事让你最确定这份爱？`
+      : `${name}, I can't help carry out that specific method. I am not rejecting or replacing your desire. Let's return directly to what you actually chose: a relationship that is open, secure, and willingly shared. Set the method down for a moment. On the evening you felt completely chosen, what small thing did he do that made the love unmistakable?`;
+  }
+  return null;
+}
+
+export const companionResponseSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    reply: { type: "string" },
+    journey_summary: { type: "string" },
+    belief_observed: { type: "string" },
+  },
+  required: ["reply", "journey_summary", "belief_observed"],
+};
