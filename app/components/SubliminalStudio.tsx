@@ -124,13 +124,14 @@ export function practiceStreak(checkIns: PracticeCheckIn[]) {
 type Props = {
   lang: Lang;
   desire: string;
+  focusText?: string;
   checkIns: PracticeCheckIn[];
   onCheckIn: (feeling: PracticeCheckIn["feeling"]) => void;
 };
 
-export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: Props) {
+export default function SubliminalStudio({ lang, desire, focusText, checkIns, onCheckIn }: Props) {
   const copy = lang === "zh" ? {
-    eyebrow: "DREAMSCAPE · 入梦声场",
+    eyebrow: "入梦声场 · 私人声音练习",
     heading: "听见你已经拥有的生活",
     intro: "把完成态写进自己的声音空间。肯定语、录音和练习记录默认留在这台设备上。",
     tutorial: "制作教程",
@@ -141,10 +142,10 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
     streak: "连续练习",
     days: "天",
     thisWeek: "本周打卡",
-    title: "Sub名称",
+    title: "练习名称",
     affirmations: "我的肯定语",
     add: "＋ 添加一句",
-    save: "保存我的Sub",
+    save: "保存声音练习",
     saved: "已经保存到本机",
     voice: "声音",
     record: "录制自己的声音",
@@ -179,11 +180,11 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
     noSounds: "暂时没有找到，换一个更简单的关键词试试。",
     searchedTogether: "已同时搜索",
     privacy: "隐私与聆听",
-    privacyCopy: "此版本在设备上完成播放与混音，不把录音发送给AI。请保持舒适音量；Sub是个性化想象与肯定语练习，不提供医疗服务或特定结果保证。",
+    privacyCopy: "此版本在设备上完成播放与混音，不把录音发送给 AI。请保持舒适音量；潜意识音轨是个性化想象与肯定语练习，不提供医疗服务或特定结果保证。",
     checkTitle: "今天的练习已经完成",
     checkCopy: "哪一种感受最接近此刻？",
     feelings: [["settled", "安定下来了"], ["soft", "柔软了一点"], ["chosen", "被选择很真实"]] as const,
-    tutorialTitle: "如何制作属于你的Sub",
+    tutorialTitle: "如何制作属于你的声音练习",
     tutorialSteps: ["写下你愿意每天听见的完成态肯定语。", "选择清晰、轻声或覆盖式播放，并挑选背景声音。", "可以录下自己的声音；没有录音时使用设备自带语音。", "练习结束后可以记录感受；也可以随时点击桌面面团完成今日打卡。"],
     close: "明白了",
     recordingError: "无法使用麦克风，请在浏览器设置中允许录音。",
@@ -684,6 +685,8 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
       <button className="tutorial-button" onClick={() => setTutorialOpen(true)}>ⓘ {copy.tutorial}</button>
     </div>
 
+    {focusText && <div className="dreamscape-focus"><span>{lang === "zh" ? "从对话带来的场景" : "SCENE FROM YOUR CONVERSATION"}</span><p>{focusText}</p></div>}
+
     <div className="dreamscape-workspace">
       <div className="sub-player-card">
         <div className="sub-player-identity"><div className="sub-orbit"><span>ALREADY</span><i/></div><div><p>{copy.current}</p><h2>{profile.title}</h2></div></div>
@@ -706,7 +709,7 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
       </div>
       <fieldset className="delivery-cards"><legend>{copy.mode}</legend>{(["clear", "soft", "subliminal"] as const).map((mode) => { const label = mode === "clear" ? copy.deliveryClear : mode === "soft" ? copy.deliverySoft : copy.deliveryMasked; const description = mode === "clear" ? copy.deliveryClearCopy : mode === "soft" ? copy.deliverySoftCopy : copy.deliveryMaskedCopy; return <button className={profile.mode === mode ? "selected" : ""} key={mode} onClick={() => setProfile((current) => ({ ...current, mode }))}><strong>{label}</strong><small>{description}</small><i>{mode === "clear" ? "100%" : mode === "soft" ? "58%" : "16%"}</i></button>; })}</fieldset>
       <section className="duration-studio"><div><p className="eyebrow">PLAYBACK</p><h3>{copy.duration}</h3></div><div className="duration-mode-tabs"><button className={(profile.durationMode || "timer") === "timer" ? "selected" : ""} onClick={() => setProfile((current) => ({ ...current, durationMode: "timer" }))}>{copy.timer}</button><button className={profile.durationMode === "continuous" ? "selected" : ""} onClick={() => setProfile((current) => ({ ...current, durationMode: "continuous" }))}>{copy.continuous}</button></div><div className="duration-inputs"><label><input aria-label={copy.hours} type="number" min="0" max="12" value={durationHours} onChange={(event) => setDurationHours(Math.max(0, Math.min(12, Number(event.target.value))))}/><span>{copy.hours}</span></label><label><input aria-label={copy.minutes} type="number" min="0" max="59" value={durationMinutes} onChange={(event) => setDurationMinutes(Math.max(0, Math.min(59, Number(event.target.value))))}/><span>{copy.minutes}</span></label></div>{profile.durationMode === "continuous" && <label className="completion-goal"><span>{copy.completionGoal}</span><input aria-label={copy.completionGoal} type="number" min="1" max="180" value={profile.completionMinutes || 5} onChange={(event) => setProfile((current) => ({ ...current, completionMinutes: Math.max(1, Math.min(180, Number(event.target.value))) }))}/><b>{copy.minutes}</b><small>{copy.completionHint}</small></label>}<label className="background-play"><input aria-label={copy.backgroundPlay} type="checkbox" checked={backgroundPlay} onChange={(event) => setBackgroundPlay(event.target.checked)}/><span><strong>{copy.backgroundPlay}</strong><small>{copy.backgroundPlayHint}</small></span></label></section>
-      <div className="mixer-heading"><p className="eyebrow">SUB MIXER</p><h3>{copy.mixer}</h3><small>{copy.mixerCopy}</small></div>
+      <div className="mixer-heading"><p className="eyebrow">{lang === "zh" ? "声音混音台" : "SUB MIXER"}</p><h3>{copy.mixer}</h3><small>{copy.mixerCopy}</small></div>
       <p className="audio-upload-help">{copy.audioFormats}</p>
       <div className="track-stack">
         <section className="audio-track voice-track">
@@ -729,6 +732,6 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
     <section className="practice-progress practice-progress-separated"><div><span>✦</span><strong>{streak}</strong><small>{copy.streak} · {copy.days}</small></div><div className="week-checks"><p>{copy.thisWeek}</p><div>{week.map((day) => <span className={day.complete ? "complete" : ""} key={day.key}><i>{day.complete ? "✓" : ""}</i>{day.label}</span>)}</div></div></section>
 
     {checkInOpen && <div className="modal-backdrop"><div className="checkin-modal"><span>✦</span><h2>{copy.checkTitle}</h2><p>{copy.checkCopy}</p>{copy.feelings.map(([value, label]) => <button key={value} onClick={() => { onCheckIn(value); setCheckInOpen(false); setSecondsLeft(profile.duration * 60); }}>{label}</button>)}</div></div>}
-    {tutorialOpen && <div className="modal-backdrop"><div className="tutorial-modal"><p className="eyebrow">DREAMSCAPE</p><h2>{copy.tutorialTitle}</h2><ol>{copy.tutorialSteps.map((step) => <li key={step}>{step}</li>)}</ol><button className="primary" onClick={() => setTutorialOpen(false)}>{copy.close}</button></div></div>}
+    {tutorialOpen && <div className="modal-backdrop"><div className="tutorial-modal"><p className="eyebrow">{lang === "zh" ? "入梦声场" : "DREAMSCAPE"}</p><h2>{copy.tutorialTitle}</h2><ol>{copy.tutorialSteps.map((step) => <li key={step}>{step}</li>)}</ol><button className="primary" onClick={() => setTutorialOpen(false)}>{copy.close}</button></div></div>}
   </section>;
 }

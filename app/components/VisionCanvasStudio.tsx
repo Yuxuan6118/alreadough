@@ -101,6 +101,8 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
     corner: "圆角",
     background: "底色",
     selected: "已选画面",
+    quickSetup: "先选照片，Already 会先排出一个可用版本。之后再按需要调整。",
+    advanced: "高级画面设置",
   } : {
     title: "Weave My Vision",
     subtitle: "Choose a collage template, refine each frame, drag to reorder, and export a personal vision board.",
@@ -124,6 +126,8 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
     corner: "Corners",
     background: "Backdrop",
     selected: "SELECTED FRAME",
+    quickSetup: "Choose photos first. Already will create a usable layout before you refine it.",
+    advanced: "Advanced visual settings",
   };
   const [images, setImages] = useState<LocalImage[]>([]);
   const [title, setTitle] = useState(lang === "zh" ? "我已经拥有的生活" : "The Life I Already Have");
@@ -246,17 +250,18 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
   return <div className="vision-maker">
     <div className="vision-maker-heading"><h2>{copy.title}</h2><p>{copy.subtitle}</p></div>
     <label className="vision-upload">＋ {copy.upload}<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={addImages}/><small>{copy.uploadHint}</small></label>
-    <div className="vision-controls">
+    {!images.length && <div className="vision-first-step"><strong>{copy.quickSetup}</strong><span>{lang === "zh" ? "推荐从 4 至 8 张照片开始" : "Start with 4 to 8 photos"}</span></div>}
+    {images.length > 0 && <div className="vision-controls">
       <label>{copy.boardTitle}<input value={title} onChange={(event) => setTitle(event.target.value)}/></label>
       <fieldset><legend>{copy.layout}</legend>{(["editorial", "grid", "mosaic", "film", "scrapbook"] as const).map((value) => <button className={layout === value ? "selected" : ""} key={value} onClick={() => setLayout(value)}>{copy.layouts[value]}</button>)}</fieldset>
       <fieldset><legend>{copy.ratio}</legend>{(["phone", "square", "landscape"] as const).map((value) => <button className={ratio === value ? "selected" : ""} key={value} onClick={() => setRatio(value)}>{copy.ratios[value]}</button>)}</fieldset>
-      <div className="collage-style-controls"><label>{copy.gap}<input type="range" min="0" max="16" value={gap} onChange={(event) => setGap(Number(event.target.value))}/></label><label>{copy.corner}<input type="range" min="0" max="30" value={corner} onChange={(event) => setCorner(Number(event.target.value))}/></label><label>{copy.background}<input type="color" value={background} onChange={(event) => setBackground(event.target.value)}/></label></div>
-    </div>
-    <p className="drag-hint">↕ {copy.dragHint}</p>
-    <div className={`vision-preview ${layout} ${ratio}`} style={{ background, "--vision-gap": `${gap}px`, "--vision-corner": `${corner}px` } as CSSProperties}>
+      <details className="vision-advanced"><summary>{copy.advanced}</summary><div className="collage-style-controls"><label>{copy.gap}<input type="range" min="0" max="16" value={gap} onChange={(event) => setGap(Number(event.target.value))}/></label><label>{copy.corner}<input type="range" min="0" max="30" value={corner} onChange={(event) => setCorner(Number(event.target.value))}/></label><label>{copy.background}<input type="color" value={background} aria-label={copy.background} onChange={(event) => setBackground(event.target.value)}/></label></div></details>
+    </div>}
+    {images.length > 0 && <p className="drag-hint">{copy.dragHint}</p>}
+    {images.length > 0 && <div className={`vision-preview ${layout} ${ratio}`} style={{ background, "--vision-gap": `${gap}px`, "--vision-corner": `${corner}px` } as CSSProperties}>
       <h3>{title}</h3>
-      {images.length ? <div>{images.map((item) => <div role="button" tabIndex={0} aria-label={`${copy.selected}: ${item.name}`} className={`vision-frame ${selectedId === item.id ? "selected" : ""}`} draggable key={item.id} onDragStart={() => setDraggedId(item.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => reorder(item.id)} onClick={() => setSelectedId(item.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedId(item.id); }}><img src={item.url} alt={item.name} style={{ transform: `translate(${item.x}%, ${item.y}%) scale(${item.zoom}) rotate(${item.rotate}deg)` }}/><button onClick={(event) => { event.stopPropagation(); removeImage(item.id); }} aria-label={`${copy.remove} ${item.name}`}>×</button></div>)}</div> : <p>{copy.empty}</p>}
-    </div>
+      <div>{images.map((item) => <div role="button" tabIndex={0} aria-label={`${copy.selected}: ${item.name}`} className={`vision-frame ${selectedId === item.id ? "selected" : ""}`} draggable key={item.id} onDragStart={() => setDraggedId(item.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => reorder(item.id)} onClick={() => setSelectedId(item.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedId(item.id); }}><img src={item.url} alt={item.name} style={{ transform: `translate(${item.x}%, ${item.y}%) scale(${item.zoom}) rotate(${item.rotate}deg)` }}/><button onClick={(event) => { event.stopPropagation(); removeImage(item.id); }} aria-label={`${copy.remove} ${item.name}`}>×</button></div>)}</div>
+    </div>}
     {selected && <div className="frame-editor"><div><span>{copy.selected}</span><strong>{selected.name}</strong></div><label>{copy.zoom}<input type="range" min="1" max="2.5" step="0.05" value={selected.zoom} onChange={(event) => updateSelected({ zoom: Number(event.target.value) })}/></label><label>{copy.horizontal}<input type="range" min="-35" max="35" value={selected.x} onChange={(event) => updateSelected({ x: Number(event.target.value) })}/></label><label>{copy.vertical}<input type="range" min="-35" max="35" value={selected.y} onChange={(event) => updateSelected({ y: Number(event.target.value) })}/></label><label>{copy.rotate}<input type="range" min="-12" max="12" value={selected.rotate} onChange={(event) => updateSelected({ rotate: Number(event.target.value) })}/></label></div>}
     <button className="primary" disabled={!images.length} onClick={exportBoard}>{copy.export}</button>
   </div>;

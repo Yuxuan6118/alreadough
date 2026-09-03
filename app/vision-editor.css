@@ -8,3 +8,12 @@
 .vision-preview.scrapbook .vision-frame:nth-child(2){right:1%;top:20%;transform:rotate(5deg)}
 .vision-preview.scrapbook .vision-frame:nth-child(3){left:8%;bottom:2%;transform:rotate(2deg)}
 .vision-preview.scrapbook .vision-frame:nth-child(n+4){right:8%;bottom:5%;transform:rotate(-3deg)}
+.vision-first-step{min-height:220px;display:grid;place-items:center;align-content:center;gap:8px;margin:18px 0;padding:28px;border:1px dashed var(--app-line);border-radius:var(--app-radius);color:var(--app-muted);background:color-mix(in srgb,var(--app-panel) 72%,transparent);text-align:center}
+.vision-first-step strong{max-width:520px;color:var(--app-ink);font:500 20px/1.55 Georgia,"Songti SC",serif}
+.vision-first-step span{font-size:12px}
+.vision-advanced{grid-column:1/-1;border-top:1px solid var(--app-line);padding-top:14px}
+.vision-advanced summary{width:max-content;color:var(--app-muted);cursor:pointer;font-size:12px;font-weight:700;list-style:none}
+.vision-advanced summary::-webkit-details-marker{display:none}
+.vision-advanced summary::before{content:"+";display:inline-block;margin-right:8px;color:var(--app-accent)}
+.vision-advanced[open] summary::before{content:"−"}
+.vision-advanced .collage-style-controls{margin-top:16px}
