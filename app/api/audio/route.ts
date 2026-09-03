@@ -85,7 +85,7 @@ async function searchOpenverse(query: string) {
   const params = new URLSearchParams({ q: query, license: "cc0,by", page_size: "20", mature: "false" });
   const response = await fetch(`https://api.openverse.org/v1/audio/?${params}`, {
     cache: "no-store",
-    headers: { "User-Agent": "AlreaDough ambient sound search/1.0" },
+    headers: { "User-Agent": "Already ambient sound search/1.0" },
   });
   if (!response.ok) throw new Error("Openverse unavailable");
   const data = await response.json() as { results?: OpenverseAudio[] };

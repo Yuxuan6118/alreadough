@@ -9,6 +9,7 @@ import {
   PencilSimple,
   Plus,
   SlidersHorizontal,
+  Sparkle,
   Sun,
   Trash,
   Waveform,
@@ -22,6 +23,7 @@ import {
   CloudCheck,
   CloudSlash,
   Copy,
+  FloppyDisk,
   NotePencil,
   StopCircle,
   ThumbsDown,
@@ -30,7 +32,6 @@ import {
 import SubliminalStudio, { PracticeCheckIn, practiceStreak, todayKey } from "./components/SubliminalStudio";
 import VisionCanvasStudio from "./components/VisionCanvasStudio";
 import DoughPet from "./components/DoughPet";
-import { BrandLockup, DoughMark } from "./components/DoughMark";
 import { validateSpName } from "@/lib/name-policy";
 
 type View = "home" | "subliminal" | "story" | "revision" | "board" | "memory" | "settings";
@@ -717,15 +718,15 @@ export default function Home() {
   ][onboardingStep];
 
   if (!hydrated) {
-    return <main className="app-shell onboarding-shell" data-theme={dark ? "dark" : "light"} data-lang={lang}><div className="onboarding-loading brand" aria-label={lang === "zh" ? "正在打开 AlreaDough" : "Opening AlreaDough"}><BrandLockup /></div></main>;
+    return <main className="app-shell onboarding-shell" data-theme={dark ? "dark" : "light"} data-lang={lang}><div className="onboarding-loading" aria-label={lang === "zh" ? "正在打开 Already" : "Opening Already"}><span className="brand-mark"><Sparkle weight="fill" /></span><strong>Already</strong></div></main>;
   }
 
   if (!acknowledged) {
     return <main className="app-shell acknowledge-shell" data-theme={dark ? "dark" : "light"} data-lang={lang}>
       <div className="app-grain" aria-hidden="true" />
       <section className="acknowledge-card">
-        <span className="brand"><BrandLockup /></span>
-        {declined ? <><p className="eyebrow">YOUR CHOICE</p><h1>{lang === "zh" ? "你尚未进入 AlreaDough" : "You have not entered AlreaDough"}</h1><p>{lang === "zh" ? "这台设备没有保存同意记录。你可以关闭页面，或返回重新查看。" : "No consent record was saved on this device. You may close this page or go back to review."}</p><button className="outline-button" onClick={() => setDeclined(false)}>{lang === "zh" ? "返回" : "Go back"}</button></> : <>
+        <span className="brand"><span className="brand-mark"><Sparkle weight="fill" /></span><strong>Already</strong></span>
+        {declined ? <><p className="eyebrow">YOUR CHOICE</p><h1>{lang === "zh" ? "你尚未进入 Already" : "You have not entered Already"}</h1><p>{lang === "zh" ? "这台设备没有保存同意记录。你可以关闭页面，或返回重新查看。" : "No consent record was saved on this device. You may close this page or go back to review."}</p><button className="outline-button" onClick={() => setDeclined(false)}>{lang === "zh" ? "返回" : "Go back"}</button></> : <>
           <p className="eyebrow">BEFORE YOU ENTER</p>
           <h1>{lang === "zh" ? "先确认这是一段你愿意进入的体验。" : "Confirm that this is an experience you choose to enter."}</h1>
           <p>{lang === "zh" ? "继续即表示你已阅读并同意测试版条款、隐私说明、AI 与安全说明及素材与版权规则。完整文本会一直保留在“我的空间”。" : "By continuing, you confirm that you have read and accept the beta terms, privacy notice, AI and safety notice, and content and copyright rules. They remain available in My Space."}</p>
@@ -743,14 +744,14 @@ export default function Home() {
       : ["Meet you", "One desire", "Companion style"];
     return <main className="app-shell onboarding-shell" data-theme={dark ? "dark" : "light"} data-lang={lang}>
       <div className="app-grain" aria-hidden="true" />
-      <header className="onboarding-topbar"><span className="brand"><BrandLockup /></span><div className="top-actions"><button className="language-toggle" onClick={switchLanguage}>{lang === "zh" ? "EN" : "中"}</button><button className="theme-toggle" onClick={() => setDark((value) => !value)} aria-label={dark ? "Light" : "Dark"}>{dark ? <Sun size={17}/> : <Moon size={17}/>}</button></div></header>
+      <header className="onboarding-topbar"><span className="brand"><span className="brand-mark"><Sparkle weight="fill" /></span><strong>Already</strong></span><div className="top-actions"><button className="language-toggle" onClick={switchLanguage}>{lang === "zh" ? "EN" : "中"}</button><button className="theme-toggle" onClick={() => setDark((value) => !value)} aria-label={dark ? "Light" : "Dark"}>{dark ? <Sun size={17}/> : <Moon size={17}/>}</button></div></header>
       <section className="onboarding-view">
         <div className="onboarding-progress" aria-label={lang === "zh" ? `第 ${onboardingStep + 1} 步，共 3 步` : `Step ${onboardingStep + 1} of 3`}><i style={{ width: `${((onboardingStep + 1) / 3) * 100}%` }}/></div>
         <p className="eyebrow">{steps[onboardingStep]}</p>
         {onboardingStep === 0 && <div className="onboarding-panel"><h1>{lang === "zh" ? "我该怎么称呼你？" : "What should I call you?"}</h1><p>{lang === "zh" ? "先用一个你喜欢的称呼开始。语言和更多资料之后都可以随时修改。" : "Begin with a name that feels like you. Language and other details can change anytime."}</p><label><span>{lang === "zh" ? "你的称呼" : "YOUR NAME"}</span><input maxLength={24} value={goal.companionName} onChange={(event) => setGoal((current) => ({ ...current, companionName: event.target.value }))} placeholder={lang === "zh" ? "例如：安安" : "For example: Mia"}/></label></div>}
         {onboardingStep === 1 && <div className="onboarding-panel"><h1>{lang === "zh" ? "现在，只选择一个愿望。" : "For now, choose one desire."}</h1><p>{lang === "zh" ? "选一个生活方向，再写下它已经实现时，你正在过怎样的生活。" : "Choose one area of life, then describe the life you are living when it is fulfilled."}</p><div className="option-card-grid category-grid">{wishCategories.map((category) => <button key={category.id} className={goal.wishCategory === category.id ? "selected" : ""} onClick={() => setGoal((current) => ({ ...current, wishCategory: category.id }))}><strong>{lang === "zh" ? category.zh : category.en}</strong><small>{lang === "zh" ? category.zhDescription : category.enDescription}</small></button>)}</div><label><span>{lang === "zh" ? "它已经实现时，我的生活是" : "WHEN IT IS ALREADY MINE, MY LIFE IS"}</span><textarea value={goal.desire[lang]} onChange={(event) => setGoal((current) => ({ ...current, desire: { ...current.desire, [lang]: event.target.value } }))} placeholder={lang === "zh" ? "用你自己的话写下这个愿望……" : "Write this desire in your own words…"}/></label></div>}
         {onboardingStep === 2 && <div className="onboarding-panel onboarding-confirm"><h1>{lang === "zh" ? "你希望怎样被陪伴？" : "How do you want to be accompanied?"}</h1><p>{lang === "zh" ? "先选最接近你的方式。背景、触发点和更多偏好可以进入后在“我的空间”补充。" : "Choose the closest style. Add context, triggers, and more preferences later in My Space."}</p><div className="option-card-grid companion-style-grid">{companionStyles.map((style) => <button key={style.id} className={goal.companionStyle === style.id ? "selected" : ""} onClick={() => chooseCompanionStyle(style.id)}><strong>{lang === "zh" ? style.zh : style.en}</strong><small>{lang === "zh" ? style.zhDescription : style.enDescription}</small></button>)}</div>{goal.companionStyle === "custom" && <label><span>{lang === "zh" ? "我的专属陪伴方式" : "MY CUSTOM COMPANION STYLE"}</span><textarea value={goal.tone[lang]} onChange={(event) => setGoal((current) => ({ ...current, tone: { ...current.tone, [lang]: event.target.value } }))}/></label>}</div>}
-        <footer className="onboarding-actions"><button className="outline-button" onClick={() => setOnboardingStep((step) => Math.max(0, step - 1))} disabled={onboardingStep === 0}>{lang === "zh" ? "返回" : "Back"}</button><button className="primary dough-action" disabled={!onboardingCanContinue} onClick={() => onboardingStep === 2 ? finishOnboarding() : setOnboardingStep((step) => Math.min(2, step + 1))}>{onboardingStep === 2 ? (lang === "zh" ? "进入 AlreaDough" : "Enter AlreaDough") : (lang === "zh" ? "继续" : "Continue")}</button></footer>
+        <footer className="onboarding-actions"><button className="outline-button" onClick={() => setOnboardingStep((step) => Math.max(0, step - 1))} disabled={onboardingStep === 0}>{lang === "zh" ? "返回" : "Back"}</button><button className="primary" disabled={!onboardingCanContinue} onClick={() => onboardingStep === 2 ? finishOnboarding() : setOnboardingStep((step) => Math.min(2, step + 1))}>{onboardingStep === 2 ? (lang === "zh" ? "进入 Already" : "Enter Already") : (lang === "zh" ? "继续" : "Continue")}</button></footer>
       </section>
     </main>;
   }
@@ -759,7 +760,7 @@ export default function Home() {
     <main className="app-shell" data-theme={dark ? "dark" : "light"} data-lang={lang}>
       <div className="app-grain" aria-hidden="true" />
       <aside className="app-rail">
-        <button className="brand" onClick={() => navigate("home")} aria-label="AlreaDough home"><BrandLockup /></button>
+        <button className="brand" onClick={() => navigate("home")} aria-label="Already home"><span className="brand-mark"><Sparkle weight="fill" /></span><strong>Already</strong></button>
         <button className="rail-new-chat" onClick={beginNewConversation}><Plus size={18}/><span>{lang === "zh" ? "新对话" : "New conversation"}</span></button>
         <button className="rail-history" onClick={() => setHistoryOpen(true)}><ChatCircleDots size={18}/><span>{lang === "zh" ? "对话记录" : "Conversation history"}</span><small>{conversationArchive.length}</small></button>
         <nav className="rail-nav" aria-label={t.ariaNav}>
@@ -779,7 +780,7 @@ export default function Home() {
 
       <section className="app-stage">
       <header className="topbar">
-        <button className="brand" onClick={() => navigate("home")}><BrandLockup /></button>
+        <button className="brand" onClick={() => navigate("home")}><span className="brand-mark"><Sparkle weight="fill" /></span><strong>Already</strong></button>
         <div className="top-actions"><span className={`sync-badge ${syncStatus}`}>{syncStatus === "saved" ? <CloudCheck size={15}/> : <CloudSlash size={15}/>}<span>{syncStatus === "saved" ? (lang === "zh" ? "已同步" : "Synced") : syncStatus === "saving" || syncStatus === "loading" ? (lang === "zh" ? "同步中" : "Syncing") : (lang === "zh" ? "本机模式" : "On device")}</span></span><button className="mobile-memory-button" onClick={() => setView("memory")} aria-label={lang === "zh" ? "打开记忆库" : "Open memory"}><Brain size={18}/></button><button className="mobile-memory-button" onClick={() => setHistoryOpen(true)} aria-label={lang === "zh" ? "打开对话记录" : "Open conversation history"}><ChatCircleDots size={18}/></button><button className="theme-toggle" onClick={() => setDark((value) => !value)} aria-label={dark ? "Light" : "Dark"}>{dark ? <Sun size={17}/> : <Moon size={17}/>}</button><button className="language-toggle" onClick={switchLanguage} aria-label={lang === "zh" ? "Switch to English" : "切换到中文"}>{lang === "zh" ? "EN" : "中"}</button><button className="avatar" onClick={() => setView("settings")} aria-label={t.ariaSettings}>{goal.companionName.slice(0, 1) || "A"}</button></div>
       </header>
 
@@ -787,17 +788,16 @@ export default function Home() {
 
       {view === "home" && <section className={`home-ai-view ${sessionMessages.length ? "has-conversation" : "is-empty"}`}>
         {sessionMessages.length === 0 && <div className="home-ai-welcome">
-          <div className="home-welcome-copy"><p className="eyebrow" suppressHydrationWarning>{dateLabel}</p>
+          <p className="eyebrow" suppressHydrationWarning>{dateLabel}</p>
           <h1>{lang === "zh" ? `欢迎回来，${goal.companionName}` : `Welcome back, ${goal.companionName}`}</h1>
-          <p>{t.hero}</p></div>
-          <div className="home-mascot-wrap" aria-hidden="true"><img src="/brand/alreadough-mascot.png" alt="" /></div>
+          <p>{t.hero}</p>
         </div>}
         <div className="home-ai-thread">
-          {sessionMessages.map((message, index) => <div className={`message-group ${message.role}`} key={message.id}>{message.role === "ai" && <div className="dough-speaker"><DoughMark size="small" mood={message.feedback === "helpful" ? "happy" : "calm"}/><span>AlreaDough</span></div>}<div className={`message ${message.role}`}>{message.text}</div><div className="message-actions">
+          {sessionMessages.map((message, index) => <div className={`message-group ${message.role}`} key={message.id}><div className={`message ${message.role}`}>{message.text}</div><div className="message-actions">
             <button onClick={() => navigator.clipboard.writeText(message.text)} aria-label={lang === "zh" ? "复制" : "Copy"}><Copy size={15}/><span>{lang === "zh" ? "复制" : "Copy"}</span></button>
-            {message.role === "user" ? <button onClick={() => editUserMessage(index)}><NotePencil size={15}/><span>{lang === "zh" ? "编辑并重发" : "Edit and resend"}</span></button> : <><button onClick={() => regenerateReply(index)}><ArrowClockwise size={15}/><span>{lang === "zh" ? "重新回答" : "Regenerate"}</span></button><button className={`pocket-action ${message.saved ? "selected" : ""}`} onClick={() => saveReplyAsStory(message)}><BookmarkSimple size={15}/><span>{message.saved ? (lang === "zh" ? "已收进口袋" : "In Dough’s pocket") : (lang === "zh" ? "收进口袋" : "Keep in pocket")}</span></button><button onClick={() => { setOldScene(message.text); setView("revision"); }}><ArrowsClockwise size={15}/><span>{lang === "zh" ? "带入重写" : "Take to revision"}</span></button><button onClick={() => { setGoal((current) => ({ ...current, acceptedSceneLedger: { ...current.acceptedSceneLedger, [lang]: [message.text.slice(0, 500), ...current.acceptedSceneLedger[lang]].slice(0, 8) } })); setView("subliminal"); }}><Waveform size={15}/><span>{lang === "zh" ? "带入声场" : "Take to Dreamscape"}</span></button><button className={message.feedback === "helpful" ? "selected" : ""} onClick={() => setMessages((items) => items.map((item) => item.id === message.id ? { ...item, feedback: item.feedback === "helpful" ? undefined : "helpful" } : item))}><ThumbsUp size={15}/><span>{lang === "zh" ? "懂我" : "Helpful"}</span></button><button className={message.feedback === "missed" ? "selected" : ""} onClick={() => setMessages((items) => items.map((item) => item.id === message.id ? { ...item, feedback: item.feedback === "missed" ? undefined : "missed" } : item))}><ThumbsDown size={15}/><span>{lang === "zh" ? "不适合" : "Not for me"}</span></button></>}
+            {message.role === "user" ? <button onClick={() => editUserMessage(index)}><NotePencil size={15}/><span>{lang === "zh" ? "编辑并重发" : "Edit and resend"}</span></button> : <><button onClick={() => regenerateReply(index)}><ArrowClockwise size={15}/><span>{lang === "zh" ? "重新回答" : "Regenerate"}</span></button><button onClick={() => saveReplyAsStory(message)}><BookmarkSimple size={15}/><span>{message.saved ? (lang === "zh" ? "已保存" : "Saved") : (lang === "zh" ? "存为故事" : "Save as story")}</span></button><button onClick={() => { setOldScene(message.text); setView("revision"); }}><ArrowsClockwise size={15}/><span>{lang === "zh" ? "带入重写" : "Take to revision"}</span></button><button onClick={() => { setGoal((current) => ({ ...current, acceptedSceneLedger: { ...current.acceptedSceneLedger, [lang]: [message.text.slice(0, 500), ...current.acceptedSceneLedger[lang]].slice(0, 8) } })); setView("subliminal"); }}><Waveform size={15}/><span>{lang === "zh" ? "带入声场" : "Take to Dreamscape"}</span></button><button className={message.feedback === "helpful" ? "selected" : ""} onClick={() => setMessages((items) => items.map((item) => item.id === message.id ? { ...item, feedback: item.feedback === "helpful" ? undefined : "helpful" } : item))}><ThumbsUp size={15}/><span>{lang === "zh" ? "懂我" : "Helpful"}</span></button><button className={message.feedback === "missed" ? "selected" : ""} onClick={() => setMessages((items) => items.map((item) => item.id === message.id ? { ...item, feedback: item.feedback === "missed" ? undefined : "missed" } : item))}><ThumbsDown size={15}/><span>{lang === "zh" ? "不适合" : "Not for me"}</span></button></>}
           </div></div>)}
-          {isTyping && <div className="dough-typing"><DoughMark size="small" mood="thinking"/><span><i/><i/><i/></span></div>}
+          {isTyping && <div className="message ai typing"><i/><i/><i/></div>}
         </div>
         {sessionMessages.length < 3 && <div className="home-suggestions">{(activeThoughts.length ? activeThoughts : (lang === "zh" ? ["我又开始看眼前的迹象了", "带我进入一个已经实现的画面", "我想把今天发生的事重写", "此刻我只想被理解"] : ["I am checking the circumstances again", "Take me into a fulfilled scene", "I want to revise what happened today", "I just want to feel understood"])).slice(0, 4).map((thought) => <button key={thought} onClick={() => sendChat(thought)}>{thought}</button>)}</div>}
         {aiError && <div className="ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
@@ -808,7 +808,7 @@ export default function Home() {
       {view === "subliminal" && <SubliminalStudio lang={lang} desire={goal.desire[lang]} focusText={goal.acceptedSceneLedger[lang][0]} checkIns={checkIns} onCheckIn={recordCheckIn}/>}
 
       {view === "memory" && <section className="full-view memory-view">
-        <div className="view-heading dough-heading"><p className="eyebrow">{lang === "zh" ? "Dough 的口袋" : "DOUGH’S POCKET"}</p><h1>{lang === "zh" ? "它替你记住了什么" : "What AlreaDough remembers"}</h1><p>{lang === "zh" ? "围绕当前唯一愿望形成的透明记忆库。你可以看见 AlreaDough 正在携带哪些上下文。" : "A transparent memory library built around your one active desire. See exactly what AlreaDough carries."}</p></div>
+        <div className="view-heading"><p className="eyebrow">{lang === "zh" ? "记忆库" : "ALREADY MEMORY"}</p><h1>{lang === "zh" ? "它如何记住你" : "How Already remembers you"}</h1><p>{lang === "zh" ? "围绕当前唯一愿望形成的透明记忆库。你可以看见 AI 正在携带哪些上下文。" : "A transparent memory library built around your one active desire. See exactly what context the AI carries."}</p></div>
         <div className="memory-overview"><article><span>{lang === "zh" ? "当前愿望" : "ACTIVE DESIRE"}</span><p>{goal.desire[lang]}</p></article><article><span>{lang === "zh" ? "愿望焦点" : "DESIRE FOCUS"}</span><p>{goal.spName || (lang === "zh" ? "未设置" : "Not set")}</p></article></div>
         <div className="memory-library-grid">
           <article><header><strong>{lang === "zh" ? "信念触发点" : "BELIEF TRIGGERS"}</strong><small>{goal.beliefs[lang].length}</small></header>{goal.beliefs[lang].length ? <ul>{goal.beliefs[lang].map((item) => <li key={item}>{item}</li>)}</ul> : <p>{lang === "zh" ? "还没有记录" : "Nothing recorded yet"}</p>}</article>
@@ -874,7 +874,7 @@ export default function Home() {
 
         {settingsSection === "profile" && <div className="settings-section">
           <div className="goal-status"><label><span>{t.activeGoal}</span><select value={goal.status} onChange={(event) => setGoal((current) => ({ ...current, status: event.target.value as GoalStatus }))}><option value="active">{lang === "zh" ? "正在练习" : "Active"}</option><option value="embodiment">{lang === "zh" ? "稳定进入" : "Embodying"}</option><option value="fulfilled">{lang === "zh" ? "已经发生" : "Already happened"}</option><option value="paused">{lang === "zh" ? "暂时休息" : "Paused"}</option></select></label><small>{lang === "zh" ? "每次对话只加载这一张愿望卡" : "Only this desire card is loaded into each conversation"}</small></div>
-          <div className="setting-card editable-card"><label>{lang === "zh" ? "我喜欢的称呼" : "WHAT ALREADOUGH CALLS ME"}</label><input value={goal.companionName} onChange={(event) => setGoal((current) => ({ ...current, companionName: event.target.value }))}/></div>
+          <div className="setting-card editable-card"><label>{lang === "zh" ? "我喜欢的称呼" : "WHAT ALREADY CALLS ME"}</label><input value={goal.companionName} onChange={(event) => setGoal((current) => ({ ...current, companionName: event.target.value }))}/></div>
           <div className="setting-card editable-card"><label>{lang === "zh" ? "愿望方向" : "DESIRE CATEGORY"}</label><div className="option-card-grid category-grid">{wishCategories.map((category) => <button key={category.id} className={goal.wishCategory === category.id ? "selected" : ""} onClick={() => setGoal((current) => ({ ...current, wishCategory: category.id }))}><strong>{lang === "zh" ? category.zh : category.en}</strong><small>{lang === "zh" ? category.zhDescription : category.enDescription}</small></button>)}</div></div>
           <div className="setting-card editable-card sp-name-card"><label>{goal.wishCategory === "relationship" ? (lang === "zh" ? "显化对象" : "MANIFESTATION PERSON") : (lang === "zh" ? "愿望焦点" : "DESIRE FOCUS")}</label><input value={spNameDraft} maxLength={24} aria-invalid={Boolean(spNameError)} onChange={(event) => setSpNameDraft(event.target.value)}/>{spNameError && <p className="field-error" role="alert">{spNameError}</p>}</div>
           <div className="setting-card editable-card"><label>{t.coreWish}</label><textarea value={goal.desire[lang]} onChange={(event) => setGoal((current) => ({ ...current, desire: { ...current.desire, [lang]: event.target.value } }))}/></div>
@@ -901,7 +901,7 @@ export default function Home() {
           <div className="legal-links"><a className="trust-link" href="/trust">{t.trust}</a><a className="trust-link" href="/privacy">{lang === "zh" ? "隐私说明" : "Privacy"}</a><a className="trust-link" href="/terms">{lang === "zh" ? "测试版条款" : "Beta terms"}</a><a className="trust-link" href="/copyright">{lang === "zh" ? "素材与版权" : "Content & copyright"}</a></div>
           <button className="outline-button danger-button" onClick={() => { if (window.confirm(t.confirm)) { void fetch("/api/space", { method: "DELETE" }); localStorage.removeItem("already-private-state-v5"); localStorage.removeItem("already-practice-checkins-v1"); localStorage.removeItem("already-subliminal-v1"); localStorage.removeItem("already-vision-project-v1"); indexedDB.deleteDatabase("already-private-audio-v1"); indexedDB.deleteDatabase("already-private-vision-v1"); setGoal({ ...defaultGoal }); setGoalArchive([]); setConversationArchive([]); setConversationId(""); setSpNameDraft(""); setBeliefDraft(""); setStoryLibrary([]); setMessages([]); setRevisions([]); setCheckIns([]); setBoard([]); setView("home"); setOnboardingStep(0); } }}>{t.clear}</button>
         </div>}
-        {settingsSection !== "data" && <div className="settings-savebar"><span><DoughMark size="mini" pocket mood={goalSavedPulse ? "happy" : "calm"}/> {syncStatus === "saved" ? (lang === "zh" ? "已放进 Dough 的口袋并同步" : "Safe in Dough’s pocket and synced") : (lang === "zh" ? "Dough 已保留本机副本" : "Dough kept an on-device copy")}</span><button className="primary dough-action" onClick={saveGoalSettings} disabled={Boolean(spNameError) || beliefCount > MAX_BELIEFS || !goal.companionStyle}>{goalSavedPulse ? t.savedGoal : t.saveGoal}</button></div>}
+        {settingsSection !== "data" && <div className="settings-savebar"><span>{syncStatus === "saved" ? <CloudCheck size={18}/> : <FloppyDisk size={18}/>} {syncStatus === "saved" ? (lang === "zh" ? "会自动同步" : "Auto-sync is on") : (lang === "zh" ? "本机副本已保留" : "On-device copy retained")}</span><button className="primary" onClick={saveGoalSettings} disabled={Boolean(spNameError) || beliefCount > MAX_BELIEFS || !goal.companionStyle}>{goalSavedPulse ? t.savedGoal : t.saveGoal}</button></div>}
       </section>}
 
       </section>
