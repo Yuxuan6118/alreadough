@@ -4,8 +4,8 @@
 
 ## 正式测试前
 
-1. 先把网页版发布到一个稳定的 HTTPS 地址。
-2. 同步 iOS 工程时提供该地址：
+1. 网页测试版已发布到稳定的私密 HTTPS 地址：`https://already-living-desire.charlottehyuxuan.chatgpt.site`。
+2. iOS 工程已经用该地址完成同步；后续每次更换域名或原生插件时再执行：
 
    ```bash
    CAPACITOR_SERVER_URL="https://你的正式域名" pnpm ios:sync
