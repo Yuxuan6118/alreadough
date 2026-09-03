@@ -43,6 +43,18 @@ type GoalStatus = "active" | "embodiment" | "fulfilled" | "paused";
 type WishCategory = "relationship" | "wealth" | "self" | "lifestyle" | "other";
 type CompanionStyle = "gentle" | "anchor" | "friend" | "direct" | "custom" | "";
 type CoachMode = "release" | "assumption" | "subconscious";
+type MemoryKind = "person" | "place" | "event" | "preference" | "insight";
+type MemoryItem = {
+  id: string;
+  kind: MemoryKind;
+  title: string;
+  detail: string;
+  keywords: string[];
+  pinned: boolean;
+  source: "user" | "conversation" | "story";
+  createdAt: string;
+};
+type MemoryDraft = { kind: MemoryKind; title: string; detail: string; keywords: string };
 type GoalProfile = {
   id: string;
   setupComplete: boolean;
@@ -61,6 +73,7 @@ type GoalProfile = {
   canon: Record<Lang, string[]>;
   responsePreferences: Record<Lang, string[]>;
   acceptedSceneLedger: Record<Lang, string[]>;
+  memoryItems: Record<Lang, MemoryItem[]>;
   createdAt: string;
 };
 type Story = {
@@ -78,6 +91,7 @@ type AIResponse = {
   reply?: string;
   journeySummary?: string;
   beliefObserved?: string;
+  memoryCandidates?: Array<{ kind: MemoryKind; title: string; detail: string; keywords: string[] }>;
   model?: string;
   usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number } | null;
   error?: string;
@@ -86,6 +100,7 @@ type AIResponse = {
 type SearchImage = { title: string; image: string; source: string; credit: string; license: string; provider: string; downloadLocation?: string };
 
 const emptyStoryDraft: StoryDraft = { title: "", city: "", subtitle: "", scene: "", anchor: "" };
+const emptyMemoryDraft: MemoryDraft = { kind: "insight", title: "", detail: "", keywords: "" };
 const emptyStory: Story = {
   id: "empty",
   title: { zh: "我的新故事", en: "My new story" },
@@ -117,11 +132,21 @@ const defaultGoal: GoalProfile = {
     en: ["Do not repeat a fixed template", "Do not initiate a feasibility debate", "Offer one concrete scene after responding"],
   },
   acceptedSceneLedger: { zh: [], en: [] },
+  memoryItems: { zh: [], en: [] },
   createdAt: "",
 };
 
 const MAX_BELIEFS = 12;
 const MAX_BACKGROUND = 4000;
+const MAX_MEMORIES = 48;
+
+const memoryKinds: Array<{ id: MemoryKind; zh: string; en: string }> = [
+  { id: "person", zh: "人物", en: "People" },
+  { id: "place", zh: "地点", en: "Places" },
+  { id: "event", zh: "事件", en: "Events" },
+  { id: "preference", zh: "偏好", en: "Preferences" },
+  { id: "insight", zh: "自我洞察", en: "Insights" },
+];
 
 function parseBeliefs(value: string) {
   return value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
@@ -215,6 +240,10 @@ export default function Home() {
   const [conversationArchive, setConversationArchive] = useState<Conversation[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<"profile" | "companion" | "memory" | "data">("profile");
+  const [memoryFilter, setMemoryFilter] = useState<MemoryKind | "all">("all");
+  const [memoryEditorOpen, setMemoryEditorOpen] = useState(false);
+  const [memoryEditingId, setMemoryEditingId] = useState<string | null>(null);
+  const [memoryDraft, setMemoryDraft] = useState<MemoryDraft>(emptyMemoryDraft);
   const [syncStatus, setSyncStatus] = useState<"loading" | "saved" | "saving" | "offline">("loading");
   const [cloudReady, setCloudReady] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
@@ -255,6 +284,7 @@ export default function Home() {
           canon: savedGoal.canon || defaultGoal.canon,
           responsePreferences: savedGoal.responsePreferences || defaultGoal.responsePreferences,
           acceptedSceneLedger: savedGoal.acceptedSceneLedger || defaultGoal.acceptedSceneLedger,
+          memoryItems: savedGoal.memoryItems || defaultGoal.memoryItems,
         } as GoalProfile;
         setGoal(restoredGoal);
         setSpNameDraft(restoredGoal.spName);
@@ -323,6 +353,9 @@ export default function Home() {
   const spNameError = spNameDraft.trim() ? validateSpName(spNameDraft, lang) : "";
   const beliefCount = parseBeliefs(beliefDraft).length;
   const activeThoughts = goal.beliefs[lang];
+  const filteredMemoryItems = (goal.memoryItems[lang] || [])
+    .filter((item) => memoryFilter === "all" || item.kind === memoryFilter)
+    .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.createdAt.localeCompare(a.createdAt));
   const sessionMessages = messages;
   const streak = useMemo(() => practiceStreak(checkIns), [checkIns]);
   const checkedToday = checkIns.some((item) => item.date === todayKey());
@@ -373,6 +406,72 @@ export default function Home() {
     }));
   };
 
+  const addMemoryCandidates = (candidates: NonNullable<AIResponse["memoryCandidates"]>) => {
+    if (!candidates.length) return;
+    setGoal((current) => {
+      const existing = current.memoryItems[lang] || [];
+      const keys = new Set(existing.map((item) => `${item.title}|${item.detail}`.toLowerCase()));
+      const additions: MemoryItem[] = candidates
+        .filter((candidate) => candidate.title.trim() && candidate.detail.trim())
+        .filter((candidate) => {
+          const key = `${candidate.title.trim()}|${candidate.detail.trim()}`.toLowerCase();
+          if (keys.has(key)) return false;
+          keys.add(key);
+          return true;
+        })
+        .map((candidate) => ({
+          id: crypto.randomUUID(),
+          kind: candidate.kind,
+          title: candidate.title.trim().slice(0, 80),
+          detail: candidate.detail.trim().slice(0, 600),
+          keywords: candidate.keywords.map((item) => item.trim()).filter(Boolean).slice(0, 5),
+          pinned: false,
+          source: "conversation",
+          createdAt: new Date().toISOString(),
+        }));
+      if (!additions.length) return current;
+      return { ...current, memoryItems: { ...current.memoryItems, [lang]: [...additions, ...existing].slice(0, MAX_MEMORIES) } };
+    });
+  };
+
+  const openMemoryEditor = (item?: MemoryItem) => {
+    setMemoryEditingId(item?.id || null);
+    setMemoryDraft(item ? { kind: item.kind, title: item.title, detail: item.detail, keywords: item.keywords.join(", ") } : emptyMemoryDraft);
+    setMemoryEditorOpen(true);
+  };
+
+  const saveMemoryItem = () => {
+    if (!memoryDraft.title.trim() || !memoryDraft.detail.trim()) return;
+    setGoal((current) => {
+      const items = current.memoryItems[lang] || [];
+      const memory: MemoryItem = {
+        id: memoryEditingId || crypto.randomUUID(),
+        kind: memoryDraft.kind,
+        title: memoryDraft.title.trim().slice(0, 80),
+        detail: memoryDraft.detail.trim().slice(0, 600),
+        keywords: memoryDraft.keywords.split(/[,，\n]/).map((item) => item.trim()).filter(Boolean).slice(0, 5),
+        pinned: items.find((item) => item.id === memoryEditingId)?.pinned || false,
+        source: "user",
+        createdAt: items.find((item) => item.id === memoryEditingId)?.createdAt || new Date().toISOString(),
+      };
+      const next = memoryEditingId ? items.map((item) => item.id === memoryEditingId ? memory : item) : [memory, ...items];
+      return { ...current, memoryItems: { ...current.memoryItems, [lang]: next.slice(0, MAX_MEMORIES) } };
+    });
+    setMemoryEditorOpen(false);
+    setMemoryEditingId(null);
+    setMemoryDraft(emptyMemoryDraft);
+  };
+
+  const deleteMemoryItem = (id: string) => setGoal((current) => ({
+    ...current,
+    memoryItems: { ...current.memoryItems, [lang]: current.memoryItems[lang].filter((item) => item.id !== id) },
+  }));
+
+  const toggleMemoryPin = (id: string) => setGoal((current) => ({
+    ...current,
+    memoryItems: { ...current.memoryItems, [lang]: current.memoryItems[lang].map((item) => item.id === id ? { ...item, pinned: !item.pinned } : item) },
+  }));
+
   const callCompanion = async (mode: "chat" | "revision" | "story", userInput: string, signal?: AbortSignal, recentOverride?: Message[]) => {
     const response = await fetch("/api/companion", {
       method: "POST",
@@ -397,6 +496,7 @@ export default function Home() {
           canon: goal.canon[lang],
           responsePreferences: goal.responsePreferences[lang],
           acceptedSceneLedger: goal.acceptedSceneLedger[lang],
+          memoryItems: goal.memoryItems[lang],
         },
         recentMessages: recentOverride || (mode === "chat" ? sessionMessages.slice(-10) : messages.slice(-10)),
         recentRevisions: revisions.slice(0, 4).map((item) => item.revised),
@@ -410,6 +510,19 @@ export default function Home() {
         ...current,
         journeySummary: { ...current.journeySummary, [lang]: data.journeySummary || current.journeySummary[lang] },
       }));
+    }
+    if (data.memoryCandidates?.length) addMemoryCandidates(data.memoryCandidates);
+    if (data.beliefObserved?.trim()) {
+      const belief = data.beliefObserved.trim().slice(0, 360);
+      setGoal((current) => {
+        const beliefs = current.beliefs[lang] || [];
+        if (beliefs.some((item) => item.toLowerCase() === belief.toLowerCase()) || beliefs.length >= MAX_BELIEFS) return current;
+        return { ...current, beliefs: { ...current.beliefs, [lang]: [...beliefs, belief] } };
+      });
+      setBeliefDraft((current) => {
+        const beliefs = parseBeliefs(current);
+        return beliefs.some((item) => item.toLowerCase() === belief.toLowerCase()) || beliefs.length >= MAX_BELIEFS ? current : [...beliefs, belief].join("\n");
+      });
     }
     return data.reply;
   };
@@ -748,7 +861,7 @@ export default function Home() {
         <div className="onboarding-progress" aria-label={lang === "zh" ? `第 ${onboardingStep + 1} 步，共 3 步` : `Step ${onboardingStep + 1} of 3`}><i style={{ width: `${((onboardingStep + 1) / 3) * 100}%` }}/></div>
         <p className="eyebrow">{steps[onboardingStep]}</p>
         {onboardingStep === 0 && <div className="onboarding-panel"><h1>{lang === "zh" ? "我该怎么称呼你？" : "What should I call you?"}</h1><p>{lang === "zh" ? "先用一个你喜欢的称呼开始。语言和更多资料之后都可以随时修改。" : "Begin with a name that feels like you. Language and other details can change anytime."}</p><label><span>{lang === "zh" ? "你的称呼" : "YOUR NAME"}</span><input maxLength={24} value={goal.companionName} onChange={(event) => setGoal((current) => ({ ...current, companionName: event.target.value }))} placeholder={lang === "zh" ? "例如：安安" : "For example: Mia"}/></label></div>}
-        {onboardingStep === 1 && <div className="onboarding-panel"><h1>{lang === "zh" ? "现在，只选择一个愿望。" : "For now, choose one desire."}</h1><p>{lang === "zh" ? "选一个生活方向，再写下它已经实现时，你正在过怎样的生活。" : "Choose one area of life, then describe the life you are living when it is fulfilled."}</p><div className="option-card-grid category-grid">{wishCategories.map((category) => <button key={category.id} className={goal.wishCategory === category.id ? "selected" : ""} onClick={() => setGoal((current) => ({ ...current, wishCategory: category.id }))}><strong>{lang === "zh" ? category.zh : category.en}</strong><small>{lang === "zh" ? category.zhDescription : category.enDescription}</small></button>)}</div><label><span>{lang === "zh" ? "它已经实现时，我的生活是" : "WHEN IT IS ALREADY MINE, MY LIFE IS"}</span><textarea value={goal.desire[lang]} onChange={(event) => setGoal((current) => ({ ...current, desire: { ...current.desire, [lang]: event.target.value } }))} placeholder={lang === "zh" ? "用你自己的话写下这个愿望……" : "Write this desire in your own words…"}/></label></div>}
+        {onboardingStep === 1 && <div className="onboarding-panel"><h1>{lang === "zh" ? "现在，只选择一个愿望。" : "For now, choose one desire."}</h1><p>{lang === "zh" ? "选一个生活方向，再写下它已经实现时，你正在过怎样的生活。" : "Choose one area of life, then describe the life you are living when it is fulfilled."}</p><div className="option-card-grid category-grid">{wishCategories.map((category) => <button key={category.id} className={goal.wishCategory === category.id ? "selected" : ""} onClick={() => setGoal((current) => ({ ...current, wishCategory: category.id }))}><strong>{lang === "zh" ? category.zh : category.en}</strong><small>{lang === "zh" ? category.zhDescription : category.enDescription}</small></button>)}</div><label><span>{lang === "zh" ? "它已经实现时，我的生活是" : "WHEN IT IS ALREADY MINE, MY LIFE IS"}</span><textarea value={goal.desire[lang]} onChange={(event) => setGoal((current) => ({ ...current, desire: { ...current.desire, [lang]: event.target.value } }))} placeholder={lang === "zh" ? "用你自己的话写下这个愿望……" : "Write this desire in your own words…"}/></label><label className="onboarding-context"><span>{lang === "zh" ? "愿意的话，让我先了解你的处境" : "OPTIONAL CONTEXT"}</span><small>{lang === "zh" ? "可以写相关人物、已经发生过的事、当下卡住你的地方。越具体，第一次对话越不需要你重新解释。" : "Share the people involved, what has happened, and what keeps repeating. More context means less retraining in your first conversation."}</small><textarea maxLength={MAX_BACKGROUND} value={goal.background[lang]} onChange={(event) => setGoal((current) => ({ ...current, background: { ...current.background, [lang]: event.target.value } }))} placeholder={lang === "zh" ? "这部分可以稍后补充，也可以现在一次说清楚。" : "Add this later, or tell the fuller story now."}/><em>{goal.background[lang].length} / {MAX_BACKGROUND}</em></label></div>}
         {onboardingStep === 2 && <div className="onboarding-panel onboarding-confirm"><h1>{lang === "zh" ? "你希望怎样被陪伴？" : "How do you want to be accompanied?"}</h1><p>{lang === "zh" ? "先选最接近你的方式。背景、触发点和更多偏好可以进入后在“我的空间”补充。" : "Choose the closest style. Add context, triggers, and more preferences later in My Space."}</p><div className="option-card-grid companion-style-grid">{companionStyles.map((style) => <button key={style.id} className={goal.companionStyle === style.id ? "selected" : ""} onClick={() => chooseCompanionStyle(style.id)}><strong>{lang === "zh" ? style.zh : style.en}</strong><small>{lang === "zh" ? style.zhDescription : style.enDescription}</small></button>)}</div>{goal.companionStyle === "custom" && <label><span>{lang === "zh" ? "我的专属陪伴方式" : "MY CUSTOM COMPANION STYLE"}</span><textarea value={goal.tone[lang]} onChange={(event) => setGoal((current) => ({ ...current, tone: { ...current.tone, [lang]: event.target.value } }))}/></label>}</div>}
         <footer className="onboarding-actions"><button className="outline-button" onClick={() => setOnboardingStep((step) => Math.max(0, step - 1))} disabled={onboardingStep === 0}>{lang === "zh" ? "返回" : "Back"}</button><button className="primary" disabled={!onboardingCanContinue} onClick={() => onboardingStep === 2 ? finishOnboarding() : setOnboardingStep((step) => Math.min(2, step + 1))}>{onboardingStep === 2 ? (lang === "zh" ? "进入 Already" : "Enter Already") : (lang === "zh" ? "继续" : "Continue")}</button></footer>
       </section>
@@ -807,8 +920,12 @@ export default function Home() {
       {view === "subliminal" && <SubliminalStudio lang={lang} desire={goal.desire[lang]} focusText={goal.acceptedSceneLedger[lang][0]} checkIns={checkIns} onCheckIn={recordCheckIn}/>}
 
       {view === "memory" && <section className="full-view memory-view">
-        <div className="view-heading"><p className="eyebrow">{lang === "zh" ? "记忆库" : "ALREADY MEMORY"}</p><h1>{lang === "zh" ? "它如何记住你" : "How Already remembers you"}</h1><p>{lang === "zh" ? "围绕当前唯一愿望形成的透明记忆库。你可以看见 AI 正在携带哪些上下文。" : "A transparent memory library built around your one active desire. See exactly what context the AI carries."}</p></div>
-        <div className="memory-overview"><article><span>{lang === "zh" ? "当前愿望" : "ACTIVE DESIRE"}</span><p>{goal.desire[lang]}</p></article><article><span>{lang === "zh" ? "愿望焦点" : "DESIRE FOCUS"}</span><p>{goal.spName || (lang === "zh" ? "未设置" : "Not set")}</p></article></div>
+        <div className="memory-heading"><div className="view-heading"><p className="eyebrow">{lang === "zh" ? "记忆库" : "ALREADY MEMORY"}</p><h1>{lang === "zh" ? "被记住，也由你掌控" : "Remembered, on your terms"}</h1><p>{lang === "zh" ? "Already 会从对话中提炼长期有用的内容，每次只取回与眼前话题相关的少量记忆。你可以修改、置顶或删除任何一条。" : "Already distills durable context from conversations and retrieves only a small relevant set for each message. You can edit, pin, or delete anything."}</p></div><button className="primary memory-add" onClick={() => openMemoryEditor()}><Plus size={18}/>{lang === "zh" ? "添加记忆" : "Add memory"}</button></div>
+        <div className="memory-overview"><article><span>{lang === "zh" ? "当前愿望卡" : "ACTIVE DESIRE CARD"}</span><p>{goal.desire[lang]}</p><small>{lang === "zh" ? "每次对话都会携带" : "Included in every conversation"}</small></article><article><span>{goal.wishCategory === "relationship" ? (lang === "zh" ? "显化对象" : "MANIFESTATION PERSON") : (lang === "zh" ? "愿望焦点" : "DESIRE FOCUS")}</span><p>{goal.spName || (lang === "zh" ? "未设置" : "Not set")}</p><small>{lang === "zh" ? `${goal.memoryItems[lang].length} 条长期记忆` : `${goal.memoryItems[lang].length} durable memories`}</small></article></div>
+        <div className="memory-filter" role="group" aria-label={lang === "zh" ? "筛选记忆" : "Filter memories"}><button className={memoryFilter === "all" ? "active" : ""} onClick={() => setMemoryFilter("all")}>{lang === "zh" ? "全部" : "All"}<small>{goal.memoryItems[lang].length}</small></button>{memoryKinds.map((kind) => <button key={kind.id} className={memoryFilter === kind.id ? "active" : ""} onClick={() => setMemoryFilter(kind.id)}>{lang === "zh" ? kind.zh : kind.en}<small>{goal.memoryItems[lang].filter((item) => item.kind === kind.id).length}</small></button>)}</div>
+        <div className="memory-items">
+          {filteredMemoryItems.length ? filteredMemoryItems.map((item) => <article key={item.id} className={item.pinned ? "pinned" : ""}><header><span>{lang === "zh" ? memoryKinds.find((kind) => kind.id === item.kind)?.zh : memoryKinds.find((kind) => kind.id === item.kind)?.en}</span><div><button onClick={() => toggleMemoryPin(item.id)} aria-label={item.pinned ? (lang === "zh" ? "取消置顶" : "Unpin") : (lang === "zh" ? "置顶" : "Pin")}>{item.pinned ? "●" : "○"}</button><button onClick={() => openMemoryEditor(item)} aria-label={lang === "zh" ? "编辑记忆" : "Edit memory"}><PencilSimple size={16}/></button><button onClick={() => deleteMemoryItem(item.id)} aria-label={lang === "zh" ? "删除记忆" : "Delete memory"}><Trash size={16}/></button></div></header><h3>{item.title}</h3><p>{item.detail}</p>{item.keywords.length > 0 && <footer>{item.keywords.map((keyword) => <small key={keyword}>{keyword}</small>)}</footer>}</article>) : <div className="memory-empty"><Brain size={28}/><h3>{lang === "zh" ? "这里会慢慢长出你的上下文" : "Your context will grow here"}</h3><p>{lang === "zh" ? "继续聊天，Already 会建议值得记住的内容；你也可以亲手添加第一条。" : "Keep talking and Already will suggest durable memories, or add the first one yourself."}</p><button className="outline-button" onClick={() => openMemoryEditor()}>{lang === "zh" ? "添加第一条记忆" : "Add the first memory"}</button></div>}
+        </div>
         <div className="memory-library-grid">
           <article><header><strong>{lang === "zh" ? "信念触发点" : "BELIEF TRIGGERS"}</strong><small>{goal.beliefs[lang].length}</small></header>{goal.beliefs[lang].length ? <ul>{goal.beliefs[lang].map((item) => <li key={item}>{item}</li>)}</ul> : <p>{lang === "zh" ? "还没有记录" : "Nothing recorded yet"}</p>}</article>
           <article><header><strong>{lang === "zh" ? "回应偏好" : "RESPONSE PREFERENCES"}</strong><small>{goal.responsePreferences[lang].length}</small></header><ul>{goal.responsePreferences[lang].map((item) => <li key={item}>{item}</li>)}</ul></article>
@@ -816,6 +933,7 @@ export default function Home() {
           <article className="journey-memory"><header><strong>{lang === "zh" ? "旅程摘要" : "JOURNEY SUMMARY"}</strong><small>{lang === "zh" ? "自动压缩" : "AUTO-COMPRESSED"}</small></header><p>{goal.journeySummary[lang] || (lang === "zh" ? "对话开始后，这里会形成一段简短摘要。" : "A short summary will form here after conversations begin.")}</p></article>
         </div>
         <div className="memory-actions"><button className="outline-button" onClick={() => setView("settings")}>{lang === "zh" ? "编辑愿望与偏好" : "Edit desire and preferences"}</button><button className="primary" onClick={() => setView("home")}>{lang === "zh" ? "回到对话" : "Back to chat"}</button></div>
+        {memoryEditorOpen && <div className="memory-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setMemoryEditorOpen(false); }}><section className="memory-modal" role="dialog" aria-modal="true" aria-labelledby="memory-editor-title"><header><div><p className="eyebrow">{lang === "zh" ? "由你决定保留什么" : "YOU CHOOSE WHAT STAYS"}</p><h2 id="memory-editor-title">{memoryEditingId ? (lang === "zh" ? "编辑这条记忆" : "Edit this memory") : (lang === "zh" ? "添加一条记忆" : "Add a memory")}</h2></div><button onClick={() => setMemoryEditorOpen(false)} aria-label={lang === "zh" ? "关闭" : "Close"}>×</button></header><label><span>{lang === "zh" ? "类型" : "TYPE"}</span><select value={memoryDraft.kind} onChange={(event) => setMemoryDraft((current) => ({ ...current, kind: event.target.value as MemoryKind }))}>{memoryKinds.map((kind) => <option key={kind.id} value={kind.id}>{lang === "zh" ? kind.zh : kind.en}</option>)}</select></label><label><span>{lang === "zh" ? "标题" : "TITLE"}</span><input maxLength={80} value={memoryDraft.title} onChange={(event) => setMemoryDraft((current) => ({ ...current, title: event.target.value }))} placeholder={lang === "zh" ? "例如：我喜欢先被理解" : "For example: Meet the feeling first"}/></label><label><span>{lang === "zh" ? "具体内容" : "DETAIL"}</span><textarea maxLength={600} value={memoryDraft.detail} onChange={(event) => setMemoryDraft((current) => ({ ...current, detail: event.target.value }))} placeholder={lang === "zh" ? "写下以后对话中仍然有用的语境。" : "Write the context that will still matter later."}/></label><label><span>{lang === "zh" ? "检索词" : "KEYWORDS"}</span><input value={memoryDraft.keywords} onChange={(event) => setMemoryDraft((current) => ({ ...current, keywords: event.target.value }))} placeholder={lang === "zh" ? "用逗号分隔，最多 5 个" : "Comma-separated, up to 5"}/></label><footer><button className="outline-button" onClick={() => setMemoryEditorOpen(false)}>{lang === "zh" ? "取消" : "Cancel"}</button><button className="primary" disabled={!memoryDraft.title.trim() || !memoryDraft.detail.trim()} onClick={saveMemoryItem}>{lang === "zh" ? "保存到记忆库" : "Save to memory"}</button></footer></section></div>}
       </section>}
 
 

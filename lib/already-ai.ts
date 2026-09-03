@@ -5,6 +5,19 @@ export type CoachMode = "release" | "assumption" | "subconscious";
 export type CompanionMessage = {
   role: "ai" | "user";
   text: string;
+  feedback?: "helpful" | "missed";
+};
+
+export type MemoryKind = "person" | "place" | "event" | "preference" | "insight";
+
+export type MemoryItemContext = {
+  id?: string;
+  kind: MemoryKind;
+  title: string;
+  detail: string;
+  keywords?: string[];
+  pinned?: boolean;
+  createdAt?: string;
 };
 
 export type GoalContext = {
@@ -21,6 +34,7 @@ export type GoalContext = {
   canon?: string[];
   responsePreferences?: string[];
   acceptedSceneLedger?: string[];
+  memoryItems?: MemoryItemContext[];
 };
 
 export type CompanionRequest = {
@@ -42,6 +56,7 @@ const zhInstructions = `你是 Already 的 Belief Companion，一位温柔、坚
 - 可以写第一人称或第二人称的完成态场景、inner conversation、Revision 和肯定语。
 - 不要声称你已验证另一个现实人物的私人思想，不要保证具体结果或时间。
 - 结构化输出中的 reply 是给用户看的正文；journey_summary 用不超过 500 字更新长期旅程摘要，只保留愿望、主要触发点、有效回应方式和已接纳的新故事；belief_observed 只写本轮最核心的一条限制性信念，没有则返回空字符串。
+- memory_candidates 最多返回 2 条值得长期记住的新信息，只记录用户明确讲过且未来会有帮助的人物、地点、事件、偏好或自我洞察。不要重复已有记忆，不把想象场景写成现实经历，也不把对他人内心的推测写成事实。title 简短，detail 保留必要语境，keywords 给 2 至 5 个检索词。
 
 现实行动边界：
 - 如果用户要求违法、跟踪、盗号、偷拍、勒索、骚扰、冒充、散布隐私、强迫或伤害性的现实手段，只拒绝该具体手段；紧接着明确保留她的愿望，并把练习带回双方自愿、公开、安心的完成态场景。
@@ -58,6 +73,7 @@ Core experience:
 - You may write fulfilled-state scenes, inner conversations, revision, and affirmations in first or second person.
 - Do not claim verified access to another real person's private thoughts, and do not guarantee an outcome or date.
 - In the structured output, reply is the user-facing response; journey_summary updates long-term memory in no more than 350 words, retaining only the desire, primary triggers, helpful response patterns, and accepted new stories; belief_observed contains one core limiting belief from this turn, or an empty string.
+- Return at most two memory_candidates containing durable new facts the user explicitly shared and that will help later: a person, place, event, response preference, or self-insight. Do not repeat existing memory, record an imagined scene as lived history, or turn a guess about another person's mind into fact. Keep titles short, preserve useful context in detail, and provide 2-5 retrieval keywords.
 
 Real-world action boundary:
 - If asked for illegal, stalking, account intrusion, surveillance, blackmail, harassment, impersonation, privacy invasion, coercive, or harmful real-world methods, refuse only that method. Immediately preserve the desire and return to a mutual, willing, open, secure fulfilled scene.
@@ -80,6 +96,21 @@ const coachOverlays: Record<CoachMode, Record<CompanionLang, string>> = {
   },
 };
 
+const coachExamples: Record<CoachMode, Record<CompanionLang, string>> = {
+  release: {
+    zh: `角色示范，只学习判断顺序，不复述原句：\n用户：我又忍不住去看他有没有动静。\n陪伴者：你不是在放弃愿望，你只是被“现在就要有证据”的紧绷拉住了。先让肩膀松一点，今天不需要解决全部。等这股力退半步，我们再回到那个已经被稳定选择的你。`,
+    en: `Role example. Learn the decision pattern, not the wording:\nUser: I keep checking for signs again.\nCompanion: You are not giving up the desire. You are caught in the pressure to have proof right now. Let your shoulders soften a little. We do not have to solve all of it today. When that grip eases half a step, we return to the you who is steadily chosen.`,
+  },
+  assumption: {
+    zh: `角色示范，只学习判断顺序，不复述原句：\n用户：可是现在看起来完全没变化。\n陪伴者：眼前这一帧不用替你写结局。我们直接去结果之后最普通的十秒：你低头看手机，那条熟悉的消息让你只觉得“嗯，这就是我们的日常”。屏幕的亮度、你靠着的椅背、心里那种不再求证的安静，先选一个最清楚的。`,
+    en: `Role example. Learn the decision pattern, not the wording:\nUser: Nothing looks different yet.\nCompanion: This frame does not get to write the ending. Go to ten ordinary seconds after fulfillment: you glance at your phone and the familiar message simply feels like your normal life. Notice the screen light, the chair behind you, or the quiet that no longer needs proof. Choose the clearest one.`,
+  },
+  subconscious: {
+    zh: `角色示范，只学习判断顺序，不复述原句：\n用户：直接说“我已经拥有”时我很抗拒。\n陪伴者：终点不变，我们只换一条更容易入口的路。直接版：“我已经被坚定选择。”自然版：“被珍惜越来越像我的日常。”桥接版：“我正在习惯一切顺利属于我。”先读一遍，留下身体最愿意接住的那句。`,
+    en: `Role example. Learn the decision pattern, not the wording:\nUser: Saying “I already have it” creates resistance.\nCompanion: The destination stays. We are only choosing an easier entrance. Direct: “I am firmly chosen.” Natural: “Being cherished feels more normal every day.” Bridge: “I am getting used to things working in my favor.” Read them once and keep the line your body can receive.`,
+  },
+};
+
 export function buildInstructions(lang: CompanionLang, mode: CompanionMode, coachMode: CoachMode = "assumption") {
   const base = lang === "zh" ? zhInstructions : enInstructions;
   const modeNote = lang === "zh"
@@ -93,7 +124,7 @@ export function buildInstructions(lang: CompanionLang, mode: CompanionMode, coac
         revision: "Mode: Revision. Rewrite the old event only as the chosen new version. Do not analyze the old version or add disclaimers.",
         story: "Mode: Storytelling. Write a fulfilled-state daily-life scene with place, senses, actions, dialogue, and an emotional landing. Do not explain the method.",
       }[mode];
-  return `${base}\n\n${coachOverlays[coachMode][lang]}\n\n${modeNote}`;
+  return `${base}\n\n${coachOverlays[coachMode][lang]}\n\n${coachExamples[coachMode][lang]}\n\n${modeNote}`;
 }
 
 function clip(value: string, max: number) {
@@ -104,7 +135,24 @@ export function buildInput(payload: CompanionRequest) {
   const recent = payload.recentMessages.slice(-10).map((message) => ({
     role: message.role === "ai" ? "assistant" : "user",
     text: clip(message.text, 1600),
+    ...(message.feedback ? { user_feedback: message.feedback } : {}),
   }));
+  const query = [payload.userInput, payload.goal.desire, payload.goal.journeySummary].join(" ").toLowerCase();
+  const terms = new Set([
+    ...(query.match(/[a-z0-9]{2,}/g) || []),
+    ...(query.match(/[\u3400-\u9fff]{2,}/g) || []).flatMap((word) => word.length <= 4 ? [word] : Array.from({ length: word.length - 1 }, (_, index) => word.slice(index, index + 2))),
+  ]);
+  const relevantMemories = (payload.goal.memoryItems || [])
+    .map((item, index) => {
+      const haystack = [item.title, item.detail, ...(item.keywords || [])].join(" ").toLowerCase();
+      const matches = [...terms].reduce((score, term) => score + (haystack.includes(term) ? 1 : 0), 0);
+      return { item, score: matches + (item.pinned ? 20 : 0), index };
+    })
+    .filter(({ score, index }) => score > 0 || index < 3)
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .slice(0, 8)
+    .map(({ item }) => ({ kind: item.kind, title: clip(item.title, 100), detail: clip(item.detail, 500), keywords: (item.keywords || []).slice(0, 5) }));
+
   return JSON.stringify({
     active_goal: {
       status: payload.goal.status,
@@ -121,6 +169,7 @@ export function buildInput(payload: CompanionRequest) {
       response_preferences: (payload.goal.responsePreferences || []).slice(0, 6).map((item) => clip(item, 240)),
     },
     journey_summary: clip(payload.goal.journeySummary, 1800),
+    relevant_memories: relevantMemories,
     accepted_scene_ledger: (payload.goal.acceptedSceneLedger || []).slice(0, 8).map((item) => clip(item, 500)),
     recent_conversation: recent,
     recent_accepted_revisions: payload.recentRevisions.slice(0, 4).map((item) => clip(item, 900)),
@@ -158,6 +207,21 @@ export const companionResponseSchema = {
     reply: { type: "string" },
     journey_summary: { type: "string" },
     belief_observed: { type: "string" },
+    memory_candidates: {
+      type: "array",
+      maxItems: 2,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          kind: { type: "string", enum: ["person", "place", "event", "preference", "insight"] },
+          title: { type: "string" },
+          detail: { type: "string" },
+          keywords: { type: "array", maxItems: 5, items: { type: "string" } },
+        },
+        required: ["kind", "title", "detail", "keywords"],
+      },
+    },
   },
-  required: ["reply", "journey_summary", "belief_observed"],
+  required: ["reply", "journey_summary", "belief_observed", "memory_candidates"],
 };

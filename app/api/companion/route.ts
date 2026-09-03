@@ -65,6 +65,7 @@ function isPayload(value: unknown): value is CompanionRequest {
     && typeof body.goal.spName === "string"
     && typeof body.goal.desire === "string"
     && Array.isArray(body.goal.beliefs)
+    && (body.goal.memoryItems === undefined || Array.isArray(body.goal.memoryItems))
     && Array.isArray(body.recentMessages)
     && Array.isArray(body.recentRevisions);
 }
@@ -100,6 +101,7 @@ export async function POST(request: Request) {
       reply: safetyReply,
       journeySummary: payload.goal.journeySummary,
       beliefObserved: "",
+      memoryCandidates: [],
       model: "desire-preserving-safety-route",
       usage: null,
     });
@@ -157,11 +159,18 @@ export async function POST(request: Request) {
       reply: string;
       journey_summary: string;
       belief_observed: string;
+      memory_candidates: Array<{
+        kind: "person" | "place" | "event" | "preference" | "insight";
+        title: string;
+        detail: string;
+        keywords: string[];
+      }>;
     };
     return json({
       reply: result.reply,
       journeySummary: result.journey_summary,
       beliefObserved: result.belief_observed,
+      memoryCandidates: result.memory_candidates || [],
       model,
       usage: data.usage || null,
     });
