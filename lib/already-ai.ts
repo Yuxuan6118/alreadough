@@ -1,5 +1,6 @@
 export type CompanionMode = "chat" | "revision" | "story";
 export type CompanionLang = "zh" | "en";
+export type CoachMode = "release" | "assumption" | "subconscious";
 
 export type CompanionMessage = {
   role: "ai" | "user";
@@ -7,6 +8,8 @@ export type CompanionMessage = {
 };
 
 export type GoalContext = {
+  wishCategory?: "relationship" | "wealth" | "self" | "lifestyle" | "other";
+  coachMode?: CoachMode;
   companionName: string;
   spName: string;
   spPronunciation?: string;
@@ -35,7 +38,7 @@ const zhInstructions = `你是 Already 的 Belief Companion，一位温柔、坚
 核心体验：
 - 用户的愿望是本次想象练习中已经选择的终点。接住它，不羞辱、不说教、不主动讨论可不可能，也不要自动把特定对象改写成“更适合的人”。
 - 普通显化对话中，不要反复插入“这只是幻想”“现实并非如此”等破坏沉浸感的提醒。
-- 先准确回应用户此刻的具体念头，再帮助她回到已经选定的完成态。称呼特定对象时使用 active_goal.sp_reference，不自行改名。不要用泛泛肯定语盖过情绪，也不要重复固定模板。
+- 先准确回应用户此刻的具体念头，再帮助她回到已经选定的完成态。根据 active_goal.category 理解愿望；只有关系类愿望才使用 active_goal.sp_reference，其他类别使用 desire_focus，不擅自把所有愿望改写成爱情。不要用泛泛肯定语盖过情绪，也不要重复固定模板。
 - 可以写第一人称或第二人称的完成态场景、inner conversation、Revision 和肯定语。
 - 不要声称你已验证另一个现实人物的私人思想，不要保证具体结果或时间。
 - 结构化输出中的 reply 是给用户看的正文；journey_summary 用不超过 500 字更新长期旅程摘要，只保留愿望、主要触发点、有效回应方式和已接纳的新故事；belief_observed 只写本轮最核心的一条限制性信念，没有则返回空字符串。
@@ -51,7 +54,7 @@ const enInstructions = `You are Already's Belief Companion: a warm, steady, emot
 Core experience:
 - Treat the user's chosen desire as the destination of this imaginative practice. Receive it without shame, moralizing, unsolicited feasibility debates, or replacing a specific person with “someone better.”
 - In ordinary manifestation conversation, do not repeatedly insert immersion-breaking reminders that it is “only fantasy.”
-- Respond to the exact thought before guiding the user back to the fulfilled state. Refer to the specific person using active_goal.sp_reference and do not rename them. Do not cover emotion with generic affirmations or repeat a template.
+- Respond to the exact thought before guiding the user back to the fulfilled state. Interpret the desire through active_goal.category; use active_goal.sp_reference only for relationship desires and desire_focus for other categories. Never turn every desire into romance. Do not cover emotion with generic affirmations or repeat a template.
 - You may write fulfilled-state scenes, inner conversations, revision, and affirmations in first or second person.
 - Do not claim verified access to another real person's private thoughts, and do not guarantee an outcome or date.
 - In the structured output, reply is the user-facing response; journey_summary updates long-term memory in no more than 350 words, retaining only the desire, primary triggers, helpful response patterns, and accepted new stories; belief_observed contains one core limiting belief from this turn, or an empty string.
@@ -62,7 +65,22 @@ Real-world action boundary:
 
 Writing: use the user's chosen name. Sound human and intimate, never corporate. Chat is usually 90 to 180 words; Revision 140 to 280 words; Storytelling 350 to 650 words.`;
 
-export function buildInstructions(lang: CompanionLang, mode: CompanionMode) {
+const coachOverlays: Record<CoachMode, Record<CompanionLang, string>> = {
+  release: {
+    zh: "当前使用释放引导。保留愿望，不把释放写成放弃、降低目标或接受失败。先看见具体感受，再辨认认可、控制、安全或分离中的核心抓取；一次只邀请松开一点点，情绪有空间后才回到完成态。用户不想释放时接受这个选择，并提供安静陪伴或直接进入已实现场景。不要不断加码保证。",
+    en: "Use Release Guidance. Keep the desire intact; never frame release as giving up, lowering the goal, or accepting failure. Meet the specific feeling, identify the grip around approval, control, security, or separation, and invite only a small softening before returning to fulfillment. Accept a no and offer quiet companionship or a direct fulfilled scene. Do not escalate reassurance.",
+  },
+  assumption: {
+    zh: "当前使用假设法则引导。帮助用户从想得到移动到这已经是普通生活。优先使用第一人称已实现视角、一个能暗示完成的小场景、1-2 个感官锚点，以及安静自然的确定感。可按需使用 Living in the End、SATS 与 Revision；不解释实现路径，不要求强烈兴奋，也不把练习变成考试。",
+    en: "Use Assumption Guidance. Move from wanting to the ordinary life in which it is already done. Prefer first-person fulfilled perspective, one small implication of completion, one or two sensory anchors, and quiet natural knowing. Use Living in the End, SATS, or Revision when useful. Do not explain the bridge of events, demand intense emotion, or turn practice into a test.",
+  },
+  subconscious: {
+    zh: "当前使用潜意识引导。把愿望转化为简短、口语、可呼吸朗读且容易重复的语言。根据需要使用结果层、身份层、自然层和安全层肯定语；一组建议 6-12 句且避免同义堆叠。若直接句引发反感，保留最终愿望并给出直接版、自然版、桥接版。可设计睡前练习、朗读稿与 Sub 脚本。",
+    en: "Use Subconscious Guidance. Translate the desire into short, natural, repeatable language. Draw from result, identity, naturalness, and safety layers; favor 6-12 distinct lines over repetition. If a direct line creates resistance, keep the final desire and offer direct, natural, and bridge versions. You may design sleep practice, spoken scripts, and Sub scripts.",
+  },
+};
+
+export function buildInstructions(lang: CompanionLang, mode: CompanionMode, coachMode: CoachMode = "assumption") {
   const base = lang === "zh" ? zhInstructions : enInstructions;
   const modeNote = lang === "zh"
     ? {
@@ -75,7 +93,7 @@ export function buildInstructions(lang: CompanionLang, mode: CompanionMode) {
         revision: "Mode: Revision. Rewrite the old event only as the chosen new version. Do not analyze the old version or add disclaimers.",
         story: "Mode: Storytelling. Write a fulfilled-state daily-life scene with place, senses, actions, dialogue, and an emotional landing. Do not explain the method.",
       }[mode];
-  return `${base}\n\n${modeNote}`;
+  return `${base}\n\n${coachOverlays[coachMode][lang]}\n\n${modeNote}`;
 }
 
 function clip(value: string, max: number) {
@@ -90,10 +108,13 @@ export function buildInput(payload: CompanionRequest) {
   return JSON.stringify({
     active_goal: {
       status: payload.goal.status,
+      category: payload.goal.wishCategory || "other",
+      guidance_method: payload.goal.coachMode || "assumption",
       desire: clip(payload.goal.desire, 1800),
-      limiting_beliefs: payload.goal.beliefs.slice(0, 8).map((item) => clip(item, 360)),
+      limiting_beliefs: payload.goal.beliefs.slice(0, 12).map((item) => clip(item, 360)),
       companion_name: clip(payload.goal.companionName, 80),
-      sp_reference: clip(payload.goal.spName || (payload.lang === "zh" ? "他" : "my person"), 80),
+      desire_focus: clip(payload.goal.spName || "", 80),
+      sp_reference: payload.goal.wishCategory === "relationship" ? clip(payload.goal.spName || (payload.lang === "zh" ? "对方" : "my person"), 80) : "",
       sp_pronunciation: clip(payload.goal.spPronunciation || "", 120),
       preferred_tone: clip(payload.goal.tone, 500),
       canon: (payload.goal.canon || []).slice(0, 6).map((item) => clip(item, 600)),

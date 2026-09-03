@@ -221,6 +221,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .memory-card p, .setting-card p { font-family: Georgia, "Songti SC", serif; line-height: 1.7; }
 .memory-card small { color: var(--app-muted); }
 .settings-view > .primary { margin: 6px 0 14px; }
+.goal-lifecycle-card .outline-button,.data-control-card .outline-button { margin-top: 12px; }
+.archive-card article { display: flex; justify-content: space-between; gap: 18px; padding: 13px 0; border-bottom: 1px solid var(--app-line); }
+.archive-card article:last-child { border-bottom: 0; padding-bottom: 0; }
+.archive-card article strong { max-width: 680px; font: 500 15px/1.55 Georgia,"Songti SC",serif; }
+.archive-card article small { flex: 0 0 auto; color: var(--app-muted); }
 .trust-link { display: block; margin-bottom: 12px; text-align: center; }
 .legal-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .outline-button { width: 100%; color: var(--app-accent); }
@@ -246,6 +251,16 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .onboarding-choice button.selected { border-color: var(--app-accent); background: var(--app-panel-strong); box-shadow: inset 0 0 0 1px var(--app-accent); }
 .onboarding-choice strong { font: 500 23px/1.1 Georgia,"Songti SC",serif; }
 .onboarding-choice small { color: var(--app-muted); }
+.option-card-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin: 0 0 26px; }
+.option-card-grid button { min-height: 88px; display: grid; align-content: center; gap: 6px; border: 1px solid var(--app-line); border-radius: var(--app-radius-control); padding: 15px 16px; color: var(--app-ink); background: color-mix(in srgb,var(--app-panel) 90%,transparent); text-align: left; transition: border-color .2s ease,background .2s ease,transform .2s ease; }
+.option-card-grid button:hover { transform: translateY(-1px); border-color: color-mix(in srgb,var(--app-accent) 55%,var(--app-line)); }
+.option-card-grid button.selected { border-color: var(--app-accent); background: color-mix(in srgb,var(--app-accent) 9%,var(--app-panel)); box-shadow: inset 0 0 0 1px color-mix(in srgb,var(--app-accent) 65%,transparent); }
+.option-card-grid strong { font: 500 16px/1.3 Georgia,"Songti SC",serif; }
+.option-card-grid small { color: var(--app-muted); line-height: 1.5; }
+.category-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.category-grid button:last-child { grid-column: span 2; }
+.field-counter { display: flex; justify-content: space-between; gap: 16px; margin-top: 8px; color: var(--app-muted); font-size: 12px; }
+.field-counter.over,.field-counter.over strong { color: #a74343; }
 .onboarding-confirm blockquote { margin: 28px 0; border-left: 3px solid var(--app-accent); padding: 8px 0 8px 22px; font: 400 20px/1.65 Georgia,"Songti SC",serif; }
 .onboarding-confirm dl { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .onboarding-confirm dl div { padding: 18px; border-radius: var(--app-radius-control); background: var(--app-panel); }
@@ -259,6 +274,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .home-ai-welcome { text-align: center; }
 .home-ai-welcome h1 { margin: 0; font-family: Georgia,"Songti SC",serif; font-size: clamp(42px,6vw,72px); line-height: 1.04; font-weight: 500; letter-spacing: -.048em; }
 .home-ai-welcome > p:last-child { margin: 18px auto 0; color: var(--app-muted); font-family: Georgia,"Songti SC",serif; font-size: 16px; line-height: 1.75; }
+.coach-switcher { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin: 30px auto 0; width: min(760px,100%); }
+.coach-switcher button { display: grid; gap: 5px; min-height: 76px; padding: 13px 14px; border: 1px solid var(--app-line); border-radius: var(--app-radius-control); color: var(--app-ink); background: color-mix(in srgb,var(--app-panel) 88%,transparent); text-align: left; }
+.coach-switcher button.selected { border-color: var(--app-accent); background: color-mix(in srgb,var(--app-accent) 9%,var(--app-panel)); box-shadow: inset 0 0 0 1px color-mix(in srgb,var(--app-accent) 55%,transparent); }
+.coach-switcher strong { font: 500 13px/1.3 Georgia,"Songti SC",serif; }
+.coach-switcher small { color: var(--app-muted); font-size: 10px; line-height: 1.45; }
 .home-ai-thread { display: flex; flex-direction: column; gap: 13px; margin-top: clamp(38px,8vh,74px); padding-bottom: 18px; }
 .home-ai-thread:empty { margin-top: auto; }
 .home-suggestions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 4px 0 18px; }
@@ -440,6 +460,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .onboarding-panel h1 { font-size: 39px; }
   .onboarding-choice { grid-template-columns: 1fr; }
   .onboarding-choice button { min-height: 112px; }
+  .option-card-grid,.category-grid { grid-template-columns: 1fr; }
+  .category-grid button:last-child { grid-column: auto; }
   .onboarding-confirm dl { grid-template-columns: 1fr; }
   .onboarding-actions { grid-template-columns: 96px 1fr; position: sticky; bottom: 0; padding: 12px 0 calc(8px + env(safe-area-inset-bottom)); background: color-mix(in srgb,var(--app-bg) 92%,transparent); backdrop-filter: blur(18px); }
   .app-rail { display: none; }
@@ -482,6 +504,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .home-ai-view { width: 100%; min-height: calc(100dvh - 142px); padding: 34px 0 100px; }
   .home-ai-welcome h1 { font-size: 39px; }
   .home-ai-welcome > p:last-child { font-size: 14px; }
+  .coach-switcher { display: flex; overflow-x: auto; justify-content: flex-start; margin-top: 24px; padding-bottom: 4px; scroll-snap-type: x mandatory; }
+  .coach-switcher button { flex: 0 0 74%; scroll-snap-align: start; }
   .home-ai-thread { margin-top: 38px; }
   .home-suggestions { justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 5px; }
   .pet-checkin-hint { display: none; }

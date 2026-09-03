@@ -6,6 +6,52 @@ type Lang = "zh" | "en";
 type Layout = "editorial" | "grid" | "mosaic" | "film" | "scrapbook";
 type Ratio = "phone" | "square" | "landscape";
 type LocalImage = { id: string; name: string; url: string; zoom: number; x: number; y: number; rotate: number };
+type SavedVisionProject = { title: string; layout: Layout; ratio: Ratio; gap: number; corner: number; background: string; images: Array<Omit<LocalImage, "url">> };
+
+const VISION_DB = "already-private-vision-v1";
+const VISION_STORE = "images";
+
+function openVisionDb() {
+  return new Promise<IDBDatabase>((resolve, reject) => {
+    const request = indexedDB.open(VISION_DB, 1);
+    request.onupgradeneeded = () => request.result.createObjectStore(VISION_STORE);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function putVisionImage(id: string, blob: Blob) {
+  const database = await openVisionDb();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = database.transaction(VISION_STORE, "readwrite");
+    transaction.objectStore(VISION_STORE).put(blob, id);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+  database.close();
+}
+
+async function getVisionImage(id: string) {
+  const database = await openVisionDb();
+  const blob = await new Promise<Blob | undefined>((resolve, reject) => {
+    const request = database.transaction(VISION_STORE, "readonly").objectStore(VISION_STORE).get(id);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  database.close();
+  return blob;
+}
+
+async function removeVisionImage(id: string) {
+  const database = await openVisionDb();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = database.transaction(VISION_STORE, "readwrite");
+    transaction.objectStore(VISION_STORE).delete(id);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+  database.close();
+}
 
 const sizes: Record<Ratio, [number, number]> = {
   phone: [1080, 1920],
@@ -47,7 +93,7 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
     export: "导出愿景板 PNG",
     needRights: "导出前请确认图片使用权。",
     local: "LOCAL-ONLY WORKSPACE",
-    localCopy: "这个工具在浏览器内完成拼贴，不把上传照片发送给 AI 或图片搜索服务。关闭或刷新页面后，本次上传会被清除。",
+    localCopy: "这个工具在浏览器内完成拼贴，不把上传照片发送给 AI 或图片搜索服务。作品会留在这个浏览器的本机存储中；清除网站数据会同时删除它。",
     remove: "移除",
     editPhoto: "画面调整",
     zoom: "缩放",
@@ -74,7 +120,7 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
     export: "Export vision board PNG",
     needRights: "Confirm your image rights before exporting.",
     local: "LOCAL-ONLY WORKSPACE",
-    localCopy: "Your collage is created inside this browser. Uploaded photos are not sent to AI or an image-search service and are cleared when this page refreshes or closes.",
+    localCopy: "Your collage is created inside this browser. Uploaded photos are not sent to AI or image search and remain in this browser's on-device storage until site data is cleared.",
     remove: "Remove",
     editPhoto: "FRAME EDITING",
     zoom: "Zoom",
@@ -99,13 +145,40 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
   const [background, setBackground] = useState("#eee3da");
   const imagesRef = useRef<LocalImage[]>([]);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- restore the device-local project after mount */
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("already-vision-project-v1");
+      if (!saved) return;
+      const project = JSON.parse(saved) as SavedVisionProject;
+      setTitle(project.title); setLayout(project.layout); setRatio(project.ratio); setGap(project.gap); setCorner(project.corner); setBackground(project.background);
+      Promise.all(project.images.slice(0, 12).map(async (item) => {
+        const blob = await getVisionImage(item.id);
+        return blob ? { ...item, url: URL.createObjectURL(blob) } : null;
+      })).then((items) => {
+        const restored = items.filter((item): item is LocalImage => Boolean(item));
+        setImages(restored);
+        if (restored[0]) setSelectedId(restored[0].id);
+      }).catch(() => { /* IndexedDB may be unavailable in strict private browsing */ });
+    } catch { /* start with a blank canvas */ }
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
   useEffect(() => { imagesRef.current = images; }, [images]);
+  useEffect(() => {
+    const project: SavedVisionProject = { title, layout, ratio, gap, corner, background, images: images.map((item) => ({ id: item.id, name: item.name, zoom: item.zoom, x: item.x, y: item.y, rotate: item.rotate })) };
+    localStorage.setItem("already-vision-project-v1", JSON.stringify(project));
+  }, [title, layout, ratio, gap, corner, background, images]);
   useEffect(() => () => imagesRef.current.forEach((item) => URL.revokeObjectURL(item.url)), []);
 
   const addImages = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []).filter((file) => file.type.startsWith("image/") && file.size <= 10_000_000);
     const room = Math.max(0, 12 - images.length);
-    const added = files.slice(0, room).map((file) => ({ id: crypto.randomUUID(), name: file.name, url: URL.createObjectURL(file), zoom: 1, x: 0, y: 0, rotate: 0 }));
+    const added = files.slice(0, room).map((file) => {
+      const id = crypto.randomUUID();
+      void putVisionImage(id, file);
+      return { id, name: file.name, url: URL.createObjectURL(file), zoom: 1, x: 0, y: 0, rotate: 0 };
+    });
     setImages((current) => [...current, ...added]);
     if (!selectedId && added[0]) setSelectedId(added[0].id);
     event.target.value = "";
@@ -128,6 +201,7 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
     setImages((current) => {
       const target = current.find((item) => item.id === id);
       if (target) URL.revokeObjectURL(target.url);
+      void removeVisionImage(id);
       const next = current.filter((item) => item.id !== id);
       if (selectedId === id) setSelectedId(next[0]?.id || "");
       return next;

@@ -19,6 +19,51 @@ type SavedSub = {
   duration: number;
 };
 
+const AUDIO_DB = "already-private-audio-v1";
+const AUDIO_STORE = "tracks";
+
+function openAudioDb() {
+  return new Promise<IDBDatabase>((resolve, reject) => {
+    const request = indexedDB.open(AUDIO_DB, 1);
+    request.onupgradeneeded = () => request.result.createObjectStore(AUDIO_STORE);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function storeAudioTrack(key: "voice" | "music", blob: Blob, name: string) {
+  const database = await openAudioDb();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = database.transaction(AUDIO_STORE, "readwrite");
+    transaction.objectStore(AUDIO_STORE).put({ blob, name }, key);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+  database.close();
+}
+
+async function readAudioTrack(key: "voice" | "music") {
+  const database = await openAudioDb();
+  const value = await new Promise<{ blob: Blob; name: string } | undefined>((resolve, reject) => {
+    const request = database.transaction(AUDIO_STORE, "readonly").objectStore(AUDIO_STORE).get(key);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  database.close();
+  return value;
+}
+
+async function deleteAudioTrack(key: "voice" | "music") {
+  const database = await openAudioDb();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = database.transaction(AUDIO_STORE, "readwrite");
+    transaction.objectStore(AUDIO_STORE).delete(key);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+  database.close();
+}
+
 const defaults: Record<Lang, SavedSub> = {
   zh: {
     title: "我被坚定选择",
@@ -128,7 +173,7 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
     loop: "循环铺满练习时长",
     rights: "我确认上传的音频由我创作、已经获得授权，或仅用于法律允许的私人用途。",
     rightsNeeded: "请先确认你拥有音频使用权，或仅将它用于法律允许的私人用途。",
-    sessionOnly: "上传和录制的音频在本次页面会话中保留；刷新页面后需要重新加入。",
+    sessionOnly: "上传和录制的音频会加密式地留在这个浏览器的本机存储中，不上传服务器；清除网站数据会同时删除它们。",
     timeline: "时间线",
   } : {
     eyebrow: "DREAMSCAPE · PRIVATE AUDIO PRACTICE",
@@ -184,7 +229,7 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
     loop: "Loop to fill the practice",
     rights: "I confirm that I created this audio, have permission to use it, or will use it only as privately permitted by law.",
     rightsNeeded: "Confirm that you have the right to use this audio or will use it only as privately permitted by law.",
-    sessionOnly: "Recorded and uploaded audio stays for this page session. Add it again after refreshing.",
+    sessionOnly: "Recorded and uploaded audio stays in this browser's on-device storage and is never uploaded. Clearing site data also removes it.",
     timeline: "TIMELINE",
   };
 
@@ -231,6 +276,16 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
         }
       }
     } catch { /* start with the gentle default */ }
+    Promise.all([readAudioTrack("voice"), readAudioTrack("music")]).then(([voice, music]) => {
+      if (voice?.blob) {
+        setVoiceUrl(URL.createObjectURL(voice.blob));
+        setVoiceName(voice.name);
+      }
+      if (music?.blob) {
+        setMusicUrl(URL.createObjectURL(music.blob));
+        setMusicName(music.name);
+      }
+    }).catch(() => { /* IndexedDB may be unavailable in strict private browsing */ });
   }, []);
 
   useEffect(() => () => {
@@ -397,9 +452,11 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
       recorder.onstop = () => {
         if (!chunks.length) { setAudioError(copy.recordingError); return; }
         const blobType = chunks[0]?.type || recorder.mimeType || mimeType || "audio/webm";
-        const nextUrl = URL.createObjectURL(new Blob(chunks, { type: blobType }));
+        const blob = new Blob(chunks, { type: blobType });
+        const nextUrl = URL.createObjectURL(blob);
         setVoiceUrl(nextUrl);
         setVoiceName(lang === "zh" ? "我的录音" : "My recording");
+        void storeAudioTrack("voice", blob, lang === "zh" ? "我的录音" : "My recording");
         setAudioError("");
       };
       mediaRecorderRef.current = recorder;
@@ -421,6 +478,7 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
     } else {
       setMusicUrl(url); setMusicName(file.name);
     }
+    void storeAudioTrack(kind, file, file.name);
     setAudioError("");
   };
 
@@ -432,6 +490,7 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
       musicAudioRef.current?.pause();
       setMusicUrl(""); setMusicName("");
     }
+    void deleteAudioTrack(kind);
   };
 
   return <section className="full-view subliminal-view">
@@ -470,10 +529,10 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
       <p className="audio-upload-help">{copy.audioFormats}</p>
       <div className="track-stack">
         <section className="audio-track voice-track">
-          <div className="track-index">01</div><div className="track-main"><strong>{copy.voiceTrack}</strong><small aria-live="polite">{voiceName || copy.voiceTrackCopy}</small>{voiceUrl && <span className="audio-ready">✓ {copy.audioReady}</span>}<div className="track-actions"><button type="button" className={recording ? "recording" : ""} onClick={toggleRecording}>{recording ? "■" : "●"} {recording ? copy.stopRecord : copy.record}</button><button type="button" onClick={() => voiceFileRef.current?.click()}>{voiceUrl ? copy.replaceAudio : copy.uploadAudio}</button><input ref={voiceFileRef} className="audio-file-input" type="file" accept="audio/*,.mp3,.m4a,.mp4,.wav,.aac,.aif,.aiff,.caf,.ogg,.oga,.webm,.flac" onChange={uploadTrack("voice")}/>{voiceUrl && <button type="button" onClick={() => removeTrack("voice")}>{copy.removeAudio}</button>}</div><label className="track-slider"><span>{copy.volume}</span><input type="range" min="0" max="100" value={voiceVolume} onChange={(event) => setVoiceVolume(Number(event.target.value))}/><b>{voiceVolume}%</b></label></div>
+          <div className="track-index">01</div><div className="track-main"><strong>{copy.voiceTrack}</strong><small aria-live="polite">{voiceName || copy.voiceTrackCopy}</small>{voiceUrl && <span className="audio-ready">✓ {copy.audioReady}</span>}<div className="track-actions"><button type="button" className={recording ? "recording" : ""} onClick={toggleRecording}>{recording ? "■" : "●"} {recording ? copy.stopRecord : copy.record}</button><button type="button" disabled={!audioRights} title={!audioRights ? copy.rightsNeeded : ""} onClick={() => voiceFileRef.current?.click()}>{voiceUrl ? copy.replaceAudio : copy.uploadAudio}</button><input ref={voiceFileRef} className="audio-file-input" type="file" accept="audio/*,.mp3,.m4a,.mp4,.wav,.aac,.aif,.aiff,.caf,.ogg,.oga,.webm,.flac" onChange={uploadTrack("voice")}/>{voiceUrl && <button type="button" onClick={() => removeTrack("voice")}>{copy.removeAudio}</button>}</div><label className="track-slider"><span>{copy.volume}</span><input type="range" min="0" max="100" value={voiceVolume} onChange={(event) => setVoiceVolume(Number(event.target.value))}/><b>{voiceVolume}%</b></label></div>
         </section>
         <section className="audio-track music-track">
-          <div className="track-index">02</div><div className="track-main"><strong>{copy.musicTrack}</strong><small aria-live="polite">{musicName || copy.musicTrackCopy}</small>{musicUrl && <span className="audio-ready">✓ {copy.audioReady}</span>}<div className="track-actions"><button type="button" onClick={() => musicFileRef.current?.click()}>{musicUrl ? copy.replaceAudio : copy.uploadAudio}</button><input ref={musicFileRef} className="audio-file-input" type="file" accept="audio/*,.mp3,.m4a,.mp4,.wav,.aac,.aif,.aiff,.caf,.ogg,.oga,.webm,.flac" onChange={uploadTrack("music")}/>{musicUrl && <button type="button" onClick={() => removeTrack("music")}>{copy.removeAudio}</button>}</div><label className="track-slider"><span>{copy.volume}</span><input type="range" min="0" max="100" value={musicVolume} onChange={(event) => setMusicVolume(Number(event.target.value))}/><b>{musicVolume}%</b></label></div>
+          <div className="track-index">02</div><div className="track-main"><strong>{copy.musicTrack}</strong><small aria-live="polite">{musicName || copy.musicTrackCopy}</small>{musicUrl && <span className="audio-ready">✓ {copy.audioReady}</span>}<div className="track-actions"><button type="button" disabled={!audioRights} title={!audioRights ? copy.rightsNeeded : ""} onClick={() => musicFileRef.current?.click()}>{musicUrl ? copy.replaceAudio : copy.uploadAudio}</button><input ref={musicFileRef} className="audio-file-input" type="file" accept="audio/*,.mp3,.m4a,.mp4,.wav,.aac,.aif,.aiff,.caf,.ogg,.oga,.webm,.flac" onChange={uploadTrack("music")}/>{musicUrl && <button type="button" onClick={() => removeTrack("music")}>{copy.removeAudio}</button>}</div><label className="track-slider"><span>{copy.volume}</span><input type="range" min="0" max="100" value={musicVolume} onChange={(event) => setMusicVolume(Number(event.target.value))}/><b>{musicVolume}%</b></label></div>
         </section>
         <section className="audio-track ambience-track">
           <div className="track-index">03</div><div className="track-main"><strong>{copy.ambienceTrack}</strong><small>{profile.ambience}</small><label className="track-slider"><span>{copy.volume}</span><input type="range" min="0" max="100" value={ambienceVolume} onChange={(event) => setAmbienceVolume(Number(event.target.value))}/><b>{ambienceVolume}%</b></label></div>

@@ -127,7 +127,7 @@ export async function POST(request: Request) {
     },
     body: JSON.stringify({
       model,
-      instructions: buildInstructions(payload.lang, payload.mode),
+      instructions: buildInstructions(payload.lang, payload.mode, payload.goal.coachMode),
       input: buildInput(payload),
       store: false,
       reasoning: { effort: "none" },

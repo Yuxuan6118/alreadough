@@ -36,8 +36,15 @@ test("ships without the founder's private manifestation defaults", async () => {
 });
 
 test("keeps public trust pages available", async () => {
-  for (const path of ["/privacy", "/trust"]) {
+  for (const path of ["/privacy", "/trust", "/terms", "/copyright"]) {
     const response = await render(path);
     assert.equal(response.status, 200);
   }
+});
+
+test("keeps onboarding limits and three guidance methods in product source", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /MAX_BELIEFS = 12/);
+  assert.match(page, /beliefCount > MAX_BELIEFS/);
+  for (const mode of ["release", "assumption", "subconscious"]) assert.match(page, new RegExp(`id: "${mode}"`));
 });
