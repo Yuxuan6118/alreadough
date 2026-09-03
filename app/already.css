@@ -784,6 +784,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .mixer-section, .sub-editor, .sub-player-card { border-radius: 18px !important; }
   .dough-pet { display: none; }
 }
+
+.before-rating,.effect-rating{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:7px;margin:10px auto;color:var(--app-muted);font-size:12px}.before-rating button,.effect-rating button{width:28px;height:28px;border:1px solid var(--app-line);border-radius:50%;color:var(--app-muted);background:var(--app-panel)}.before-rating button.selected,.effect-rating button:hover{border-color:var(--app-accent);color:var(--app-accent-ink);background:var(--app-accent)}.effect-rating{max-width:680px;padding:11px 14px;border:1px solid var(--app-line);border-radius:16px;background:var(--app-panel)}.effect-rating small{flex-basis:100%;text-align:center;opacity:.72}.quota-pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.quota-pills small{padding:7px 10px;border:1px solid var(--app-line);border-radius:999px;background:var(--app-panel)}
 @media (max-width: 430px) {
   .app-stage { padding-inline: 13px; }
   .hero h1, .view-heading h1 { font-size: 36px; }

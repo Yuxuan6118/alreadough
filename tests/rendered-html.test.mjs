@@ -48,3 +48,21 @@ test("keeps onboarding limits and three guidance methods in product source", asy
   assert.match(page, /beliefCount > MAX_BELIEFS/);
   for (const mode of ["release", "assumption", "subconscious"]) assert.match(page, new RegExp(`id: "${mode}"`));
 });
+
+test("enforces founder beta quotas without storing private conversation content", async () => {
+  const guard = await readFile(new URL("../lib/beta-guard.ts", import.meta.url), "utf8");
+  assert.match(guard, /chat: 15/);
+  assert.match(guard, /revision: 3/);
+  assert.match(guard, /story: 1/);
+  assert.match(guard, /BETA_TOTAL_REQUESTS \|\| 80/);
+  assert.match(guard, /BETA_GLOBAL_DAILY_TOKENS \|\| 2_000_000/);
+  assert.doesNotMatch(guard, /message_text|wish_text|person_name|audio_blob|image_blob/);
+});
+
+test("keeps the founder dashboard private and aggregate-only", async () => {
+  const admin = await readFile(new URL("../app/api/beta/admin/route.ts", import.meta.url), "utf8");
+  const dashboard = await readFile(new URL("../app/beta/page.tsx", import.meta.url), "utf8");
+  assert.match(admin, /BETA_FOUNDER_EMAIL/);
+  assert.match(admin, /oai-authenticated-user-email/);
+  assert.match(dashboard, /不读取用户愿望或聊天内容/);
+});

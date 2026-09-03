@@ -5,6 +5,7 @@ import {
   desirePreservingSafetyReply,
   type CompanionRequest,
 } from "@/lib/already-ai";
+import { beginBetaRequest, settleBetaRequest } from "@/lib/beta-guard";
 
 type OpenAIResponse = {
   output_text?: string;
@@ -120,8 +121,24 @@ export async function POST(request: Request) {
   const chatModel = process.env.OPENAI_CHAT_MODEL || "gpt-5.6-luna";
   const creativeModel = process.env.OPENAI_CREATIVE_MODEL || "gpt-5.6-terra";
   const model = payload.mode === "chat" ? chatModel : creativeModel;
+  const gate = await beginBetaRequest(request, payload.sessionId, payload.mode);
+  if (!gate.ok) {
+    const messages: Record<string, Record<"zh" | "en", string>> = {
+      SIGN_IN_REQUIRED: { zh: "请先登录测试版，再继续使用 AI。", en: "Please sign in to continue using the beta AI." },
+      AI_PAUSED: { zh: "AI 服务正在由创始人暂时维护，请稍后再来。", en: "AI is temporarily paused by the founder. Please return shortly." },
+      TRIAL_ENDED: { zh: "你的 7 天创始测试期已经结束，感谢你留下的每一次体验。", en: "Your 7-day founder beta has ended. Thank you for every session." },
+      TRIAL_LIMIT_REACHED: { zh: "你的创始测试额度已经用完。", en: "Your founder beta allowance has been used." },
+      DAILY_LIMIT_REACHED: { zh: "今天这一项的体验额度已经用完，明天会自动恢复。", en: "Today's allowance for this practice is complete. It resets tomorrow." },
+      BETA_BUDGET_PAUSED: { zh: "今天的全站测试预算已经达到上限，明天会自动恢复。", en: "Today's shared beta budget has been reached. It resets tomorrow." },
+    };
+    return json({ error: gate.code, message: messages[gate.code]?.[payload.lang] || gate.code }, gate.code === "SIGN_IN_REQUIRED" ? 401 : 429);
+  }
 
-  const upstream = await fetch("https://api.openai.com/v1/responses", {
+  const startedAt = Date.now();
+
+  let upstream: Response;
+  try {
+    upstream = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -133,7 +150,7 @@ export async function POST(request: Request) {
       input: buildInput(payload),
       store: false,
       reasoning: { effort: "none" },
-      max_output_tokens: payload.mode === "story" ? 1500 : 900,
+      max_output_tokens: payload.mode === "story" ? 1400 : payload.mode === "revision" ? 900 : 750,
       prompt_cache_key: `already-${payload.lang}-${payload.mode}`,
       safety_identifier: payload.sessionId.slice(0, 64),
       text: {
@@ -146,9 +163,14 @@ export async function POST(request: Request) {
         },
       },
     }),
-  });
+    });
+  } catch {
+    await settleBetaRequest(gate.ticket, null, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: false, latencyMs: Date.now() - startedAt });
+    return json({ error: "AI_REQUEST_FAILED", message: payload.lang === "zh" ? "AI 暂时没有连接成功，请稍后再试。" : "AI could not connect. Please try again shortly." }, 502);
+  }
 
   const data = await upstream.json() as OpenAIResponse;
+  await settleBetaRequest(gate.ticket, data.usage || null, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: upstream.ok, latencyMs: Date.now() - startedAt });
   const outputText = responseText(data);
   if (!upstream.ok || !outputText) {
     return json({ error: "AI_REQUEST_FAILED", message: data.error?.message || "The AI request failed." }, 502);

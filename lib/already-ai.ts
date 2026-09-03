@@ -132,9 +132,9 @@ function clip(value: string, max: number) {
 }
 
 export function buildInput(payload: CompanionRequest) {
-  const recent = payload.recentMessages.slice(-10).map((message) => ({
+  const recent = payload.recentMessages.slice(-8).map((message) => ({
     role: message.role === "ai" ? "assistant" : "user",
-    text: clip(message.text, 1600),
+    text: clip(message.text, 900),
     ...(message.feedback ? { user_feedback: message.feedback } : {}),
   }));
   const query = [payload.userInput, payload.goal.desire, payload.goal.journeySummary].join(" ").toLowerCase();
@@ -150,16 +150,16 @@ export function buildInput(payload: CompanionRequest) {
     })
     .filter(({ score, index }) => score > 0 || index < 3)
     .sort((a, b) => b.score - a.score || a.index - b.index)
-    .slice(0, 8)
-    .map(({ item }) => ({ kind: item.kind, title: clip(item.title, 100), detail: clip(item.detail, 500), keywords: (item.keywords || []).slice(0, 5) }));
+    .slice(0, 6)
+    .map(({ item }) => ({ kind: item.kind, title: clip(item.title, 90), detail: clip(item.detail, 350), keywords: (item.keywords || []).slice(0, 4) }));
 
   return JSON.stringify({
     active_goal: {
       status: payload.goal.status,
       category: payload.goal.wishCategory || "other",
       guidance_method: payload.goal.coachMode || "assumption",
-      desire: clip(payload.goal.desire, 1800),
-      limiting_beliefs: payload.goal.beliefs.slice(0, 12).map((item) => clip(item, 360)),
+      desire: clip(payload.goal.desire, 1400),
+      limiting_beliefs: payload.goal.beliefs.slice(0, 12).map((item) => clip(item, 240)),
       companion_name: clip(payload.goal.companionName, 80),
       desire_focus: clip(payload.goal.spName || "", 80),
       sp_reference: payload.goal.wishCategory === "relationship" ? clip(payload.goal.spName || (payload.lang === "zh" ? "对方" : "my person"), 80) : "",

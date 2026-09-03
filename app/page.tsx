@@ -35,7 +35,7 @@ import { validateSpName } from "@/lib/name-policy";
 
 type View = "home" | "subliminal" | "story" | "revision" | "board" | "memory" | "settings";
 type Lang = "zh" | "en";
-type Message = { id: string; role: "ai" | "user"; text: string; feedback?: "helpful" | "missed"; saved?: boolean };
+type Message = { id: string; role: "ai" | "user"; text: string; feedback?: "helpful" | "missed"; saved?: boolean; ratingBefore?: number; ratingAfter?: number };
 type Conversation = { id: string; title: string; createdAt: string; messages: Message[] };
 type BoardItem = { id: number; title: string; source: string; image?: string };
 type Revision = { id: number; old: string; revised: string; date: string };
@@ -98,6 +98,7 @@ type AIResponse = {
   message?: string;
 };
 type SearchImage = { title: string; image: string; source: string; credit: string; license: string; provider: string; downloadLocation?: string };
+type BetaStatus = { authenticated: boolean; enabled?: boolean; active?: boolean; expired?: boolean; expiresAt?: string; totalRequests?: number; totalTokens?: number; remaining?: { chat: number; revision: number; story: number; total: number }; limits?: { chat: number; revision: number; story: number; total: number; trialDays: number }; resetAt?: string };
 
 const emptyStoryDraft: StoryDraft = { title: "", city: "", subtitle: "", scene: "", anchor: "" };
 const emptyMemoryDraft: MemoryDraft = { kind: "insight", title: "", detail: "", keywords: "" };
@@ -165,7 +166,7 @@ function seedJourneySummary(background: string) {
 
 function normalizeMessages(items: unknown): Message[] {
   if (!Array.isArray(items)) return [];
-  return items.filter((item): item is { role: "ai" | "user"; text: string; id?: string; feedback?: "helpful" | "missed"; saved?: boolean } => {
+  return items.filter((item): item is { role: "ai" | "user"; text: string; id?: string; feedback?: "helpful" | "missed"; saved?: boolean; ratingBefore?: number; ratingAfter?: number } => {
     if (!item || typeof item !== "object") return false;
     const candidate = item as { role?: string; text?: string };
     return (candidate.role === "ai" || candidate.role === "user") && typeof candidate.text === "string";
@@ -266,6 +267,8 @@ export default function Home() {
   const [goalSavedPulse, setGoalSavedPulse] = useState(false);
   const [acknowledged, setAcknowledged] = useState<boolean | null>(null);
   const [declined, setDeclined] = useState(false);
+  const [betaStatus, setBetaStatus] = useState<BetaStatus | null>(null);
+  const [stateBefore, setStateBefore] = useState(3);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const requestControllerRef = useRef<AbortController | null>(null);
 
@@ -326,6 +329,17 @@ export default function Home() {
     }
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  const refreshBetaStatus = () => fetch("/api/beta/status", { cache: "no-store", headers: { "x-already-session-id": sessionId } })
+    .then((response) => response.json() as Promise<BetaStatus>)
+    .then(setBetaStatus)
+    .catch(() => null);
+
+  useEffect(() => {
+    if (!hydrated || sessionId === "local-beta") return;
+    fetch("/api/beta/status", { cache: "no-store", headers: { "x-already-session-id": sessionId } })
+      .then((response) => response.json() as Promise<BetaStatus>).then(setBetaStatus).catch(() => null);
+  }, [hydrated, sessionId]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -474,7 +488,7 @@ export default function Home() {
   const callCompanion = async (mode: "chat" | "revision" | "story", userInput: string, signal?: AbortSignal, recentOverride?: Message[]) => {
     const response = await fetch("/api/companion", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-already-session-id": sessionId },
       signal,
       body: JSON.stringify({
         mode,
@@ -502,6 +516,7 @@ export default function Home() {
       }),
     });
     const data = await response.json() as AIResponse;
+    void refreshBetaStatus();
     if (!response.ok || !data.reply) throw new Error(data.message || data.error || "AI_REQUEST_FAILED");
     setAiConnected(data.model !== "desire-preserving-safety-route" ? true : aiConnected);
     if (data.journeySummary) {
@@ -536,7 +551,7 @@ export default function Home() {
     requestControllerRef.current = controller;
     try {
       const reply = await callCompanion("chat", userText, controller.signal);
-      setMessages((items) => [...items, { id: crypto.randomUUID(), role: "ai", text: reply }]);
+      setMessages((items) => [...items, { id: crypto.randomUUID(), role: "ai", text: reply, ratingBefore: stateBefore }]);
     } catch (error) {
       if (controller.signal.aborted) return;
       const message = error instanceof Error ? error.message : "AI_REQUEST_FAILED";
@@ -563,7 +578,7 @@ export default function Home() {
     requestControllerRef.current = controller;
     try {
       const reply = await callCompanion("chat", preceding.text, controller.signal, kept.slice(-10));
-      setMessages((items) => [...items, { id: crypto.randomUUID(), role: "ai", text: reply }]);
+      setMessages((items) => [...items, { id: crypto.randomUUID(), role: "ai", text: reply, ratingBefore: stateBefore }]);
     } catch (error) {
       if (!controller.signal.aborted) setAiError(error instanceof Error ? error.message : "AI_REQUEST_FAILED");
     } finally { requestControllerRef.current = null; setIsTyping(false); }
@@ -670,6 +685,23 @@ export default function Home() {
   const recordCheckIn = (feeling: PracticeCheckIn["feeling"]) => {
     const date = todayKey();
     setCheckIns((items) => [{ date, feeling }, ...items.filter((item) => item.date !== date)]);
+    void recordBetaEvent({ eventType: "practice_checkin", feedback: feeling });
+  };
+
+  const recordBetaEvent = (event: { eventType: string; mode?: string; feedback?: string; ratingBefore?: number; ratingAfter?: number }) => fetch("/api/beta/events", {
+    method: "POST", headers: { "Content-Type": "application/json", "x-already-session-id": sessionId },
+    body: JSON.stringify({ sessionId, wishCategory: goal.wishCategory, coachMode: goal.coachMode, ...event }),
+  }).catch(() => null);
+
+  const rateReply = (message: Message, ratingAfter: number) => {
+    setMessages((items) => items.map((item) => item.id === message.id ? { ...item, ratingAfter } : item));
+    void recordBetaEvent({ eventType: "state_rating", mode: "chat", ratingBefore: message.ratingBefore || stateBefore, ratingAfter });
+  };
+
+  const feedbackReply = (message: Message, feedback: "helpful" | "missed") => {
+    const next = message.feedback === feedback ? undefined : feedback;
+    setMessages((items) => items.map((item) => item.id === message.id ? { ...item, feedback: next } : item));
+    if (next) void recordBetaEvent({ eventType: "reply_feedback", mode: "chat", feedback: next });
   };
 
   const openStoryEditor = (story?: Story) => {
@@ -906,12 +938,13 @@ export default function Home() {
         <div className="home-ai-thread">
           {sessionMessages.map((message, index) => <div className={`message-group ${message.role}`} key={message.id}><div className={`message ${message.role}`}>{message.text}</div><div className="message-actions">
             <button onClick={() => navigator.clipboard.writeText(message.text)} aria-label={lang === "zh" ? "复制" : "Copy"}><Copy size={15}/><span>{lang === "zh" ? "复制" : "Copy"}</span></button>
-            {message.role === "user" ? <button onClick={() => editUserMessage(index)}><NotePencil size={15}/><span>{lang === "zh" ? "编辑并重发" : "Edit and resend"}</span></button> : <><button onClick={() => regenerateReply(index)}><ArrowClockwise size={15}/><span>{lang === "zh" ? "重新回答" : "Regenerate"}</span></button><button onClick={() => saveReplyAsStory(message)}><BookmarkSimple size={15}/><span>{message.saved ? (lang === "zh" ? "已保存" : "Saved") : (lang === "zh" ? "存为故事" : "Save as story")}</span></button><button onClick={() => { setOldScene(message.text); setView("revision"); }}><ArrowsClockwise size={15}/><span>{lang === "zh" ? "带入重写" : "Take to revision"}</span></button><button onClick={() => { setGoal((current) => ({ ...current, acceptedSceneLedger: { ...current.acceptedSceneLedger, [lang]: [message.text.slice(0, 500), ...current.acceptedSceneLedger[lang]].slice(0, 8) } })); setView("subliminal"); }}><Waveform size={15}/><span>{lang === "zh" ? "带入声场" : "Take to Dreamscape"}</span></button><button className={message.feedback === "helpful" ? "selected" : ""} onClick={() => setMessages((items) => items.map((item) => item.id === message.id ? { ...item, feedback: item.feedback === "helpful" ? undefined : "helpful" } : item))}><ThumbsUp size={15}/><span>{lang === "zh" ? "懂我" : "Helpful"}</span></button><button className={message.feedback === "missed" ? "selected" : ""} onClick={() => setMessages((items) => items.map((item) => item.id === message.id ? { ...item, feedback: item.feedback === "missed" ? undefined : "missed" } : item))}><ThumbsDown size={15}/><span>{lang === "zh" ? "不适合" : "Not for me"}</span></button></>}
+            {message.role === "user" ? <button onClick={() => editUserMessage(index)}><NotePencil size={15}/><span>{lang === "zh" ? "编辑并重发" : "Edit and resend"}</span></button> : <><button onClick={() => regenerateReply(index)}><ArrowClockwise size={15}/><span>{lang === "zh" ? "重新回答" : "Regenerate"}</span></button><button onClick={() => saveReplyAsStory(message)}><BookmarkSimple size={15}/><span>{message.saved ? (lang === "zh" ? "已保存" : "Saved") : (lang === "zh" ? "存为故事" : "Save as story")}</span></button><button onClick={() => { setOldScene(message.text); setView("revision"); }}><ArrowsClockwise size={15}/><span>{lang === "zh" ? "带入重写" : "Take to revision"}</span></button><button onClick={() => { setGoal((current) => ({ ...current, acceptedSceneLedger: { ...current.acceptedSceneLedger, [lang]: [message.text.slice(0, 500), ...current.acceptedSceneLedger[lang]].slice(0, 8) } })); setView("subliminal"); }}><Waveform size={15}/><span>{lang === "zh" ? "带入声场" : "Take to Dreamscape"}</span></button><button className={message.feedback === "helpful" ? "selected" : ""} onClick={() => feedbackReply(message, "helpful")}><ThumbsUp size={15}/><span>{lang === "zh" ? "懂我" : "Helpful"}</span></button><button className={message.feedback === "missed" ? "selected" : ""} onClick={() => feedbackReply(message, "missed")}><ThumbsDown size={15}/><span>{lang === "zh" ? "不适合" : "Not for me"}</span></button></>}
           </div></div>)}
           {isTyping && <div className="message ai typing"><i/><i/><i/></div>}
         </div>
         {aiError && <div className="ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
-        <div className={`composer home-composer ${sessionMessages.length ? "is-active" : "is-empty"}`}><div className="composer-main"><input ref={chatInputRef} value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={onChatKey} placeholder={t.chatPlaceholder} aria-label={t.chatPlaceholder}/><details className="coach-model-menu"><summary aria-label={lang === "zh" ? "切换引导模型" : "Switch guidance model"}><span>{lang === "zh" ? coachModes.find((coach) => coach.id === goal.coachMode)?.zh : coachModes.find((coach) => coach.id === goal.coachMode)?.en}</span><CaretDown size={15}/></summary><div className="coach-model-popover"><header><strong>{lang === "zh" ? "选择引导方式" : "Choose a guide"}</strong><small>{lang === "zh" ? "每条消息都可以随时切换" : "Switch for any message"}</small></header>{coachModes.map((coach) => <button type="button" className={goal.coachMode === coach.id ? "selected" : ""} key={coach.id} onClick={(event) => { setGoal((current) => ({ ...current, coachMode: coach.id })); event.currentTarget.closest("details")?.removeAttribute("open"); }}><span><strong>{lang === "zh" ? coach.zh : coach.en}</strong><small>{lang === "zh" ? coach.zhDescription : coach.enDescription}</small></span>{goal.coachMode === coach.id && <Check size={17} weight="bold"/>}</button>)}</div></details></div><button onClick={() => isTyping ? requestControllerRef.current?.abort() : sendChat()} aria-label={isTyping ? (lang === "zh" ? "停止生成" : "Stop generating") : t.send}>{isTyping ? <StopCircle size={20}/> : "↑"}</button></div>
+        {sessionMessages.at(-1)?.role === "ai" && !sessionMessages.at(-1)?.ratingAfter && <div className="effect-rating"><span>{lang === "zh" ? "这次对话后，我的稳定感" : "After this reply, I feel"}</span>{[1,2,3,4,5].map((score) => <button key={score} onClick={() => rateReply(sessionMessages.at(-1)!, score)}>{score}</button>)}<small>{lang === "zh" ? "匿名记录，不保存聊天内容" : "Anonymous; chat content is never recorded"}</small></div>}
+        <div className="before-rating"><span>{lang === "zh" ? "发送前的稳定感" : "Steadiness before sending"}</span>{[1,2,3,4,5].map((score) => <button key={score} className={stateBefore === score ? "selected" : ""} onClick={() => setStateBefore(score)}>{score}</button>)}</div><div className={`composer home-composer ${sessionMessages.length ? "is-active" : "is-empty"}`}><div className="composer-main"><input ref={chatInputRef} value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={onChatKey} placeholder={t.chatPlaceholder} aria-label={t.chatPlaceholder}/><details className="coach-model-menu"><summary aria-label={lang === "zh" ? "切换引导模型" : "Switch guidance model"}><span>{lang === "zh" ? coachModes.find((coach) => coach.id === goal.coachMode)?.zh : coachModes.find((coach) => coach.id === goal.coachMode)?.en}</span><CaretDown size={15}/></summary><div className="coach-model-popover"><header><strong>{lang === "zh" ? "选择引导方式" : "Choose a guide"}</strong><small>{lang === "zh" ? "每条消息都可以随时切换" : "Switch for any message"}</small></header>{coachModes.map((coach) => <button type="button" className={goal.coachMode === coach.id ? "selected" : ""} key={coach.id} onClick={(event) => { setGoal((current) => ({ ...current, coachMode: coach.id })); event.currentTarget.closest("details")?.removeAttribute("open"); }}><span><strong>{lang === "zh" ? coach.zh : coach.en}</strong><small>{lang === "zh" ? coach.zhDescription : coach.enDescription}</small></span>{goal.coachMode === coach.id && <Check size={17} weight="bold"/>}</button>)}</div></details></div><button onClick={() => isTyping ? requestControllerRef.current?.abort() : sendChat()} aria-label={isTyping ? (lang === "zh" ? "停止生成" : "Stop generating") : t.send}>{isTyping ? <StopCircle size={20}/> : "↑"}</button></div>
         {sessionMessages.length > 0 && <p className="pet-checkin-hint">{checkedToday ? (lang === "zh" ? `今天已打卡，连续 ${streak} 天` : `Checked in today. ${streak}-day streak.`) : (lang === "zh" ? "点击右下角的面团完成今日打卡" : "Tap the dough in the corner to check in today.")}</p>}
       </section>}
 
@@ -1008,6 +1041,7 @@ export default function Home() {
         </div>}
 
         {settingsSection === "data" && <div className="settings-section">
+          <div className="setting-card beta-quota-card"><span>{lang === "zh" ? "创始测试额度" : "FOUNDER BETA ALLOWANCE"}</span>{betaStatus?.authenticated && betaStatus.remaining ? <><p>{lang === "zh" ? `本轮还可使用 ${betaStatus.remaining.total} 次 · 到期 ${betaStatus.expiresAt ? new Date(betaStatus.expiresAt).toLocaleDateString("zh-CN") : "—"}` : `${betaStatus.remaining.total} sessions remain · ends ${betaStatus.expiresAt ? new Date(betaStatus.expiresAt).toLocaleDateString("en-US") : "—"}`}</p><div className="quota-pills"><small>{lang === "zh" ? `聊天 ${betaStatus.remaining.chat}/15` : `Chat ${betaStatus.remaining.chat}/15`}</small><small>{lang === "zh" ? `重写 ${betaStatus.remaining.revision}/3` : `Revision ${betaStatus.remaining.revision}/3`}</small><small>{lang === "zh" ? `故事 ${betaStatus.remaining.story}/1` : `Story ${betaStatus.remaining.story}/1`}</small></div></> : <p>{lang === "zh" ? "登录测试版后会显示 7 天体验额度。" : "Sign in to see your 7-day beta allowance."}</p>}</div>
           <div className="language-card"><div><span>{lang === "zh" ? "界面语言" : "LANGUAGE"}</span><strong>{lang === "zh" ? "简体中文" : "English"}</strong></div><button onClick={switchLanguage}>{lang === "zh" ? "Switch to English" : "切换到中文"}</button></div>
           <div className="setting-card sync-card"><span>{lang === "zh" ? "跨设备同步" : "CROSS-DEVICE SYNC"}</span><p>{syncStatus === "saved" ? (lang === "zh" ? "愿望、记忆、对话、故事和练习记录已安全同步。" : "Your desire, memory, conversations, stories, and practice history are synced.") : (lang === "zh" ? "当前使用本机副本；恢复连接后会自动继续同步。" : "Using the on-device copy. Sync resumes automatically when available.")}</p></div>
           <div className="setting-card goal-lifecycle-card"><span>{lang === "zh" ? "愿望生命周期" : "DESIRE LIFECYCLE"}</span><p>{lang === "zh" ? "愿望完成后，把它留在历程中，再开启一个新的单一愿望空间。" : "When this desire is complete, keep it in your journey and open a fresh one-desire space."}</p><button className="outline-button" onClick={archiveAndBeginAgain}>{lang === "zh" ? "完成并归档，开启新愿望" : "Complete, archive, and begin again"}</button></div>
