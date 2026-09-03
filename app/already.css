@@ -324,8 +324,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .coach-switcher small { color: var(--app-muted); font-size: 10px; line-height: 1.45; }
 .home-ai-thread { display: flex; flex-direction: column; gap: 13px; margin-top: clamp(70px,11vh,112px); padding-bottom: 154px; }
 .home-ai-thread:empty { margin-top: auto; }
-.home-suggestions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 4px 0 18px; }
-.home-suggestions button { border: 1px solid var(--app-line); border-radius: 999px; padding: 9px 13px; color: var(--app-muted); background: var(--app-panel); font-size: 11px; }
 .home-composer { position: fixed; z-index: 26; left: calc(224px + (100vw - 224px)/2); bottom: 42px; width: min(900px,calc(100vw - 224px - 116px)); margin: 0; transform: translateX(-50%); }
 .home-composer.is-active::before { content:""; position: absolute; z-index: -1; pointer-events: none; left: -70px; right: -70px; top: -52px; bottom: -43px; background: linear-gradient(to bottom,transparent 0%,color-mix(in srgb,var(--app-bg) 94%,transparent) 42%,var(--app-bg) 68%,var(--app-bg) 100%); }
 .home-ai-view.is-empty { justify-content: center; padding-top: 20px; padding-bottom: 92px; }
@@ -757,7 +755,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .coach-switcher { display: flex; overflow-x: auto; justify-content: flex-start; margin-top: 24px; padding-bottom: 4px; scroll-snap-type: x mandatory; }
   .coach-switcher button { flex: 0 0 74%; scroll-snap-align: start; }
   .home-ai-thread { margin-top: 38px; padding-bottom: 124px; }
-  .home-suggestions { justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 5px; }
   .pet-checkin-hint { display: none; }
   .chat-view { padding-bottom: 86px; }
   .story-view { display: block; }
@@ -883,7 +880,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .home-composer { width: min(var(--content-composer),calc(100vw - 224px - 72px)); bottom: 32px; }
 .home-composer.is-empty { width: min(var(--content-composer),100%); }
 .home-ai-view.has-conversation { padding-top: 56px; }
-.home-suggestions button,
 .thought-chips button,
 .search-suggestions button { font-size: 12px; line-height: 18px; }
 

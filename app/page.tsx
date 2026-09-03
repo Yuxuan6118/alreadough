@@ -352,7 +352,6 @@ export default function Home() {
   const storyText = currentStory.text[lang];
   const spNameError = spNameDraft.trim() ? validateSpName(spNameDraft, lang) : "";
   const beliefCount = parseBeliefs(beliefDraft).length;
-  const activeThoughts = goal.beliefs[lang];
   const filteredMemoryItems = (goal.memoryItems[lang] || [])
     .filter((item) => memoryFilter === "all" || item.kind === memoryFilter)
     .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.createdAt.localeCompare(a.createdAt));
@@ -911,7 +910,6 @@ export default function Home() {
           </div></div>)}
           {isTyping && <div className="message ai typing"><i/><i/><i/></div>}
         </div>
-        {sessionMessages.length < 3 && <div className="home-suggestions">{(activeThoughts.length ? activeThoughts : (lang === "zh" ? ["我又开始看眼前的迹象了", "带我进入一个已经实现的画面", "我想把今天发生的事重写", "此刻我只想被理解"] : ["I am checking the circumstances again", "Take me into a fulfilled scene", "I want to revise what happened today", "I just want to feel understood"])).slice(0, 4).map((thought) => <button key={thought} onClick={() => sendChat(thought)}>{thought}</button>)}</div>}
         {aiError && <div className="ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
         <div className={`composer home-composer ${sessionMessages.length ? "is-active" : "is-empty"}`}><div className="composer-main"><input ref={chatInputRef} value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={onChatKey} placeholder={t.chatPlaceholder} aria-label={t.chatPlaceholder}/><details className="coach-model-menu"><summary aria-label={lang === "zh" ? "切换引导模型" : "Switch guidance model"}><span>{lang === "zh" ? coachModes.find((coach) => coach.id === goal.coachMode)?.zh : coachModes.find((coach) => coach.id === goal.coachMode)?.en}</span><CaretDown size={15}/></summary><div className="coach-model-popover"><header><strong>{lang === "zh" ? "选择引导方式" : "Choose a guide"}</strong><small>{lang === "zh" ? "每条消息都可以随时切换" : "Switch for any message"}</small></header>{coachModes.map((coach) => <button type="button" className={goal.coachMode === coach.id ? "selected" : ""} key={coach.id} onClick={(event) => { setGoal((current) => ({ ...current, coachMode: coach.id })); event.currentTarget.closest("details")?.removeAttribute("open"); }}><span><strong>{lang === "zh" ? coach.zh : coach.en}</strong><small>{lang === "zh" ? coach.zhDescription : coach.enDescription}</small></span>{goal.coachMode === coach.id && <Check size={17} weight="bold"/>}</button>)}</div></details></div><button onClick={() => isTyping ? requestControllerRef.current?.abort() : sendChat()} aria-label={isTyping ? (lang === "zh" ? "停止生成" : "Stop generating") : t.send}>{isTyping ? <StopCircle size={20}/> : "↑"}</button></div>
         {sessionMessages.length > 0 && <p className="pet-checkin-hint">{checkedToday ? (lang === "zh" ? `今天已打卡，连续 ${streak} 天` : `Checked in today. ${streak}-day streak.`) : (lang === "zh" ? "点击右下角的面团完成今日打卡" : "Tap the dough in the corner to check in today.")}</p>}
