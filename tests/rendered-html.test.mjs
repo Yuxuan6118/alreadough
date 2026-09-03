@@ -14,15 +14,15 @@ async function render(path = "/") {
   );
 }
 
-test("renders the Already product shell and onboarding", async () => {
+test("renders the AlreaDough product shell and onboarding", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Already \| Your living desire space<\/title>/i);
-  assert.match(html, /Already/);
-  assert.match(html, /Opening Already|正在打开 Already/);
+  assert.match(html, /<title>AlreaDough \| Your living desire space<\/title>/i);
+  assert.match(html, /AlreaDough/);
+  assert.match(html, /Opening AlreaDough|正在打开 AlreaDough/);
   assert.doesNotMatch(html, /Your site is taking shape|Building your site/);
 });
 
