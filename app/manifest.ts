@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Already",
-    short_name: "Already",
+    name: "AlreaDough",
+    short_name: "AlreaDough",
     description: "Your living desire space.",
     start_url: "/",
     display: "standalone",
@@ -11,8 +11,8 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#a65f6b",
     orientation: "portrait-primary",
     icons: [
-      { src: "/already-app-icon.png", sizes: "1024x1024", type: "image/png", purpose: "any" },
-      { src: "/already-app-icon.png", sizes: "1024x1024", type: "image/png", purpose: "maskable" },
+      { src: "/alreadough-app-icon.png", sizes: "1024x1024", type: "image/png", purpose: "any" },
+      { src: "/alreadough-app-icon.png", sizes: "1024x1024", type: "image/png", purpose: "maskable" },
     ],
   };
 }

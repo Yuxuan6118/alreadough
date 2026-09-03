@@ -689,7 +689,7 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
 
     <div className="dreamscape-workspace">
       <div className="sub-player-card">
-        <div className="sub-player-identity"><div className="sub-orbit"><span>ALREADY</span><i/></div><div><p>{copy.current}</p><h2>{profile.title}</h2></div></div>
+        <div className="sub-player-identity"><div className="sub-orbit"><span>ALREADOUGH</span><i/></div><div><p>{copy.current}</p><h2>{profile.title}</h2></div></div>
         <div className="sub-player-time"><strong>{(profile.durationMode || "timer") === "continuous" ? timeLabel(elapsedSeconds) : timeLabel(secondsLeft)}</strong></div>
         <div className="sub-wave" aria-hidden="true">{Array.from({ length: 35 }, (_, index) => <i key={index}/>)}</div>
         <div className="mini-timeline"><span>{copy.timeline}</span><i className="voice">VOICE · {profile.mode.toUpperCase()}</i><i className="music">MUSIC</i><i className="ambience">{librarySound ? librarySound.title : profile.ambience.toUpperCase()}</i></div>

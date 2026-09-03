@@ -75,7 +75,7 @@ export default function LivingDough({ lang, compact = false, onTouch }: Props) {
         />
       </span>
       <span className="dough-caption">
-        <strong>{lang === "zh" ? "它已经在醒发" : "Already rising"}</strong>
+        <strong>{lang === "zh" ? "Dough 正在醒发" : "Your Dough is rising"}</strong>
         <small>{lang === "zh" ? "轻轻碰一下" : "A little touch"}</small>
       </span>
     </button>

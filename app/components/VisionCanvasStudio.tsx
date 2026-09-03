@@ -101,7 +101,7 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
     corner: "圆角",
     background: "底色",
     selected: "已选画面",
-    quickSetup: "先选照片，Already 会先排出一个可用版本。之后再按需要调整。",
+    quickSetup: "先选照片，AlreaDough 会先排出一个可用版本。之后再按需要调整。",
     advanced: "高级画面设置",
   } : {
     title: "Weave My Vision",
@@ -126,7 +126,7 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
     corner: "Corners",
     background: "Backdrop",
     selected: "SELECTED FRAME",
-    quickSetup: "Choose photos first. Already will create a usable layout before you refine it.",
+    quickSetup: "Choose photos first. AlreaDough will create a usable layout before you refine it.",
     advanced: "Advanced visual settings",
   };
   const [images, setImages] = useState<LocalImage[]>([]);
@@ -217,7 +217,7 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
     context.fillStyle = "#493630";
     context.font = `500 ${Math.round(width * 0.052)}px Georgia, serif`;
     context.textAlign = "center";
-    context.fillText(title || "ALREADY", width / 2, heading * 0.58, width - margin * 2);
+    context.fillText(title || "ALREADOUGH", width / 2, heading * 0.58, width - margin * 2);
     const loaded = await Promise.all(images.map((item) => loadImage(item.url)));
     const top = heading;
     const availableHeight = height - top - margin;
