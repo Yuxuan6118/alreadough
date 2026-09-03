@@ -135,7 +135,6 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
     intro: "把完成态写进自己的声音空间。肯定语、录音和练习记录默认留在这台设备上。",
     tutorial: "制作教程",
     current: "我的愿境音声",
-    edit: "编辑我的Sub",
     done: "完成今日练习",
     pause: "暂停",
     play: "开始练习",
@@ -215,7 +214,6 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
     intro: "Turn your fulfilled state into a private sound space. Affirmations, recordings, and practice history stay on this device by default.",
     tutorial: "How it works",
     current: "MY DESIRE SOUNDSCAPE",
-    edit: "Edit my Sub",
     done: "Complete today’s practice",
     pause: "Pause",
     play: "Begin practice",
@@ -692,7 +690,7 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
         <div className="sub-player-time"><strong>{(profile.durationMode || "timer") === "continuous" ? timeLabel(elapsedSeconds) : timeLabel(secondsLeft)}</strong></div>
         <div className="sub-wave" aria-hidden="true">{Array.from({ length: 35 }, (_, index) => <i key={index}/>)}</div>
         <div className="mini-timeline"><span>{copy.timeline}</span><i className="voice">VOICE · {profile.mode.toUpperCase()}</i><i className="music">MUSIC</i><i className="ambience">{librarySound ? librarySound.title : profile.ambience.toUpperCase()}</i></div>
-        <div className="player-actions"><button className="sub-play" onClick={startPractice}>{isPlaying ? "Ⅱ" : "▶"}<span>{isPlaying ? copy.pause : copy.play}</span></button><button className="sub-edit" onClick={() => setEditing((current) => !current)}>{copy.edit} ↗</button></div>
+        <div className="player-actions"><button className="sub-play" onClick={startPractice}>{isPlaying ? "Ⅱ" : "▶"}<span>{isPlaying ? copy.pause : copy.play}</span></button></div>
       </div>
       <aside className="session-summary">
         <p className="eyebrow">SESSION</p><h3>{lang === "zh" ? "今天怎么听" : "How you are listening"}</h3>

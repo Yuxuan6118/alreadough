@@ -448,7 +448,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .player-actions { display: flex; align-items: center; gap: 20px; margin-top: 4px; }
 .app-shell .sub-play { margin: 0; }
 .app-shell .sub-play span { font-size: 13px; }
-.app-shell .sub-edit { display: inline-block; margin: 0; font-size: 12px; }
 .session-summary { padding: 28px; border: 1px solid var(--app-line); border-radius: 28px; background: var(--app-panel); }
 .session-summary h3 { margin: 10px 0 28px; font: 400 26px/1.2 Georgia,"Songti SC",serif; }
 .session-summary dl { margin: 0 0 28px; }
