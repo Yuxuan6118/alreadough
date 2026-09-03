@@ -301,7 +301,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .coach-switcher button.selected { border-color: var(--app-accent); background: color-mix(in srgb,var(--app-accent) 9%,var(--app-panel)); box-shadow: inset 0 0 0 1px color-mix(in srgb,var(--app-accent) 55%,transparent); }
 .coach-switcher strong { font: 500 13px/1.3 Georgia,"Songti SC",serif; }
 .coach-switcher small { color: var(--app-muted); font-size: 10px; line-height: 1.45; }
-.home-ai-thread { display: flex; flex-direction: column; gap: 13px; margin-top: clamp(38px,8vh,74px); padding-bottom: 18px; }
+.home-ai-thread { display: flex; flex-direction: column; gap: 13px; margin-top: clamp(70px,11vh,112px); padding-bottom: 18px; }
 .home-ai-thread:empty { margin-top: auto; }
 .home-suggestions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 4px 0 18px; }
 .home-suggestions button { border: 1px solid var(--app-line); border-radius: 999px; padding: 9px 13px; color: var(--app-muted); background: var(--app-panel); font-size: 11px; }
@@ -469,6 +469,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .sound-search { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin: 16px 0; }
 .sound-search input { min-width: 0; height: 44px; border: 1px solid var(--app-line); border-radius: 12px; padding: 0 13px; color: var(--app-ink); background: var(--app-bg); }
 .sound-search button { border: 0; border-radius: 12px; padding: 0 18px; color: var(--app-accent-ink); background: var(--app-accent); }
+.sound-query-meta { display: flex !important; align-items: center; flex-wrap: wrap; gap: 7px; margin: -4px 0 14px !important; color: var(--app-muted); }
+.sound-query-meta b { border-radius: 999px; padding: 5px 9px; color: var(--app-ink); background: color-mix(in srgb,var(--app-accent) 9%,var(--app-panel)); font-weight: 500; }
+.sound-query-meta i { color: var(--app-accent); font-style: normal; }
 .sound-results { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px; margin-bottom: 16px; }
 .sound-results article { min-width: 0; min-height: 118px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; padding: 12px; border: 1px solid var(--app-line); border-radius: 14px; color: var(--app-ink); background: var(--app-panel); }
 .sound-results article.selected { border-color: color-mix(in srgb,var(--app-accent) 58%,var(--app-line)); box-shadow: inset 0 0 0 2px color-mix(in srgb,var(--app-accent) 18%,transparent); }

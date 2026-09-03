@@ -178,6 +178,7 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
     previewSound: "试听",
     stopPreview: "停止试听",
     noSounds: "暂时没有找到，换一个更简单的关键词试试。",
+    searchedTogether: "已同时搜索",
     privacy: "隐私与聆听",
     privacyCopy: "此版本在设备上完成播放与混音，不把录音发送给AI。请保持舒适音量；Sub是个性化想象与肯定语练习，不提供医疗服务或特定结果保证。",
     checkTitle: "今天的练习已经完成",
@@ -257,6 +258,7 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
     previewSound: "Preview",
     stopPreview: "Stop preview",
     noSounds: "No sounds found. Try a simpler search.",
+    searchedTogether: "Searched together",
     privacy: "PRIVACY & LISTENING",
     privacyCopy: "This version mixes and plays on your device and does not send your recording to AI. Keep the volume comfortable. Sub Studio is a personalized imagination and affirmation practice, not medical care or a guarantee of a particular result.",
     checkTitle: "Today’s practice is complete",
@@ -315,6 +317,7 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
   const [soundResults, setSoundResults] = useState<AudioResult[]>([]);
   const [soundSearching, setSoundSearching] = useState(false);
   const [soundSearched, setSoundSearched] = useState(false);
+  const [soundSearchMeta, setSoundSearchMeta] = useState<{ original: string; translated: string } | null>(null);
   const [librarySound, setLibrarySound] = useState<AudioResult | null>(null);
   const [previewingSoundId, setPreviewingSoundId] = useState("");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -602,10 +605,19 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
     if (!soundQuery.trim()) return;
     setSoundSearching(true);
     setAudioError("");
+    setSoundSearched(false);
+    setSoundResults([]);
+    setSoundSearchMeta(null);
+    previewAudioRef.current?.pause();
+    previewAudioRef.current = null;
+    setPreviewingSoundId("");
     try {
-      const response = await fetch(`/api/audio?q=${encodeURIComponent(soundQuery.trim())}`);
-      const data = await response.json() as { results?: AudioResult[] };
+      const response = await fetch(`/api/audio?q=${encodeURIComponent(soundQuery.trim())}&locale=${lang}&v=environment-only-v3&t=${Date.now()}`, { cache: "no-store" });
+      const data = await response.json() as { results?: AudioResult[]; queries?: { original?: string; translated?: string } };
       setSoundResults(data.results || []);
+      if (data.queries?.original && data.queries?.translated) {
+        setSoundSearchMeta({ original: data.queries.original, translated: data.queries.translated });
+      }
     } catch { setSoundResults([]); }
     finally { setSoundSearching(false); setSoundSearched(true); }
   };
@@ -706,7 +718,7 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
           <div className="track-index">02</div><div className="track-main"><strong>{copy.musicTrack}</strong><small aria-live="polite">{musicName || copy.musicTrackCopy}</small>{musicUrl && <span className="audio-ready">✓ {copy.audioReady}</span>}<div className="track-actions"><button type="button" onClick={() => musicFileRef.current?.click()}>{musicUrl ? copy.replaceAudio : copy.uploadAudio}</button><input ref={musicFileRef} className="audio-file-input" type="file" accept="audio/*,.mp3,.m4a,.mp4,.wav,.aac,.aif,.aiff,.caf,.ogg,.oga,.webm,.flac" onChange={uploadTrack("music")}/>{musicUrl && <button type="button" onClick={() => removeTrack("music")}>{copy.removeAudio}</button>}</div><label className="track-slider"><span>{copy.volume}</span><input type="range" min="0" max="100" value={musicVolume} onChange={(event) => setMusicVolume(Number(event.target.value))}/><b>{musicVolume}%</b></label></div>
         </section>
         <section className="audio-track ambience-track">
-          <div className="track-index">03</div><div className="track-main"><strong>{copy.soundLibrary}</strong><small>{librarySound ? `${librarySound.title} · ${librarySound.creator} · ${librarySound.license}` : copy.ambienceTrack}</small><div className="sound-search"><input value={soundQuery} onChange={(event) => setSoundQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void searchSounds(); }} placeholder={copy.soundSearch}/><button type="button" onClick={searchSounds} disabled={soundSearching}>{soundSearching ? copy.searching : copy.search}</button></div>{soundResults.length > 0 && <div className="sound-results">{soundResults.slice(0, 9).map((sound) => <article className={librarySound?.id === sound.id ? "selected" : ""} key={sound.id}><div className="sound-card-main"><button className="sound-preview" type="button" aria-label={`${previewingSoundId === sound.id ? copy.stopPreview : copy.previewSound}: ${sound.title}`} onClick={() => void previewSound(sound)}>{previewingSoundId === sound.id ? <Pause weight="fill"/> : <Play weight="fill"/>}</button><div className="sound-card-copy"><strong title={sound.title}>{sound.title}</strong><small title={`${sound.creator} · ${sound.license}`}>{sound.creator} · {sound.license}</small></div></div><button className="sound-choose" type="button" onClick={() => void chooseLibrarySound(sound)}>{librarySound?.id === sound.id ? `✓ ${copy.selectedSound}` : copy.useSound}</button></article>)}</div>}{soundSearched && !soundSearching && soundResults.length === 0 && <small className="sound-empty">{copy.noSounds}</small>}<label className="track-slider"><span>{copy.volume}</span><input type="range" min="0" max="100" value={ambienceVolume} onChange={(event) => { const next = Number(event.target.value); setAmbienceVolume(next); if (libraryAudioRef.current) libraryAudioRef.current.volume = next / 100; if (previewAudioRef.current) previewAudioRef.current.volume = Math.max(0.2, next / 100); }}/><b>{ambienceVolume}%</b></label></div>
+          <div className="track-index">03</div><div className="track-main"><strong>{copy.soundLibrary}</strong><small>{librarySound ? `${librarySound.title} · ${librarySound.creator} · ${librarySound.license}` : copy.ambienceTrack}</small><div className="sound-search"><input value={soundQuery} onChange={(event) => setSoundQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void searchSounds(); }} placeholder={copy.soundSearch}/><button type="button" onClick={searchSounds} disabled={soundSearching}>{soundSearching ? copy.searching : copy.search}</button></div>{soundSearchMeta && soundSearchMeta.original !== soundSearchMeta.translated && <small className="sound-query-meta">{copy.searchedTogether}: <b>{soundSearchMeta.original}</b><i>＋</i><b>{soundSearchMeta.translated}</b></small>}{soundResults.length > 0 && <div className="sound-results">{soundResults.slice(0, 9).map((sound) => <article className={librarySound?.id === sound.id ? "selected" : ""} key={sound.id}><div className="sound-card-main"><button className="sound-preview" type="button" aria-label={`${previewingSoundId === sound.id ? copy.stopPreview : copy.previewSound}: ${sound.title}`} onClick={() => void previewSound(sound)}>{previewingSoundId === sound.id ? <Pause weight="fill"/> : <Play weight="fill"/>}</button><div className="sound-card-copy"><strong title={sound.title}>{sound.title}</strong><small title={`${sound.creator} · ${sound.license}`}>{sound.creator} · {sound.license}</small></div></div><button className="sound-choose" type="button" onClick={() => void chooseLibrarySound(sound)}>{librarySound?.id === sound.id ? `✓ ${copy.selectedSound}` : copy.useSound}</button></article>)}</div>}{soundSearched && !soundSearching && soundResults.length === 0 && <small className="sound-empty">{copy.noSounds}</small>}<label className="track-slider"><span>{copy.volume}</span><input type="range" min="0" max="100" value={ambienceVolume} onChange={(event) => { const next = Number(event.target.value); setAmbienceVolume(next); if (libraryAudioRef.current) libraryAudioRef.current.volume = next / 100; if (previewAudioRef.current) previewAudioRef.current.volume = Math.max(0.2, next / 100); }}/><b>{ambienceVolume}%</b></label></div>
         </section>
       </div>
       <div className="mix-options"><label>{copy.speed}<input type="range" min="0.1" max="10" step="0.1" value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))}/><b>{playbackSpeed.toFixed(1)}×</b></label><label className="loop-check"><input type="checkbox" checked={loopAudio} onChange={(event) => setLoopAudio(event.target.checked)}/>{copy.loop}</label></div>
