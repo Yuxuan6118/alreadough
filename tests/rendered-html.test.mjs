@@ -56,6 +56,7 @@ test("enforces founder beta quotas without storing private conversation content"
   assert.match(guard, /story: 1/);
   assert.match(guard, /BETA_TOTAL_REQUESTS \|\| 80/);
   assert.match(guard, /BETA_GLOBAL_DAILY_TOKENS \|\| 2_000_000/);
+  assert.match(guard, /INSERT OR IGNORE INTO beta_users/);
   assert.doesNotMatch(guard, /message_text|wish_text|person_name|audio_blob|image_blob/);
 });
 

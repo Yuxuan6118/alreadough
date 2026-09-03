@@ -55,7 +55,7 @@ export async function betaStatus(request: Request, sessionId?: string) {
   const day = dayKey();
   let user = await env.DB.prepare("SELECT started_at, expires_at, total_requests, total_tokens, active FROM beta_users WHERE user_id = ?").bind(userId).first<UserRow>();
   if (!user) {
-    await env.DB.prepare("INSERT INTO beta_users (user_id, started_at, expires_at, last_seen_at) VALUES (?, ?, ?, ?)").bind(userId, now, isoAfterDays(LIMITS.trialDays), now).run();
+    await env.DB.prepare("INSERT OR IGNORE INTO beta_users (user_id, started_at, expires_at, last_seen_at) VALUES (?, ?, ?, ?)").bind(userId, now, isoAfterDays(LIMITS.trialDays), now).run();
     user = await env.DB.prepare("SELECT started_at, expires_at, total_requests, total_tokens, active FROM beta_users WHERE user_id = ?").bind(userId).first<UserRow>();
   }
   const daily = await env.DB.prepare("SELECT request_count, chat_requests, revision_requests, story_requests, input_tokens, output_tokens, total_tokens FROM beta_usage_daily WHERE user_id = ? AND usage_date = ?").bind(userId, day).first<DailyRow>();
