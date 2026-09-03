@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Pause, Play } from "@phosphor-icons/react";
+import { Pause, Play, X } from "@phosphor-icons/react";
 
 export type PracticeCheckIn = {
   date: string;
@@ -134,7 +134,7 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
     heading: "听见你已经拥有的生活",
     intro: "把完成态写进自己的声音空间。肯定语、录音和练习记录默认留在这台设备上。",
     tutorial: "制作教程",
-    current: "今日专属Sub",
+    current: "我的愿境音声",
     edit: "编辑我的Sub",
     done: "完成今日练习",
     pause: "暂停",
@@ -161,7 +161,6 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
     minutes: "分钟",
     completionGoal: "今日完成目标",
     completionHint: "持续播放达到这个时长后自动完成打卡，声音仍可继续。",
-    autoComplete: "完整听完后自动完成，无需手动点击",
     backgroundPlay: "离开本页后继续播放",
     backgroundPlayHint: "网页版可在同一浏览器中继续；锁屏播放将在原生 App 中启用。",
     deliveryClear: "清晰",
@@ -214,7 +213,7 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
     heading: "Hear the life you already have",
     intro: "Turn your fulfilled state into a private sound space. Affirmations, recordings, and practice history stay on this device by default.",
     tutorial: "How it works",
-    current: "TODAY'S PERSONAL SUB",
+    current: "MY DESIRE SOUNDSCAPE",
     edit: "Edit my Sub",
     done: "Complete today’s practice",
     pause: "Pause",
@@ -241,7 +240,6 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
     minutes: "min",
     completionGoal: "Daily completion goal",
     completionHint: "In continuous mode, check-in completes at this point while audio can keep playing.",
-    autoComplete: "Completes automatically after a full listen - no manual button",
     backgroundPlay: "Keep playing away from this page",
     backgroundPlayHint: "Web playback continues in the same browser. Lock-screen playback will be enabled in the native app.",
     deliveryClear: "Clear",
@@ -679,7 +677,7 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
     <div className="dreamscape-workspace">
       <div className="sub-player-card">
         <div className="sub-player-identity"><div className="sub-orbit"><span>ALREADY</span><i/></div><div><p>{copy.current}</p><h2>{profile.title}</h2></div></div>
-        <div className="sub-player-time"><strong>{(profile.durationMode || "timer") === "continuous" ? timeLabel(elapsedSeconds) : timeLabel(secondsLeft)}</strong><small>{copy.autoComplete}</small></div>
+        <div className="sub-player-time"><strong>{(profile.durationMode || "timer") === "continuous" ? timeLabel(elapsedSeconds) : timeLabel(secondsLeft)}</strong></div>
         <div className="sub-wave" aria-hidden="true">{Array.from({ length: 35 }, (_, index) => <i key={index}/>)}</div>
         <div className="mini-timeline"><span>{copy.timeline}</span><i className="voice">VOICE · {profile.mode.toUpperCase()}</i><i className="music">MUSIC</i><i className="ambience">{librarySound ? librarySound.title : profile.ambience.toUpperCase()}</i></div>
         <div className="player-actions"><button className="sub-play" onClick={startPractice}>{isPlaying ? "Ⅱ" : "▶"}<span>{isPlaying ? copy.pause : copy.play}</span></button><button className="sub-edit" onClick={() => setEditing((current) => !current)}>{copy.edit} ↗</button></div>
@@ -692,8 +690,10 @@ export default function SubliminalStudio({ lang, desire, checkIns, onCheckIn }: 
     </div>
 
     {editing && <div className="sub-editor">
-      <label>{copy.title}<input value={profile.title} onChange={(event) => setProfile((current) => ({ ...current, title: event.target.value }))}/></label>
-      <fieldset><legend>{copy.affirmations}</legend>{profile.affirmations.map((item, index) => <div className="affirmation-row" key={`affirmation-${index}`}><textarea value={item} onChange={(event) => setProfile((current) => ({ ...current, affirmations: current.affirmations.map((line, lineIndex) => lineIndex === index ? event.target.value : line) }))}/><button onClick={() => setProfile((current) => ({ ...current, affirmations: current.affirmations.filter((_, lineIndex) => lineIndex !== index) }))} aria-label="Remove">×</button></div>)}<button className="add-line" onClick={() => setProfile((current) => ({ ...current, affirmations: [...current.affirmations, ""] }))}>{copy.add}</button></fieldset>
+      <div className="sub-editor-core">
+        <label className="sub-title-field">{copy.title}<input value={profile.title} onChange={(event) => setProfile((current) => ({ ...current, title: event.target.value }))}/></label>
+        <fieldset className="affirmation-editor"><legend>{copy.affirmations}</legend>{profile.affirmations.map((item, index) => <div className="affirmation-row" key={`affirmation-${index}`}><textarea value={item} onChange={(event) => setProfile((current) => ({ ...current, affirmations: current.affirmations.map((line, lineIndex) => lineIndex === index ? event.target.value : line) }))}/><button type="button" onClick={() => setProfile((current) => ({ ...current, affirmations: current.affirmations.filter((_, lineIndex) => lineIndex !== index) }))} aria-label={lang === "zh" ? `删除第 ${index + 1} 句` : `Remove line ${index + 1}`}><X weight="bold"/></button></div>)}<button type="button" className="add-line" onClick={() => setProfile((current) => ({ ...current, affirmations: [...current.affirmations, ""] }))}>{copy.add}</button></fieldset>
+      </div>
       <fieldset className="delivery-cards"><legend>{copy.mode}</legend>{(["clear", "soft", "subliminal"] as const).map((mode) => { const label = mode === "clear" ? copy.deliveryClear : mode === "soft" ? copy.deliverySoft : copy.deliveryMasked; const description = mode === "clear" ? copy.deliveryClearCopy : mode === "soft" ? copy.deliverySoftCopy : copy.deliveryMaskedCopy; return <button className={profile.mode === mode ? "selected" : ""} key={mode} onClick={() => setProfile((current) => ({ ...current, mode }))}><strong>{label}</strong><small>{description}</small><i>{mode === "clear" ? "100%" : mode === "soft" ? "58%" : "16%"}</i></button>; })}</fieldset>
       <section className="duration-studio"><div><p className="eyebrow">PLAYBACK</p><h3>{copy.duration}</h3></div><div className="duration-mode-tabs"><button className={(profile.durationMode || "timer") === "timer" ? "selected" : ""} onClick={() => setProfile((current) => ({ ...current, durationMode: "timer" }))}>{copy.timer}</button><button className={profile.durationMode === "continuous" ? "selected" : ""} onClick={() => setProfile((current) => ({ ...current, durationMode: "continuous" }))}>{copy.continuous}</button></div><div className="duration-inputs"><label><input aria-label={copy.hours} type="number" min="0" max="12" value={durationHours} onChange={(event) => setDurationHours(Math.max(0, Math.min(12, Number(event.target.value))))}/><span>{copy.hours}</span></label><label><input aria-label={copy.minutes} type="number" min="0" max="59" value={durationMinutes} onChange={(event) => setDurationMinutes(Math.max(0, Math.min(59, Number(event.target.value))))}/><span>{copy.minutes}</span></label></div>{profile.durationMode === "continuous" && <label className="completion-goal"><span>{copy.completionGoal}</span><input aria-label={copy.completionGoal} type="number" min="1" max="180" value={profile.completionMinutes || 5} onChange={(event) => setProfile((current) => ({ ...current, completionMinutes: Math.max(1, Math.min(180, Number(event.target.value))) }))}/><b>{copy.minutes}</b><small>{copy.completionHint}</small></label>}<label className="background-play"><input aria-label={copy.backgroundPlay} type="checkbox" checked={backgroundPlay} onChange={(event) => setBackgroundPlay(event.target.checked)}/><span><strong>{copy.backgroundPlay}</strong><small>{copy.backgroundPlayHint}</small></span></label></section>
       <div className="mixer-heading"><p className="eyebrow">SUB MIXER</p><h3>{copy.mixer}</h3><small>{copy.mixerCopy}</small></div>
