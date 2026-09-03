@@ -51,8 +51,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 
 .app-rail { position: sticky; top: 0; height: 100dvh; z-index: 20; display: flex; flex-direction: column; padding: 28px 20px 22px; border-right: 1px solid var(--app-line); background: color-mix(in srgb, var(--app-sidebar) 96%, transparent); backdrop-filter: blur(18px); }
 .brand { border: 0; background: transparent; color: var(--app-ink); display: flex; align-items: center; gap: 11px; padding: 0; text-align: left; }
-.brand-mark { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; color: var(--app-bg); background: var(--app-ink); }
-.brand-mark svg { width: 15px; height: 15px; }
+.brand-mark { width: 36px; height: 36px; display: grid; place-items: center; flex: none; }
+.brand-mark img { width: 36px; height: 36px; display: block; object-fit: contain; }
 .brand strong { font-family: Georgia, "Songti SC", serif; font-size: 22px; font-weight: 500; letter-spacing: -.5px; }
 .rail-new-chat { width: 100%; min-height: 42px; display: flex; align-items: center; gap: 11px; margin-top: 42px; border: 1px solid var(--app-line); border-radius: 14px; padding: 0 12px; color: var(--app-ink); background: var(--app-panel); text-align: left; font-size: 12px; box-shadow: 0 8px 24px color-mix(in srgb,var(--app-ink) 5%,transparent); }
 .rail-new-chat:hover { border-color: color-mix(in srgb,var(--app-accent) 55%,var(--app-line)); }
@@ -666,7 +666,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .app-rail { display: none; }
   .app-stage { padding: 0 16px 42px; }
   .topbar { height: calc(70px + env(safe-area-inset-top)); display: flex; align-items: center; justify-content: space-between; padding: env(safe-area-inset-top) 2px 0; }
-  .topbar .brand-mark { width: 32px; height: 32px; }
+  .topbar .brand-mark,.topbar .brand-mark img { width: 32px; height: 32px; }
   .topbar .brand strong { font-size: 20px; }
   .top-actions { display: flex; align-items: center; gap: 4px; }
   .top-actions .ai-badge { display: none; }
