@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { Capacitor } from "@capacitor/core";
+import Image from "next/image";
 
 type Props = {
   lang: "zh" | "en";
@@ -30,23 +31,17 @@ export default function LivingDough({ lang, compact = false, onTouch }: Props) {
       onClick={touch}
       aria-label={lang === "zh" ? "轻触正在醒发的面团" : "Touch the living dough"}
     >
-      <span className="dough-jar" aria-hidden="true">
-        <span className="jar-rim" />
+      <span className="dough-stage" aria-hidden="true">
         <motion.span
           key={response}
-          className="dough-body"
+          className="dough-character-shell"
           initial={reduceMotion ? false : { scaleX: 1, scaleY: 1 }}
-          animate={reduceMotion ? undefined : response ? { scaleX: [1, 1.05, 0.98, 1], scaleY: [1, 0.91, 1.04, 1] } : { scaleY: [1, 1.018, 1] }}
-          transition={response ? { duration: 0.72, ease: [0.16, 1, 0.3, 1] } : { duration: 5.2, repeat: Infinity, ease: "easeInOut" }}
+          animate={reduceMotion ? undefined : response ? { scaleX: [1, 1.06, 0.97, 1], scaleY: [1, 0.88, 1.05, 1], y: [0, 7, -3, 0] } : { scaleX: [1, 1.012, 1], scaleY: [1, 1.03, 1], y: [0, -2, 0] }}
+          transition={response ? { duration: 0.78, ease: [0.16, 1, 0.3, 1] } : { duration: 4.8, repeat: Infinity, ease: "easeInOut" }}
         >
-          <i className="dough-eye left" />
-          <i className="dough-eye right" />
-          <i className="dough-mouth" />
-          <i className="dough-bubble bubble-a" />
-          <i className="dough-bubble bubble-b" />
-          <i className="dough-bubble bubble-c" />
-          <i className="dough-fold" />
+          <Image className="dough-character" src="/mascot/already-dough-v2.png" alt="" width={800} height={629} sizes={compact ? "132px" : "360px"}/>
         </motion.span>
+        <span className="proof-specks"><i/><i/><i/></span>
         <motion.span
           key={`ripple-${response}`}
           className="dough-ripple"

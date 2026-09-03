@@ -15,6 +15,8 @@ import {
   Waveform,
   ArrowsClockwise,
   Brain,
+  CaretDown,
+  Check,
 } from "@phosphor-icons/react";
 import SubliminalStudio, { PracticeCheckIn, practiceStreak, todayKey } from "./components/SubliminalStudio";
 import VisionCanvasStudio from "./components/VisionCanvasStudio";
@@ -647,7 +649,7 @@ export default function Home() {
         </div>
         {messages.length < 3 && activeThoughts.length > 0 && <div className="home-suggestions">{activeThoughts.slice(0, 4).map((thought) => <button key={thought} onClick={() => sendChat(thought)}>{thought}</button>)}</div>}
         {aiError && <div className="ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
-        <div className="composer home-composer"><div className="composer-main"><input value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={onChatKey} placeholder={t.chatPlaceholder} aria-label={t.chatPlaceholder}/><label className="coach-model-select"><span>{lang === "zh" ? "引导模型" : "GUIDANCE MODEL"}</span><select value={goal.coachMode} onChange={(event) => setGoal((current) => ({ ...current, coachMode: event.target.value as CoachMode }))} aria-label={lang === "zh" ? "切换引导模型" : "Switch guidance model"}>{coachModes.map((coach) => <option value={coach.id} key={coach.id}>{lang === "zh" ? coach.zh : coach.en}</option>)}</select></label></div><button onClick={() => sendChat()} disabled={isTyping} aria-label={t.send}>↑</button></div>
+        <div className="composer home-composer"><div className="composer-main"><input value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={onChatKey} placeholder={t.chatPlaceholder} aria-label={t.chatPlaceholder}/><details className="coach-model-menu"><summary aria-label={lang === "zh" ? "切换引导模型" : "Switch guidance model"}><span>{lang === "zh" ? coachModes.find((coach) => coach.id === goal.coachMode)?.zh : coachModes.find((coach) => coach.id === goal.coachMode)?.en}</span><CaretDown size={15}/></summary><div className="coach-model-popover"><header><strong>{lang === "zh" ? "选择引导方式" : "Choose a guide"}</strong><small>{lang === "zh" ? "每条消息都可以随时切换" : "Switch for any message"}</small></header>{coachModes.map((coach) => <button type="button" className={goal.coachMode === coach.id ? "selected" : ""} key={coach.id} onClick={(event) => { setGoal((current) => ({ ...current, coachMode: coach.id })); event.currentTarget.closest("details")?.removeAttribute("open"); }}><span><strong>{lang === "zh" ? coach.zh : coach.en}</strong><small>{lang === "zh" ? coach.zhDescription : coach.enDescription}</small></span>{goal.coachMode === coach.id && <Check size={17} weight="bold"/>}</button>)}</div></details></div><button onClick={() => sendChat()} disabled={isTyping} aria-label={t.send}>↑</button></div>
         <p className="pet-checkin-hint">{checkedToday ? (lang === "zh" ? `今天已打卡，连续 ${streak} 天` : `Checked in today. ${streak}-day streak.`) : (lang === "zh" ? "点击右下角的面团完成今日打卡" : "Tap the dough in the corner to check in today.")}</p>
       </section>}
 
