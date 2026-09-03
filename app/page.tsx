@@ -608,11 +608,11 @@ export default function Home() {
   ][onboardingStep];
 
   if (!hydrated) {
-    return <main className="app-shell onboarding-shell" data-theme={dark ? "dark" : "light"}><div className="onboarding-loading" aria-label={lang === "zh" ? "正在打开 Already" : "Opening Already"}><span className="brand-mark"><Sparkle weight="fill" /></span><strong>Already</strong></div></main>;
+    return <main className="app-shell onboarding-shell" data-theme={dark ? "dark" : "light"} data-lang={lang}><div className="onboarding-loading" aria-label={lang === "zh" ? "正在打开 Already" : "Opening Already"}><span className="brand-mark"><Sparkle weight="fill" /></span><strong>Already</strong></div></main>;
   }
 
   if (!acknowledged) {
-    return <main className="app-shell acknowledge-shell" data-theme={dark ? "dark" : "light"}>
+    return <main className="app-shell acknowledge-shell" data-theme={dark ? "dark" : "light"} data-lang={lang}>
       <div className="app-grain" aria-hidden="true" />
       <section className="acknowledge-card">
         <span className="brand"><span className="brand-mark"><Sparkle weight="fill" /></span><strong>Already</strong></span>
@@ -632,7 +632,7 @@ export default function Home() {
     const steps = lang === "zh"
       ? ["语言", "你的称呼", "唯一愿望", "愿望焦点", "让我更懂你", "信念触发点", "陪伴方式", "确认"]
       : ["Language", "Your name", "One desire", "Desire focus", "Help me know you", "Belief triggers", "Companion style", "Confirm"];
-    return <main className="app-shell onboarding-shell" data-theme={dark ? "dark" : "light"}>
+    return <main className="app-shell onboarding-shell" data-theme={dark ? "dark" : "light"} data-lang={lang}>
       <div className="app-grain" aria-hidden="true" />
       <header className="onboarding-topbar"><span className="brand"><span className="brand-mark"><Sparkle weight="fill" /></span><strong>Already</strong></span><button className="theme-toggle" onClick={() => setDark((value) => !value)} aria-label={dark ? "Light" : "Dark"}>{dark ? <Sun size={17}/> : <Moon size={17}/>}</button></header>
       <section className="onboarding-view">
@@ -652,7 +652,7 @@ export default function Home() {
   }
 
   return (
-    <main className="app-shell" data-theme={dark ? "dark" : "light"}>
+    <main className="app-shell" data-theme={dark ? "dark" : "light"} data-lang={lang}>
       <div className="app-grain" aria-hidden="true" />
       <aside className="app-rail">
         <button className="brand" onClick={() => navigate("home")} aria-label="Already home"><span className="brand-mark"><Sparkle weight="fill" /></span><strong>Already</strong></button>

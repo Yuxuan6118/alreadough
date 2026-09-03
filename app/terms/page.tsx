@@ -17,7 +17,7 @@ export default function TermsPage() {
         <h2>终止与删除</h2>
         <p>你可以随时在“我的空间”导出或清除设备上的练习数据。正式账户系统上线后，将另行提供账户删除和云端数据处理机制。</p>
         <hr />
-        <p className="legal-en">Already is currently a private beta for adults 18 and over. It offers AI conversation, imaginative practice, stories, Revision, audio practice, and vision-board tools—not medical, therapy, legal, financial, or crisis services, and not a guarantee of any outcome or timing. Users must have the right to use uploaded content and may not use the product for unlawful, infringing, coercive, harassing, privacy-invasive, or harmful conduct. Final operator, billing, refund, jurisdiction, and contact terms will be added before public release.</p>
+        <p className="legal-en">Already is currently a private beta for adults 18 and over. It offers AI conversation, imaginative practice, stories, Revision, audio practice, and vision-board tools. It is not a medical, therapy, legal, financial, or crisis service, and it does not guarantee any outcome or timing. Users must have the right to use uploaded content and may not use the product for unlawful, infringing, coercive, harassing, privacy-invasive, or harmful conduct. Final operator, billing, refund, jurisdiction, and contact terms will be added before public release.</p>
       </article>
     </main>
   );

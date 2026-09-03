@@ -11,6 +11,24 @@
   --app-radius: 22px;
   --app-radius-control: 12px;
   --app-shadow: 0 24px 72px rgba(166, 95, 107, 0.09);
+  --type-display: 56px;
+  --type-h1: 48px;
+  --type-h2: 32px;
+  --type-h3: 24px;
+  --type-body: 16px;
+  --type-chat: 16px;
+  --type-button: 14px;
+  --type-nav: 14px;
+  --type-label: 12px;
+  --leading-display: 60px;
+  --leading-h1: 54px;
+  --leading-h2: 40px;
+  --leading-h3: 32px;
+  --leading-body: 27px;
+  --leading-chat: 28px;
+  --leading-label: 18px;
+  --content-reading: 720px;
+  --content-composer: 760px;
   --ink: var(--app-ink);
   --muted: var(--app-muted);
   --paper: var(--app-panel);
@@ -744,3 +762,159 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .legal-page p { color: var(--app-muted); font-size: 15px; line-height: 1.85; }
 .legal-page hr { margin: 44px 0; border: 0; border-top: 1px solid var(--app-line); }
 .legal-page .legal-en { font-family: Georgia,serif; }
+
+/* Already typography system: readable AI conversation, quieter chrome, bilingual spacing. */
+.app-shell { font-size: var(--type-body); line-height: var(--leading-body); }
+.app-shell[data-lang="zh"] { letter-spacing: 0; }
+.app-shell[data-lang="en"] .hero h1,
+.app-shell[data-lang="en"] .view-heading h1,
+.app-shell[data-lang="en"] .home-ai-welcome h1,
+.app-shell[data-lang="en"] .onboarding-panel h1 { letter-spacing: -.035em; }
+.app-shell[data-lang="zh"] .hero h1,
+.app-shell[data-lang="zh"] .view-heading h1,
+.app-shell[data-lang="zh"] .home-ai-welcome h1,
+.app-shell[data-lang="zh"] .onboarding-panel h1 { letter-spacing: -.015em; }
+
+.hero h1 { font-size: clamp(42px,4.3vw,var(--type-display)); line-height: var(--leading-display); }
+.view-heading h1,
+.acknowledge-card h1,
+.onboarding-panel h1 { font-size: clamp(38px,4vw,var(--type-h1)); line-height: var(--leading-h1); }
+.section h2 { font-size: clamp(28px,2.7vw,var(--type-h2)); line-height: var(--leading-h2); }
+.scene-copy h3,
+.session-summary h3,
+.duration-studio h3 { font-size: var(--type-h3); line-height: var(--leading-h3); }
+.hero-copy,
+.view-heading > p:last-child,
+.onboarding-panel > p,
+.acknowledge-card > p:not(.eyebrow),
+.studio-heading + p { font-size: var(--type-body); line-height: var(--leading-body); }
+
+.eyebrow,
+.soft-pill,
+.field-label,
+.editable-card label,
+.onboarding-panel label > span,
+.story-editor-modal label > span,
+.app-shell .sub-editor-core label,
+.app-shell .sub-editor-core legend,
+.app-shell .delivery-cards legend,
+.session-summary dt,
+.memory-overview span,
+.memory-library-grid header strong { font-size: var(--type-label); line-height: var(--leading-label); }
+.app-shell[data-lang="zh"] .eyebrow,
+.app-shell[data-lang="zh"] .soft-pill,
+.app-shell[data-lang="zh"] label,
+.app-shell[data-lang="zh"] dt { letter-spacing: 0; }
+.app-shell[data-lang="en"] .eyebrow,
+.app-shell[data-lang="en"] .soft-pill,
+.app-shell[data-lang="en"] dt { letter-spacing: .075em; }
+
+.rail-nav button,
+.rail-practice button,
+.rail-footer button { font-size: var(--type-nav); line-height: 20px; }
+.primary,
+.outline-button,
+.dark-button,
+.scene-copy button,
+.story-controls button,
+.search-bar button,
+.board-form button,
+.tutorial-button { font-size: var(--type-button); line-height: 20px; }
+
+.chat-view { width: min(var(--content-composer),100%); }
+.home-ai-view { width: min(var(--content-composer),calc(100% - 72px)); padding-top: 56px; }
+.home-ai-welcome h1 { font-size: clamp(42px,5vw,var(--type-display)); line-height: var(--leading-display); }
+.home-ai-welcome > p:last-child { max-width: 620px; font-size: var(--type-body); line-height: var(--leading-body); }
+.home-ai-thread,
+.messages { gap: 20px; }
+.home-ai-thread { width: 100%; margin-top: 60px; }
+.message { padding: 14px 18px; font-size: var(--type-chat); line-height: var(--leading-chat); }
+.message.ai { width: min(100%,var(--content-reading)); max-width: var(--content-reading); padding: 4px 2px 4px 0; border: 0; border-radius: 0; background: transparent; }
+.message.user { max-width: 76%; line-height: 26px; }
+.composer { min-height: 56px; grid-template-columns: minmax(0,1fr) 48px; padding: 8px; }
+.composer input { min-height: 40px; font-size: 16px; line-height: 24px; }
+.coach-model-menu > summary { font-size: 12px; line-height: 18px; }
+.home-composer { width: min(var(--content-composer),calc(100vw - 224px - 72px)); bottom: 32px; }
+.home-composer.is-empty { width: min(var(--content-composer),100%); }
+.home-ai-view.has-conversation { padding-top: 56px; }
+.home-suggestions button,
+.thought-chips button,
+.search-suggestions button { font-size: 12px; line-height: 18px; }
+
+.story-card-actions button,
+.story-library-card p,
+.board-card a,
+.board-card span,
+.search-results small,
+.studio-notice p,
+.studio-notice strong,
+.app-shell .track-main small,
+.sound-card-copy small,
+.sound-choose,
+.app-shell .audio-upload-help,
+.app-shell .audio-ready { font-size: 12px; line-height: 18px; }
+.story-card-actions button { min-height: 40px; padding: 9px 12px; }
+.story-library-card p { line-height: 20px; }
+.vision-mode-tabs button { min-height: 44px; font-size: 12px; line-height: 18px; }
+.search-bar input,
+.board-form input,
+.sound-search input { min-height: 48px; font-size: 16px; line-height: 24px; }
+.search-title small,
+.field-counter,
+.archive-card article small,
+.memory-card small { font-size: 12px; line-height: 18px; }
+
+.studio-heading { align-items: flex-start; }
+.studio-heading .view-heading { margin-bottom: 32px; }
+.app-shell .tutorial-button { min-height: 44px; padding: 0 15px; }
+.dreamscape-workspace { grid-template-columns: minmax(0,1.55fr) minmax(280px,.65fr); gap: 18px; margin-top: 8px; }
+.session-summary dt { letter-spacing: .04em; }
+.session-summary dd { font-size: 16px; line-height: 24px; }
+.app-shell .mini-timeline i,
+.app-shell .mini-timeline span { font-size: 11px; line-height: 18px; }
+.app-shell .track-main strong,
+.sound-card-copy strong { font-size: 14px; line-height: 20px; }
+.practice-progress small,
+.week-checks p,
+.week-checks span { font-size: 12px !important; line-height: 18px; }
+
+@media (max-width: 820px) {
+  :root {
+    --type-display: 36px;
+    --type-h1: 34px;
+    --type-h2: 26px;
+    --type-h3: 21px;
+    --leading-display: 40px;
+    --leading-h1: 40px;
+    --leading-h2: 34px;
+    --leading-h3: 28px;
+  }
+  .hero h1,
+  .view-heading h1,
+  .acknowledge-card h1,
+  .onboarding-panel h1,
+  .home-ai-welcome h1 { font-size: var(--type-h1); line-height: var(--leading-h1); }
+  .app-stage { padding-inline: 16px; }
+  .hero-copy,
+  .view-heading > p:last-child,
+  .home-ai-welcome > p:last-child,
+  .onboarding-panel > p { font-size: 16px; line-height: 27px; }
+  .home-ai-view { width: 100%; padding-top: 40px; }
+  .home-ai-view.has-conversation { padding-top: 40px; }
+  .home-ai-thread { margin-top: 40px; gap: 18px; }
+  .message { max-width: 86%; font-size: 16px; line-height: 28px; }
+  .message.ai { width: 100%; max-width: 100%; }
+  .message.user { max-width: 86%; line-height: 25px; }
+  .composer { left: 16px; right: 16px; min-height: 56px; }
+  .primary,
+  .outline-button,
+  .dark-button,
+  .search-bar button,
+  .board-form button,
+  .tutorial-button { font-size: 15px; line-height: 20px; }
+  .bottom-nav { height: calc(72px + env(safe-area-inset-bottom)); padding-inline: 10px; }
+  .bottom-nav button { min-height: 44px; gap: 2px; font-size: 11px; line-height: 16px; }
+  .bottom-nav button svg { width: 20px; height: 20px; }
+  .dreamscape-workspace { margin-top: 0; }
+  .session-summary { padding: 24px; }
+}
