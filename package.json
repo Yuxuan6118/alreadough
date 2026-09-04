@@ -18,7 +18,8 @@
     "ios:open": "cap open ios",
     "promo:studio": "remotion studio video/index.ts",
     "promo:render": "remotion render video/index.ts AlreaDoughPromo exports/alreadough-promo-v1.mp4 --codec=h264 --crf=18",
-    "eval:coaches": "tsx scripts/run-coach-eval.ts"
+    "eval:coaches": "tsx scripts/run-coach-eval.ts",
+    "eval:promptfoo": "promptfoo eval -c promptfooconfig.ts"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.1",
@@ -51,6 +52,7 @@
     "eslint-plugin-react": "7.37.5",
     "eslint-plugin-react-hooks": "7.1.1",
     "globals": "16.4.0",
+    "promptfoo": "^0.122.2",
     "react-server-dom-webpack": "19.2.6",
     "remotion": "^4.0.520",
     "tailwindcss": "4.2.1",

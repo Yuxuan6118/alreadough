@@ -601,7 +601,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .app-shell .affirmation-row button,
 .app-shell .vision-upload,
 .app-shell .vision-controls,
-.app-shell .vision-preview,
 .app-shell .frame-editor,
 .app-shell .audio-track,
 .app-shell .mix-options,
@@ -611,6 +610,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   border-color: var(--app-line) !important;
   color: var(--app-ink) !important;
   background: var(--app-panel) !important;
+}
+.app-shell .vision-preview {
+  border-color: var(--app-line) !important;
+  color: var(--app-ink) !important;
+  background: var(--vision-background,var(--app-panel)) !important;
 }
 .app-shell .sub-player-card,
 .app-shell .sub-editor fieldset button.selected,

@@ -14,15 +14,15 @@ async function render(path = "/") {
   );
 }
 
-test("renders the Already product shell and onboarding", async () => {
+test("renders the AlreaDough product shell and onboarding", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Already \| Your living desire space<\/title>/i);
-  assert.match(html, /Already/);
-  assert.match(html, /Opening Already|正在打开 Already/);
+  assert.match(html, /<title>AlreaDough \| Your living desire space<\/title>/i);
+  assert.match(html, /AlreaDough/);
+  assert.match(html, /Opening AlreaDough|正在打开 AlreaDough/);
   assert.doesNotMatch(html, /Your site is taking shape|Building your site/);
 });
 
@@ -75,4 +75,12 @@ test("shows one anonymous survey after ten minutes of active use", async () => {
   assert.match(page, /already-beta-survey-complete-v1/);
   assert.match(page, /eventType: "beta_survey"/);
   assert.doesNotMatch(page, /className="before-rating"|className="effect-rating"/);
+});
+
+test("keeps the chosen vision-board color connected to the live canvas", async () => {
+  const studio = await readFile(new URL("../app/components/VisionCanvasStudio.tsx", import.meta.url), "utf8");
+  const theme = await readFile(new URL("../app/already.css", import.meta.url), "utf8");
+  assert.match(studio, /"--vision-background": background/);
+  assert.match(studio, /vision-color-button" style=\{\{ backgroundColor: background/);
+  assert.match(theme, /\.app-shell \.vision-preview\s*\{[^}]*background:\s*var\(--vision-background,var\(--app-panel\)\)\s*!important/s);
 });
