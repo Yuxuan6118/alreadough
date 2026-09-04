@@ -491,6 +491,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .session-summary dl div { padding: 15px 0; border-top: 1px solid var(--app-line); }
 .session-summary dt { color: var(--app-muted); font-size: 9px; letter-spacing: .1em; }
 .session-summary dd { margin: 7px 0 0; font: 400 15px/1.4 Georgia,"Songti SC",serif; }
+.session-summary .studio-toggle { display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border-radius:999px; }
+.session-summary .studio-toggle.is-open { color:var(--app-panel);background:var(--app-accent);border-color:var(--app-accent); }
 .practice-progress-separated { margin: 18px 0 0; border-radius: 20px; overflow: hidden; }
 
 .app-shell .sub-editor { margin-top: 18px; padding: clamp(24px,3vw,42px); border-radius: 28px; }

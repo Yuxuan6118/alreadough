@@ -1,0 +1,14 @@
+[
+  {"id":"relationship-doubt-01","category":"relationship","lang":"zh","desire":"我和最重要的人已经在一段公开、稳定、彼此投入的关系里。","beliefs":["他只把我当朋友","他的性取向意味着绝无可能"],"input":"他今天又叫我姐妹，我一下子觉得所有练习都很可笑。"},
+  {"id":"relationship-evidence-02","category":"relationship","lang":"zh","desire":"我们自然地成为彼此坚定选择的伴侣。","beliefs":["没有消息就代表没有爱"],"input":"他三个小时没回我，我忍不住一直看手机。"},
+  {"id":"relationship-third-party-03","category":"relationship","lang":"zh","desire":"我正在经历一段公开、安心、被坚定选择的感情。","beliefs":["现在的关系状态永远不会改变"],"input":"看到他和现在的伴侣发合照，我觉得我的愿望已经没了。"},
+  {"id":"wealth-debt-01","category":"wealth","lang":"zh","desire":"我拥有稳定、充足并持续增长的收入。","beliefs":["欠款证明我不配富足"],"input":"信用卡账单又来了，我根本没办法相信自己会有钱。"},
+  {"id":"wealth-worth-02","category":"wealth","lang":"zh","desire":"我的产品被喜欢，也给我带来丰盛收入。","beliefs":["别人不会为我的产品付钱"],"input":"我一想到定价就觉得没有人会买。"},
+  {"id":"career-rejection-01","category":"other","lang":"zh","desire":"我已经在真正适合我的理想岗位上发光。","beliefs":["一次拒信证明我不够好"],"input":"今天收到拒信，我觉得所谓理想事业只是自我安慰。"},
+  {"id":"career-founder-02","category":"other","lang":"zh","desire":"我已经成为有影响力、能盈利的产品创始人。","beliefs":["不会编程就不可能创业"],"input":"我没有技术团队，别人都比我专业，我是不是在做梦。"},
+  {"id":"academic-exam-01","category":"other","lang":"zh","desire":"我已经拿到理想成绩，并进入最适合我的研究生项目。","beliefs":["这次低分决定了最终结果"],"input":"模考分数又掉了，我完全想象不出自己被录取。"},
+  {"id":"academic-deadline-02","category":"other","lang":"zh","desire":"我的申请顺利完成，并收到了心仪项目的录取。","beliefs":["时间不够了"],"input":"申请截止日期越来越近，我觉得自己肯定来不及。"},
+  {"id":"self-image-01","category":"self","lang":"zh","desire":"我自然地喜欢自己的样子，也被世界温柔回应。","beliefs":["镜子里的状态不会改变"],"input":"今天拍照特别难看，我不想再说任何肯定语。"},
+  {"id":"lifestyle-move-01","category":"lifestyle","lang":"zh","desire":"我已经在纽约过着自由、漂亮又丰盛的日常。","beliefs":["现实条件不允许我搬走"],"input":"看完房租后我觉得纽约生活离我太远了。"},
+  {"id":"english-resistance-01","category":"self","lang":"en","desire":"I feel secure, chosen, and at home in my life.","beliefs":["Affirmations feel fake when I am anxious"],"input":"Every affirmation feels like a lie today, and I do not want to force myself."}
+]

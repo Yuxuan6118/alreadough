@@ -15,7 +15,10 @@
     "db:generate": "drizzle-kit generate",
     "ios:add": "cap add ios",
     "ios:sync": "cap sync ios",
-    "ios:open": "cap open ios"
+    "ios:open": "cap open ios",
+    "promo:studio": "remotion studio video/index.ts",
+    "promo:render": "remotion render video/index.ts AlreaDoughPromo exports/alreadough-promo-v1.mp4 --codec=h264 --crf=18",
+    "eval:coaches": "tsx scripts/run-coach-eval.ts"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.1",
@@ -35,6 +38,7 @@
     "@eslint/js": "9.39.4",
     "@next/eslint-plugin-next": "16.2.6",
     "@openai/sites-vite-plugin": "0.1.0",
+    "@remotion/cli": "^4.0.520",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
@@ -48,6 +52,7 @@
     "eslint-plugin-react-hooks": "7.1.1",
     "globals": "16.4.0",
     "react-server-dom-webpack": "19.2.6",
+    "remotion": "^4.0.520",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
     "typescript-eslint": "8.59.3",

@@ -1,12 +1,14 @@
 "use client";
 
 import { ChangeEvent, CSSProperties, useEffect, useRef, useState } from "react";
+import { DownloadSimple, SlidersHorizontal, UploadSimple } from "@phosphor-icons/react";
 
 type Lang = "zh" | "en";
 type Layout = "editorial" | "grid" | "mosaic" | "film" | "scrapbook";
 type Ratio = "phone" | "square" | "landscape";
 type LocalImage = { id: string; name: string; url: string; zoom: number; x: number; y: number; rotate: number };
 type SavedVisionProject = { title: string; layout: Layout; ratio: Ratio; gap: number; corner: number; background: string; images: Array<Omit<LocalImage, "url">> };
+type FrameGeometry = { x: number; y: number; width: number; height: number; rotation?: number; border?: number };
 
 const VISION_DB = "already-private-vision-v1";
 const VISION_STORE = "images";
@@ -74,14 +76,70 @@ function roundedRect(context: CanvasRenderingContext2D, x: number, y: number, wi
   context.roundRect(x, y, width, height, safe);
 }
 
+function boardGeometry(ratio: Ratio) {
+  const [width, height] = sizes[ratio];
+  const margin = width * 0.045;
+  const heading = height * 0.12;
+  return { width, height, margin, heading, stageWidth: width - margin * 2, stageHeight: height - heading - margin };
+}
+
+function frameGeometry(layout: Layout, count: number, stageWidth: number, stageHeight: number, gap: number): FrameGeometry[] {
+  if (!count) return [];
+  if (count === 1) return [{ x: 0, y: 0, width: stageWidth, height: stageHeight }];
+  if (layout === "film") {
+    const frameHeight = (stageHeight - gap * (count - 1)) / count;
+    return Array.from({ length: count }, (_, index) => ({ x: 0, y: index * (frameHeight + gap), width: stageWidth, height: frameHeight, border: Math.max(5, stageWidth * 0.006) }));
+  }
+  if (layout === "editorial") {
+    const heroHeight = stageHeight * 0.54;
+    const rest = count - 1;
+    const columns = Math.min(2, rest);
+    const rows = Math.ceil(rest / columns);
+    const cellWidth = (stageWidth - gap * (columns - 1)) / columns;
+    const cellHeight = (stageHeight - heroHeight - gap - gap * (rows - 1)) / rows;
+    return [{ x: 0, y: 0, width: stageWidth, height: heroHeight }, ...Array.from({ length: rest }, (_, index) => {
+      const isLastAlone = rest % columns === 1 && index === rest - 1;
+      return { x: isLastAlone ? 0 : (index % columns) * (cellWidth + gap), y: heroHeight + gap + Math.floor(index / columns) * (cellHeight + gap), width: isLastAlone ? stageWidth : cellWidth, height: cellHeight };
+    })];
+  }
+  if (layout === "mosaic" && count <= 4) {
+    if (count === 2) return [
+      { x: 0, y: 0, width: stageWidth * 0.59 - gap / 2, height: stageHeight },
+      { x: stageWidth * 0.59 + gap / 2, y: 0, width: stageWidth * 0.41 - gap / 2, height: stageHeight },
+    ];
+    const leftWidth = stageWidth * 0.58 - gap / 2;
+    const rightX = leftWidth + gap;
+    const rightWidth = stageWidth - rightX;
+    const rightHeight = (stageHeight - gap) / 2;
+    const frames: FrameGeometry[] = [
+      { x: 0, y: 0, width: leftWidth, height: count === 4 ? stageHeight * 0.62 - gap / 2 : stageHeight },
+      { x: rightX, y: 0, width: rightWidth, height: rightHeight },
+      { x: rightX, y: rightHeight + gap, width: rightWidth, height: rightHeight },
+    ];
+    if (count === 4) frames.push({ x: 0, y: stageHeight * 0.62 + gap / 2, width: leftWidth, height: stageHeight * 0.38 - gap / 2 });
+    return frames;
+  }
+  if (layout === "scrapbook" && count <= 6) {
+    const placements = [
+      [0.01, 0.02, 0.57, 0.43, -4], [0.43, 0.17, 0.56, 0.42, 5], [0.06, 0.55, 0.55, 0.42, 2],
+      [0.42, 0.55, 0.53, 0.4, -3], [0.2, 0.31, 0.54, 0.4, 1], [0.36, 0.03, 0.54, 0.4, -2],
+    ];
+    return placements.slice(0, count).map(([x, y, width, height, rotation]) => ({ x: x * stageWidth, y: y * stageHeight, width: width * stageWidth, height: height * stageHeight, rotation, border: Math.max(7, stageWidth * 0.008) }));
+  }
+  const columns = Math.min(layout === "mosaic" || stageWidth > stageHeight ? 3 : 2, count);
+  const rows = Math.ceil(count / columns);
+  const cellWidth = (stageWidth - gap * (columns - 1)) / columns;
+  const cellHeight = (stageHeight - gap * (rows - 1)) / rows;
+  return Array.from({ length: count }, (_, index) => {
+    const isLastAlone = count % columns === 1 && index === count - 1;
+    return { x: isLastAlone ? 0 : (index % columns) * (cellWidth + gap), y: Math.floor(index / columns) * (cellHeight + gap), width: isLastAlone ? stageWidth : cellWidth, height: cellHeight };
+  });
+}
+
 function drawFrame(context: CanvasRenderingContext2D, image: HTMLImageElement, item: LocalImage, x: number, y: number, width: number, height: number, radius: number, frameRotation = 0, border = 0) {
   context.save();
   context.translate(x + width / 2, y + height / 2);
   context.rotate(frameRotation * Math.PI / 180);
-  if (border > 0) {
-    context.fillStyle = "#f8f1eb";
-    context.fillRect(-width / 2 - border, -height / 2 - border, width + border * 2, height + border * 2);
-  }
   roundedRect(context, -width / 2, -height / 2, width, height, radius);
   context.clip();
   context.translate((item.x / 100) * width, (item.y / 100) * height);
@@ -91,6 +149,16 @@ function drawFrame(context: CanvasRenderingContext2D, image: HTMLImageElement, i
   const drawnHeight = image.naturalHeight * scale;
   context.drawImage(image, -drawnWidth / 2, -drawnHeight / 2, drawnWidth, drawnHeight);
   context.restore();
+  if (border > 0) {
+    context.save();
+    context.translate(x + width / 2, y + height / 2);
+    context.rotate(frameRotation * Math.PI / 180);
+    roundedRect(context, -width / 2 + border / 2, -height / 2 + border / 2, width - border, height - border, Math.max(0, radius - border / 2));
+    context.strokeStyle = "#f8f1eb";
+    context.lineWidth = border;
+    context.stroke();
+    context.restore();
+  }
 }
 
 export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
@@ -152,7 +220,7 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
   const [selectedId, setSelectedId] = useState("");
   const [draggedId, setDraggedId] = useState("");
   const [gap, setGap] = useState(5);
-  const [corner, setCorner] = useState(0);
+  const [corner, setCorner] = useState(18);
   const [background, setBackground] = useState("#eee3da");
   const imagesRef = useRef<LocalImage[]>([]);
 
@@ -221,51 +289,22 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
 
   const exportBoard = async () => {
     if (!images.length) return;
-    const [width, height] = sizes[ratio];
+    const { width, height, margin, heading, stageWidth, stageHeight } = boardGeometry(ratio);
     const canvas = document.createElement("canvas");
     canvas.width = width; canvas.height = height;
     const context = canvas.getContext("2d");
     if (!context) return;
     context.fillStyle = background; context.fillRect(0, 0, width, height);
-    const margin = Math.round(width * 0.045);
-    const exportGap = Math.round((gap / 500) * width);
+    const exportGap = (gap / 500) * width;
     const exportCorner = Math.round((corner / 500) * width);
-    const heading = Math.round(height * 0.12);
     context.fillStyle = "#493630";
     context.font = `500 ${Math.round(width * 0.052)}px Georgia, serif`;
     context.textAlign = "center";
     context.fillText(title || "AlreaDough", width / 2, heading * 0.58, width - margin * 2);
     const loaded = await Promise.all(images.map((item) => loadImage(item.url)));
-    const top = heading;
-    const availableHeight = height - top - margin;
-    if (layout === "editorial" && loaded.length > 1) {
-      const heroHeight = availableHeight * 0.5;
-      drawFrame(context, loaded[0], images[0], margin, top, width - margin * 2, heroHeight, exportCorner);
-      const rest = loaded.slice(1);
-      const cols = Math.min(3, rest.length);
-      const rows = Math.ceil(rest.length / cols);
-      const cellWidth = (width - margin * 2 - exportGap * (cols - 1)) / cols;
-      const cellHeight = (availableHeight - heroHeight - exportGap - exportGap * (rows - 1)) / rows;
-      rest.forEach((image, index) => drawFrame(context, image, images[index + 1], margin + (index % cols) * (cellWidth + exportGap), top + heroHeight + exportGap + Math.floor(index / cols) * (cellHeight + exportGap), cellWidth, cellHeight, exportCorner));
-    } else if (layout === "scrapbook") {
-      const positions = [
-        [0.02, 0.02, -4], [0.43, 0.2, 5], [0.08, 0.56, 2], [0.39, 0.53, -3], [0.18, 0.3, 1], [0.4, 0.05, -2],
-      ];
-      const cellWidth = (width - margin * 2) * 0.55;
-      const cellHeight = availableHeight * 0.42;
-      loaded.slice(0, 6).forEach((image, index) => {
-        const [left, vertical, rotation] = positions[index];
-        drawFrame(context, image, images[index], margin + left * (width - margin * 2), top + vertical * availableHeight, cellWidth, cellHeight, exportCorner, rotation, Math.max(8, width * 0.008));
-      });
-    } else {
-      const cols = layout === "mosaic" ? 2 : Math.min(ratio === "landscape" ? 4 : 3, Math.ceil(Math.sqrt(loaded.length)));
-      const rows = Math.ceil(loaded.length / cols);
-      const filmBorder = layout === "film" ? Math.max(8, width * 0.006) : 0;
-      if (layout === "film") { context.fillStyle = "#211b19"; context.fillRect(margin, top, width - margin * 2, availableHeight); }
-      const cellWidth = (width - margin * 2 - exportGap * (cols - 1) - filmBorder * 2) / cols;
-      const cellHeight = (availableHeight - exportGap * (rows - 1) - filmBorder * 2) / rows;
-      loaded.forEach((image, index) => drawFrame(context, image, images[index], margin + filmBorder + (index % cols) * (cellWidth + exportGap), top + filmBorder + Math.floor(index / cols) * (cellHeight + exportGap), cellWidth, cellHeight, exportCorner, 0, filmBorder));
-    }
+    if (layout === "film") { context.fillStyle = "#211b19"; roundedRect(context, margin, heading, stageWidth, stageHeight, exportCorner); context.fill(); }
+    const frames = frameGeometry(layout, loaded.length, stageWidth, stageHeight, exportGap);
+    frames.forEach((frame, index) => drawFrame(context, loaded[index], images[index], margin + frame.x, heading + frame.y, frame.width, frame.height, exportCorner, frame.rotation || 0, frame.border || 0));
     canvas.toBlob((blob) => {
       if (!blob) return;
       const link = document.createElement("a");
@@ -276,22 +315,29 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
     }, "image/png");
   };
 
+  const metrics = boardGeometry(ratio);
+  const previewGap = (gap / 500) * metrics.width;
+  const previewFrames = frameGeometry(layout, images.length, metrics.stageWidth, metrics.stageHeight, previewGap);
+  const previewStyle = (frame: FrameGeometry): CSSProperties => ({
+    left: `${(frame.x / metrics.stageWidth) * 100}%`, top: `${(frame.y / metrics.stageHeight) * 100}%`, width: `${(frame.width / metrics.stageWidth) * 100}%`, height: `${(frame.height / metrics.stageHeight) * 100}%`, transform: `rotate(${frame.rotation || 0}deg)`, borderWidth: frame.border ? `${Math.max(3, (frame.border / metrics.stageWidth) * 420)}px` : undefined,
+  });
+
   return <div className="vision-maker">
     <div className="vision-maker-heading"><h2>{copy.title}</h2><p>{copy.subtitle}</p></div>
-    <label className="vision-upload">＋ {copy.upload}<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={addImages}/><small>{copy.uploadHint}</small></label>
+    <label className="vision-upload"><UploadSimple size={20}/><span>{copy.upload}</span><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={addImages}/><small>{copy.uploadHint}</small></label>
     {!images.length && <div className="vision-first-step"><strong>{copy.quickSetup}</strong><span>{lang === "zh" ? "推荐从 4 至 8 张照片开始" : "Start with 4 to 8 photos"}</span></div>}
     {images.length > 0 && <div className="vision-controls">
       <label>{copy.boardTitle}<input value={title} onChange={(event) => setTitle(event.target.value)}/></label>
       <fieldset><legend>{copy.layout}</legend>{(["editorial", "grid", "mosaic", "film", "scrapbook"] as const).map((value) => <button className={layout === value ? "selected" : ""} key={value} onClick={() => setLayout(value)}>{copy.layouts[value]}</button>)}</fieldset>
       <fieldset><legend>{copy.ratio}</legend>{(["phone", "square", "landscape"] as const).map((value) => <button className={ratio === value ? "selected" : ""} key={value} onClick={() => setRatio(value)}>{copy.ratios[value]}</button>)}</fieldset>
-      <details className="vision-advanced"><summary>{copy.advanced}</summary><div className="collage-style-controls"><label>{copy.gap}<input type="range" min="0" max="16" value={gap} onChange={(event) => setGap(Number(event.target.value))}/></label><label>{copy.corner}<input type="range" min="0" max="30" value={corner} onChange={(event) => setCorner(Number(event.target.value))}/></label><label>{copy.background}<input type="color" value={background} aria-label={copy.background} onChange={(event) => setBackground(event.target.value)}/></label></div></details>
+      <details className="vision-advanced"><summary><SlidersHorizontal size={16}/>{copy.advanced}</summary><div className="collage-style-controls"><label>{copy.gap}<input type="range" min="0" max="16" value={gap} onChange={(event) => setGap(Number(event.target.value))}/></label><label>{copy.corner}<input type="range" min="0" max="30" value={corner} onChange={(event) => setCorner(Number(event.target.value))}/></label><label>{copy.background}<input type="color" value={background} aria-label={copy.background} onChange={(event) => setBackground(event.target.value)}/></label></div></details>
     </div>}
     {images.length > 0 && <p className="drag-hint">{copy.dragHint}</p>}
-    {images.length > 0 && <div className={`vision-preview ${layout} ${ratio}`} style={{ background, "--vision-gap": `${gap}px`, "--vision-corner": `${corner}px` } as CSSProperties}>
+    {images.length > 0 && <div className={`vision-preview ${layout} ${ratio}`} style={{ background, "--vision-corner": `${corner}px` } as CSSProperties}>
       <h3>{title}</h3>
-      <div>{images.map((item) => <div role="button" tabIndex={0} aria-label={`${copy.selected}: ${item.name}`} className={`vision-frame ${selectedId === item.id ? "selected" : ""}`} draggable key={item.id} onDragStart={() => setDraggedId(item.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => reorder(item.id)} onClick={() => setSelectedId(item.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedId(item.id); }}><img src={item.url} alt={item.name} style={{ transform: `translate(${item.x}%, ${item.y}%) scale(${item.zoom}) rotate(${item.rotate}deg)` }}/><button onClick={(event) => { event.stopPropagation(); removeImage(item.id); }} aria-label={`${copy.remove} ${item.name}`}>×</button></div>)}</div>
+      <div className="vision-stage">{images.map((item, index) => <div role="button" tabIndex={0} style={previewStyle(previewFrames[index])} aria-label={`${copy.selected}: ${item.name}`} className={`vision-frame ${selectedId === item.id ? "selected" : ""}`} draggable key={item.id} onDragStart={() => setDraggedId(item.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => reorder(item.id)} onClick={() => setSelectedId(item.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedId(item.id); }}><img src={item.url} alt={item.name} style={{ transform: `translate(${item.x}%, ${item.y}%) rotate(${item.rotate}deg) scale(${item.zoom})` }}/><button onClick={(event) => { event.stopPropagation(); removeImage(item.id); }} aria-label={`${copy.remove} ${item.name}`}>×</button></div>)}</div>
     </div>}
     {selected && <div className="frame-editor"><div><span>{copy.selected}</span><strong>{selected.name}</strong></div><label>{copy.zoom}<input type="range" min="1" max="2.5" step="0.05" value={selected.zoom} onChange={(event) => updateSelected({ zoom: Number(event.target.value) })}/></label><label>{copy.horizontal}<input type="range" min="-35" max="35" value={selected.x} onChange={(event) => updateSelected({ x: Number(event.target.value) })}/></label><label>{copy.vertical}<input type="range" min="-35" max="35" value={selected.y} onChange={(event) => updateSelected({ y: Number(event.target.value) })}/></label><label>{copy.rotate}<input type="range" min="-12" max="12" value={selected.rotate} onChange={(event) => updateSelected({ rotate: Number(event.target.value) })}/></label></div>}
-    <button className="primary" disabled={!images.length} onClick={exportBoard}>{copy.export}</button>
+    <button className="primary vision-export" disabled={!images.length} onClick={exportBoard}><DownloadSimple size={18}/>{copy.export}</button>
   </div>;
 }

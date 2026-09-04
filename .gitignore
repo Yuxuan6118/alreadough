@@ -40,5 +40,6 @@ yarn-error.log*
 /output/
 /outputs/
 /work/
+/exports/
 /outputs/
 /work/
