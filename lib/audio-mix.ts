@@ -1,4 +1,4 @@
-export type TrackEdit = { delay: number; trimStart: number; trimEnd: number; fadeIn: number; fadeOut: number };
+export type TrackEdit = { fadeIn: number; fadeOut: number };
 
 type MixTrack = { url: string; volume: number; rate?: number; loop: boolean; edit: TrackEdit };
 type MixOptions = { durationSeconds: number; voice?: MixTrack; music?: MixTrack; ambience?: MixTrack; generatedAmbience?: "rain" | "brown" | "ocean" };
@@ -14,23 +14,19 @@ function connectTrack(context: OfflineAudioContext, buffer: AudioBuffer, track: 
   const gain = context.createGain();
   source.buffer = buffer;
   source.playbackRate.value = track.rate || 1;
-  const start = Math.max(0, Math.min(track.edit.trimStart, buffer.duration - 0.05));
-  const end = Math.max(start + 0.05, buffer.duration - Math.max(0, track.edit.trimEnd));
   source.loop = track.loop;
-  source.loopStart = start;
-  source.loopEnd = end;
-  const delay = Math.max(0, Math.min(track.edit.delay, duration - 0.05));
-  const active = Math.max(0.05, duration - delay);
+  source.loopStart = 0;
+  source.loopEnd = buffer.duration;
   const volume = Math.max(0, Math.min(1, track.volume));
-  gain.gain.setValueAtTime(track.edit.fadeIn > 0 ? 0 : volume, delay);
-  if (track.edit.fadeIn > 0) gain.gain.linearRampToValueAtTime(volume, Math.min(duration, delay + track.edit.fadeIn));
+  gain.gain.setValueAtTime(track.edit.fadeIn > 0 ? 0 : volume, 0);
+  if (track.edit.fadeIn > 0) gain.gain.linearRampToValueAtTime(volume, Math.min(duration, track.edit.fadeIn));
   if (track.edit.fadeOut > 0) {
-    gain.gain.setValueAtTime(volume, Math.max(delay, duration - track.edit.fadeOut));
+    gain.gain.setValueAtTime(volume, Math.max(0, duration - track.edit.fadeOut));
     gain.gain.linearRampToValueAtTime(0, duration);
   }
   source.connect(gain).connect(context.destination);
-  source.start(delay, start);
-  source.stop(delay + active);
+  source.start(0);
+  source.stop(duration);
 }
 
 function connectGeneratedAmbience(context: OfflineAudioContext, kind: "rain" | "brown" | "ocean", duration: number, volume: number) {

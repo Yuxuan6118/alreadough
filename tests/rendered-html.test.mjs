@@ -92,3 +92,13 @@ test("shows only one primary memory action in each memory-library state", async 
   assert.match(page, /memory-filter-empty/);
   assert.match(page, /setMemoryFilter\("all"\)/);
 });
+
+test("keeps only fade controls in the lightweight audio editor", async () => {
+  const studio = await readFile(new URL("../app/components/SubliminalStudio.tsx", import.meta.url), "utf8");
+  const mixer = await readFile(new URL("../lib/audio-mix.ts", import.meta.url), "utf8");
+  for (const removed of ["开始位置", "裁掉开头", "裁掉结尾", "Start position", "Trim start", "Trim end"]) {
+    assert.doesNotMatch(studio, new RegExp(removed));
+  }
+  assert.doesNotMatch(mixer, /delay|trimStart|trimEnd/);
+  assert.match(studio, /\["fadeIn", copy\.fadeIn\], \["fadeOut", copy\.fadeOut\]/);
+});

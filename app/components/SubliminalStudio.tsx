@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
-import { DownloadSimple, Pause, Play, Scissors, X } from "@phosphor-icons/react";
+import { DownloadSimple, Pause, Play, X } from "@phosphor-icons/react";
 import { renderSubMix, type TrackEdit } from "@/lib/audio-mix";
 
 export type PracticeCheckIn = {
@@ -122,7 +122,7 @@ export function practiceStreak(checkIns: PracticeCheckIn[]) {
   return streak;
 }
 
-const blankEdit: TrackEdit = { delay: 0, trimStart: 0, trimEnd: 0, fadeIn: 1, fadeOut: 2 };
+const blankEdit: TrackEdit = { fadeIn: 1, fadeOut: 2 };
 
 function WaveformStrip({ seed, active }: { seed: string; active: boolean }) {
   const bars = useMemo(() => Array.from({ length: 52 }, (_, index) => {
@@ -220,10 +220,7 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
     rightsNeeded: "请先确认你拥有音频使用权，或仅将它用于法律允许的私人用途。",
     sessionOnly: "上传和录制的音频会加密式地留在这个浏览器的本机存储中，不上传服务器；清除网站数据会同时删除它们。",
     timeline: "时间线",
-    trim: "裁剪与淡入淡出",
-    delay: "开始位置",
-    trimStart: "裁掉开头",
-    trimEnd: "裁掉结尾",
+    trim: "声音渐变",
     fadeIn: "淡入",
     fadeOut: "淡出",
     seconds: "秒",
@@ -313,10 +310,7 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
     rightsNeeded: "Confirm that you have the right to use this audio or will use it only as privately permitted by law.",
     sessionOnly: "Recorded and uploaded audio stays in this browser's on-device storage and is never uploaded. Clearing site data also removes it.",
     timeline: "TIMELINE",
-    trim: "Trim & fades",
-    delay: "Start position",
-    trimStart: "Trim start",
-    trimEnd: "Trim end",
+    trim: "Sound fades",
     fadeIn: "Fade in",
     fadeOut: "Fade out",
     seconds: "sec",
@@ -724,9 +718,9 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
     void deleteAudioTrack(kind);
   };
 
-  const editControl = (edit: TrackEdit, setEdit: (value: TrackEdit) => void) => <section className="track-edit"><header><Scissors size={16}/><strong>{copy.trim}</strong></header><div>{([
-    ["delay", copy.delay], ["trimStart", copy.trimStart], ["trimEnd", copy.trimEnd], ["fadeIn", copy.fadeIn], ["fadeOut", copy.fadeOut],
-  ] as const).map(([key, label]) => <label className={key === "fadeIn" || key === "fadeOut" ? "fade-control" : ""} key={key}><span>{label}</span><input aria-label={label} type="range" min="0" max="60" step="0.5" value={edit[key]} onChange={(event) => setEdit({ ...edit, [key]: Math.max(0, Math.min(60, Number(event.target.value))) })}/><b>{edit[key].toFixed(1)} {copy.seconds}</b></label>)}</div></section>;
+  const editControl = (edit: TrackEdit, setEdit: (value: TrackEdit) => void) => <section className="track-edit"><header><strong>{copy.trim}</strong></header><div>{([
+    ["fadeIn", copy.fadeIn], ["fadeOut", copy.fadeOut],
+  ] as const).map(([key, label]) => <label className="fade-control" key={key}><span>{label}</span><input aria-label={label} type="range" min="0" max="60" step="0.5" value={edit[key]} onChange={(event) => setEdit({ ...edit, [key]: Math.max(0, Math.min(60, Number(event.target.value))) })}/><b>{edit[key].toFixed(1)} {copy.seconds}</b></label>)}</div></section>;
 
   const exportMix = async () => {
     if (!voiceUrl) { setAudioError(copy.exportNeedsVoice); return; }
