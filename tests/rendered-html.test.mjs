@@ -106,6 +106,7 @@ test("keeps only fade controls in the lightweight audio editor", async () => {
 test("does not presume that a new user's desire is romantic", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const studio = await readFile(new URL("../app/components/SubliminalStudio.tsx", import.meta.url), "utf8");
+  const studioDefaults = studio.slice(studio.indexOf("const defaults"), studio.indexOf("function timeLabel"));
 
   for (const romanticDefault of [
     "他很久没有回复",
@@ -126,7 +127,7 @@ test("does not presume that a new user's desire is romantic", async () => {
     "Our relationship is secure",
     "被选择很真实",
     "Being chosen feels real",
-  ]) assert.doesNotMatch(studio, new RegExp(romanticDefault));
+  ]) assert.doesNotMatch(studioDefaults, new RegExp(romanticDefault));
 
   assert.match(page, /wishCategory: "other"/);
   assert.match(page, /一个结果、消息或眼前情况/);
@@ -134,4 +135,5 @@ test("does not presume that a new user's desire is romantic", async () => {
   assert.match(page, /拥有它已经是我熟悉的日常/);
   assert.match(studio, /我的愿望已经实现/);
   assert.match(studio, /My Desire Is Already Mine/);
+  assert.match(studio, /replaceLegacyRomanticTemplate/);
 });

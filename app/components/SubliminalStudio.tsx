@@ -106,6 +106,22 @@ function timeLabel(total: number) {
   return `${minutes}:${seconds}`;
 }
 
+function replaceLegacyRomanticTemplate(profile: SavedSub) {
+  const legacyTemplates: Record<Lang, Pick<SavedSub, "title" | "affirmations">> = {
+    zh: { title: "我被坚定选择", affirmations: ["我自然地被爱、被选择、被珍惜。", "我们的关系稳定、浪漫，并且充满宠爱。", "丰盛和爱已经是我最熟悉的日常。"] },
+    en: { title: "I Am Fully Chosen", affirmations: ["I am naturally loved, chosen, and cherished.", "Our relationship is secure, romantic, and deeply devoted.", "Love and abundance are my most familiar everyday experience."] },
+  };
+  const legacyLanguage = (Object.keys(legacyTemplates) as Lang[]).find((candidate) => {
+    const legacy = legacyTemplates[candidate];
+    return profile.title === legacy.title
+      && profile.affirmations.length === legacy.affirmations.length
+      && profile.affirmations.every((line, index) => line === legacy.affirmations[index]);
+  });
+  return legacyLanguage
+    ? { ...profile, title: defaults[legacyLanguage].title, affirmations: [...defaults[legacyLanguage].affirmations] }
+    : profile;
+}
+
 export function todayKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
@@ -377,13 +393,15 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
       if (saved) {
         const parsed = JSON.parse(saved) as SavedSub;
         if (parsed.title && Array.isArray(parsed.affirmations)) {
+          const restored = replaceLegacyRomanticTemplate(parsed);
+          if (restored !== parsed) localStorage.setItem("already-subliminal-v1", JSON.stringify(restored));
           // Restore the private, device-local practice after the component mounts.
           // eslint-disable-next-line react-hooks/set-state-in-effect
-          setProfile(parsed);
-          setLibrarySound(parsed.librarySound || null);
-          setSecondsLeft(parsed.duration * 60);
-          setDurationHours(Math.floor(parsed.duration / 60));
-          setDurationMinutes(parsed.duration % 60);
+          setProfile(restored);
+          setLibrarySound(restored.librarySound || null);
+          setSecondsLeft(restored.duration * 60);
+          setDurationHours(Math.floor(restored.duration / 60));
+          setDurationMinutes(restored.duration % 60);
         }
       }
     } catch { /* start with the gentle default */ }
