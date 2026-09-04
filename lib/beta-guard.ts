@@ -22,7 +22,7 @@ export async function ensureBetaTables() {
     `CREATE TABLE IF NOT EXISTS beta_users (user_id TEXT PRIMARY KEY NOT NULL, started_at TEXT NOT NULL, expires_at TEXT NOT NULL, total_requests INTEGER NOT NULL DEFAULT 0, total_tokens INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, last_seen_at TEXT NOT NULL)`,
     `CREATE TABLE IF NOT EXISTS beta_usage_daily (user_id TEXT NOT NULL, usage_date TEXT NOT NULL, request_count INTEGER NOT NULL DEFAULT 0, chat_requests INTEGER NOT NULL DEFAULT 0, revision_requests INTEGER NOT NULL DEFAULT 0, story_requests INTEGER NOT NULL DEFAULT 0, input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0, total_tokens INTEGER NOT NULL DEFAULT 0, failed_requests INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL, PRIMARY KEY (user_id, usage_date))`,
     `CREATE TABLE IF NOT EXISTS beta_global_daily (usage_date TEXT PRIMARY KEY NOT NULL, request_count INTEGER NOT NULL DEFAULT 0, total_tokens INTEGER NOT NULL DEFAULT 0, failed_requests INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL)`,
-    `CREATE TABLE IF NOT EXISTS beta_events (id TEXT PRIMARY KEY NOT NULL, user_hash TEXT NOT NULL, event_type TEXT NOT NULL, mode TEXT, wish_category TEXT, coach_mode TEXT, prompt_version TEXT, feedback TEXT, rating_before INTEGER, rating_after INTEGER, input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0, total_tokens INTEGER NOT NULL DEFAULT 0, latency_ms INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL)`,
+    `CREATE TABLE IF NOT EXISTS beta_events (id TEXT PRIMARY KEY NOT NULL, user_hash TEXT NOT NULL, event_type TEXT NOT NULL, mode TEXT, wish_category TEXT, coach_mode TEXT, language TEXT, prompt_version TEXT, feedback TEXT, rating_before INTEGER, rating_after INTEGER, duration_seconds INTEGER NOT NULL DEFAULT 0, input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0, total_tokens INTEGER NOT NULL DEFAULT 0, latency_ms INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL)`,
     `CREATE TABLE IF NOT EXISTS beta_settings (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL, updated_at TEXT NOT NULL)`,
     `CREATE TABLE IF NOT EXISTS beta_request_reservations (id TEXT PRIMARY KEY NOT NULL, user_id TEXT NOT NULL, user_hash TEXT NOT NULL, usage_date TEXT NOT NULL, mode TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'reserved', created_at TEXT NOT NULL, settled_at TEXT)`,
     `CREATE INDEX IF NOT EXISTS beta_events_created_idx ON beta_events(created_at)`,
@@ -30,6 +30,10 @@ export async function ensureBetaTables() {
     `CREATE INDEX IF NOT EXISTS beta_reservations_user_idx ON beta_request_reservations(user_id, created_at)`,
   ];
   for (const sql of statements) await env.DB.prepare(sql).run();
+  const columns = await env.DB.prepare("PRAGMA table_info(beta_events)").all<{ name: string }>();
+  const names = new Set((columns.results || []).map((column) => column.name));
+  if (!names.has("language")) await env.DB.prepare("ALTER TABLE beta_events ADD COLUMN language TEXT").run().catch(() => null);
+  if (!names.has("duration_seconds")) await env.DB.prepare("ALTER TABLE beta_events ADD COLUMN duration_seconds INTEGER NOT NULL DEFAULT 0").run().catch(() => null);
 }
 
 function dayKey(date = new Date()) { return date.toISOString().slice(0, 10); }
@@ -144,7 +148,7 @@ export async function beginBetaRequest(request: Request, sessionId: string, mode
   }
 }
 
-export async function settleBetaRequest(ticket: BetaTicket, usage: TokenUsage, metadata: { wishCategory?: string; coachMode?: string; success: boolean; latencyMs: number; failureCode?: string }) {
+export async function settleBetaRequest(ticket: BetaTicket, usage: TokenUsage, metadata: { wishCategory?: string; coachMode?: string; language?: string; success: boolean; latencyMs: number; failureCode?: string }) {
   const input = Math.max(0, usage?.input_tokens || 0), output = Math.max(0, usage?.output_tokens || 0), total = Math.max(0, usage?.total_tokens || input + output);
   const now = new Date().toISOString();
   const stillReserved = "EXISTS (SELECT 1 FROM beta_request_reservations WHERE id = ? AND status = 'reserved')";
@@ -154,7 +158,7 @@ export async function settleBetaRequest(ticket: BetaTicket, usage: TokenUsage, m
       env.DB.prepare(`UPDATE beta_usage_daily SET input_tokens = input_tokens + ?, output_tokens = output_tokens + ?, total_tokens = total_tokens + ?, updated_at = ? WHERE user_id = ? AND usage_date = ? AND ${stillReserved}`).bind(input, output, total, now, ticket.userId, ticket.day, ticket.reservationId),
       env.DB.prepare(`UPDATE beta_users SET total_tokens = total_tokens + ? WHERE user_id = ? AND ${stillReserved}`).bind(total, ticket.userId, ticket.reservationId),
       env.DB.prepare(`UPDATE beta_global_daily SET total_tokens = total_tokens + ?, updated_at = ? WHERE usage_date = ? AND ${stillReserved}`).bind(total, now, ticket.day, ticket.reservationId),
-      env.DB.prepare(`INSERT INTO beta_events (id, user_hash, event_type, mode, wish_category, coach_mode, prompt_version, input_tokens, output_tokens, total_tokens, latency_ms, created_at) SELECT ?, ?, 'ai_response', ?, ?, ?, 'v1', ?, ?, ?, ?, ? WHERE ${stillReserved}`).bind(crypto.randomUUID(), ticket.userHash, ticket.mode, metadata.wishCategory || null, metadata.coachMode || null, input, output, total, metadata.latencyMs, now, ticket.reservationId),
+      env.DB.prepare(`INSERT INTO beta_events (id, user_hash, event_type, mode, wish_category, coach_mode, language, prompt_version, input_tokens, output_tokens, total_tokens, latency_ms, created_at) SELECT ?, ?, 'ai_response', ?, ?, ?, ?, 'v1', ?, ?, ?, ?, ? WHERE ${stillReserved}`).bind(crypto.randomUUID(), ticket.userHash, ticket.mode, metadata.wishCategory || null, metadata.coachMode || null, metadata.language || null, input, output, total, metadata.latencyMs, now, ticket.reservationId),
       env.DB.prepare("UPDATE beta_request_reservations SET status = 'settled', settled_at = ? WHERE id = ? AND status = 'reserved'").bind(now, ticket.reservationId),
     ]);
     return;
@@ -163,38 +167,44 @@ export async function settleBetaRequest(ticket: BetaTicket, usage: TokenUsage, m
     env.DB.prepare(`UPDATE beta_usage_daily SET request_count = MAX(0, request_count - 1), ${mode} = MAX(0, ${mode} - 1), input_tokens = input_tokens + ?, output_tokens = output_tokens + ?, total_tokens = total_tokens + ?, failed_requests = failed_requests + 1, updated_at = ? WHERE user_id = ? AND usage_date = ? AND ${stillReserved}`).bind(input, output, total, now, ticket.userId, ticket.day, ticket.reservationId),
     env.DB.prepare(`UPDATE beta_users SET total_requests = MAX(0, total_requests - 1), total_tokens = total_tokens + ? WHERE user_id = ? AND ${stillReserved}`).bind(total, ticket.userId, ticket.reservationId),
     env.DB.prepare(`UPDATE beta_global_daily SET request_count = MAX(0, request_count - 1), total_tokens = total_tokens + ?, failed_requests = failed_requests + 1, updated_at = ? WHERE usage_date = ? AND ${stillReserved}`).bind(total, now, ticket.day, ticket.reservationId),
-    env.DB.prepare(`INSERT INTO beta_events (id, user_hash, event_type, mode, wish_category, coach_mode, prompt_version, feedback, input_tokens, output_tokens, total_tokens, latency_ms, created_at) SELECT ?, ?, 'ai_failure', ?, ?, ?, 'v1', ?, ?, ?, ?, ?, ? WHERE ${stillReserved}`).bind(crypto.randomUUID(), ticket.userHash, ticket.mode, metadata.wishCategory || null, metadata.coachMode || null, metadata.failureCode?.slice(0, 80) || "unknown", input, output, total, metadata.latencyMs, now, ticket.reservationId),
+    env.DB.prepare(`INSERT INTO beta_events (id, user_hash, event_type, mode, wish_category, coach_mode, language, prompt_version, feedback, input_tokens, output_tokens, total_tokens, latency_ms, created_at) SELECT ?, ?, 'ai_failure', ?, ?, ?, ?, 'v1', ?, ?, ?, ?, ?, ? WHERE ${stillReserved}`).bind(crypto.randomUUID(), ticket.userHash, ticket.mode, metadata.wishCategory || null, metadata.coachMode || null, metadata.language || null, metadata.failureCode?.slice(0, 80) || "unknown", input, output, total, metadata.latencyMs, now, ticket.reservationId),
     env.DB.prepare("UPDATE beta_request_reservations SET status = 'released', settled_at = ? WHERE id = ? AND status = 'reserved'").bind(now, ticket.reservationId),
   ]);
 }
 
-export async function recordAnonymousEvent(request: Request, sessionId: string, event: { eventType: string; mode?: string; wishCategory?: string; coachMode?: string; feedback?: string; ratingBefore?: number; ratingAfter?: number }) {
+export async function recordAnonymousEvent(request: Request, sessionId: string, event: { eventType: string; mode?: string; wishCategory?: string; coachMode?: string; language?: string; feedback?: string; ratingBefore?: number; ratingAfter?: number; durationSeconds?: number }) {
   await ensureBetaTables();
   const userId = requestIdentity(request, sessionId);
   if (!userId) return false;
-  const allowedTypes = new Set(["reply_feedback", "state_rating", "practice_checkin", "beta_survey"]);
+  const allowedTypes = new Set(["reply_feedback", "state_rating", "practice_checkin", "beta_survey", "active_time"]);
   if (!allowedTypes.has(event.eventType)) return false;
   const allowedModes = new Set(["chat", "revision", "story", "steadiness", "understood", "return_intent", "helpful_feature"]);
   const allowedFeedback = new Set(["helpful", "missed", "chosen", "calm", "certain", "chat", "story", "revision", "audio", "vision", "unsure"]);
   const safeMode = event.mode && allowedModes.has(event.mode) ? event.mode : null;
   const safeFeedback = event.feedback && allowedFeedback.has(event.feedback) ? event.feedback : null;
+  const safeLanguage = event.language === "zh" || event.language === "en" ? event.language : null;
+  const durationSeconds = event.eventType === "active_time" ? Math.max(0, Math.min(60, Math.round(event.durationSeconds || 0))) : 0;
   const rating = (value?: number) => Number.isInteger(value) && value! >= 1 && value! <= 5 ? value : null;
-  await env.DB.prepare("INSERT INTO beta_events (id, user_hash, event_type, mode, wish_category, coach_mode, prompt_version, feedback, rating_before, rating_after, created_at) VALUES (?, ?, ?, ?, ?, ?, 'v1', ?, ?, ?, ?)").bind(crypto.randomUUID(), await sha256(userId), event.eventType, safeMode, event.wishCategory || null, event.coachMode || null, safeFeedback, rating(event.ratingBefore), rating(event.ratingAfter), new Date().toISOString()).run();
+  await env.DB.prepare("INSERT INTO beta_events (id, user_hash, event_type, mode, wish_category, coach_mode, language, prompt_version, feedback, rating_before, rating_after, duration_seconds, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'v1', ?, ?, ?, ?, ?)").bind(crypto.randomUUID(), await sha256(userId), event.eventType, safeMode, event.wishCategory || null, event.coachMode || null, safeLanguage, safeFeedback, rating(event.ratingBefore), rating(event.ratingAfter), durationSeconds, new Date().toISOString()).run();
   return true;
 }
 
-export async function founderSnapshot() {
+export async function founderSnapshot(days = 1) {
   await ensureBetaTables();
-  const day = dayKey();
-  const today = await env.DB.prepare("SELECT request_count, total_tokens, failed_requests FROM beta_global_daily WHERE usage_date = ?").bind(day).first<{ request_count: number; total_tokens: number; failed_requests: number }>();
+  const safeDays = days === 7 || days === 30 ? days : 1;
+  const since = new Date(Date.now() - safeDays * 86_400_000).toISOString();
+  const usageSince = since.slice(0, 10);
+  const usage = await env.DB.prepare("SELECT COALESCE(SUM(request_count), 0) AS requests, COALESCE(SUM(total_tokens), 0) AS tokens, COALESCE(SUM(failed_requests), 0) AS failures FROM beta_global_daily WHERE usage_date >= ?").bind(usageSince).first<{ requests: number; tokens: number; failures: number }>();
   const users = await env.DB.prepare("SELECT COUNT(*) AS count FROM beta_users").first<{ count: number }>();
-  const activeToday = await env.DB.prepare("SELECT COUNT(*) AS count FROM beta_usage_daily WHERE usage_date = ? AND request_count > 0").bind(day).first<{ count: number }>();
-  const feedback = await env.DB.prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN feedback = 'helpful' THEN 1 ELSE 0 END) AS helpful FROM beta_events WHERE event_type = 'reply_feedback'").first<{ total: number; helpful: number }>();
-  const ratings = await env.DB.prepare("SELECT COUNT(*) AS total, AVG(rating_after - rating_before) AS average_change FROM beta_events WHERE ((event_type = 'state_rating') OR (event_type = 'beta_survey' AND mode = 'steadiness')) AND rating_before IS NOT NULL AND rating_after IS NOT NULL").first<{ total: number; average_change: number }>();
-  const survey = await env.DB.prepare("SELECT AVG(CASE WHEN mode = 'understood' THEN rating_after END) AS understood, AVG(CASE WHEN mode = 'return_intent' THEN rating_after END) AS return_intent FROM beta_events WHERE event_type = 'beta_survey'").first<{ understood: number; return_intent: number }>();
-  const topFeature = await env.DB.prepare("SELECT feedback, COUNT(*) AS count FROM beta_events WHERE event_type = 'beta_survey' AND mode = 'helpful_feature' AND feedback IS NOT NULL GROUP BY feedback ORDER BY count DESC LIMIT 1").first<{ feedback: string; count: number }>();
+  const active = await env.DB.prepare("SELECT COUNT(DISTINCT user_hash) AS users, COALESCE(SUM(duration_seconds), 0) AS seconds FROM beta_events WHERE created_at >= ?").bind(since).first<{ users: number; seconds: number }>();
+  const feedback = await env.DB.prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN feedback = 'helpful' THEN 1 ELSE 0 END) AS helpful FROM beta_events WHERE event_type = 'reply_feedback' AND created_at >= ?").bind(since).first<{ total: number; helpful: number }>();
+  const ratings = await env.DB.prepare("SELECT COUNT(*) AS total, AVG(rating_after - rating_before) AS average_change FROM beta_events WHERE ((event_type = 'state_rating') OR (event_type = 'beta_survey' AND mode = 'steadiness')) AND rating_before IS NOT NULL AND rating_after IS NOT NULL AND created_at >= ?").bind(since).first<{ total: number; average_change: number }>();
+  const survey = await env.DB.prepare("SELECT AVG(CASE WHEN mode = 'understood' THEN rating_after END) AS understood, AVG(CASE WHEN mode = 'return_intent' THEN rating_after END) AS return_intent FROM beta_events WHERE event_type = 'beta_survey' AND created_at >= ?").bind(since).first<{ understood: number; return_intent: number }>();
+  const topFeature = await env.DB.prepare("SELECT feedback, COUNT(*) AS count FROM beta_events WHERE event_type = 'beta_survey' AND mode = 'helpful_feature' AND feedback IS NOT NULL AND created_at >= ? GROUP BY feedback ORDER BY count DESC LIMIT 1").bind(since).first<{ feedback: string; count: number }>();
+  const breakdown = async (field: "wish_category" | "coach_mode" | "language") => (await env.DB.prepare(`SELECT ${field} AS label, COUNT(*) AS count FROM beta_events WHERE event_type = 'ai_response' AND ${field} IS NOT NULL AND created_at >= ? GROUP BY ${field} HAVING COUNT(*) >= 3 ORDER BY count DESC`).bind(since).all<{ label: string; count: number }>()).results || [];
+  const [categories, coaches, languages] = await Promise.all([breakdown("wish_category"), breakdown("coach_mode"), breakdown("language")]);
   const setting = await env.DB.prepare("SELECT value FROM beta_settings WHERE key = 'ai_enabled'").first<{ value: string }>();
-  return { day, enabled: process.env.BETA_AI_ENABLED !== "false" && setting?.value !== "false", totalUsers: users?.count || 0, activeToday: activeToday?.count || 0, requestsToday: today?.request_count || 0, tokensToday: today?.total_tokens || 0, failedToday: today?.failed_requests || 0, feedbackCount: feedback?.total || 0, helpfulRate: feedback?.total ? Math.round((feedback.helpful || 0) / feedback.total * 100) : null, ratingCount: ratings?.total || 0, averageChange: ratings?.average_change == null ? null : Number(ratings.average_change.toFixed(2)), understoodAverage: survey?.understood == null ? null : Number(survey.understood.toFixed(2)), returnIntentAverage: survey?.return_intent == null ? null : Number(survey.return_intent.toFixed(2)), topFeature: topFeature?.feedback || null, globalLimits: { requests: LIMITS.globalRequests, tokens: LIMITS.globalTokens } };
+  return { days: safeDays, enabled: process.env.BETA_AI_ENABLED !== "false" && setting?.value !== "false", totalUsers: users?.count || 0, activeUsers: active?.users || 0, activeSeconds: active?.seconds || 0, requests: usage?.requests || 0, tokens: usage?.tokens || 0, failures: usage?.failures || 0, feedbackCount: feedback?.total || 0, helpfulRate: feedback?.total ? Math.round((feedback.helpful || 0) / feedback.total * 100) : null, ratingCount: ratings?.total || 0, averageChange: ratings?.average_change == null ? null : Number(ratings.average_change.toFixed(2)), understoodAverage: survey?.understood == null ? null : Number(survey.understood.toFixed(2)), returnIntentAverage: survey?.return_intent == null ? null : Number(survey.return_intent.toFixed(2)), topFeature: topFeature?.feedback || null, breakdown: { categories, coaches, languages }, globalLimits: { requests: LIMITS.globalRequests, tokens: LIMITS.globalTokens } };
 }
 
 export async function setBetaEnabled(enabled: boolean) {

@@ -21,7 +21,7 @@ export const betaGlobalDaily = sqliteTable("beta_global_daily", {
 });
 
 export const betaEvents = sqliteTable("beta_events", {
-  id: text("id").primaryKey(), userHash: text("user_hash").notNull(), eventType: text("event_type").notNull(), mode: text("mode"), wishCategory: text("wish_category"), coachMode: text("coach_mode"), promptVersion: text("prompt_version"), feedback: text("feedback"), ratingBefore: integer("rating_before"), ratingAfter: integer("rating_after"), inputTokens: integer("input_tokens").notNull().default(0), outputTokens: integer("output_tokens").notNull().default(0), totalTokens: integer("total_tokens").notNull().default(0), latencyMs: integer("latency_ms").notNull().default(0), createdAt: text("created_at").notNull(),
+  id: text("id").primaryKey(), userHash: text("user_hash").notNull(), eventType: text("event_type").notNull(), mode: text("mode"), wishCategory: text("wish_category"), coachMode: text("coach_mode"), language: text("language"), promptVersion: text("prompt_version"), feedback: text("feedback"), ratingBefore: integer("rating_before"), ratingAfter: integer("rating_after"), durationSeconds: integer("duration_seconds").notNull().default(0), inputTokens: integer("input_tokens").notNull().default(0), outputTokens: integer("output_tokens").notNull().default(0), totalTokens: integer("total_tokens").notNull().default(0), latencyMs: integer("latency_ms").notNull().default(0), createdAt: text("created_at").notNull(),
 }, (table) => [index("beta_events_created_idx").on(table.createdAt), index("beta_events_user_idx").on(table.userHash, table.createdAt)]);
 
 export const betaSettings = sqliteTable("beta_settings", {

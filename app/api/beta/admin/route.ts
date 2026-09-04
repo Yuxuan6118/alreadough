@@ -8,7 +8,8 @@ function authorized(request: Request) {
 
 export async function GET(request: Request) {
   if (!authorized(request)) return Response.json({ error: "FOUNDER_ACCESS_REQUIRED" }, { status: 403 });
-  return Response.json(await founderSnapshot(), { headers: { "Cache-Control": "no-store" } });
+  const days = Number(new URL(request.url).searchParams.get("days") || 1);
+  return Response.json(await founderSnapshot(days), { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function PUT(request: Request) {

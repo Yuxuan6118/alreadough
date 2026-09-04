@@ -86,9 +86,20 @@ test("ships the forward-only request reservation migration", async () => {
 test("keeps the founder dashboard private and aggregate-only", async () => {
   const admin = await readFile(new URL("../app/api/beta/admin/route.ts", import.meta.url), "utf8");
   const dashboard = await readFile(new URL("../app/beta/page.tsx", import.meta.url), "utf8");
+  const guard = await readFile(new URL("../lib/beta-guard.ts", import.meta.url), "utf8");
   assert.match(admin, /BETA_FOUNDER_EMAIL/);
   assert.match(admin, /oai-authenticated-user-email/);
-  assert.match(dashboard, /不读取用户愿望或聊天内容/);
+  assert.match(dashboard, /不读取用户愿望、聊天、照片或录音/);
+  assert.match(dashboard, /\[1, 7, 30\]/);
+  assert.match(dashboard, /有效使用时长/);
+  assert.match(guard, /HAVING COUNT\(\*\) >= 3/);
+});
+
+test("publishes a non-charging pricing preview", async () => {
+  const pricing = await readFile(new URL("../app/pricing/page.tsx", import.meta.url), "utf8");
+  assert.match(pricing, /公开测试期间免费/);
+  assert.match(pricing, /今天应付/);
+  assert.doesNotMatch(pricing, /type="email"|Stripe/);
 });
 
 test("shows one anonymous survey after ten minutes of active use", async () => {

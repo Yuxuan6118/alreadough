@@ -178,7 +178,7 @@ export async function POST(request: Request) {
     const aborted = request.signal.aborted;
     const timedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError") && !aborted;
     const code = aborted ? "AI_REQUEST_CANCELLED" : timedOut ? "AI_REQUEST_TIMEOUT" : "AI_REQUEST_FAILED";
-    await settleBetaRequest(gate.ticket, null, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: false, latencyMs: Date.now() - startedAt, failureCode: code });
+    await settleBetaRequest(gate.ticket, null, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, language: payload.lang, success: false, latencyMs: Date.now() - startedAt, failureCode: code });
     return json({
       error: code,
       message: payload.lang === "zh"
@@ -191,12 +191,12 @@ export async function POST(request: Request) {
   try {
     data = await upstream.json() as OpenAIResponse;
   } catch {
-    await settleBetaRequest(gate.ticket, null, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: false, latencyMs: Date.now() - startedAt, failureCode: "AI_RESPONSE_UNREADABLE" });
+    await settleBetaRequest(gate.ticket, null, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, language: payload.lang, success: false, latencyMs: Date.now() - startedAt, failureCode: "AI_RESPONSE_UNREADABLE" });
     return json({ error: "AI_RESPONSE_UNREADABLE", message: payload.lang === "zh" ? "这次回应没有完整送达，你的内容仍在。重新尝试" : "This response did not arrive completely. Your content is still here. Try again." }, 502);
   }
   const outputText = responseText(data);
   if (!upstream.ok || !outputText) {
-    await settleBetaRequest(gate.ticket, data.usage || null, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: false, latencyMs: Date.now() - startedAt, failureCode: upstream.ok ? "AI_RESPONSE_EMPTY" : `UPSTREAM_${upstream.status}` });
+    await settleBetaRequest(gate.ticket, data.usage || null, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, language: payload.lang, success: false, latencyMs: Date.now() - startedAt, failureCode: upstream.ok ? "AI_RESPONSE_EMPTY" : `UPSTREAM_${upstream.status}` });
     return json({ error: "AI_REQUEST_FAILED", message: payload.lang === "zh" ? "这次没有生成完整回应，你的内容仍在。重新尝试" : "A complete response was not generated. Your content is still here. Try again." }, 502);
   }
 
@@ -212,7 +212,7 @@ export async function POST(request: Request) {
         keywords: string[];
       }>;
     };
-    await settleBetaRequest(gate.ticket, data.usage || null, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: true, latencyMs: Date.now() - startedAt });
+    await settleBetaRequest(gate.ticket, data.usage || null, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, language: payload.lang, success: true, latencyMs: Date.now() - startedAt });
     return json({
       reply: result.reply,
       journeySummary: result.journey_summary,
@@ -222,7 +222,7 @@ export async function POST(request: Request) {
       usage: data.usage || null,
     });
   } catch {
-    await settleBetaRequest(gate.ticket, data.usage || null, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: false, latencyMs: Date.now() - startedAt, failureCode: "AI_RESPONSE_INVALID" });
+    await settleBetaRequest(gate.ticket, data.usage || null, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, language: payload.lang, success: false, latencyMs: Date.now() - startedAt, failureCode: "AI_RESPONSE_INVALID" });
     return json({ error: "AI_RESPONSE_INVALID", message: payload.lang === "zh" ? "这次回应格式不完整，你的内容仍在。重新尝试" : "This response was incomplete. Your content is still here. Try again." }, 502);
   }
 }

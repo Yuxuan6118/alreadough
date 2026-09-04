@@ -25,6 +25,7 @@ import {
   FloppyDisk,
   NotePencil,
   StopCircle,
+  Sparkle,
   ThumbsDown,
   ThumbsUp,
 } from "@phosphor-icons/react";
@@ -373,6 +374,25 @@ export default function Home() {
   }, [hydrated]);
 
   useEffect(() => {
+    if (!hydrated || sessionId === "local-beta") return;
+    let visibleSeconds = 0;
+    const send = (seconds: number) => fetch("/api/beta/events", {
+      method: "POST",
+      keepalive: true,
+      headers: { "Content-Type": "application/json", "x-already-session-id": sessionId },
+      body: JSON.stringify({ sessionId, eventType: "active_time", durationSeconds: seconds, wishCategory: goal.wishCategory, coachMode: goal.coachMode, language: lang }),
+    }).catch(() => null);
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      visibleSeconds += 10;
+      if (visibleSeconds >= 60) { void send(visibleSeconds); visibleSeconds = 0; }
+    }, 10_000);
+    const flush = () => { if (visibleSeconds >= 10) { void send(visibleSeconds); visibleSeconds = 0; } };
+    window.addEventListener("pagehide", flush);
+    return () => { window.clearInterval(timer); window.removeEventListener("pagehide", flush); flush(); };
+  }, [hydrated, sessionId, goal.wishCategory, goal.coachMode, lang]);
+
+  useEffect(() => {
     if (!hydrated) return;
     const space = { lang, goal, goalArchive: goalArchive.slice(0, 20), conversationId, conversationArchive: conversationArchive.slice(0, 30), messages: messages.slice(-80), revisions: revisions.slice(0, 20), board, storyLibrary, checkIns };
     localStorage.setItem("already-private-state-v5", JSON.stringify(space));
@@ -436,7 +456,9 @@ export default function Home() {
     setGoal(completed);
     setMessages([]);
     setConversationId(crypto.randomUUID());
+    setView("home");
     setOnboardingStep(0);
+    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "auto" }));
   };
 
   const chooseCompanionStyle = (style: Exclude<CompanionStyle, "">) => {
@@ -743,7 +765,7 @@ export default function Home() {
 
   const recordBetaEvent = (event: { eventType: string; mode?: string; feedback?: string; ratingBefore?: number; ratingAfter?: number }) => fetch("/api/beta/events", {
     method: "POST", headers: { "Content-Type": "application/json", "x-already-session-id": sessionId },
-    body: JSON.stringify({ sessionId, wishCategory: goal.wishCategory, coachMode: goal.coachMode, ...event }),
+    body: JSON.stringify({ sessionId, wishCategory: goal.wishCategory, coachMode: goal.coachMode, language: lang, ...event }),
   }).catch(() => null);
 
   const feedbackReply = (message: Message, feedback: "helpful" | "missed") => {
@@ -983,13 +1005,14 @@ export default function Home() {
           <button onClick={() => setDark((value) => !value)} aria-label={dark ? (lang === "zh" ? "切换浅色" : "Use light theme") : (lang === "zh" ? "切换深色" : "Use dark theme")}>{dark ? <Sun size={18}/> : <Moon size={18}/>}<span>{dark ? (lang === "zh" ? "浅色" : "Light") : (lang === "zh" ? "深色" : "Dark")}</span></button>
           <button onClick={switchLanguage}><span className="rail-language">{lang === "zh" ? "EN" : "中"}</span><span>{lang === "zh" ? "English" : "简体中文"}</span></button>
           <button onClick={() => setView("settings")} className={view === "settings" ? "active" : ""}><SlidersHorizontal size={18}/><span>{lang === "zh" ? "我的空间" : "My space"}</span></button>
+          <a className="rail-membership" href="/pricing"><Sparkle size={18}/><span>{lang === "zh" ? "会员与价格" : "Membership"}</span></a>
         </div>
       </aside>
 
       <section className="app-stage">
       <header className="topbar">
         <button className="brand" onClick={() => navigate("home")}><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></button>
-        <div className="top-actions"><span className={`sync-badge ${syncStatus}`}>{syncStatus === "saved" ? <CloudCheck size={15}/> : <CloudSlash size={15}/>}<span>{syncStatus === "saved" ? (lang === "zh" ? "已同步" : "Synced") : syncStatus === "saving" || syncStatus === "loading" ? (lang === "zh" ? "同步中" : "Syncing") : (lang === "zh" ? "本机模式" : "On device")}</span></span><button className="mobile-memory-button" onClick={() => setView("memory")} aria-label={lang === "zh" ? "打开记忆库" : "Open memory"}><Brain size={18}/></button><button className="mobile-memory-button" onClick={() => setHistoryOpen(true)} aria-label={lang === "zh" ? "打开对话记录" : "Open conversation history"}><ChatCircleDots size={18}/></button><button className="theme-toggle" onClick={() => setDark((value) => !value)} aria-label={dark ? "Light" : "Dark"}>{dark ? <Sun size={17}/> : <Moon size={17}/>}</button><button className="language-toggle" onClick={switchLanguage} aria-label={lang === "zh" ? "Switch to English" : "切换到中文"}>{lang === "zh" ? "EN" : "中"}</button><button className="avatar" onClick={() => setView("settings")} aria-label={t.ariaSettings}>{goal.companionName.slice(0, 1) || "A"}</button></div>
+        <div className="top-actions"><a className="membership-chip" href="/pricing" aria-label={lang === "zh" ? "查看会员与价格" : "View membership plans"}><Sparkle size={15}/><span>{lang === "zh" ? "会员" : "Plans"}</span></a><span className={`sync-badge ${syncStatus}`}>{syncStatus === "saved" ? <CloudCheck size={15}/> : <CloudSlash size={15}/>}<span>{syncStatus === "saved" ? (lang === "zh" ? "已同步" : "Synced") : syncStatus === "saving" || syncStatus === "loading" ? (lang === "zh" ? "同步中" : "Syncing") : (lang === "zh" ? "本机模式" : "On device")}</span></span><button className="mobile-memory-button" onClick={() => setView("memory")} aria-label={lang === "zh" ? "打开记忆库" : "Open memory"}><Brain size={18}/></button><button className="mobile-memory-button" onClick={() => setHistoryOpen(true)} aria-label={lang === "zh" ? "打开对话记录" : "Open conversation history"}><ChatCircleDots size={18}/></button><button className="theme-toggle" onClick={() => setDark((value) => !value)} aria-label={dark ? "Light" : "Dark"}>{dark ? <Sun size={17}/> : <Moon size={17}/>}</button><button className="language-toggle" onClick={switchLanguage} aria-label={lang === "zh" ? "Switch to English" : "切换到中文"}>{lang === "zh" ? "EN" : "中"}</button><button className="avatar" onClick={() => setView("settings")} aria-label={t.ariaSettings}>{goal.companionName.slice(0, 1) || "A"}</button></div>
       </header>
 
       {historyOpen && <div className="history-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setHistoryOpen(false); }}><aside className="history-drawer"><header><div><p className="eyebrow">{lang === "zh" ? "对话记录" : "CONVERSATION HISTORY"}</p><h2>{lang === "zh" ? "回到之前的片段" : "Return to an earlier moment"}</h2></div><button onClick={() => setHistoryOpen(false)} aria-label={lang === "zh" ? "关闭" : "Close"}>×</button></header><button className="history-new" onClick={beginNewConversation}><Plus size={17}/>{lang === "zh" ? "开始新对话" : "Start a new conversation"}</button><div className="history-list">{conversationArchive.length ? conversationArchive.map((conversation) => <article key={conversation.id}><button onClick={() => openConversation(conversation)}><strong>{conversation.title}</strong><small>{new Date(conversation.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US")}</small></button><button aria-label={lang === "zh" ? "删除对话" : "Delete conversation"} onClick={() => setConversationArchive((items) => items.filter((item) => item.id !== conversation.id))}><Trash size={16}/></button></article>) : <p>{lang === "zh" ? "完成第一段对话后，它会安全地出现在这里。" : "Your first completed conversation will appear here."}</p>}</div></aside></div>}
@@ -1106,7 +1129,7 @@ export default function Home() {
         </div>}
 
         {settingsSection === "data" && <div className="settings-section">
-          <div className="setting-card beta-quota-card"><span>{lang === "zh" ? "创始测试额度" : "FOUNDER BETA ALLOWANCE"}</span>{betaStatus?.authenticated && betaStatus.remaining ? <><p>{lang === "zh" ? `本轮还可使用 ${betaStatus.remaining.total} 次 · 到期 ${betaStatus.expiresAt ? new Date(betaStatus.expiresAt).toLocaleDateString("zh-CN") : "—"}` : `${betaStatus.remaining.total} sessions remain · ends ${betaStatus.expiresAt ? new Date(betaStatus.expiresAt).toLocaleDateString("en-US") : "—"}`}</p><div className="quota-pills"><small>{lang === "zh" ? `聊天 ${betaStatus.remaining.chat}/15` : `Chat ${betaStatus.remaining.chat}/15`}</small><small>{lang === "zh" ? `重写 ${betaStatus.remaining.revision}/3` : `Revision ${betaStatus.remaining.revision}/3`}</small><small>{lang === "zh" ? `故事 ${betaStatus.remaining.story}/1` : `Story ${betaStatus.remaining.story}/1`}</small></div></> : <p>{lang === "zh" ? "登录测试版后会显示 7 天体验额度。" : "Sign in to see your 7-day beta allowance."}</p>}</div>
+          <div className="setting-card beta-quota-card"><span>{lang === "zh" ? "公开测试额度" : "PUBLIC BETA ALLOWANCE"}</span>{betaStatus?.authenticated && betaStatus.remaining ? <><p>{lang === "zh" ? `本轮还可使用 ${betaStatus.remaining.total} 次 · 到期 ${betaStatus.expiresAt ? new Date(betaStatus.expiresAt).toLocaleDateString("zh-CN") : "—"}` : `${betaStatus.remaining.total} sessions remain · ends ${betaStatus.expiresAt ? new Date(betaStatus.expiresAt).toLocaleDateString("en-US") : "—"}`}</p><div className="quota-pills"><small>{lang === "zh" ? `聊天 ${betaStatus.remaining.chat}/15` : `Chat ${betaStatus.remaining.chat}/15`}</small><small>{lang === "zh" ? `重写 ${betaStatus.remaining.revision}/3` : `Revision ${betaStatus.remaining.revision}/3`}</small><small>{lang === "zh" ? `故事 ${betaStatus.remaining.story}/1` : `Story ${betaStatus.remaining.story}/1`}</small></div></> : <><p>{lang === "zh" ? "登录后即可领取 7 天免费测试额度，未登录仍可使用本机练习工具。" : "Sign in for a free 7-day AI allowance. On-device practice tools remain available without signing in."}</p><a className="signin-button" href="/signin-with-chatgpt?return_to=/">{lang === "zh" ? "登录并领取测试额度" : "Sign in for beta access"}</a></>}</div>
           <div className="language-card"><div><span>{lang === "zh" ? "界面语言" : "LANGUAGE"}</span><strong>{lang === "zh" ? "简体中文" : "English"}</strong></div><button onClick={switchLanguage}>{lang === "zh" ? "Switch to English" : "切换到中文"}</button></div>
           <div className="setting-card sync-card"><span>{lang === "zh" ? "跨设备同步" : "CROSS-DEVICE SYNC"}</span><p>{syncStatus === "saved" ? (lang === "zh" ? "愿望、记忆、对话、故事和练习记录已安全同步。" : "Your desire, memory, conversations, stories, and practice history are synced.") : (lang === "zh" ? "当前使用本机副本；恢复连接后会自动继续同步。" : "Using the on-device copy. Sync resumes automatically when available.")}</p></div>
           <div className="setting-card goal-lifecycle-card"><span>{lang === "zh" ? "愿望生命周期" : "DESIRE LIFECYCLE"}</span><p>{lang === "zh" ? "愿望完成后，把它留在历程中，再开启一个新的单一愿望空间。" : "When this desire is complete, keep it in your journey and open a fresh one-desire space."}</p><button className="outline-button" onClick={archiveAndBeginAgain}>{lang === "zh" ? "完成并归档，开启新愿望" : "Complete, archive, and begin again"}</button></div>

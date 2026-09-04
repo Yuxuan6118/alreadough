@@ -3,3 +3,5 @@
 @media(max-width:800px){.pricing-page{padding-inline:18px}.pricing-page>header{margin-top:28px}.pricing-plans{grid-template-columns:1fr}.pricing-plans>button,.pricing-plans>button.recommended{min-height:0}.checkout-preview{grid-template-columns:1fr;padding:26px;gap:22px;margin-top:42px}}
 @media(prefers-color-scheme:dark){:root{--price-bg:#211d1d;--price-panel:#2d2827;--price-ink:#f3ece8;--price-muted:#c0b2ac;--price-line:#514643;--price-accent:#d68a96;--price-soft:#4a3638}.checkout-preview{background:#171414}.checkout-preview aside{background:#2d2827;color:#f3ece8}.checkout-preview input{background:#211d1d;color:#f3ece8}.checkout-preview p{color:#cbbdb7}}
 @media(prefers-reduced-motion:reduce){.pricing-plans>button{transition:none}}
+.continue-beta{display:flex;align-items:center;justify-content:center;width:100%;margin-top:12px;border-radius:12px;background:var(--price-accent);color:#fff;padding:14px;font-weight:700;text-decoration:none}
+.checkout-preview dl div{align-items:center;gap:18px}.checkout-preview dd{flex:0 0 auto;white-space:nowrap}

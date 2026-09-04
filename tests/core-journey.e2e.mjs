@@ -25,6 +25,18 @@ try {
     await page.getByRole("button", { name: /温柔抱持型/ }).click();
     await page.getByRole("button", { name: /进入 AlreaDough/ }).click();
     await assert.doesNotReject(() => page.getByRole("heading", { name: /欢迎回来，测试用户/ }).waitFor());
+    assert.equal(await page.evaluate(() => window.scrollY), 0);
+
+    assert.ok(await page.locator('a[href="/pricing"]').count() > 0);
+    const membershipEntry = viewport.width <= 800 ? page.locator(".membership-chip") : page.locator(".rail-membership");
+    await membershipEntry.waitFor({ state: "visible" });
+    await membershipEntry.click();
+    await page.waitForURL(`${baseURL}/pricing`);
+    await page.getByRole("heading", { name: /让陪伴跟着愿望一起醒发/ }).waitFor();
+    assert.match(await page.locator("body").innerText(), /公开测试期间免费/);
+    assert.match(await page.locator("body").innerText(), /今天应付[\s\S]*¥0/);
+    assert.equal(await page.locator('input[type="email"]').count(), 0);
+    await page.goto(baseURL, { waitUntil: "networkidle" });
 
     await page.route("**/api/companion", async (route) => route.fulfill({
       status: 502,
@@ -36,6 +48,9 @@ try {
     await page.getByRole("button", { name: "重新尝试" }).waitFor();
     assert.equal(await page.getByText(/HTTP|AI_REQUEST_FAILED|OpenAI/).count(), 0);
     assert.match(await page.locator("body").innerText(), /我今天对学习目标有点动摇/);
+
+    const founderResponse = await page.request.get(`${baseURL}/api/beta/admin?days=30`);
+    assert.equal(founderResponse.status(), 403);
     await page.close();
   }
 } finally {
