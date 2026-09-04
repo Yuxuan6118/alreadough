@@ -35,7 +35,7 @@ import { validateSpName } from "@/lib/name-policy";
 
 type View = "home" | "subliminal" | "story" | "revision" | "board" | "memory" | "settings";
 type Lang = "zh" | "en";
-type Message = { id: string; role: "ai" | "user"; text: string; feedback?: "helpful" | "missed"; saved?: boolean; ratingBefore?: number; ratingAfter?: number };
+type Message = { id: string; role: "ai" | "user"; text: string; feedback?: "helpful" | "missed"; saved?: boolean };
 type Conversation = { id: string; title: string; createdAt: string; messages: Message[] };
 type BoardItem = { id: number; title: string; source: string; image?: string };
 type Revision = { id: number; old: string; revised: string; date: string };
@@ -166,7 +166,7 @@ function seedJourneySummary(background: string) {
 
 function normalizeMessages(items: unknown): Message[] {
   if (!Array.isArray(items)) return [];
-  return items.filter((item): item is { role: "ai" | "user"; text: string; id?: string; feedback?: "helpful" | "missed"; saved?: boolean; ratingBefore?: number; ratingAfter?: number } => {
+  return items.filter((item): item is { role: "ai" | "user"; text: string; id?: string; feedback?: "helpful" | "missed"; saved?: boolean } => {
     if (!item || typeof item !== "object") return false;
     const candidate = item as { role?: string; text?: string };
     return (candidate.role === "ai" || candidate.role === "user") && typeof candidate.text === "string";
@@ -176,6 +176,10 @@ function normalizeMessages(items: unknown): Message[] {
 function conversationTitle(items: Message[], lang: Lang) {
   const seed = items.find((item) => item.role === "user")?.text.trim();
   return seed ? `${seed.slice(0, 34)}${seed.length > 34 ? "…" : ""}` : (lang === "zh" ? "新的对话" : "New conversation");
+}
+
+function SurveyScale({ value, onChange, lang }: { value: number; onChange: (score: number) => void; lang: Lang }) {
+  return <div className="survey-scale"><div>{[1, 2, 3, 4, 5].map((score) => <button type="button" key={score} className={value === score ? "selected" : ""} onClick={() => onChange(score)} aria-label={`${score} / 5`}>{score}</button>)}</div><small><span>{lang === "zh" ? "完全没有" : "Not at all"}</span><span>{lang === "zh" ? "非常强" : "Very much"}</span></small></div>;
 }
 
 const wishCategories: Array<{ id: WishCategory; zh: string; en: string; zhDescription: string; enDescription: string }> = [
@@ -268,7 +272,12 @@ export default function Home() {
   const [acknowledged, setAcknowledged] = useState<boolean | null>(null);
   const [declined, setDeclined] = useState(false);
   const [betaStatus, setBetaStatus] = useState<BetaStatus | null>(null);
-  const [stateBefore, setStateBefore] = useState(3);
+  const [surveyOpen, setSurveyOpen] = useState(false);
+  const [surveyBefore, setSurveyBefore] = useState(0);
+  const [surveyNow, setSurveyNow] = useState(0);
+  const [surveyUnderstood, setSurveyUnderstood] = useState(0);
+  const [surveyReturn, setSurveyReturn] = useState(0);
+  const [surveyFeature, setSurveyFeature] = useState("");
   const chatInputRef = useRef<HTMLInputElement>(null);
   const requestControllerRef = useRef<AbortController | null>(null);
 
@@ -340,6 +349,24 @@ export default function Home() {
     fetch("/api/beta/status", { cache: "no-store", headers: { "x-already-session-id": sessionId } })
       .then((response) => response.json() as Promise<BetaStatus>).then(setBetaStatus).catch(() => null);
   }, [hydrated, sessionId]);
+
+  useEffect(() => {
+    if (!hydrated || localStorage.getItem("already-beta-survey-complete-v1") === "yes") return;
+    let accumulated = Number(localStorage.getItem("already-active-use-ms-v1") || 0);
+    let lastTick = Date.now();
+    const tick = () => {
+      const now = Date.now();
+      if (document.visibilityState === "visible") accumulated += Math.max(0, Math.min(6000, now - lastTick));
+      lastTick = now;
+      localStorage.setItem("already-active-use-ms-v1", String(accumulated));
+      const dismissedAt = Number(localStorage.getItem("already-beta-survey-dismissed-v1") || 0);
+      if (accumulated >= 600_000 && (!dismissedAt || now - dismissedAt >= 86_400_000)) setSurveyOpen(true);
+    };
+    const resetTick = () => { lastTick = Date.now(); };
+    document.addEventListener("visibilitychange", resetTick);
+    const timer = window.setInterval(tick, 5000);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", resetTick); };
+  }, [hydrated]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -551,7 +578,7 @@ export default function Home() {
     requestControllerRef.current = controller;
     try {
       const reply = await callCompanion("chat", userText, controller.signal);
-      setMessages((items) => [...items, { id: crypto.randomUUID(), role: "ai", text: reply, ratingBefore: stateBefore }]);
+      setMessages((items) => [...items, { id: crypto.randomUUID(), role: "ai", text: reply }]);
     } catch (error) {
       if (controller.signal.aborted) return;
       const message = error instanceof Error ? error.message : "AI_REQUEST_FAILED";
@@ -578,7 +605,7 @@ export default function Home() {
     requestControllerRef.current = controller;
     try {
       const reply = await callCompanion("chat", preceding.text, controller.signal, kept.slice(-10));
-      setMessages((items) => [...items, { id: crypto.randomUUID(), role: "ai", text: reply, ratingBefore: stateBefore }]);
+      setMessages((items) => [...items, { id: crypto.randomUUID(), role: "ai", text: reply }]);
     } catch (error) {
       if (!controller.signal.aborted) setAiError(error instanceof Error ? error.message : "AI_REQUEST_FAILED");
     } finally { requestControllerRef.current = null; setIsTyping(false); }
@@ -693,15 +720,27 @@ export default function Home() {
     body: JSON.stringify({ sessionId, wishCategory: goal.wishCategory, coachMode: goal.coachMode, ...event }),
   }).catch(() => null);
 
-  const rateReply = (message: Message, ratingAfter: number) => {
-    setMessages((items) => items.map((item) => item.id === message.id ? { ...item, ratingAfter } : item));
-    void recordBetaEvent({ eventType: "state_rating", mode: "chat", ratingBefore: message.ratingBefore || stateBefore, ratingAfter });
-  };
-
   const feedbackReply = (message: Message, feedback: "helpful" | "missed") => {
     const next = message.feedback === feedback ? undefined : feedback;
     setMessages((items) => items.map((item) => item.id === message.id ? { ...item, feedback: next } : item));
     if (next) void recordBetaEvent({ eventType: "reply_feedback", mode: "chat", feedback: next });
+  };
+
+  const dismissSurvey = () => {
+    localStorage.setItem("already-beta-survey-dismissed-v1", String(Date.now()));
+    setSurveyOpen(false);
+  };
+
+  const submitSurvey = () => {
+    if (!surveyBefore || !surveyNow || !surveyUnderstood || !surveyReturn || !surveyFeature) return;
+    void Promise.all([
+      recordBetaEvent({ eventType: "beta_survey", mode: "steadiness", ratingBefore: surveyBefore, ratingAfter: surveyNow }),
+      recordBetaEvent({ eventType: "beta_survey", mode: "understood", ratingAfter: surveyUnderstood }),
+      recordBetaEvent({ eventType: "beta_survey", mode: "return_intent", ratingAfter: surveyReturn }),
+      recordBetaEvent({ eventType: "beta_survey", mode: "helpful_feature", feedback: surveyFeature }),
+    ]);
+    localStorage.setItem("already-beta-survey-complete-v1", "yes");
+    setSurveyOpen(false);
   };
 
   const openStoryEditor = (story?: Story) => {
@@ -943,8 +982,7 @@ export default function Home() {
           {isTyping && <div className="message ai typing"><i/><i/><i/></div>}
         </div>
         {aiError && <div className="ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
-        {sessionMessages.at(-1)?.role === "ai" && !sessionMessages.at(-1)?.ratingAfter && <div className="effect-rating"><span>{lang === "zh" ? "这次对话后，我的稳定感" : "After this reply, I feel"}</span>{[1,2,3,4,5].map((score) => <button key={score} onClick={() => rateReply(sessionMessages.at(-1)!, score)}>{score}</button>)}<small>{lang === "zh" ? "匿名记录，不保存聊天内容" : "Anonymous; chat content is never recorded"}</small></div>}
-        <div className="before-rating"><span>{lang === "zh" ? "发送前的稳定感" : "Steadiness before sending"}</span>{[1,2,3,4,5].map((score) => <button key={score} className={stateBefore === score ? "selected" : ""} onClick={() => setStateBefore(score)}>{score}</button>)}</div><div className={`composer home-composer ${sessionMessages.length ? "is-active" : "is-empty"}`}><div className="composer-main"><input ref={chatInputRef} value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={onChatKey} placeholder={t.chatPlaceholder} aria-label={t.chatPlaceholder}/><details className="coach-model-menu"><summary aria-label={lang === "zh" ? "切换引导模型" : "Switch guidance model"}><span>{lang === "zh" ? coachModes.find((coach) => coach.id === goal.coachMode)?.zh : coachModes.find((coach) => coach.id === goal.coachMode)?.en}</span><CaretDown size={15}/></summary><div className="coach-model-popover"><header><strong>{lang === "zh" ? "选择引导方式" : "Choose a guide"}</strong><small>{lang === "zh" ? "每条消息都可以随时切换" : "Switch for any message"}</small></header>{coachModes.map((coach) => <button type="button" className={goal.coachMode === coach.id ? "selected" : ""} key={coach.id} onClick={(event) => { setGoal((current) => ({ ...current, coachMode: coach.id })); event.currentTarget.closest("details")?.removeAttribute("open"); }}><span><strong>{lang === "zh" ? coach.zh : coach.en}</strong><small>{lang === "zh" ? coach.zhDescription : coach.enDescription}</small></span>{goal.coachMode === coach.id && <Check size={17} weight="bold"/>}</button>)}</div></details></div><button onClick={() => isTyping ? requestControllerRef.current?.abort() : sendChat()} aria-label={isTyping ? (lang === "zh" ? "停止生成" : "Stop generating") : t.send}>{isTyping ? <StopCircle size={20}/> : "↑"}</button></div>
+        <div className={`composer home-composer ${sessionMessages.length ? "is-active" : "is-empty"}`}><div className="composer-main"><input ref={chatInputRef} value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={onChatKey} placeholder={t.chatPlaceholder} aria-label={t.chatPlaceholder}/><details className="coach-model-menu"><summary aria-label={lang === "zh" ? "切换引导模型" : "Switch guidance model"}><span>{lang === "zh" ? coachModes.find((coach) => coach.id === goal.coachMode)?.zh : coachModes.find((coach) => coach.id === goal.coachMode)?.en}</span><CaretDown size={15}/></summary><div className="coach-model-popover"><header><strong>{lang === "zh" ? "选择引导方式" : "Choose a guide"}</strong><small>{lang === "zh" ? "每条消息都可以随时切换" : "Switch for any message"}</small></header>{coachModes.map((coach) => <button type="button" className={goal.coachMode === coach.id ? "selected" : ""} key={coach.id} onClick={(event) => { setGoal((current) => ({ ...current, coachMode: coach.id })); event.currentTarget.closest("details")?.removeAttribute("open"); }}><span><strong>{lang === "zh" ? coach.zh : coach.en}</strong><small>{lang === "zh" ? coach.zhDescription : coach.enDescription}</small></span>{goal.coachMode === coach.id && <Check size={17} weight="bold"/>}</button>)}</div></details></div><button onClick={() => isTyping ? requestControllerRef.current?.abort() : sendChat()} aria-label={isTyping ? (lang === "zh" ? "停止生成" : "Stop generating") : t.send}>{isTyping ? <StopCircle size={20}/> : "↑"}</button></div>
         {sessionMessages.length > 0 && <p className="pet-checkin-hint">{checkedToday ? (lang === "zh" ? `今天已打卡，连续 ${streak} 天` : `Checked in today. ${streak}-day streak.`) : (lang === "zh" ? "点击右下角的面团完成今日打卡" : "Tap the dough in the corner to check in today.")}</p>}
       </section>}
 
@@ -1054,6 +1092,10 @@ export default function Home() {
       </section>}
 
       </section>
+
+      {surveyOpen && <div className="survey-backdrop" role="presentation"><section className="beta-survey" role="dialog" aria-modal="true" aria-labelledby="beta-survey-title"><header><div><p className="eyebrow">10-MINUTE CHECK-IN</p><h2 id="beta-survey-title">{lang === "zh" ? "刚刚这十分钟，对你有帮助吗？" : "Did these ten minutes help?"}</h2><span>{lang === "zh" ? "四个简短问题，大约 30 秒。" : "Four quick questions, about 30 seconds."}</span></div><button type="button" onClick={dismissSurvey} aria-label={lang === "zh" ? "稍后再说" : "Ask me later"}>×</button></header><div className="survey-scroll"><fieldset><legend>{lang === "zh" ? "1. “我的愿望已经属于我”这件事，稳定感有多少？" : "1. How steady does “my desire is already mine” feel?"}</legend><div className="survey-pair"><label><span>{lang === "zh" ? "刚打开时" : "When I opened"}</span><SurveyScale value={surveyBefore} onChange={setSurveyBefore} lang={lang}/></label><label><span>{lang === "zh" ? "现在" : "Right now"}</span><SurveyScale value={surveyNow} onChange={setSurveyNow} lang={lang}/></label></div></fieldset><fieldset><legend>{lang === "zh" ? "2. Already 有没有在不否定愿望的情况下，真正理解你？" : "2. Did Already understand you without denying your desire?"}</legend><SurveyScale value={surveyUnderstood} onChange={setSurveyUnderstood} lang={lang}/></fieldset><fieldset><legend>{lang === "zh" ? "3. 下次动摇时，你有多愿意再次打开 Already？" : "3. How likely are you to open Already the next time doubt appears?"}</legend><SurveyScale value={surveyReturn} onChange={setSurveyReturn} lang={lang}/></fieldset><fieldset><legend>{lang === "zh" ? "4. 今天最帮到你的部分是什么？" : "4. What helped you most today?"}</legend><div className="survey-features">{[
+        ["chat", lang === "zh" ? "AI 对话" : "AI chat"], ["story", lang === "zh" ? "故事" : "Stories"], ["revision", lang === "zh" ? "重写" : "Revision"], ["audio", lang === "zh" ? "声音练习" : "Audio"], ["vision", lang === "zh" ? "愿景板" : "Vision board"], ["unsure", lang === "zh" ? "还不确定" : "Not sure yet"],
+      ].map(([id, label]) => <button type="button" key={id} className={surveyFeature === id ? "selected" : ""} onClick={() => setSurveyFeature(id)}>{label}</button>)}</div></fieldset></div><footer><small>{lang === "zh" ? "只记录匿名选项，不保存你的愿望或聊天内容。" : "Only anonymous choices are recorded—never your desire or chat content."}</small><div><button type="button" className="survey-later" onClick={dismissSurvey}>{lang === "zh" ? "稍后再说" : "Later"}</button><button type="button" className="primary" disabled={!surveyBefore || !surveyNow || !surveyUnderstood || !surveyReturn || !surveyFeature} onClick={submitSurvey}>{lang === "zh" ? "提交，继续练习" : "Submit and continue"}</button></div></footer></section></div>}
 
       {storyEditorOpen && <div className="story-editor-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setStoryEditorOpen(false); }}>
         <form className="story-editor-modal" onSubmit={(event) => { event.preventDefault(); saveStory(); }}>

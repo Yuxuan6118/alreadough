@@ -67,3 +67,12 @@ test("keeps the founder dashboard private and aggregate-only", async () => {
   assert.match(admin, /oai-authenticated-user-email/);
   assert.match(dashboard, /不读取用户愿望或聊天内容/);
 });
+
+test("shows one anonymous survey after ten minutes of active use", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /accumulated >= 600_000/);
+  assert.match(page, /document\.visibilityState === "visible"/);
+  assert.match(page, /already-beta-survey-complete-v1/);
+  assert.match(page, /eventType: "beta_survey"/);
+  assert.doesNotMatch(page, /className="before-rating"|className="effect-rating"/);
+});

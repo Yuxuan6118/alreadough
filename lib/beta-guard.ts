@@ -113,10 +113,14 @@ export async function recordAnonymousEvent(request: Request, sessionId: string, 
   await ensureBetaTables();
   const userId = requestIdentity(request, sessionId);
   if (!userId) return false;
-  const allowedTypes = new Set(["reply_feedback", "state_rating", "practice_checkin"]);
+  const allowedTypes = new Set(["reply_feedback", "state_rating", "practice_checkin", "beta_survey"]);
   if (!allowedTypes.has(event.eventType)) return false;
+  const allowedModes = new Set(["chat", "revision", "story", "steadiness", "understood", "return_intent", "helpful_feature"]);
+  const allowedFeedback = new Set(["helpful", "missed", "chosen", "calm", "certain", "chat", "story", "revision", "audio", "vision", "unsure"]);
+  const safeMode = event.mode && allowedModes.has(event.mode) ? event.mode : null;
+  const safeFeedback = event.feedback && allowedFeedback.has(event.feedback) ? event.feedback : null;
   const rating = (value?: number) => Number.isInteger(value) && value! >= 1 && value! <= 5 ? value : null;
-  await env.DB.prepare("INSERT INTO beta_events (id, user_hash, event_type, mode, wish_category, coach_mode, prompt_version, feedback, rating_before, rating_after, created_at) VALUES (?, ?, ?, ?, ?, ?, 'v1', ?, ?, ?, ?)").bind(crypto.randomUUID(), await sha256(userId), event.eventType, event.mode || null, event.wishCategory || null, event.coachMode || null, event.feedback || null, rating(event.ratingBefore), rating(event.ratingAfter), new Date().toISOString()).run();
+  await env.DB.prepare("INSERT INTO beta_events (id, user_hash, event_type, mode, wish_category, coach_mode, prompt_version, feedback, rating_before, rating_after, created_at) VALUES (?, ?, ?, ?, ?, ?, 'v1', ?, ?, ?, ?)").bind(crypto.randomUUID(), await sha256(userId), event.eventType, safeMode, event.wishCategory || null, event.coachMode || null, safeFeedback, rating(event.ratingBefore), rating(event.ratingAfter), new Date().toISOString()).run();
   return true;
 }
 
@@ -127,9 +131,11 @@ export async function founderSnapshot() {
   const users = await env.DB.prepare("SELECT COUNT(*) AS count FROM beta_users").first<{ count: number }>();
   const activeToday = await env.DB.prepare("SELECT COUNT(*) AS count FROM beta_usage_daily WHERE usage_date = ? AND request_count > 0").bind(day).first<{ count: number }>();
   const feedback = await env.DB.prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN feedback = 'helpful' THEN 1 ELSE 0 END) AS helpful FROM beta_events WHERE event_type = 'reply_feedback'").first<{ total: number; helpful: number }>();
-  const ratings = await env.DB.prepare("SELECT COUNT(*) AS total, AVG(rating_after - rating_before) AS average_change FROM beta_events WHERE event_type = 'state_rating' AND rating_before IS NOT NULL AND rating_after IS NOT NULL").first<{ total: number; average_change: number }>();
+  const ratings = await env.DB.prepare("SELECT COUNT(*) AS total, AVG(rating_after - rating_before) AS average_change FROM beta_events WHERE ((event_type = 'state_rating') OR (event_type = 'beta_survey' AND mode = 'steadiness')) AND rating_before IS NOT NULL AND rating_after IS NOT NULL").first<{ total: number; average_change: number }>();
+  const survey = await env.DB.prepare("SELECT AVG(CASE WHEN mode = 'understood' THEN rating_after END) AS understood, AVG(CASE WHEN mode = 'return_intent' THEN rating_after END) AS return_intent FROM beta_events WHERE event_type = 'beta_survey'").first<{ understood: number; return_intent: number }>();
+  const topFeature = await env.DB.prepare("SELECT feedback, COUNT(*) AS count FROM beta_events WHERE event_type = 'beta_survey' AND mode = 'helpful_feature' AND feedback IS NOT NULL GROUP BY feedback ORDER BY count DESC LIMIT 1").first<{ feedback: string; count: number }>();
   const setting = await env.DB.prepare("SELECT value FROM beta_settings WHERE key = 'ai_enabled'").first<{ value: string }>();
-  return { day, enabled: process.env.BETA_AI_ENABLED !== "false" && setting?.value !== "false", totalUsers: users?.count || 0, activeToday: activeToday?.count || 0, requestsToday: today?.request_count || 0, tokensToday: today?.total_tokens || 0, failedToday: today?.failed_requests || 0, feedbackCount: feedback?.total || 0, helpfulRate: feedback?.total ? Math.round((feedback.helpful || 0) / feedback.total * 100) : null, ratingCount: ratings?.total || 0, averageChange: ratings?.average_change == null ? null : Number(ratings.average_change.toFixed(2)), globalLimits: { requests: LIMITS.globalRequests, tokens: LIMITS.globalTokens } };
+  return { day, enabled: process.env.BETA_AI_ENABLED !== "false" && setting?.value !== "false", totalUsers: users?.count || 0, activeToday: activeToday?.count || 0, requestsToday: today?.request_count || 0, tokensToday: today?.total_tokens || 0, failedToday: today?.failed_requests || 0, feedbackCount: feedback?.total || 0, helpfulRate: feedback?.total ? Math.round((feedback.helpful || 0) / feedback.total * 100) : null, ratingCount: ratings?.total || 0, averageChange: ratings?.average_change == null ? null : Number(ratings.average_change.toFixed(2)), understoodAverage: survey?.understood == null ? null : Number(survey.understood.toFixed(2)), returnIntentAverage: survey?.return_intent == null ? null : Number(survey.return_intent.toFixed(2)), topFeature: topFeature?.feedback || null, globalLimits: { requests: LIMITS.globalRequests, tokens: LIMITS.globalTokens } };
 }
 
 export async function setBetaEnabled(enabled: boolean) {
