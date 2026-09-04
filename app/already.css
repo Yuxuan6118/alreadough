@@ -1146,3 +1146,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .desire-reference strong { max-width: 100%; }
   .mixer-commit .primary { width: 100%; }
 }
+/* AlreaDough opening: elasticity becomes the living dough companion. */
+.opening-dough{position:fixed;z-index:300;inset:0;display:grid;place-items:center;align-content:center;gap:22px;background:var(--app-bg,#f4efea);color:var(--app-ink,#332c29)}
+.opening-dough>button{position:absolute;right:max(18px,env(safe-area-inset-right));top:max(18px,env(safe-area-inset-top));border:0;background:transparent;color:var(--app-muted,#806f68);font-size:11px}
+.opening-dough-stage{position:relative;width:min(74vw,430px);height:180px;display:grid;place-items:center}.opening-dough-stage img{position:absolute;width:128px;height:128px;object-fit:contain;filter:drop-shadow(0 18px 32px rgb(92 63 54 / .14))}
+.dough-stretch{position:absolute;width:120px;height:92px;border-radius:48% 52% 44% 56%;background:#efe6da;box-shadow:inset 8px 10px 24px #fff9,inset -9px -11px 22px #bfae9f33,0 18px 32px #5b403622;display:flex;align-items:center;justify-content:space-between;padding:0 10px;transform-origin:center;will-change:transform,opacity}
+.dough-stretch i{display:block;width:16%;height:4px;border-radius:999px;background:#f7efe5;box-shadow:0 8px 0 #ddcfc1,0 -8px 0 #fff8}
+.opening-dough>strong{font:500 clamp(28px,5vw,44px)/1 Georgia,"Songti SC",serif;letter-spacing:-.04em}.opening-dough>strong span{color:var(--app-accent,#a65f6b)}
+@media(prefers-reduced-motion:reduce){.dough-stretch{display:none}.opening-dough-stage{height:150px}}

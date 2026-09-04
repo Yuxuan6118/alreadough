@@ -15,13 +15,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Already | Your living desire space",
+  title: "AlreaDough | Your living desire space",
   description: "A bilingual AI space for one deeply desired life, with conversation, storytelling, sound practice, revision, and vision boards.",
-  applicationName: "Already",
+  applicationName: "AlreaDough",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Already",
+    title: "AlreaDough",
   },
   manifest: "/manifest.webmanifest",
   icons: {
@@ -30,13 +30,13 @@ export const metadata: Metadata = {
     apple: "/already-app-icon.png",
   },
   openGraph: {
-    title: "Already | Your living desire space",
+    title: "AlreaDough | Your living desire space",
     description: "One desire. Deep belief. A steady return.",
-    images: [{ url: "/already-social.png", width: 1200, height: 630, alt: "Already living dough universe" }],
+    images: [{ url: "/already-social.png", width: 1200, height: 630, alt: "AlreaDough living dough universe" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Already | Your living desire space",
+    title: "AlreaDough | Your living desire space",
     description: "One desire. Deep belief. A steady return.",
     images: ["/already-social.png"],
   },

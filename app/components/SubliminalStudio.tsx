@@ -1,7 +1,8 @@
 "use client";
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Pause, Play, X } from "@phosphor-icons/react";
+import { DownloadSimple, Pause, Play, Scissors, X } from "@phosphor-icons/react";
+import { renderSubMix, type TrackEdit } from "@/lib/audio-mix";
 
 export type PracticeCheckIn = {
   date: string;
@@ -121,6 +122,16 @@ export function practiceStreak(checkIns: PracticeCheckIn[]) {
   return streak;
 }
 
+const blankEdit: TrackEdit = { delay: 0, trimStart: 0, trimEnd: 0, fadeIn: 1, fadeOut: 2 };
+
+function WaveformStrip({ seed, active }: { seed: string; active: boolean }) {
+  const bars = useMemo(() => Array.from({ length: 52 }, (_, index) => {
+    const code = seed.charCodeAt(index % Math.max(1, seed.length)) || 17;
+    return 18 + ((code * (index + 7)) % 68);
+  }), [seed]);
+  return <div className={`track-waveform ${active ? "active" : ""}`} aria-hidden="true">{bars.map((height, index) => <i key={index} style={{ height: `${height}%` }}/>)}</div>;
+}
+
 type Props = {
   lang: Lang;
   desire: string;
@@ -209,6 +220,18 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
     rightsNeeded: "请先确认你拥有音频使用权，或仅将它用于法律允许的私人用途。",
     sessionOnly: "上传和录制的音频会加密式地留在这个浏览器的本机存储中，不上传服务器；清除网站数据会同时删除它们。",
     timeline: "时间线",
+    trim: "裁剪与淡入淡出",
+    delay: "开始位置",
+    trimStart: "裁掉开头",
+    trimEnd: "裁掉结尾",
+    fadeIn: "淡入",
+    fadeOut: "淡出",
+    seconds: "秒",
+    exportMix: "导出专属 Sub",
+    exporting: "正在混合音轨",
+    exportReady: "已导出 WAV，可在手机中反复播放。",
+    exportNeedsVoice: "请先录制或上传人声音轨。浏览器自带朗读无法被安全写入导出文件。",
+    exportLimit: "网页端一次最多导出 10 分钟；更长练习可循环播放这个文件。",
   } : {
     eyebrow: "DREAMSCAPE · PRIVATE AUDIO PRACTICE",
     heading: "Hear the life you already have",
@@ -288,6 +311,18 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
     rightsNeeded: "Confirm that you have the right to use this audio or will use it only as privately permitted by law.",
     sessionOnly: "Recorded and uploaded audio stays in this browser's on-device storage and is never uploaded. Clearing site data also removes it.",
     timeline: "TIMELINE",
+    trim: "Trim & fades",
+    delay: "Start position",
+    trimStart: "Trim start",
+    trimEnd: "Trim end",
+    fadeIn: "Fade in",
+    fadeOut: "Fade out",
+    seconds: "sec",
+    exportMix: "Export my Sub",
+    exporting: "Rendering your tracks",
+    exportReady: "WAV exported and ready to replay on your phone.",
+    exportNeedsVoice: "Record or upload a voice track first. Browser text-to-speech cannot be safely captured in an export.",
+    exportLimit: "Web exports are capped at 10 minutes. Loop the finished file for longer practices.",
   };
 
   const [profile, setProfile] = useState<SavedSub>(defaults[lang]);
@@ -319,6 +354,11 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
   const [soundSearchMeta, setSoundSearchMeta] = useState<{ original: string; translated: string } | null>(null);
   const [librarySound, setLibrarySound] = useState<AudioResult | null>(null);
   const [previewingSoundId, setPreviewingSoundId] = useState("");
+  const [voiceEdit, setVoiceEdit] = useState<TrackEdit>({ ...blankEdit });
+  const [musicEdit, setMusicEdit] = useState<TrackEdit>({ ...blankEdit, fadeIn: 3, fadeOut: 3 });
+  const [rightsConfirmed, setRightsConfirmed] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportMessage, setExportMessage] = useState("");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const voiceFileRef = useRef<HTMLInputElement | null>(null);
@@ -679,6 +719,32 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
     void deleteAudioTrack(kind);
   };
 
+  const editControl = (edit: TrackEdit, setEdit: (value: TrackEdit) => void) => <details className="track-edit"><summary><Scissors size={14}/>{copy.trim}</summary><div>{([
+    ["delay", copy.delay], ["trimStart", copy.trimStart], ["trimEnd", copy.trimEnd], ["fadeIn", copy.fadeIn], ["fadeOut", copy.fadeOut],
+  ] as const).map(([key, label]) => <label key={key}><span>{label}</span><input type="number" min="0" max="60" step="0.5" value={edit[key]} onChange={(event) => setEdit({ ...edit, [key]: Math.max(0, Math.min(60, Number(event.target.value))) })}/><b>{copy.seconds}</b></label>)}</div></details>;
+
+  const exportMix = async () => {
+    if (!voiceUrl) { setAudioError(copy.exportNeedsVoice); return; }
+    if (!rightsConfirmed) { setAudioError(copy.rightsNeeded); return; }
+    setExporting(true); setAudioError(""); setExportMessage("");
+    try {
+      const modeGain = profile.mode === "clear" ? 1 : profile.mode === "soft" ? 0.58 : 0.16;
+      const blob = await renderSubMix({
+        durationSeconds: Math.min(profile.duration * 60, 600),
+        voice: { url: voiceUrl, volume: (voiceVolume / 100) * modeGain, rate: playbackSpeed, loop: loopAudio, edit: voiceEdit },
+        music: musicUrl ? { url: musicUrl, volume: musicVolume / 100, loop: loopAudio, edit: musicEdit } : undefined,
+        ambience: librarySound ? { url: librarySound.audio, volume: ambienceVolume / 100, loop: true, edit: blankEdit } : undefined,
+        generatedAmbience: librarySound ? undefined : profile.ambience === "library" ? "rain" : profile.ambience,
+      });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${profile.title.trim().replace(/[^\p{L}\p{N}]+/gu, "-") || "alreadough-sub"}.wav`;
+      link.click(); window.setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+      setExportMessage(copy.exportReady);
+    } catch { setAudioError(copy.playbackError); }
+    finally { setExporting(false); }
+  };
+
   return <section className="full-view subliminal-view">
     <div className="studio-heading">
       <div className="view-heading"><p className="eyebrow">{copy.eyebrow}</p><h1>{copy.heading}</h1><p>{copy.intro}</p></div>
@@ -689,7 +755,7 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
 
     <div className="dreamscape-workspace">
       <div className="sub-player-card">
-        <div className="sub-player-identity"><div className="sub-orbit"><span>ALREADY</span><i/></div><div><p>{copy.current}</p><h2>{profile.title}</h2></div></div>
+        <div className="sub-player-identity"><div className="sub-orbit"><span>DOUGH</span><i/></div><div><p>{copy.current}</p><h2>{profile.title}</h2></div></div>
         <div className="sub-player-time"><strong>{(profile.durationMode || "timer") === "continuous" ? timeLabel(elapsedSeconds) : timeLabel(secondsLeft)}</strong></div>
         <div className="sub-wave" aria-hidden="true">{Array.from({ length: 35 }, (_, index) => <i key={index}/>)}</div>
         <div className="mini-timeline"><span>{copy.timeline}</span><i className="voice">VOICE · {profile.mode.toUpperCase()}</i><i className="music">MUSIC</i><i className="ambience">{librarySound ? librarySound.title : profile.ambience.toUpperCase()}</i></div>
@@ -713,10 +779,10 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
       <p className="audio-upload-help">{copy.audioFormats}</p>
       <div className="track-stack">
         <section className="audio-track voice-track">
-          <div className="track-index">01</div><div className="track-main"><div className="track-copy"><strong>{copy.voiceTrack}</strong><small aria-live="polite">{voiceName || copy.voiceTrackCopy}</small>{voiceUrl && <span className="audio-ready">✓ {copy.audioReady}</span>}</div><div className="track-actions"><button type="button" className={recording ? "recording" : ""} onClick={toggleRecording}>{recording ? "■" : "●"} {recording ? copy.stopRecord : copy.record}</button><button type="button" onClick={() => voiceFileRef.current?.click()}>{voiceUrl ? copy.replaceAudio : copy.uploadAudio}</button><input ref={voiceFileRef} className="audio-file-input" type="file" accept="audio/*,.mp3,.m4a,.mp4,.wav,.aac,.aif,.aiff,.caf,.ogg,.oga,.webm,.flac" onChange={uploadTrack("voice")}/>{voiceUrl && <button type="button" onClick={() => removeTrack("voice")}>{copy.removeAudio}</button>}</div><label className="track-slider"><span>{copy.volume}</span><input type="range" min="0" max="100" value={voiceVolume} onChange={(event) => setVoiceVolume(Number(event.target.value))}/><b>{voiceVolume}%</b></label></div>
+          <div className="track-index">01</div><div className="track-main"><div className="track-copy"><strong>{copy.voiceTrack}</strong><small aria-live="polite">{voiceName || copy.voiceTrackCopy}</small>{voiceUrl && <span className="audio-ready">✓ {copy.audioReady}</span>}</div><div className="track-actions"><button type="button" className={recording ? "recording" : ""} onClick={toggleRecording}>{recording ? "■" : "●"} {recording ? copy.stopRecord : copy.record}</button><button type="button" onClick={() => voiceFileRef.current?.click()}>{voiceUrl ? copy.replaceAudio : copy.uploadAudio}</button><input ref={voiceFileRef} className="audio-file-input" type="file" accept="audio/*,.mp3,.m4a,.mp4,.wav,.aac,.aif,.aiff,.caf,.ogg,.oga,.webm,.flac" onChange={uploadTrack("voice")}/>{voiceUrl && <button type="button" onClick={() => removeTrack("voice")}>{copy.removeAudio}</button>}</div><WaveformStrip seed={voiceName || "voice"} active={Boolean(voiceUrl)}/><label className="track-slider"><span>{copy.volume}</span><input type="range" min="0" max="100" value={voiceVolume} onChange={(event) => setVoiceVolume(Number(event.target.value))}/><b>{voiceVolume}%</b></label>{voiceUrl && editControl(voiceEdit, setVoiceEdit)}</div>
         </section>
         <section className="audio-track music-track">
-          <div className="track-index">02</div><div className="track-main"><div className="track-copy"><strong>{copy.musicTrack}</strong><small aria-live="polite">{musicName || copy.musicTrackCopy}</small>{musicUrl && <span className="audio-ready">✓ {copy.audioReady}</span>}</div><div className="track-actions"><button type="button" onClick={() => musicFileRef.current?.click()}>{musicUrl ? copy.replaceAudio : copy.uploadAudio}</button><input ref={musicFileRef} className="audio-file-input" type="file" accept="audio/*,.mp3,.m4a,.mp4,.wav,.aac,.aif,.aiff,.caf,.ogg,.oga,.webm,.flac" onChange={uploadTrack("music")}/>{musicUrl && <button type="button" onClick={() => removeTrack("music")}>{copy.removeAudio}</button>}</div><label className="track-slider"><span>{copy.volume}</span><input type="range" min="0" max="100" value={musicVolume} onChange={(event) => setMusicVolume(Number(event.target.value))}/><b>{musicVolume}%</b></label></div>
+          <div className="track-index">02</div><div className="track-main"><div className="track-copy"><strong>{copy.musicTrack}</strong><small aria-live="polite">{musicName || copy.musicTrackCopy}</small>{musicUrl && <span className="audio-ready">✓ {copy.audioReady}</span>}</div><div className="track-actions"><button type="button" onClick={() => musicFileRef.current?.click()}>{musicUrl ? copy.replaceAudio : copy.uploadAudio}</button><input ref={musicFileRef} className="audio-file-input" type="file" accept="audio/*,.mp3,.m4a,.mp4,.wav,.aac,.aif,.aiff,.caf,.ogg,.oga,.webm,.flac" onChange={uploadTrack("music")}/>{musicUrl && <button type="button" onClick={() => removeTrack("music")}>{copy.removeAudio}</button>}</div><WaveformStrip seed={musicName || "music"} active={Boolean(musicUrl)}/><label className="track-slider"><span>{copy.volume}</span><input type="range" min="0" max="100" value={musicVolume} onChange={(event) => setMusicVolume(Number(event.target.value))}/><b>{musicVolume}%</b></label>{musicUrl && editControl(musicEdit, setMusicEdit)}</div>
         </section>
         <section className="audio-track ambience-track">
           <div className="track-index">03</div><div className="track-main"><div className="track-copy"><strong>{copy.soundLibrary}</strong><small>{librarySound ? `${librarySound.title} · ${librarySound.creator} · ${librarySound.license}` : copy.ambienceTrack}</small></div><div className="sound-search"><input value={soundQuery} onChange={(event) => setSoundQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void searchSounds(); }} placeholder={copy.soundSearch}/><button type="button" onClick={searchSounds} disabled={soundSearching}>{soundSearching ? copy.searching : copy.search}</button></div>{soundSearchMeta && soundSearchMeta.original !== soundSearchMeta.translated && <small className="sound-query-meta">{copy.searchedTogether}: <b>{soundSearchMeta.original}</b><i>＋</i><b>{soundSearchMeta.translated}</b></small>}{soundResults.length > 0 && <div className="sound-results">{soundResults.slice(0, 9).map((sound) => <article className={librarySound?.id === sound.id ? "selected" : ""} key={sound.id}><div className="sound-card-main"><button className="sound-preview" type="button" aria-label={`${previewingSoundId === sound.id ? copy.stopPreview : copy.previewSound}: ${sound.title}`} onClick={() => void previewSound(sound)}>{previewingSoundId === sound.id ? <Pause weight="fill"/> : <Play weight="fill"/>}</button><div className="sound-card-copy"><strong title={sound.title}>{sound.title}</strong><small title={`${sound.creator} · ${sound.license}`}>{sound.creator} · {sound.license}</small></div></div><button className="sound-choose" type="button" onClick={() => void chooseLibrarySound(sound)}>{librarySound?.id === sound.id ? `✓ ${copy.selectedSound}` : copy.useSound}</button></article>)}</div>}{soundSearched && !soundSearching && soundResults.length === 0 && <small className="sound-empty">{copy.noSounds}</small>}<label className="track-slider"><span>{copy.volume}</span><input type="range" min="0" max="100" value={ambienceVolume} onChange={(event) => { const next = Number(event.target.value); setAmbienceVolume(next); if (libraryAudioRef.current) libraryAudioRef.current.volume = next / 100; if (previewAudioRef.current) previewAudioRef.current.volume = Math.max(0.2, next / 100); }}/><b>{ambienceVolume}%</b></label></div>
@@ -726,6 +792,7 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
         <div className="mix-options"><label>{copy.speed}<input type="range" min="0.1" max="10" step="0.1" value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))}/><b>{playbackSpeed.toFixed(1)}×</b></label><label className="loop-check"><input type="checkbox" checked={loopAudio} onChange={(event) => setLoopAudio(event.target.checked)}/><span className="toggle-control" aria-hidden="true"><i/></span><span>{copy.loop}</span></label></div>
         <div className="mixer-commit"><p className="desire-reference"><span>{lang === "zh" ? "当前愿望" : "Active desire"}</span><strong>{desire}</strong></p><button className="primary" onClick={saveProfile}>{savedPulse ? copy.saved : copy.save}</button></div>
       </section>
+      <section className="mix-export"><label className="audio-rights"><input type="checkbox" checked={rightsConfirmed} onChange={(event) => setRightsConfirmed(event.target.checked)}/><span>{copy.rights}</span></label><small>{copy.exportLimit}</small><button className="primary" type="button" onClick={exportMix} disabled={exporting || !voiceUrl}><DownloadSimple size={18}/>{exporting ? copy.exporting : copy.exportMix}</button>{exportMessage && <p aria-live="polite">{exportMessage}</p>}</section>
       {audioError && <p className="audio-error">{audioError}</p>}
     </div>}
 

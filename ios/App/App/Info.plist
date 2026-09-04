@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>Already</string>
+        <string>AlreaDough</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -27,9 +27,9 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Already uses the microphone only when you choose to record your own affirmation track. 麦克风仅在你主动录制肯定语音轨时使用。</string>
+	<string>AlreaDough uses the microphone only when you choose to record your own affirmation track. 麦克风仅在你主动录制肯定语音轨时使用。</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Already lets you choose your own photos for a private vision board. 用于选择你自己的照片制作私人愿景板。</string>
+	<string>AlreaDough lets you choose your own photos for a private vision board. 用于选择你自己的照片制作私人愿景板。</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

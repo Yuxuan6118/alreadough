@@ -3,8 +3,8 @@ import type { CapacitorConfig } from "@capacitor/cli";
 const hostedAppUrl = process.env.CAPACITOR_SERVER_URL;
 
 const config: CapacitorConfig = {
-  appId: "ai.already.mobile",
-  appName: "Already",
+  appId: "ai.alreadough.mobile",
+  appName: "AlreaDough",
   webDir: "mobile-web",
   ...(hostedAppUrl
     ? {

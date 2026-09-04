@@ -68,13 +68,29 @@ function loadImage(url: string) {
   });
 }
 
-function drawCover(context: CanvasRenderingContext2D, image: HTMLImageElement, x: number, y: number, width: number, height: number) {
-  const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
-  const sourceWidth = width / scale;
-  const sourceHeight = height / scale;
-  const sourceX = (image.naturalWidth - sourceWidth) / 2;
-  const sourceY = (image.naturalHeight - sourceHeight) / 2;
-  context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, x, y, width, height);
+function roundedRect(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
+  const safe = Math.max(0, Math.min(radius, width / 2, height / 2));
+  context.beginPath();
+  context.roundRect(x, y, width, height, safe);
+}
+
+function drawFrame(context: CanvasRenderingContext2D, image: HTMLImageElement, item: LocalImage, x: number, y: number, width: number, height: number, radius: number, frameRotation = 0, border = 0) {
+  context.save();
+  context.translate(x + width / 2, y + height / 2);
+  context.rotate(frameRotation * Math.PI / 180);
+  if (border > 0) {
+    context.fillStyle = "#f8f1eb";
+    context.fillRect(-width / 2 - border, -height / 2 - border, width + border * 2, height + border * 2);
+  }
+  roundedRect(context, -width / 2, -height / 2, width, height, radius);
+  context.clip();
+  context.translate((item.x / 100) * width, (item.y / 100) * height);
+  context.rotate(item.rotate * Math.PI / 180);
+  const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight) * item.zoom;
+  const drawnWidth = image.naturalWidth * scale;
+  const drawnHeight = image.naturalHeight * scale;
+  context.drawImage(image, -drawnWidth / 2, -drawnHeight / 2, drawnWidth, drawnHeight);
+  context.restore();
 }
 
 export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
@@ -101,7 +117,7 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
     corner: "圆角",
     background: "底色",
     selected: "已选画面",
-    quickSetup: "先选照片，Already 会先排出一个可用版本。之后再按需要调整。",
+    quickSetup: "先选照片，AlreaDough 会先排出一个可用版本。之后再按需要调整。",
     advanced: "高级画面设置",
   } : {
     title: "Weave My Vision",
@@ -126,7 +142,7 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
     corner: "Corners",
     background: "Backdrop",
     selected: "SELECTED FRAME",
-    quickSetup: "Choose photos first. Already will create a usable layout before you refine it.",
+    quickSetup: "Choose photos first. AlreaDough will create a usable layout before you refine it.",
     advanced: "Advanced visual settings",
   };
   const [images, setImages] = useState<LocalImage[]>([]);
@@ -212,36 +228,49 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
     if (!context) return;
     context.fillStyle = background; context.fillRect(0, 0, width, height);
     const margin = Math.round(width * 0.045);
-    const gap = Math.round(width * 0.012);
+    const exportGap = Math.round((gap / 500) * width);
+    const exportCorner = Math.round((corner / 500) * width);
     const heading = Math.round(height * 0.12);
     context.fillStyle = "#493630";
     context.font = `500 ${Math.round(width * 0.052)}px Georgia, serif`;
     context.textAlign = "center";
-    context.fillText(title || "ALREADY", width / 2, heading * 0.58, width - margin * 2);
+    context.fillText(title || "AlreaDough", width / 2, heading * 0.58, width - margin * 2);
     const loaded = await Promise.all(images.map((item) => loadImage(item.url)));
     const top = heading;
     const availableHeight = height - top - margin;
     if (layout === "editorial" && loaded.length > 1) {
       const heroHeight = availableHeight * 0.5;
-      drawCover(context, loaded[0], margin, top, width - margin * 2, heroHeight);
+      drawFrame(context, loaded[0], images[0], margin, top, width - margin * 2, heroHeight, exportCorner);
       const rest = loaded.slice(1);
       const cols = Math.min(3, rest.length);
       const rows = Math.ceil(rest.length / cols);
-      const cellWidth = (width - margin * 2 - gap * (cols - 1)) / cols;
-      const cellHeight = (availableHeight - heroHeight - gap - gap * (rows - 1)) / rows;
-      rest.forEach((image, index) => drawCover(context, image, margin + (index % cols) * (cellWidth + gap), top + heroHeight + gap + Math.floor(index / cols) * (cellHeight + gap), cellWidth, cellHeight));
+      const cellWidth = (width - margin * 2 - exportGap * (cols - 1)) / cols;
+      const cellHeight = (availableHeight - heroHeight - exportGap - exportGap * (rows - 1)) / rows;
+      rest.forEach((image, index) => drawFrame(context, image, images[index + 1], margin + (index % cols) * (cellWidth + exportGap), top + heroHeight + exportGap + Math.floor(index / cols) * (cellHeight + exportGap), cellWidth, cellHeight, exportCorner));
+    } else if (layout === "scrapbook") {
+      const positions = [
+        [0.02, 0.02, -4], [0.43, 0.2, 5], [0.08, 0.56, 2], [0.39, 0.53, -3], [0.18, 0.3, 1], [0.4, 0.05, -2],
+      ];
+      const cellWidth = (width - margin * 2) * 0.55;
+      const cellHeight = availableHeight * 0.42;
+      loaded.slice(0, 6).forEach((image, index) => {
+        const [left, vertical, rotation] = positions[index];
+        drawFrame(context, image, images[index], margin + left * (width - margin * 2), top + vertical * availableHeight, cellWidth, cellHeight, exportCorner, rotation, Math.max(8, width * 0.008));
+      });
     } else {
       const cols = layout === "mosaic" ? 2 : Math.min(ratio === "landscape" ? 4 : 3, Math.ceil(Math.sqrt(loaded.length)));
       const rows = Math.ceil(loaded.length / cols);
-      const cellWidth = (width - margin * 2 - gap * (cols - 1)) / cols;
-      const cellHeight = (availableHeight - gap * (rows - 1)) / rows;
-      loaded.forEach((image, index) => drawCover(context, image, margin + (index % cols) * (cellWidth + gap), top + Math.floor(index / cols) * (cellHeight + gap), cellWidth, cellHeight));
+      const filmBorder = layout === "film" ? Math.max(8, width * 0.006) : 0;
+      if (layout === "film") { context.fillStyle = "#211b19"; context.fillRect(margin, top, width - margin * 2, availableHeight); }
+      const cellWidth = (width - margin * 2 - exportGap * (cols - 1) - filmBorder * 2) / cols;
+      const cellHeight = (availableHeight - exportGap * (rows - 1) - filmBorder * 2) / rows;
+      loaded.forEach((image, index) => drawFrame(context, image, images[index], margin + filmBorder + (index % cols) * (cellWidth + exportGap), top + filmBorder + Math.floor(index / cols) * (cellHeight + exportGap), cellWidth, cellHeight, exportCorner, 0, filmBorder));
     }
     canvas.toBlob((blob) => {
       if (!blob) return;
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = `already-vision-board-${Date.now()}.png`;
+      link.download = `alreadough-vision-board-${Date.now()}.png`;
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
     }, "image/png");

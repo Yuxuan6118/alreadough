@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { Capacitor } from "@capacitor/core";
 import { SplashScreen } from "@capacitor/splash-screen";
 import { StatusBar, Style } from "@capacitor/status-bar";
+import OpeningDough from "./OpeningDough";
 
 export default function NativeShell() {
   useEffect(() => {
@@ -16,5 +17,5 @@ export default function NativeShell() {
     return () => document.documentElement.classList.remove("native-app");
   }, []);
 
-  return null;
+  return <OpeningDough />;
 }
