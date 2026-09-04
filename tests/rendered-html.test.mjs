@@ -84,3 +84,11 @@ test("keeps the chosen vision-board color connected to the live canvas", async (
   assert.match(studio, /vision-color-button" style=\{\{ backgroundColor: background/);
   assert.match(theme, /\.app-shell \.vision-preview\s*\{[^}]*background:\s*var\(--vision-background,var\(--app-panel\)\)\s*!important/s);
 });
+
+test("shows only one primary memory action in each memory-library state", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /currentMemoryItems\.length > 0 && <button className="primary memory-add"/);
+  assert.match(page, /currentMemoryItems\.length === 0 \? <div className="memory-empty"/);
+  assert.match(page, /memory-filter-empty/);
+  assert.match(page, /setMemoryFilter\("all"\)/);
+});
