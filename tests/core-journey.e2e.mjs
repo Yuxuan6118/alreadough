@@ -3,7 +3,7 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const baseURL = process.env.E2E_BASE_URL || "http://127.0.0.1:4173";
+const baseURL = process.env.E2E_BASE_URL || "http://localhost:4173";
 const pnpmStore = new URL("../node_modules/.pnpm/", import.meta.url);
 const playwrightFolder = (await readdir(pnpmStore)).find((name) => /^playwright@1\.62\.1/.test(name));
 if (!playwrightFolder) throw new Error("Playwright runtime is unavailable");
