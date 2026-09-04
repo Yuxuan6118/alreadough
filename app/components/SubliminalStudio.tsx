@@ -73,11 +73,11 @@ async function deleteAudioTrack(key: "voice" | "music") {
 
 const defaults: Record<Lang, SavedSub> = {
   zh: {
-    title: "我被坚定选择",
+    title: "我的愿望已经实现",
     affirmations: [
-      "我自然地被爱、被选择、被珍惜。",
-      "我们的关系稳定、浪漫，并且充满宠爱。",
-      "丰盛和爱已经是我最熟悉的日常。",
+      "我的愿望已经自然地成为现实。",
+      "拥有它正在成为我熟悉的日常。",
+      "我安心地生活在自己选择的新故事里。",
     ],
     mode: "soft",
     ambience: "rain",
@@ -86,11 +86,11 @@ const defaults: Record<Lang, SavedSub> = {
     completionMinutes: 5,
   },
   en: {
-    title: "I Am Fully Chosen",
+    title: "My Desire Is Already Mine",
     affirmations: [
-      "I am naturally loved, chosen, and cherished.",
-      "Our relationship is secure, romantic, and deeply devoted.",
-      "Love and abundance are my most familiar everyday experience.",
+      "My desire has naturally become real.",
+      "Having it is becoming familiar in my everyday life.",
+      "I feel at ease living in the new story I chose.",
     ],
     mode: "soft",
     ambience: "rain",
@@ -194,7 +194,7 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
     privacyCopy: "此版本在设备上完成播放与混音，不把录音发送给 AI。请保持舒适音量；潜意识音轨是个性化想象与肯定语练习，不提供医疗服务或特定结果保证。",
     checkTitle: "今天的练习已经完成",
     checkCopy: "哪一种感受最接近此刻？",
-    feelings: [["settled", "安定下来了"], ["soft", "柔软了一点"], ["chosen", "被选择很真实"]] as const,
+    feelings: [["settled", "安定下来了"], ["soft", "柔软了一点"], ["chosen", "愿望更真实了"]] as const,
     tutorialTitle: "如何制作属于你的声音练习",
     tutorialSteps: ["写下你愿意每天听见的完成态肯定语。", "选择清晰、轻声或覆盖式播放，并挑选背景声音。", "可以录下自己的声音；没有录音时使用设备自带语音。", "练习结束后可以记录感受；也可以随时点击桌面面团完成今日打卡。"],
     close: "明白了",
@@ -284,7 +284,7 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
     privacyCopy: "This version mixes and plays on your device and does not send your recording to AI. Keep the volume comfortable. Sub Studio is a personalized imagination and affirmation practice, not medical care or a guarantee of a particular result.",
     checkTitle: "Today’s practice is complete",
     checkCopy: "What feels closest right now?",
-    feelings: [["settled", "I feel settled"], ["soft", "I feel softer"], ["chosen", "Being chosen feels real"]] as const,
+    feelings: [["settled", "I feel settled"], ["soft", "I feel softer"], ["chosen", "My desire feels more real"]] as const,
     tutorialTitle: "How to make your own Sub",
     tutorialSteps: ["Write fulfilled-state affirmations you want to hear every day.", "Choose clear, soft, or masked delivery and a soundscape.", "Record your own voice, or let your device read the lines.", "Record a feeling after practice, or tap the desktop dough anytime for today’s check-in."],
     close: "Got it",

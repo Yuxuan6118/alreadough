@@ -102,3 +102,36 @@ test("keeps only fade controls in the lightweight audio editor", async () => {
   assert.doesNotMatch(mixer, /delay|trimStart|trimEnd/);
   assert.match(studio, /\["fadeIn", copy\.fadeIn\], \["fadeOut", copy\.fadeOut\]/);
 });
+
+test("does not presume that a new user's desire is romantic", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const studio = await readFile(new URL("../app/components/SubliminalStudio.tsx", import.meta.url), "utf8");
+
+  for (const romanticDefault of [
+    "他很久没有回复",
+    "He took a long time to reply",
+    "我们在东京醒来的早晨",
+    "Our morning in Tokyo",
+    "被爱已经是我最熟悉的日常",
+    "Being loved is my most familiar reality",
+    "浪漫约会",
+    "Romantic date",
+    "couple in Hokkaido snow",
+  ]) assert.doesNotMatch(page, new RegExp(romanticDefault));
+
+  for (const romanticDefault of [
+    "我被坚定选择",
+    "I Am Fully Chosen",
+    "我们的关系稳定",
+    "Our relationship is secure",
+    "被选择很真实",
+    "Being chosen feels real",
+  ]) assert.doesNotMatch(studio, new RegExp(romanticDefault));
+
+  assert.match(page, /wishCategory: "other"/);
+  assert.match(page, /一个结果、消息或眼前情况/);
+  assert.match(page, /愿望实现后的普通一天/);
+  assert.match(page, /拥有它已经是我熟悉的日常/);
+  assert.match(studio, /我的愿望已经实现/);
+  assert.match(studio, /My Desire Is Already Mine/);
+});
