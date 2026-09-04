@@ -72,6 +72,8 @@ test("uses recoverable product errors and never exposes an upstream provider mes
   assert.doesNotMatch(route, /message:\s*data\.error\?\.message/);
   assert.match(page, /recoverable-error/);
   assert.match(page, /重新尝试/);
+  assert.match(page, /登录并继续/);
+  assert.match(page, /signin-with-chatgpt\?return_to=\//);
   assert.doesNotMatch(page, /AI 当前没有连接成功：\$\{message\}/);
 });
 

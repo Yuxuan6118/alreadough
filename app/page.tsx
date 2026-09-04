@@ -705,7 +705,7 @@ export default function Home() {
     if (failedAIAction?.mode === "story") void makeStory();
   };
 
-  const aiErrorNotice = (extraClass = "") => aiError ? <div className={`ai-notice recoverable-error ${extraClass}`} role="alert"><div><strong>{lang === "zh" ? "这次没有完成" : "This did not complete"}</strong><span>{aiError}</span></div>{failedAIAction && <button className="outline-button" onClick={retryFailedAIAction}>{lang === "zh" ? "重新尝试" : "Try again"}</button>}</div> : null;
+  const aiErrorNotice = (extraClass = "") => aiError ? <div className={`ai-notice recoverable-error ${extraClass}`} role="alert"><div><strong>{lang === "zh" ? "这次没有完成" : "This did not complete"}</strong><span>{aiError}</span></div>{/登录|sign in/i.test(aiError) ? <a className="signin-button" href="/signin-with-chatgpt?return_to=/">{lang === "zh" ? "登录并继续" : "Sign in and continue"}</a> : failedAIAction && <button className="outline-button" onClick={retryFailedAIAction}>{lang === "zh" ? "重新尝试" : "Try again"}</button>}</div> : null;
 
   const acceptGeneratedStory = () => {
     if (!generatedStory.trim()) return;
