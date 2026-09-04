@@ -92,6 +92,7 @@ test("keeps the founder dashboard private and aggregate-only", async () => {
   assert.match(admin, /BETA_FOUNDER_EMAIL/);
   assert.match(admin, /oai-authenticated-user-email/);
   assert.match(dashboard, /不读取用户愿望、聊天、照片或录音/);
+  assert.match(dashboard, /signin-with-chatgpt\?return_to=\/beta/);
   assert.match(dashboard, /\[1, 7, 30\]/);
   assert.match(dashboard, /有效使用时长/);
   assert.match(guard, /HAVING COUNT\(\*\) >= 3/);
