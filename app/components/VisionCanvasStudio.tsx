@@ -70,6 +70,14 @@ function loadImage(url: string) {
   });
 }
 
+function textOnColor(hex: string) {
+  const value = hex.replace("#", "");
+  const red = Number.parseInt(value.slice(0, 2), 16);
+  const green = Number.parseInt(value.slice(2, 4), 16);
+  const blue = Number.parseInt(value.slice(4, 6), 16);
+  return red * 0.299 + green * 0.587 + blue * 0.114 > 156 ? "#2b2726" : "#fffaf7";
+}
+
 function roundedRect(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
   const safe = Math.max(0, Math.min(radius, width / 2, height / 2));
   context.beginPath();
@@ -330,10 +338,10 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
       <label>{copy.boardTitle}<input value={title} onChange={(event) => setTitle(event.target.value)}/></label>
       <fieldset><legend>{copy.layout}</legend>{(["editorial", "grid", "mosaic", "film", "scrapbook"] as const).map((value) => <button className={layout === value ? "selected" : ""} key={value} onClick={() => setLayout(value)}>{copy.layouts[value]}</button>)}</fieldset>
       <fieldset><legend>{copy.ratio}</legend>{(["phone", "square", "landscape"] as const).map((value) => <button className={ratio === value ? "selected" : ""} key={value} onClick={() => setRatio(value)}>{copy.ratios[value]}</button>)}</fieldset>
-      <details className="vision-advanced"><summary><SlidersHorizontal size={16}/>{copy.advanced}</summary><div className="collage-style-controls"><label>{copy.gap}<input type="range" min="0" max="16" value={gap} onChange={(event) => setGap(Number(event.target.value))}/></label><label>{copy.corner}<input type="range" min="0" max="30" value={corner} onChange={(event) => setCorner(Number(event.target.value))}/></label><label>{copy.background}<input type="color" value={background} aria-label={copy.background} onChange={(event) => setBackground(event.target.value)}/></label></div></details>
+      <details className="vision-advanced"><summary><SlidersHorizontal size={16}/>{copy.advanced}</summary><div className="collage-style-controls"><label>{copy.gap}<input type="range" min="0" max="16" value={gap} onChange={(event) => setGap(Number(event.target.value))}/></label><label>{copy.corner}<input type="range" min="0" max="30" value={corner} onChange={(event) => setCorner(Number(event.target.value))}/></label><label className="vision-color-field"><span>{copy.background}</span><span className="vision-color-button" style={{ backgroundColor: background, color: textOnColor(background) }}><i aria-hidden="true"/><b>{background.toUpperCase()}</b><input type="color" value={background} aria-label={copy.background} onChange={(event) => setBackground(event.target.value)}/></span></label></div></details>
     </div>}
     {images.length > 0 && <p className="drag-hint">{copy.dragHint}</p>}
-    {images.length > 0 && <div className={`vision-preview ${layout} ${ratio}`} style={{ background, "--vision-corner": `${corner}px` } as CSSProperties}>
+    {images.length > 0 && <div className={`vision-preview ${layout} ${ratio}`} style={{ "--vision-background": background, "--vision-corner": `${corner}px` } as CSSProperties}>
       <h3>{title}</h3>
       <div className="vision-stage">{images.map((item, index) => <div role="button" tabIndex={0} style={previewStyle(previewFrames[index])} aria-label={`${copy.selected}: ${item.name}`} className={`vision-frame ${selectedId === item.id ? "selected" : ""}`} draggable key={item.id} onDragStart={() => setDraggedId(item.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => reorder(item.id)} onClick={() => setSelectedId(item.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedId(item.id); }}><img src={item.url} alt={item.name} style={{ transform: `translate(${item.x}%, ${item.y}%) rotate(${item.rotate}deg) scale(${item.zoom})` }}/><button onClick={(event) => { event.stopPropagation(); removeImage(item.id); }} aria-label={`${copy.remove} ${item.name}`}>×</button></div>)}</div>
     </div>}
