@@ -39,3 +39,4 @@
 .vision-export{display:flex!important;align-items:center;justify-content:center;gap:8px;min-height:48px;border-radius:999px!important;margin-top:4px}
 @media(max-width:700px){.vision-controls{grid-template-columns:1fr;padding:18px!important}.vision-controls>label,.vision-advanced{grid-column:1}.frame-editor{grid-template-columns:1fr}.frame-editor>div{grid-row:auto}.vision-preview.phone{width:86%}}
 @media(prefers-reduced-motion:reduce){.vision-upload,.vision-controls fieldset button{transition:none}}
+.vision-editor-error{margin:12px 0;padding:12px 14px;border:1px solid color-mix(in srgb,var(--app-accent) 36%,var(--app-line));border-radius:14px;color:var(--app-accent);background:var(--app-panel-strong);font-size:12px;line-height:1.55}

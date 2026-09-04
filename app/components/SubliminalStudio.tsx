@@ -215,6 +215,7 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
     tutorialSteps: ["写下你愿意每天听见的完成态肯定语。", "选择清晰、轻声或覆盖式播放，并挑选背景声音。", "可以录下自己的声音；没有录音时使用设备自带语音。", "练习结束后可以记录感受；也可以随时点击桌面面团完成今日打卡。"],
     close: "明白了",
     recordingError: "无法使用麦克风，请在浏览器设置中允许录音。",
+    storageError: "音频可以在本次打开期间使用，但浏览器没有允许长期保存。请不要关闭页面，或检查隐私浏览设置。",
     playbackError: "这段录音的格式无法在当前浏览器播放，请重新录制，或上传 MP3、M4A、WAV 音频。",
     mixer: "我的多轨制作台",
     mixerCopy: "像轻量剪辑软件一样组合人声、音乐和环境声。所有音频只在当前设备处理。",
@@ -305,6 +306,7 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
     tutorialSteps: ["Write fulfilled-state affirmations you want to hear every day.", "Choose clear, soft, or masked delivery and a soundscape.", "Record your own voice, or let your device read the lines.", "Record a feeling after practice, or tap the desktop dough anytime for today’s check-in."],
     close: "Got it",
     recordingError: "The microphone is unavailable. Allow recording in your browser settings.",
+    storageError: "You can use this audio while this page stays open, but the browser did not allow long-term storage. Check private-browsing settings before closing it.",
     playbackError: "This recording format cannot play in your browser. Record again or upload an MP3, M4A, or WAV file.",
     mixer: "My Multitrack Studio",
     mixerCopy: "Combine voice, music, and ambience in a lightweight mobile editor. Audio is processed on this device.",
@@ -699,14 +701,14 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
         const nextUrl = URL.createObjectURL(blob);
         setVoiceUrl(nextUrl);
         setVoiceName(lang === "zh" ? "我的录音" : "My recording");
-        void storeAudioTrack("voice", blob, lang === "zh" ? "我的录音" : "My recording");
+        void storeAudioTrack("voice", blob, lang === "zh" ? "我的录音" : "My recording").catch(() => setAudioError(copy.storageError));
         setAudioError("");
       };
       mediaRecorderRef.current = recorder;
       mediaStreamRef.current = stream;
       recorder.start();
       setRecording(true);
-    } catch { window.alert(copy.recordingError); }
+    } catch { setAudioError(copy.recordingError); }
   };
 
   const uploadTrack = (kind: "voice" | "music") => (event: ChangeEvent<HTMLInputElement>) => {
@@ -721,7 +723,7 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
     } else {
       setMusicUrl(url); setMusicName(file.name);
     }
-    void storeAudioTrack(kind, file, file.name);
+    void storeAudioTrack(kind, file, file.name).catch(() => setAudioError(copy.storageError));
     setAudioError("");
   };
 
@@ -733,7 +735,7 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
       musicAudioRef.current?.pause();
       setMusicUrl(""); setMusicName("");
     }
-    void deleteAudioTrack(kind);
+    void deleteAudioTrack(kind).catch(() => setAudioError(copy.storageError));
   };
 
   const editControl = (edit: TrackEdit, setEdit: (value: TrackEdit) => void) => <section className="track-edit"><header><strong>{copy.trim}</strong></header><div>{([

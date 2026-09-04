@@ -121,7 +121,15 @@ export async function POST(request: Request) {
   const chatModel = process.env.OPENAI_CHAT_MODEL || "gpt-5.6-luna";
   const creativeModel = process.env.OPENAI_CREATIVE_MODEL || "gpt-5.6-terra";
   const model = payload.mode === "chat" ? chatModel : creativeModel;
-  const gate = await beginBetaRequest(request, payload.sessionId, payload.mode);
+  const gate = await beginBetaRequest(request, payload.sessionId, payload.mode).catch(() => null);
+  if (!gate) {
+    return json({
+      error: "BETA_STATUS_UNAVAILABLE",
+      message: payload.lang === "zh"
+        ? "暂时无法确认本次测试额度。你的内容仍然保留，请稍后重试。"
+        : "We could not confirm your beta allowance just now. Your content is still here—please try again shortly.",
+    }, 503);
+  }
   if (!gate.ok) {
     const messages: Record<string, Record<"zh" | "en", string>> = {
       SIGN_IN_REQUIRED: { zh: "请先登录测试版，再继续使用 AI。", en: "Please sign in to continue using the beta AI." },
@@ -138,42 +146,58 @@ export async function POST(request: Request) {
 
   let upstream: Response;
   try {
+    const timeoutSignal = AbortSignal.timeout(45_000);
     upstream = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      instructions: buildInstructions(payload.lang, payload.mode, payload.goal.coachMode),
-      input: buildInput(payload),
-      store: false,
-      reasoning: { effort: "none" },
-      max_output_tokens: payload.mode === "story" ? 1400 : payload.mode === "revision" ? 900 : 750,
-      prompt_cache_key: `already-${payload.lang}-${payload.mode}`,
-      safety_identifier: payload.sessionId.slice(0, 64),
-      text: {
-        verbosity: payload.mode === "story" ? "medium" : "low",
-        format: {
-          type: "json_schema",
-          name: "already_companion_response",
-          strict: true,
-          schema: companionResponseSchema,
-        },
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
       },
-    }),
+      signal: AbortSignal.any([request.signal, timeoutSignal]),
+      body: JSON.stringify({
+        model,
+        instructions: buildInstructions(payload.lang, payload.mode, payload.goal.coachMode),
+        input: buildInput(payload),
+        store: false,
+        reasoning: { effort: "none" },
+        max_output_tokens: payload.mode === "story" ? 1400 : payload.mode === "revision" ? 900 : 750,
+        prompt_cache_key: `already-${payload.lang}-${payload.mode}`,
+        safety_identifier: payload.sessionId.slice(0, 64),
+        text: {
+          verbosity: payload.mode === "story" ? "medium" : "low",
+          format: {
+            type: "json_schema",
+            name: "already_companion_response",
+            strict: true,
+            schema: companionResponseSchema,
+          },
+        },
+      }),
     });
-  } catch {
-    await settleBetaRequest(gate.ticket, null, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: false, latencyMs: Date.now() - startedAt });
-    return json({ error: "AI_REQUEST_FAILED", message: payload.lang === "zh" ? "AI 暂时没有连接成功，请稍后再试。" : "AI could not connect. Please try again shortly." }, 502);
+  } catch (error) {
+    const aborted = request.signal.aborted;
+    const timedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError") && !aborted;
+    const code = aborted ? "AI_REQUEST_CANCELLED" : timedOut ? "AI_REQUEST_TIMEOUT" : "AI_REQUEST_FAILED";
+    await settleBetaRequest(gate.ticket, null, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: false, latencyMs: Date.now() - startedAt, failureCode: code });
+    return json({
+      error: code,
+      message: payload.lang === "zh"
+        ? timedOut ? "这次回应等待太久，已经停止。你的内容仍在，可以重新尝试。" : "这次没有发送成功，你的内容仍在，可以重新尝试。"
+        : timedOut ? "This response took too long and was stopped. Your content is still here; you can try again." : "This did not send successfully. Your content is still here; you can try again.",
+    }, aborted ? 499 : timedOut ? 504 : 502);
   }
 
-  const data = await upstream.json() as OpenAIResponse;
-  await settleBetaRequest(gate.ticket, data.usage || null, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: upstream.ok, latencyMs: Date.now() - startedAt });
+  let data: OpenAIResponse;
+  try {
+    data = await upstream.json() as OpenAIResponse;
+  } catch {
+    await settleBetaRequest(gate.ticket, null, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: false, latencyMs: Date.now() - startedAt, failureCode: "AI_RESPONSE_UNREADABLE" });
+    return json({ error: "AI_RESPONSE_UNREADABLE", message: payload.lang === "zh" ? "这次回应没有完整送达，你的内容仍在。重新尝试" : "This response did not arrive completely. Your content is still here. Try again." }, 502);
+  }
   const outputText = responseText(data);
   if (!upstream.ok || !outputText) {
-    return json({ error: "AI_REQUEST_FAILED", message: data.error?.message || "The AI request failed." }, 502);
+    await settleBetaRequest(gate.ticket, data.usage || null, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: false, latencyMs: Date.now() - startedAt, failureCode: upstream.ok ? "AI_RESPONSE_EMPTY" : `UPSTREAM_${upstream.status}` });
+    return json({ error: "AI_REQUEST_FAILED", message: payload.lang === "zh" ? "这次没有生成完整回应，你的内容仍在。重新尝试" : "A complete response was not generated. Your content is still here. Try again." }, 502);
   }
 
   try {
@@ -188,6 +212,7 @@ export async function POST(request: Request) {
         keywords: string[];
       }>;
     };
+    await settleBetaRequest(gate.ticket, data.usage || null, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: true, latencyMs: Date.now() - startedAt });
     return json({
       reply: result.reply,
       journeySummary: result.journey_summary,
@@ -197,6 +222,7 @@ export async function POST(request: Request) {
       usage: data.usage || null,
     });
   } catch {
-    return json({ error: "AI_RESPONSE_INVALID" }, 502);
+    await settleBetaRequest(gate.ticket, data.usage || null, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: false, latencyMs: Date.now() - startedAt, failureCode: "AI_RESPONSE_INVALID" });
+    return json({ error: "AI_RESPONSE_INVALID", message: payload.lang === "zh" ? "这次回应格式不完整，你的内容仍在。重新尝试" : "This response was incomplete. Your content is still here. Try again." }, 502);
   }
 }

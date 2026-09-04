@@ -57,7 +57,30 @@ test("enforces founder beta quotas without storing private conversation content"
   assert.match(guard, /BETA_TOTAL_REQUESTS \|\| 80/);
   assert.match(guard, /BETA_GLOBAL_DAILY_TOKENS \|\| 2_000_000/);
   assert.match(guard, /INSERT OR IGNORE INTO beta_users/);
+  assert.match(guard, /beta_request_reservations/);
+  assert.match(guard, /status = 'released'/);
+  assert.match(guard, /total_requests = MAX\(0, total_requests - 1\)/);
+  assert.match(guard, /request_count = MAX\(0, request_count - 1\)/);
   assert.doesNotMatch(guard, /message_text|wish_text|person_name|audio_blob|image_blob/);
+});
+
+test("uses recoverable product errors and never exposes an upstream provider message", async () => {
+  const route = await readFile(new URL("../app/api/companion/route.ts", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(route, /AbortSignal\.timeout\(45_000\)/);
+  assert.match(route, /failureCode: "AI_RESPONSE_INVALID"/);
+  assert.doesNotMatch(route, /message:\s*data\.error\?\.message/);
+  assert.match(page, /recoverable-error/);
+  assert.match(page, /重新尝试/);
+  assert.doesNotMatch(page, /AI 当前没有连接成功：\$\{message\}/);
+});
+
+test("ships the forward-only request reservation migration", async () => {
+  const migration = await readFile(new URL("../drizzle/0002_goofy_skin.sql", import.meta.url), "utf8");
+  assert.match(migration, /CREATE TABLE `beta_request_reservations`/);
+  assert.match(migration, /`status` text DEFAULT 'reserved' NOT NULL/);
+  assert.match(migration, /CREATE INDEX `beta_reservations_user_idx`/);
+  assert.doesNotMatch(migration, /DROP TABLE|DELETE FROM/);
 });
 
 test("keeps the founder dashboard private and aggregate-only", async () => {

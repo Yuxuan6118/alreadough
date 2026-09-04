@@ -100,6 +100,7 @@ type AIResponse = {
 type SearchImage = { title: string; image: string; source: string; credit: string; license: string; provider: string; downloadLocation?: string };
 type ImageSearchPlan = { original: string; translated: string; queries: string[] };
 type BetaStatus = { authenticated: boolean; enabled?: boolean; active?: boolean; expired?: boolean; expiresAt?: string; totalRequests?: number; totalTokens?: number; remaining?: { chat: number; revision: number; story: number; total: number }; limits?: { chat: number; revision: number; story: number; total: number; trialDays: number }; resetAt?: string };
+type FailedAIAction = { mode: "chat" | "revision" | "story" } | null;
 
 const emptyStoryDraft: StoryDraft = { title: "", city: "", subtitle: "", scene: "", anchor: "" };
 const emptyMemoryDraft: MemoryDraft = { kind: "insight", title: "", detail: "", keywords: "" };
@@ -255,6 +256,7 @@ export default function Home() {
   const [isTyping, setIsTyping] = useState(false);
   const [aiConnected, setAiConnected] = useState<boolean | null>(null);
   const [aiError, setAiError] = useState("");
+  const [failedAIAction, setFailedAIAction] = useState<FailedAIAction>(null);
   const [chatInput, setChatInput] = useState("");
   const [oldScene, setOldScene] = useState("");
   const [newScene, setNewScene] = useState("");
@@ -545,7 +547,10 @@ export default function Home() {
         recentRevisions: revisions.slice(0, 4).map((item) => item.revised),
       }),
     });
-    const data = await response.json() as AIResponse;
+    const data = await response.json().catch(() => ({
+      error: "AI_RESPONSE_UNREADABLE",
+      message: lang === "zh" ? "这次回应没有完整送达，你的内容仍在。重新尝试" : "This response did not arrive completely. Your content is still here. Try again.",
+    })) as AIResponse;
     void refreshBetaStatus();
     if (!response.ok || !data.reply) throw new Error(data.message || data.error || "AI_REQUEST_FAILED");
     setAiConnected(data.model !== "desire-preserving-safety-route" ? true : aiConnected);
@@ -577,6 +582,7 @@ export default function Home() {
     if (!conversationId) setConversationId(crypto.randomUUID());
     setMessages((items) => [...items, { id: crypto.randomUUID(), role: "user", text: userText }]);
     setChatInput(""); setIsTyping(true); setAiError("");
+    setFailedAIAction(null);
     const controller = new AbortController();
     requestControllerRef.current = controller;
     try {
@@ -584,15 +590,11 @@ export default function Home() {
       setMessages((items) => [...items, { id: crypto.randomUUID(), role: "ai", text: reply }]);
     } catch (error) {
       if (controller.signal.aborted) return;
-      const message = error instanceof Error ? error.message : "AI_REQUEST_FAILED";
+      const message = error instanceof Error && !/^[A-Z0-9_]+$/.test(error.message)
+        ? error.message
+        : lang === "zh" ? "这次没有发送成功，你的文字仍在。" : "This did not send successfully. Your message is still here.";
       setAiConnected(false); setAiError(message);
-      setMessages((items) => [...items, {
-        id: crypto.randomUUID(),
-        role: "ai",
-        text: lang === "zh"
-          ? `${goal.companionName || "你"}，AI 当前没有连接成功：${message}。你的这句话已经留在本机，请稍后再试。`
-          : `${goal.companionName || "You"}, the AI could not connect: ${message}. Your message remains on this device. Please try again shortly.`,
-      }]);
+      setFailedAIAction({ mode: "chat" });
     } finally {
       requestControllerRef.current = null;
       setIsTyping(false);
@@ -604,13 +606,17 @@ export default function Home() {
     if (!preceding || isTyping) return;
     const kept = messages.slice(0, messageIndex);
     setMessages(kept); setIsTyping(true); setAiError("");
+    setFailedAIAction(null);
     const controller = new AbortController();
     requestControllerRef.current = controller;
     try {
       const reply = await callCompanion("chat", preceding.text, controller.signal, kept.slice(-10));
       setMessages((items) => [...items, { id: crypto.randomUUID(), role: "ai", text: reply }]);
     } catch (error) {
-      if (!controller.signal.aborted) setAiError(error instanceof Error ? error.message : "AI_REQUEST_FAILED");
+      if (!controller.signal.aborted) {
+        setAiError(error instanceof Error && !/^[A-Z0-9_]+$/.test(error.message) ? error.message : (lang === "zh" ? "这次没有重新生成成功，原内容仍在。" : "This could not be regenerated. Your original content is still here."));
+        setFailedAIAction({ mode: "chat" });
+      }
     } finally { requestControllerRef.current = null; setIsTyping(false); }
   };
 
@@ -641,27 +647,43 @@ export default function Home() {
 
   const makeRevision = async () => {
     if (!oldScene.trim() || isTyping) return;
-    setIsTyping(true); setAiError("");
+    setIsTyping(true); setAiError(""); setFailedAIAction(null);
+    const controller = new AbortController();
+    requestControllerRef.current = controller;
     try {
-      setNewScene(await callCompanion("revision", oldScene.trim()));
+      setNewScene(await callCompanion("revision", oldScene.trim(), controller.signal));
     } catch (error) {
-      const message = error instanceof Error ? error.message : "AI_REQUEST_FAILED";
-      setAiConnected(false); setAiError(message);
-    } finally { setIsTyping(false); }
+      if (!controller.signal.aborted) {
+        const message = error instanceof Error && !/^[A-Z0-9_]+$/.test(error.message) ? error.message : (lang === "zh" ? "这次没有重写成功，你写下的旧版本仍在。" : "This revision did not complete. Your original text is still here.");
+        setAiConnected(false); setAiError(message); setFailedAIAction({ mode: "revision" });
+      }
+    } finally { requestControllerRef.current = null; setIsTyping(false); }
   };
 
   const makeStory = async () => {
-    setStoryGenerating(true); setAiError("");
+    setStoryGenerating(true); setAiError(""); setFailedAIAction(null);
+    const controller = new AbortController();
+    requestControllerRef.current = controller;
     try {
       const prompt = lang === "zh"
         ? `请以“${currentStory.title.zh}”为主题，为我写今天的专属完成态故事。地点是 ${currentStory.city.zh}，核心感受是：${currentStory.anchor.zh}`
         : `Create today's personal fulfilled-state story around “${currentStory.title.en}.” The place is ${currentStory.city.en}, and the core feeling is: ${currentStory.anchor.en}`;
-      setGeneratedStory(await callCompanion("story", prompt));
+      setGeneratedStory(await callCompanion("story", prompt, controller.signal));
     } catch (error) {
-      const message = error instanceof Error ? error.message : "AI_REQUEST_FAILED";
-      setAiConnected(false); setAiError(message);
-    } finally { setStoryGenerating(false); }
+      if (!controller.signal.aborted) {
+        const message = error instanceof Error && !/^[A-Z0-9_]+$/.test(error.message) ? error.message : (lang === "zh" ? "这次故事没有生成完整，原来的故事仍在。" : "This story did not complete. Your original story is still here.");
+        setAiConnected(false); setAiError(message); setFailedAIAction({ mode: "story" });
+      }
+    } finally { requestControllerRef.current = null; setStoryGenerating(false); }
   };
+
+  const retryFailedAIAction = () => {
+    if (failedAIAction?.mode === "chat") void regenerateReply(messages.length);
+    if (failedAIAction?.mode === "revision") void makeRevision();
+    if (failedAIAction?.mode === "story") void makeStory();
+  };
+
+  const aiErrorNotice = (extraClass = "") => aiError ? <div className={`ai-notice recoverable-error ${extraClass}`} role="alert"><div><strong>{lang === "zh" ? "这次没有完成" : "This did not complete"}</strong><span>{aiError}</span></div>{failedAIAction && <button className="outline-button" onClick={retryFailedAIAction}>{lang === "zh" ? "重新尝试" : "Try again"}</button>}</div> : null;
 
   const acceptGeneratedStory = () => {
     if (!generatedStory.trim()) return;
@@ -985,7 +1007,7 @@ export default function Home() {
           </div></div>)}
           {isTyping && <div className="message ai typing"><i/><i/><i/></div>}
         </div>
-        {aiError && <div className="ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
+        {aiErrorNotice()}
         <div className={`composer home-composer ${sessionMessages.length ? "is-active" : "is-empty"}`}><div className="composer-main"><input ref={chatInputRef} value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={onChatKey} placeholder={t.chatPlaceholder} aria-label={t.chatPlaceholder}/><details className="coach-model-menu"><summary aria-label={lang === "zh" ? "切换引导模型" : "Switch guidance model"}><span>{lang === "zh" ? coachModes.find((coach) => coach.id === goal.coachMode)?.zh : coachModes.find((coach) => coach.id === goal.coachMode)?.en}</span><CaretDown size={15}/></summary><div className="coach-model-popover"><header><strong>{lang === "zh" ? "选择引导方式" : "Choose a guide"}</strong><small>{lang === "zh" ? "每条消息都可以随时切换" : "Switch for any message"}</small></header>{coachModes.map((coach) => <button type="button" className={goal.coachMode === coach.id ? "selected" : ""} key={coach.id} onClick={(event) => { setGoal((current) => ({ ...current, coachMode: coach.id })); event.currentTarget.closest("details")?.removeAttribute("open"); }}><span><strong>{lang === "zh" ? coach.zh : coach.en}</strong><small>{lang === "zh" ? coach.zhDescription : coach.enDescription}</small></span>{goal.coachMode === coach.id && <Check size={17} weight="bold"/>}</button>)}</div></details></div><button onClick={() => isTyping ? requestControllerRef.current?.abort() : sendChat()} aria-label={isTyping ? (lang === "zh" ? "停止生成" : "Stop generating") : t.send}>{isTyping ? <StopCircle size={20}/> : "↑"}</button></div>
         {sessionMessages.length > 0 && <p className="pet-checkin-hint">{checkedToday ? (lang === "zh" ? `今天已打卡，连续 ${streak} 天` : `Checked in today. ${streak}-day streak.`) : (lang === "zh" ? "点击右下角的面团完成今日打卡" : "Tap the dough in the corner to check in today.")}</p>}
       </section>}
@@ -1025,8 +1047,8 @@ export default function Home() {
       {view === "story" && storyReading && <section className="full-view story-view">
         <div className={`story-cover ${currentStory.tone}`}><p>{currentStory.city[lang]}</p><h1>{currentStory.title[lang]}</h1><span>{currentStory.subtitle[lang]}</span></div>
         <article className="story-body">{storyText.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}{currentStory.anchor[lang] && <blockquote>{currentStory.anchor[lang]}</blockquote>}</article>
-        <div className="personal-story-action story-reader-actions"><button onClick={() => setStoryReading(false)}>{lang === "zh" ? "返回故事库" : "Back to stories"}</button><button onClick={() => openStoryEditor(currentStory)}><PencilSimple size={17}/>{lang === "zh" ? "编辑故事" : "Edit story"}</button><button className="primary" onClick={makeStory} disabled={storyGenerating}>{storyGenerating ? t.generating : t.generateStory}</button></div>
-        {aiError && <div className="ai-notice story-ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
+        <div className="personal-story-action story-reader-actions"><button onClick={() => setStoryReading(false)}>{lang === "zh" ? "返回故事库" : "Back to stories"}</button><button onClick={() => openStoryEditor(currentStory)}><PencilSimple size={17}/>{lang === "zh" ? "编辑故事" : "Edit story"}</button><button className="primary" onClick={() => storyGenerating ? requestControllerRef.current?.abort() : void makeStory()}>{storyGenerating ? (lang === "zh" ? "停止生成" : "Stop generating") : t.generateStory}</button></div>
+        {aiErrorNotice("story-ai-notice")}
         {generatedStory && <article className="generated-story"><span>AI PERSONAL STORY</span>{generatedStory.split(/\n+/).filter(Boolean).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}<button className="outline-button" onClick={acceptGeneratedStory}>{savedPulse ? (lang === "zh" ? "已收进长期故事 ✓" : "Saved to your story memory ✓") : (lang === "zh" ? "收进我的长期故事" : "Keep in my story memory")}</button></article>}
         {storyLibrary.length > 1 && <div className="story-controls"><button onClick={() => { setStoryIndex((storyIndex - 1 + storyLibrary.length) % storyLibrary.length); setGeneratedStory(""); setAiError(""); }}>{t.previous}</button><button className="dark-button" onClick={() => { setStoryIndex((storyIndex + 1) % storyLibrary.length); setGeneratedStory(""); setAiError(""); }}>{t.next}</button></div>}
       </section>}
@@ -1035,8 +1057,8 @@ export default function Home() {
         <div className="view-heading"><p className="eyebrow">{lang === "zh" ? "重写这一刻" : "REVISION STUDIO"}</p><h1>{t.revisionTitle}</h1><p>{t.revisionCopy}</p></div>
         <label className="field-label">{t.oldLabel}</label>
         <textarea value={oldScene} onChange={(e) => setOldScene(e.target.value)} placeholder={t.oldPlaceholder} />
-        <button className="primary" onClick={makeRevision} disabled={isTyping}>{isTyping ? t.generating : t.makeRevision}</button>
-        {aiError && <div className="ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
+        <button className="primary" onClick={() => isTyping ? requestControllerRef.current?.abort() : void makeRevision()}>{isTyping ? (lang === "zh" ? "停止生成" : "Stop generating") : t.makeRevision}</button>
+        {aiErrorNotice()}
         {newScene && <div className="revised-card"><span>{t.chosen}</span><p>{newScene}</p><button onClick={acceptRevision}>{savedPulse ? t.accepted : t.acceptStory}</button></div>}
         {revisions.length > 0 && <div className="revision-history"><p className="eyebrow">{t.history}</p>{revisions.slice(0, 4).map((item) => <div key={item.id}><span>{item.date}</span><p>{item.revised}</p></div>)}</div>}
       </section>}

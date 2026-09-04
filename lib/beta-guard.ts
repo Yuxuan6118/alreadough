@@ -15,7 +15,7 @@ type UserRow = { started_at: string; expires_at: string; total_requests: number;
 type DailyRow = { request_count: number; chat_requests: number; revision_requests: number; story_requests: number; input_tokens: number; output_tokens: number; total_tokens: number };
 type GlobalRow = { request_count: number; total_tokens: number };
 
-export type BetaTicket = { userId: string; userHash: string; day: string; mode: BetaMode };
+export type BetaTicket = { reservationId: string; userId: string; userHash: string; day: string; mode: BetaMode };
 
 export async function ensureBetaTables() {
   const statements = [
@@ -24,8 +24,10 @@ export async function ensureBetaTables() {
     `CREATE TABLE IF NOT EXISTS beta_global_daily (usage_date TEXT PRIMARY KEY NOT NULL, request_count INTEGER NOT NULL DEFAULT 0, total_tokens INTEGER NOT NULL DEFAULT 0, failed_requests INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL)`,
     `CREATE TABLE IF NOT EXISTS beta_events (id TEXT PRIMARY KEY NOT NULL, user_hash TEXT NOT NULL, event_type TEXT NOT NULL, mode TEXT, wish_category TEXT, coach_mode TEXT, prompt_version TEXT, feedback TEXT, rating_before INTEGER, rating_after INTEGER, input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0, total_tokens INTEGER NOT NULL DEFAULT 0, latency_ms INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL)`,
     `CREATE TABLE IF NOT EXISTS beta_settings (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL, updated_at TEXT NOT NULL)`,
+    `CREATE TABLE IF NOT EXISTS beta_request_reservations (id TEXT PRIMARY KEY NOT NULL, user_id TEXT NOT NULL, user_hash TEXT NOT NULL, usage_date TEXT NOT NULL, mode TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'reserved', created_at TEXT NOT NULL, settled_at TEXT)`,
     `CREATE INDEX IF NOT EXISTS beta_events_created_idx ON beta_events(created_at)`,
     `CREATE INDEX IF NOT EXISTS beta_events_user_idx ON beta_events(user_hash, created_at)`,
+    `CREATE INDEX IF NOT EXISTS beta_reservations_user_idx ON beta_request_reservations(user_id, created_at)`,
   ];
   for (const sql of statements) await env.DB.prepare(sql).run();
 }
@@ -94,19 +96,76 @@ export async function beginBetaRequest(request: Request, sessionId: string, mode
   const global = await env.DB.prepare("SELECT request_count, total_tokens FROM beta_global_daily WHERE usage_date = ?").bind(day).first<GlobalRow>();
   if ((global?.request_count || 0) >= LIMITS.globalRequests || (global?.total_tokens || 0) >= LIMITS.globalTokens) return { ok: false as const, code: "BETA_BUDGET_PAUSED" };
   const now = new Date().toISOString();
-  await env.DB.prepare(`INSERT INTO beta_usage_daily (user_id, usage_date, request_count, ${modeColumn(mode)}, updated_at) VALUES (?, ?, 1, 1, ?) ON CONFLICT(user_id, usage_date) DO UPDATE SET request_count = request_count + 1, ${modeColumn(mode)} = ${modeColumn(mode)} + 1, updated_at = excluded.updated_at`).bind(userId, day, now).run();
-  await env.DB.prepare("UPDATE beta_users SET total_requests = total_requests + 1, last_seen_at = ? WHERE user_id = ?").bind(now, userId).run();
-  await env.DB.prepare("INSERT INTO beta_global_daily (usage_date, request_count, updated_at) VALUES (?, 1, ?) ON CONFLICT(usage_date) DO UPDATE SET request_count = request_count + 1, updated_at = excluded.updated_at").bind(day, now).run();
-  return { ok: true as const, ticket: { userId, userHash: await sha256(userId), day, mode } satisfies BetaTicket };
+  const reservationId = crypto.randomUUID();
+  const userHash = await sha256(userId);
+  const changes = (result: { meta?: { changes?: number } }) => Number(result.meta?.changes || 0);
+  let userReserved = false;
+  let dailyReserved = false;
+  try {
+    await env.DB.prepare("INSERT INTO beta_request_reservations (id, user_id, user_hash, usage_date, mode, status, created_at) VALUES (?, ?, ?, ?, ?, 'reserved', ?)").bind(reservationId, userId, userHash, day, mode, now).run();
+    const userClaim = await env.DB.prepare("UPDATE beta_users SET total_requests = total_requests + 1, last_seen_at = ? WHERE user_id = ? AND active = 1 AND expires_at > ? AND total_requests < ?").bind(now, userId, now, LIMITS.total).run();
+    userReserved = changes(userClaim) === 1;
+    if (!userReserved) {
+      await env.DB.prepare("UPDATE beta_request_reservations SET status = 'rejected', settled_at = ? WHERE id = ? AND status = 'reserved'").bind(now, reservationId).run();
+      return { ok: false as const, code: "TRIAL_LIMIT_REACHED" };
+    }
+    const dailyClaim = await env.DB.prepare(`INSERT INTO beta_usage_daily (user_id, usage_date, request_count, ${modeColumn(mode)}, updated_at)
+      VALUES (?, ?, 1, 1, ?)
+      ON CONFLICT(user_id, usage_date) DO UPDATE SET request_count = request_count + 1, ${modeColumn(mode)} = ${modeColumn(mode)} + 1, updated_at = excluded.updated_at
+      WHERE ${modeColumn(mode)} < ?`).bind(userId, day, now, LIMITS.daily[mode]).run();
+    dailyReserved = changes(dailyClaim) === 1;
+    if (!dailyReserved) {
+      await env.DB.batch([
+        env.DB.prepare("UPDATE beta_users SET total_requests = MAX(0, total_requests - 1) WHERE user_id = ?").bind(userId),
+        env.DB.prepare("UPDATE beta_request_reservations SET status = 'rejected', settled_at = ? WHERE id = ? AND status = 'reserved'").bind(now, reservationId),
+      ]);
+      return { ok: false as const, code: "DAILY_LIMIT_REACHED" };
+    }
+    const globalClaim = await env.DB.prepare(`INSERT INTO beta_global_daily (usage_date, request_count, updated_at)
+      VALUES (?, 1, ?)
+      ON CONFLICT(usage_date) DO UPDATE SET request_count = request_count + 1, updated_at = excluded.updated_at
+      WHERE request_count < ? AND total_tokens < ?`).bind(day, now, LIMITS.globalRequests, LIMITS.globalTokens).run();
+    if (changes(globalClaim) !== 1) {
+      await env.DB.batch([
+        env.DB.prepare(`UPDATE beta_usage_daily SET request_count = MAX(0, request_count - 1), ${modeColumn(mode)} = MAX(0, ${modeColumn(mode)} - 1), updated_at = ? WHERE user_id = ? AND usage_date = ?`).bind(now, userId, day),
+        env.DB.prepare("UPDATE beta_users SET total_requests = MAX(0, total_requests - 1) WHERE user_id = ?").bind(userId),
+        env.DB.prepare("UPDATE beta_request_reservations SET status = 'rejected', settled_at = ? WHERE id = ? AND status = 'reserved'").bind(now, reservationId),
+      ]);
+      return { ok: false as const, code: "BETA_BUDGET_PAUSED" };
+    }
+    return { ok: true as const, ticket: { reservationId, userId, userHash, day, mode } satisfies BetaTicket };
+  } catch (error) {
+    const cleanup = [];
+    if (dailyReserved) cleanup.push(env.DB.prepare(`UPDATE beta_usage_daily SET request_count = MAX(0, request_count - 1), ${modeColumn(mode)} = MAX(0, ${modeColumn(mode)} - 1), updated_at = ? WHERE user_id = ? AND usage_date = ?`).bind(now, userId, day));
+    if (userReserved) cleanup.push(env.DB.prepare("UPDATE beta_users SET total_requests = MAX(0, total_requests - 1) WHERE user_id = ?").bind(userId));
+    cleanup.push(env.DB.prepare("UPDATE beta_request_reservations SET status = 'rejected', settled_at = ? WHERE id = ? AND status = 'reserved'").bind(now, reservationId));
+    await env.DB.batch(cleanup).catch(() => null);
+    throw error;
+  }
 }
 
-export async function settleBetaRequest(ticket: BetaTicket, usage: TokenUsage, metadata: { wishCategory?: string; coachMode?: string; success: boolean; latencyMs: number }) {
+export async function settleBetaRequest(ticket: BetaTicket, usage: TokenUsage, metadata: { wishCategory?: string; coachMode?: string; success: boolean; latencyMs: number; failureCode?: string }) {
   const input = Math.max(0, usage?.input_tokens || 0), output = Math.max(0, usage?.output_tokens || 0), total = Math.max(0, usage?.total_tokens || input + output);
   const now = new Date().toISOString();
-  await env.DB.prepare("UPDATE beta_usage_daily SET input_tokens = input_tokens + ?, output_tokens = output_tokens + ?, total_tokens = total_tokens + ?, failed_requests = failed_requests + ?, updated_at = ? WHERE user_id = ? AND usage_date = ?").bind(input, output, total, metadata.success ? 0 : 1, now, ticket.userId, ticket.day).run();
-  await env.DB.prepare("UPDATE beta_users SET total_tokens = total_tokens + ? WHERE user_id = ?").bind(total, ticket.userId).run();
-  await env.DB.prepare("UPDATE beta_global_daily SET total_tokens = total_tokens + ?, failed_requests = failed_requests + ?, updated_at = ? WHERE usage_date = ?").bind(total, metadata.success ? 0 : 1, now, ticket.day).run();
-  await env.DB.prepare("INSERT INTO beta_events (id, user_hash, event_type, mode, wish_category, coach_mode, prompt_version, input_tokens, output_tokens, total_tokens, latency_ms, created_at) VALUES (?, ?, 'ai_response', ?, ?, ?, 'v1', ?, ?, ?, ?, ?)").bind(crypto.randomUUID(), ticket.userHash, ticket.mode, metadata.wishCategory || null, metadata.coachMode || null, input, output, total, metadata.latencyMs, now).run();
+  const stillReserved = "EXISTS (SELECT 1 FROM beta_request_reservations WHERE id = ? AND status = 'reserved')";
+  const mode = modeColumn(ticket.mode);
+  if (metadata.success) {
+    await env.DB.batch([
+      env.DB.prepare(`UPDATE beta_usage_daily SET input_tokens = input_tokens + ?, output_tokens = output_tokens + ?, total_tokens = total_tokens + ?, updated_at = ? WHERE user_id = ? AND usage_date = ? AND ${stillReserved}`).bind(input, output, total, now, ticket.userId, ticket.day, ticket.reservationId),
+      env.DB.prepare(`UPDATE beta_users SET total_tokens = total_tokens + ? WHERE user_id = ? AND ${stillReserved}`).bind(total, ticket.userId, ticket.reservationId),
+      env.DB.prepare(`UPDATE beta_global_daily SET total_tokens = total_tokens + ?, updated_at = ? WHERE usage_date = ? AND ${stillReserved}`).bind(total, now, ticket.day, ticket.reservationId),
+      env.DB.prepare(`INSERT INTO beta_events (id, user_hash, event_type, mode, wish_category, coach_mode, prompt_version, input_tokens, output_tokens, total_tokens, latency_ms, created_at) SELECT ?, ?, 'ai_response', ?, ?, ?, 'v1', ?, ?, ?, ?, ? WHERE ${stillReserved}`).bind(crypto.randomUUID(), ticket.userHash, ticket.mode, metadata.wishCategory || null, metadata.coachMode || null, input, output, total, metadata.latencyMs, now, ticket.reservationId),
+      env.DB.prepare("UPDATE beta_request_reservations SET status = 'settled', settled_at = ? WHERE id = ? AND status = 'reserved'").bind(now, ticket.reservationId),
+    ]);
+    return;
+  }
+  await env.DB.batch([
+    env.DB.prepare(`UPDATE beta_usage_daily SET request_count = MAX(0, request_count - 1), ${mode} = MAX(0, ${mode} - 1), input_tokens = input_tokens + ?, output_tokens = output_tokens + ?, total_tokens = total_tokens + ?, failed_requests = failed_requests + 1, updated_at = ? WHERE user_id = ? AND usage_date = ? AND ${stillReserved}`).bind(input, output, total, now, ticket.userId, ticket.day, ticket.reservationId),
+    env.DB.prepare(`UPDATE beta_users SET total_requests = MAX(0, total_requests - 1), total_tokens = total_tokens + ? WHERE user_id = ? AND ${stillReserved}`).bind(total, ticket.userId, ticket.reservationId),
+    env.DB.prepare(`UPDATE beta_global_daily SET request_count = MAX(0, request_count - 1), total_tokens = total_tokens + ?, failed_requests = failed_requests + 1, updated_at = ? WHERE usage_date = ? AND ${stillReserved}`).bind(total, now, ticket.day, ticket.reservationId),
+    env.DB.prepare(`INSERT INTO beta_events (id, user_hash, event_type, mode, wish_category, coach_mode, prompt_version, feedback, input_tokens, output_tokens, total_tokens, latency_ms, created_at) SELECT ?, ?, 'ai_failure', ?, ?, ?, 'v1', ?, ?, ?, ?, ?, ? WHERE ${stillReserved}`).bind(crypto.randomUUID(), ticket.userHash, ticket.mode, metadata.wishCategory || null, metadata.coachMode || null, metadata.failureCode?.slice(0, 80) || "unknown", input, output, total, metadata.latencyMs, now, ticket.reservationId),
+    env.DB.prepare("UPDATE beta_request_reservations SET status = 'released', settled_at = ? WHERE id = ? AND status = 'reserved'").bind(now, ticket.reservationId),
+  ]);
 }
 
 export async function recordAnonymousEvent(request: Request, sessionId: string, event: { eventType: string; mode?: string; wishCategory?: string; coachMode?: string; feedback?: string; ratingBefore?: number; ratingAfter?: number }) {

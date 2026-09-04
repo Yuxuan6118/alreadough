@@ -27,3 +27,9 @@ export const betaEvents = sqliteTable("beta_events", {
 export const betaSettings = sqliteTable("beta_settings", {
   key: text("key").primaryKey(), value: text("value").notNull(), updatedAt: text("updated_at").notNull(),
 });
+
+export const betaRequestReservations = sqliteTable("beta_request_reservations", {
+  id: text("id").primaryKey(), userId: text("user_id").notNull(), userHash: text("user_hash").notNull(),
+  usageDate: text("usage_date").notNull(), mode: text("mode").notNull(), status: text("status").notNull().default("reserved"),
+  createdAt: text("created_at").notNull(), settledAt: text("settled_at"),
+}, (table) => [index("beta_reservations_user_idx").on(table.userId, table.createdAt)]);

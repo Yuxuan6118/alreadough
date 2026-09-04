@@ -195,6 +195,9 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
     selected: "已选画面",
     quickSetup: "先选照片，AlreaDough 会先排出一个可用版本。之后再按需要调整。",
     advanced: "高级画面设置",
+    invalidFiles: "有些照片未加入：请使用 JPG、PNG 或 WebP，且单张不超过 10MB。你已经加入的照片仍然保留。",
+    storageError: "照片可以在本次打开期间编辑，但浏览器没有允许长期保存。请不要关闭页面，或检查隐私浏览设置。",
+    exportError: "愿景板暂时没有导出成功，当前排版仍然保留。请检查照片是否仍可显示后再试。",
   } : {
     title: "Weave My Vision",
     subtitle: "Choose a collage template, refine each frame, drag to reorder, and export a personal vision board.",
@@ -220,6 +223,9 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
     selected: "SELECTED FRAME",
     quickSetup: "Choose photos first. AlreaDough will create a usable layout before you refine it.",
     advanced: "Advanced visual settings",
+    invalidFiles: "Some photos were not added. Use JPG, PNG, or WebP files up to 10MB each. Photos already added are still here.",
+    storageError: "You can edit these photos while this page stays open, but the browser did not allow long-term storage. Check private-browsing settings before closing it.",
+    exportError: "The vision board could not be exported just now. Your layout is still here. Check that every photo is visible, then try again.",
   };
   const [images, setImages] = useState<LocalImage[]>([]);
   const [title, setTitle] = useState(lang === "zh" ? "我已经拥有的生活" : "The Life I Already Have");
@@ -230,6 +236,7 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
   const [gap, setGap] = useState(5);
   const [corner, setCorner] = useState(18);
   const [background, setBackground] = useState("#eee3da");
+  const [visionError, setVisionError] = useState("");
   const imagesRef = useRef<LocalImage[]>([]);
 
   /* eslint-disable react-hooks/set-state-in-effect -- restore the device-local project after mount */
@@ -254,16 +261,19 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
   useEffect(() => { imagesRef.current = images; }, [images]);
   useEffect(() => {
     const project: SavedVisionProject = { title, layout, ratio, gap, corner, background, images: images.map((item) => ({ id: item.id, name: item.name, zoom: item.zoom, x: item.x, y: item.y, rotate: item.rotate })) };
-    localStorage.setItem("already-vision-project-v1", JSON.stringify(project));
-  }, [title, layout, ratio, gap, corner, background, images]);
+    try { localStorage.setItem("already-vision-project-v1", JSON.stringify(project)); }
+    catch { queueMicrotask(() => setVisionError(copy.storageError)); }
+  }, [title, layout, ratio, gap, corner, background, images, copy.storageError]);
   useEffect(() => () => imagesRef.current.forEach((item) => URL.revokeObjectURL(item.url)), []);
 
   const addImages = (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []).filter((file) => file.type.startsWith("image/") && file.size <= 10_000_000);
+    const selectedFiles = Array.from(event.target.files || []);
+    const files = selectedFiles.filter((file) => /^(image\/jpeg|image\/png|image\/webp)$/i.test(file.type) && file.size <= 10_000_000);
+    setVisionError(files.length === selectedFiles.length ? "" : copy.invalidFiles);
     const room = Math.max(0, 12 - images.length);
     const added = files.slice(0, room).map((file) => {
       const id = crypto.randomUUID();
-      void putVisionImage(id, file);
+      void putVisionImage(id, file).catch(() => setVisionError(copy.storageError));
       return { id, name: file.name, url: URL.createObjectURL(file), zoom: 1, x: 0, y: 0, rotate: 0 };
     });
     setImages((current) => [...current, ...added]);
@@ -288,7 +298,7 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
     setImages((current) => {
       const target = current.find((item) => item.id === id);
       if (target) URL.revokeObjectURL(target.url);
-      void removeVisionImage(id);
+      void removeVisionImage(id).catch(() => setVisionError(copy.storageError));
       const next = current.filter((item) => item.id !== id);
       if (selectedId === id) setSelectedId(next[0]?.id || "");
       return next;
@@ -297,30 +307,33 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
 
   const exportBoard = async () => {
     if (!images.length) return;
-    const { width, height, margin, heading, stageWidth, stageHeight } = boardGeometry(ratio);
-    const canvas = document.createElement("canvas");
-    canvas.width = width; canvas.height = height;
-    const context = canvas.getContext("2d");
-    if (!context) return;
-    context.fillStyle = background; context.fillRect(0, 0, width, height);
-    const exportGap = (gap / 500) * width;
-    const exportCorner = Math.round((corner / 500) * width);
-    context.fillStyle = "#493630";
-    context.font = `500 ${Math.round(width * 0.052)}px Georgia, serif`;
-    context.textAlign = "center";
-    context.fillText(title || "AlreaDough", width / 2, heading * 0.58, width - margin * 2);
-    const loaded = await Promise.all(images.map((item) => loadImage(item.url)));
-    if (layout === "film") { context.fillStyle = "#211b19"; roundedRect(context, margin, heading, stageWidth, stageHeight, exportCorner); context.fill(); }
-    const frames = frameGeometry(layout, loaded.length, stageWidth, stageHeight, exportGap);
-    frames.forEach((frame, index) => drawFrame(context, loaded[index], images[index], margin + frame.x, heading + frame.y, frame.width, frame.height, exportCorner, frame.rotation || 0, frame.border || 0));
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = `alreadough-vision-board-${Date.now()}.png`;
-      link.click();
-      window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-    }, "image/png");
+    setVisionError("");
+    try {
+      const { width, height, margin, heading, stageWidth, stageHeight } = boardGeometry(ratio);
+      const canvas = document.createElement("canvas");
+      canvas.width = width; canvas.height = height;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("canvas unavailable");
+      context.fillStyle = background; context.fillRect(0, 0, width, height);
+      const exportGap = (gap / 500) * width;
+      const exportCorner = Math.round((corner / 500) * width);
+      context.fillStyle = "#493630";
+      context.font = `500 ${Math.round(width * 0.052)}px Georgia, serif`;
+      context.textAlign = "center";
+      context.fillText(title || "AlreaDough", width / 2, heading * 0.58, width - margin * 2);
+      const loaded = await Promise.all(images.map((item) => loadImage(item.url)));
+      if (layout === "film") { context.fillStyle = "#211b19"; roundedRect(context, margin, heading, stageWidth, stageHeight, exportCorner); context.fill(); }
+      const frames = frameGeometry(layout, loaded.length, stageWidth, stageHeight, exportGap);
+      frames.forEach((frame, index) => drawFrame(context, loaded[index], images[index], margin + frame.x, heading + frame.y, frame.width, frame.height, exportCorner, frame.rotation || 0, frame.border || 0));
+      canvas.toBlob((blob) => {
+        if (!blob) { setVisionError(copy.exportError); return; }
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `alreadough-vision-board-${Date.now()}.png`;
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+      }, "image/png");
+    } catch { setVisionError(copy.exportError); }
   };
 
   const metrics = boardGeometry(ratio);
@@ -333,6 +346,7 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
   return <div className="vision-maker">
     <div className="vision-maker-heading"><h2>{copy.title}</h2><p>{copy.subtitle}</p></div>
     <label className="vision-upload"><UploadSimple size={20}/><span>{copy.upload}</span><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={addImages}/><small>{copy.uploadHint}</small></label>
+    {visionError && <p className="vision-editor-error" role="alert">{visionError}</p>}
     {!images.length && <div className="vision-first-step"><strong>{copy.quickSetup}</strong><span>{lang === "zh" ? "推荐从 4 至 8 张照片开始" : "Start with 4 to 8 photos"}</span></div>}
     {images.length > 0 && <div className="vision-controls">
       <label>{copy.boardTitle}<input value={title} onChange={(event) => setTitle(event.target.value)}/></label>
