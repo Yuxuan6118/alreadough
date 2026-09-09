@@ -52,7 +52,7 @@ pnpm dlx wrangler login
 pnpm dlx wrangler d1 create alreadough
 ```
 
-把上一步打印出来的 `database_id` 粘进 `wrangler.jsonc` 里 `REPLACE_WITH_D1_DATABASE_ID` 的位置。
+把上一步打印出来的 `database_id` 粘进 `wrangler.jsonc` 里，替换掉占位的 `"00000000-0000-4000-8000-000000000000"`。
 
 > 建表不用管：App 在第一次请求时会自动 `CREATE TABLE IF NOT EXISTS`（`lib/beta-guard.ts` / `app/api/space/route.ts`）。`drizzle/` 里的迁移是给以后用的。
 

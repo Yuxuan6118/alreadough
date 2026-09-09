@@ -1,14 +1,23 @@
 import { founderSnapshot, setBetaEnabled } from "@/lib/beta-guard";
 
+function timingSafeEqual(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i += 1) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return mismatch === 0;
+}
+
 function authorized(request: Request) {
   const secret = process.env.BETA_FOUNDER_SECRET?.trim();
   if (!secret) return false;
+  // Bearer token only — never accept the secret in the query string, where it
+  // would land in CDN/access logs, history, and referrers.
   const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
-  const param = new URL(request.url).searchParams.get("key")?.trim();
+  if (bearer && timingSafeEqual(bearer, secret)) return true;
   // Back-compat: still accept the platform email match when that env is set.
   const email = process.env.BETA_FOUNDER_EMAIL?.trim().toLowerCase();
   const headerEmail = request.headers.get("oai-authenticated-user-email")?.trim().toLowerCase();
-  return bearer === secret || param === secret || Boolean(email && headerEmail && email === headerEmail);
+  return Boolean(email && headerEmail && email === headerEmail);
 }
 
 export async function GET(request: Request) {

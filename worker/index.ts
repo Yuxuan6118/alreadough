@@ -33,10 +33,10 @@ const worker = {
       // Without the Cloudflare Images add-on there is no IMAGES binding; fall back
       // to serving the requested source asset unoptimized rather than erroring.
       if (!env.IMAGES) {
-        const source = url.searchParams.get("url");
-        return source
-          ? env.ASSETS.fetch(new Request(new URL(source, request.url)))
-          : new Response("Not found", { status: 404 });
+        // Only proxy same-origin asset paths, never an arbitrary/absolute URL.
+        const source = url.searchParams.get("url") || "";
+        if (!source.startsWith("/") || source.startsWith("//")) return new Response("Not found", { status: 404 });
+        return env.ASSETS.fetch(new Request(new URL(source, url.origin)));
       }
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
       return handleImageOptimization(request, {

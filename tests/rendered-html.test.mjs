@@ -63,8 +63,9 @@ test("enforces founder beta quotas without storing private conversation content"
 test("keeps the founder dashboard private and aggregate-only", async () => {
   const admin = await readFile(new URL("../app/api/beta/admin/route.ts", import.meta.url), "utf8");
   const dashboard = await readFile(new URL("../app/beta/page.tsx", import.meta.url), "utf8");
-  assert.match(admin, /BETA_FOUNDER_EMAIL/);
-  assert.match(admin, /oai-authenticated-user-email/);
+  assert.match(admin, /BETA_FOUNDER_SECRET/);
+  assert.match(admin, /Bearer/);
+  assert.doesNotMatch(admin, /searchParams\.get\("key"\)/); // secret must not be read from the URL
   assert.match(dashboard, /不读取用户愿望或聊天内容/);
 });
 
