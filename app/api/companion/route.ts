@@ -1,24 +1,10 @@
 import {
-  buildInput,
-  buildInstructions,
-  companionResponseSchema,
+  buildMessages,
   desirePreservingSafetyReply,
   type CompanionRequest,
 } from "@/lib/already-ai";
 import { beginBetaRequest, settleBetaRequest } from "@/lib/beta-guard";
-
-type OpenAIResponse = {
-  output_text?: string;
-  output?: Array<{
-    type?: string;
-    content?: Array<{
-      type?: string;
-      text?: string;
-    }>;
-  }>;
-  error?: { message?: string };
-  usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
-};
+import { OPENAI_BASE_URL, chatContent, chatUsage, type ChatCompletion } from "@/lib/openai-base";
 
 const requestWindows = new Map<string, { startedAt: number; count: number }>();
 const REQUEST_WINDOW_MS = 60_000;
@@ -39,15 +25,6 @@ function isRateLimited(sessionId: string) {
   }
   current.count += 1;
   return current.count > REQUESTS_PER_WINDOW;
-}
-
-function responseText(data: OpenAIResponse) {
-  if (data.output_text) return data.output_text;
-  return data.output
-    ?.flatMap((item) => item.content || [])
-    .filter((item) => item.type === "output_text" && typeof item.text === "string")
-    .map((item) => item.text)
-    .join("") || "";
 }
 
 function json(data: unknown, status = 200) {
@@ -121,8 +98,8 @@ export async function POST(request: Request) {
     }, 503);
   }
 
-  const chatModel = process.env.OPENAI_CHAT_MODEL || "gpt-5.6-luna";
-  const creativeModel = process.env.OPENAI_CREATIVE_MODEL || "gpt-5.6-terra";
+  const chatModel = process.env.OPENAI_CHAT_MODEL || "deepseek-v4-flash";
+  const creativeModel = process.env.OPENAI_CREATIVE_MODEL || chatModel;
   const model = payload.mode === "chat" ? chatModel : creativeModel;
   const gate = await beginBetaRequest(request, payload.sessionId, payload.mode);
   if (!gate.ok) {
@@ -141,42 +118,33 @@ export async function POST(request: Request) {
 
   let upstream: Response;
   try {
-    upstream = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      instructions: buildInstructions(payload.lang, payload.mode, payload.goal.coachMode),
-      input: buildInput(payload),
-      store: false,
-      reasoning: { effort: "none" },
-      max_output_tokens: payload.mode === "story" ? 1400 : payload.mode === "revision" ? 900 : 750,
-      prompt_cache_key: `already-${payload.lang}-${payload.mode}`,
-      safety_identifier: payload.sessionId.slice(0, 64),
-      text: {
-        verbosity: payload.mode === "story" ? "medium" : "low",
-        format: {
-          type: "json_schema",
-          name: "already_companion_response",
-          strict: true,
-          schema: companionResponseSchema,
-        },
+    upstream = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
       },
-    }),
+      body: JSON.stringify({
+        model,
+        messages: buildMessages(payload),
+        response_format: { type: "json_object" },
+        max_tokens: payload.mode === "story" ? 1800 : payload.mode === "revision" ? 1100 : 900,
+        temperature: 0.85,
+        // DeepSeek/Qwen on DashScope: skip the reasoning pass — it triples latency
+        // and this is a warm conversational turn, not a hard reasoning problem.
+        enable_thinking: false,
+      }),
     });
   } catch {
     await settleBetaRequest(gate.ticket, null, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: false, latencyMs: Date.now() - startedAt });
     return json({ error: "AI_REQUEST_FAILED", message: payload.lang === "zh" ? "AI 暂时没有连接成功，请稍后再试。" : "AI could not connect. Please try again shortly." }, 502);
   }
 
-  const data = await upstream.json() as OpenAIResponse;
-  await settleBetaRequest(gate.ticket, data.usage || null, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: upstream.ok, latencyMs: Date.now() - startedAt });
-  const outputText = responseText(data);
+  const data = await upstream.json() as ChatCompletion;
+  await settleBetaRequest(gate.ticket, chatUsage(data), { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: upstream.ok, latencyMs: Date.now() - startedAt });
+  const outputText = chatContent(data).trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
   if (!upstream.ok || !outputText) {
-    return json({ error: "AI_REQUEST_FAILED", message: data.error?.message || "The AI request failed." }, 502);
+    return json({ error: "AI_REQUEST_FAILED", message: data.error?.message || data.message || "The AI request failed." }, 502);
   }
 
   try {
@@ -197,7 +165,7 @@ export async function POST(request: Request) {
       beliefObserved: result.belief_observed,
       memoryCandidates: result.memory_candidates || [],
       model,
-      usage: data.usage || null,
+      usage: chatUsage(data),
     });
   } catch {
     return json({ error: "AI_RESPONSE_INVALID" }, 502);

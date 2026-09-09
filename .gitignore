@@ -46,3 +46,6 @@ yarn-error.log*
 /exports/
 /outputs/
 /work/
+
+# local dev secrets (wrangler/miniflare)
+.dev.vars

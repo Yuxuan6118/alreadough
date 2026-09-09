@@ -124,7 +124,18 @@ export function buildInstructions(lang: CompanionLang, mode: CompanionMode, coac
         revision: "Mode: Revision. Rewrite the old event only as the chosen new version. Do not analyze the old version or add disclaimers.",
         story: "Mode: Storytelling. Write a fulfilled-state daily-life scene with place, senses, actions, dialogue, and an emotional landing. Do not explain the method.",
       }[mode];
-  return `${base}\n\n${coachOverlays[coachMode][lang]}\n\n${coachExamples[coachMode][lang]}\n\n${modeNote}`;
+  const jsonNote = lang === "zh"
+    ? `严格只输出一个 JSON 对象，不要包裹在代码块里，不要有任何 JSON 以外的文字。结构：{"reply": string, "journey_summary": string, "belief_observed": string, "memory_candidates": [{"kind": "person"|"place"|"event"|"preference"|"insight", "title": string, "detail": string, "keywords": string[]}]}。memory_candidates 最多 2 条，没有就返回空数组。`
+    : `Output exactly one JSON object, no code fences, no text outside the JSON. Shape: {"reply": string, "journey_summary": string, "belief_observed": string, "memory_candidates": [{"kind": "person"|"place"|"event"|"preference"|"insight", "title": string, "detail": string, "keywords": string[]}]}. At most 2 memory_candidates; use an empty array when there are none.`;
+  return `${base}\n\n${coachOverlays[coachMode][lang]}\n\n${coachExamples[coachMode][lang]}\n\n${modeNote}\n\n${jsonNote}`;
+}
+
+/** Chat Completions messages for the companion turn (OpenAI-compatible providers). */
+export function buildMessages(payload: CompanionRequest) {
+  return [
+    { role: "system" as const, content: buildInstructions(payload.lang, payload.mode, payload.goal.coachMode) },
+    { role: "user" as const, content: buildInput(payload) },
+  ];
 }
 
 function clip(value: string, max: number) {

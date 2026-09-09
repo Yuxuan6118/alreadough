@@ -1,14 +1,10 @@
+import { OPENAI_BASE_URL, chatContent, type ChatCompletion } from "@/lib/openai-base";
 import { NextRequest, NextResponse } from "next/server";
 
 type OpenverseAudio = {
   id: string; title: string; url: string; foreign_landing_url: string;
   creator?: string; license: string; license_url?: string; duration?: number;
   provider?: string; category?: string; tags?: Array<{ name?: string } | string>; genres?: string[];
-};
-
-type OpenAIResponse = {
-  output_text?: string;
-  output?: Array<{ content?: Array<{ type?: string; text?: string }> }>;
 };
 
 const queryMap: Record<string, string> = {
@@ -40,13 +36,6 @@ function isAmbientOnly(item: OpenverseAudio) {
   return !item.duration || item.duration >= 8;
 }
 
-function responseText(data: OpenAIResponse) {
-  if (data.output_text) return data.output_text;
-  return data.output?.flatMap((item) => item.content || [])
-    .filter((item) => item.type === "output_text" && typeof item.text === "string")
-    .map((item) => item.text).join("") || "";
-}
-
 async function translateAmbientQuery(raw: string) {
   if (!chinesePattern.test(raw)) return [raw];
   if (queryMap[raw]) return [queryMap[raw]];
@@ -54,26 +43,25 @@ async function translateAmbientQuery(raw: string) {
   if (!apiKey) return ["nature ambience field recording"];
 
   try {
-    const response = await fetch("https://api.openai.com/v1/responses", {
+    const response = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       cache: "no-store",
       signal: AbortSignal.timeout(8_000),
       body: JSON.stringify({
-        model: process.env.OPENAI_SEARCH_MODEL || process.env.OPENAI_CHAT_MODEL || "gpt-5.6-luna",
-        instructions: "Translate the Chinese search for pure environmental audio into 1 to 3 short English search queries. If it contains multiple sound sources, separate them into individual queries so each source is searched independently. Describe only sound sources. Never add speech, voices, people, songs, music, podcasts, vehicles, or ASMR. Return JSON only.",
-        input: raw,
-        store: false,
-        reasoning: { effort: "none" },
-        max_output_tokens: 60,
-        text: { verbosity: "low", format: { type: "json_schema", name: "ambient_sound_query", strict: true, schema: {
-            type: "object", properties: { queries: { type: "array", items: { type: "string", minLength: 2, maxLength: 80 }, minItems: 1, maxItems: 3 } }, required: ["queries"], additionalProperties: false,
-        } } },
+        model: process.env.OPENAI_SEARCH_MODEL || process.env.OPENAI_CHAT_MODEL || "deepseek-v4-flash",
+        messages: [
+          { role: "system", content: 'Translate the Chinese search for pure environmental audio into 1 to 3 short English search queries. If it contains multiple sound sources, separate them into individual queries so each source is searched independently. Describe only sound sources. Never add speech, voices, people, songs, music, podcasts, vehicles, or ASMR. Return only JSON: {"queries": string[]}.' },
+          { role: "user", content: raw },
+        ],
+        response_format: { type: "json_object" },
+        enable_thinking: false,
+        max_tokens: 120,
       }),
     });
     if (!response.ok) throw new Error("translation failed");
-    const data = await response.json() as OpenAIResponse;
-    const parsed = JSON.parse(responseText(data)) as { queries?: string[] };
+    const data = await response.json() as ChatCompletion;
+    const parsed = JSON.parse(chatContent(data).trim().replace(/^```(?:json)?\s*|\s*```$/g, "") || "{}") as { queries?: string[] };
     const queries = (parsed.queries || []).map((query) => query.trim().slice(0, 80)).filter(Boolean).slice(0, 3);
     return queries.length ? queries : ["nature ambience field recording"];
   } catch {
