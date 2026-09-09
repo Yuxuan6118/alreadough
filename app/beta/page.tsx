@@ -14,6 +14,7 @@ export default function FounderBetaPage() {
   const [error, setError] = useState("");
   const [token, setToken] = useState<string | null>(null);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- one-time read of the founder key from URL/storage on mount */
   useEffect(() => {
     try {
       const fromUrl = new URLSearchParams(window.location.search).get("key")?.trim();
@@ -26,6 +27,7 @@ export default function FounderBetaPage() {
     } catch { /* no URL / storage */ }
     setToken(readStored(FOUNDER_KEY_STORAGE) || "");
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const load = useCallback(() => {
     if (!token) return;
