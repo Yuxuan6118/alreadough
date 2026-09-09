@@ -9,7 +9,11 @@ function json(data: unknown, status = 200) {
 
 async function userId() {
   const requestHeaders = await headers();
-  return requestHeaders.get("oai-authenticated-user-id");
+  const platformId = requestHeaders.get("oai-authenticated-user-id");
+  if (platformId) return platformId;
+  // Account-free beta: the browser's persisted device session id owns the space.
+  const device = requestHeaders.get("x-already-session-id")?.trim();
+  return device ? `device:${device.slice(0, 128)}` : null;
 }
 
 let tableReady: Promise<unknown> | null = null;

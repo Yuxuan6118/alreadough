@@ -51,10 +51,13 @@ async function sha256(value: string) {
 }
 
 export function requestIdentity(request: Request, sessionId?: string) {
-  const id = request.headers.get("oai-authenticated-user-id");
-  if (id) return id;
-  const host = new URL(request.url).hostname;
-  if ((host === "localhost" || host === "127.0.0.1") && sessionId) return `local:${sessionId.slice(0, 128)}`;
+  // Back-compat: honour a platform-authenticated id when one is present.
+  const platformId = request.headers.get("oai-authenticated-user-id");
+  if (platformId) return platformId;
+  // Account-free beta: identity is the device session id the client generates and
+  // persists locally, sent as a header (and as the sessionId arg on some routes).
+  const device = (request.headers.get("x-already-session-id") || sessionId || "").trim();
+  if (device) return `device:${device.slice(0, 128)}`;
   return null;
 }
 

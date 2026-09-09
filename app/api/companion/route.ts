@@ -127,7 +127,7 @@ export async function POST(request: Request) {
   const gate = await beginBetaRequest(request, payload.sessionId, payload.mode);
   if (!gate.ok) {
     const messages: Record<string, Record<"zh" | "en", string>> = {
-      SIGN_IN_REQUIRED: { zh: "请先登录测试版，再继续使用 AI。", en: "Please sign in to continue using the beta AI." },
+      SIGN_IN_REQUIRED: { zh: "无法识别这台设备，请刷新页面后再试。", en: "This device could not be identified. Please refresh and try again." },
       AI_PAUSED: { zh: "AI 服务正在由创始人暂时维护，请稍后再来。", en: "AI is temporarily paused by the founder. Please return shortly." },
       TRIAL_ENDED: { zh: "你的 7 天创始测试期已经结束，感谢你留下的每一次体验。", en: "Your 7-day founder beta has ended. Thank you for every session." },
       TRIAL_LIMIT_REACHED: { zh: "你的创始测试额度已经用完。", en: "Your founder beta allowance has been used." },

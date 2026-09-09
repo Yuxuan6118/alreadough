@@ -217,7 +217,7 @@ const ui = {
     companion: "信念陪伴者", here: "我在这里", companionCopy: "把旧故事交出来。AI 会结合你的当前愿望、限制性信念和最近旅程，陪你回到选择的版本。", chatPlaceholder: "写下此刻冒出的念头……",
     previous: "← 上一个", next: "下一个故事 →", revisionTitle: "让这一刻按你的方式发生", revisionCopy: "旧版本只需出现一次。接纳后，我们只保留你的新故事。", oldLabel: "刚刚什么让你离开了新故事？", oldPlaceholder: "例如：一个结果、消息或眼前情况，让我开始怀疑自己的愿望……", makeRevision: "✶ 为我重写这一刻", chosen: "你选择的新版本", accepted: "已经接纳 ✓", acceptStory: "接纳为我的新故事", history: "已接纳",
     boardTitle: "收藏你正在走进的生活", boardCopy: "从授权真实摄影中寻觅灵感，或用自己的照片编织专属愿景板。不会使用 AI 生成图片。", realPhotos: "寻梦灵感", photoCopy: "在可商用授权的真实摄影中，寻找属于你的生活画面", searchPlaceholder: "例如：冬日旅行、理想的新家", searching: "寻觅中", search: "开始寻梦", collect: "＋ 收进我的愿景", manual: "或者添加你已经喜欢的素材", nameScene: "为这个画面命名", pasteLink: "粘贴任意网站的来源链接或图片直链", addLink: "添加链接", local: "从本机添加", source: "查看来源 ↗",
-    private: "我的空间", space: "我的已完成空间", privateCopy: "愿望、记忆、对话与练习会在登录设备间同步；私密照片和音频仍只留在本机。", coreWish: "当前唯一愿望", tone: "陪伴语气", toneCopy: "温柔、坚定，不分析可能性，不用旧故事反驳新选择。", region: "使用范围", regionCopy: "面向 OpenAI 支持地区的海外中文与英文用户。", clear: "清除我的练习数据", confirm: "要清除云端与这台设备上保存的所有练习吗？", nav: ["陪伴", "故事", "重写", "愿景", "入梦声场"], ariaSettings: "打开私人设定", ariaNav: "主导航", send: "发送", activeGoal: "当前愿望", beliefs: "限制性信念地图", memory: "AI 旅程摘要", saveGoal: "保存更改", savedGoal: "更改已保存", generating: "AI 正在进入这个场景……", generateStory: "✶ 为这一刻生成专属故事", aiReady: "AI 已连接", aiSetup: "AI 待配置", trust: "AI 与安全说明",
+    private: "我的空间", space: "我的已完成空间", privateCopy: "愿望、记忆、对话与练习保存在这台设备；私密照片和音频只留在本机。", coreWish: "当前唯一愿望", tone: "陪伴语气", toneCopy: "温柔、坚定，不分析可能性，不用旧故事反驳新选择。", region: "使用范围", regionCopy: "面向 OpenAI 支持地区的海外中文与英文用户。", clear: "清除我的练习数据", confirm: "要清除云端与这台设备上保存的所有练习吗？", nav: ["陪伴", "故事", "重写", "愿景", "入梦声场"], ariaSettings: "打开私人设定", ariaNav: "主导航", send: "发送", activeGoal: "当前愿望", beliefs: "限制性信念地图", memory: "AI 旅程摘要", saveGoal: "保存更改", savedGoal: "更改已保存", generating: "AI 正在进入这个场景……", generateStory: "✶ 为这一刻生成专属故事", aiReady: "AI 已连接", aiSetup: "AI 待配置", trust: "AI 与安全说明",
   },
   en: {
     day: "DAY 1", greeting: "Welcome back", hero: <>You do not need to convince anyone.<br />Return to the story you have already chosen.</>, wish: "MY DESIRE", happened: "ALREADY MINE", start: "Begin today’s practice",
@@ -318,23 +318,23 @@ export default function Home() {
       if (Array.isArray(data.board)) setBoard(data.board as BoardItem[]);
       if (Array.isArray(data.checkIns)) setCheckIns(data.checkIns as PracticeCheckIn[]);
     };
+    let activeSession = readStored("already-session-id") || "";
+    if (!activeSession) {
+      try { activeSession = crypto.randomUUID(); }
+      catch { activeSession = `d-${Date.now()}-${Math.random().toString(36).slice(2)}`; }
+      writeStored("already-session-id", activeSession);
+    }
+    setSessionId(activeSession);
     try {
       const saved = readStored("already-private-state-v5");
       if (saved) restore(JSON.parse(saved));
       const savedCheckIns = readStored("already-practice-checkins-v1");
       if (savedCheckIns) setCheckIns(JSON.parse(savedCheckIns));
-      const storedSession = readStored("already-session-id");
-      if (storedSession) setSessionId(storedSession);
-      else {
-        const created = crypto.randomUUID();
-        writeStored("already-session-id", created);
-        setSessionId(created);
-      }
     } catch { /* the private space can always start fresh */ }
     finally {
       setAcknowledged(readStored("already-acknowledged-v1") === "yes");
       setHydrated(true);
-      fetch("/api/space", { cache: "no-store" })
+      fetch("/api/space", { cache: "no-store", headers: { "x-already-session-id": activeSession } })
         .then(async (response) => ({ response, data: await response.json() as { space?: Record<string, unknown> | null } }))
         .then(({ response, data }) => {
           if (response.ok && data.space) restore(data.space);
@@ -383,12 +383,12 @@ export default function Home() {
     if (!cloudReady) return;
     const timeout = window.setTimeout(() => {
       setSyncStatus("saving");
-      fetch("/api/space", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ space }) })
+      fetch("/api/space", { method: "PUT", headers: { "Content-Type": "application/json", "x-already-session-id": sessionId }, body: JSON.stringify({ space }) })
         .then((response) => setSyncStatus(response.ok ? "saved" : "offline"))
         .catch(() => setSyncStatus("offline"));
     }, 900);
     return () => window.clearTimeout(timeout);
-  }, [hydrated, cloudReady, lang, goal, goalArchive, conversationId, conversationArchive, messages, revisions, board, storyLibrary, checkIns]);
+  }, [hydrated, cloudReady, sessionId, lang, goal, goalArchive, conversationId, conversationArchive, messages, revisions, board, storyLibrary, checkIns]);
 
   useEffect(() => {
     writeStored("already-practice-checkins-v1", JSON.stringify(checkIns));
@@ -1091,14 +1091,14 @@ export default function Home() {
         </div>}
 
         {settingsSection === "data" && <div className="settings-section">
-          <div className="setting-card beta-quota-card"><span>{lang === "zh" ? "创始测试额度" : "FOUNDER BETA ALLOWANCE"}</span>{betaStatus?.authenticated && betaStatus.remaining ? <><p>{lang === "zh" ? `本轮还可使用 ${betaStatus.remaining.total} 次 · 到期 ${betaStatus.expiresAt ? new Date(betaStatus.expiresAt).toLocaleDateString("zh-CN") : "—"}` : `${betaStatus.remaining.total} sessions remain · ends ${betaStatus.expiresAt ? new Date(betaStatus.expiresAt).toLocaleDateString("en-US") : "—"}`}</p><div className="quota-pills"><small>{lang === "zh" ? `聊天 ${betaStatus.remaining.chat}/15` : `Chat ${betaStatus.remaining.chat}/15`}</small><small>{lang === "zh" ? `重写 ${betaStatus.remaining.revision}/3` : `Revision ${betaStatus.remaining.revision}/3`}</small><small>{lang === "zh" ? `故事 ${betaStatus.remaining.story}/1` : `Story ${betaStatus.remaining.story}/1`}</small></div></> : <p>{lang === "zh" ? "登录测试版后会显示 7 天体验额度。" : "Sign in to see your 7-day beta allowance."}</p>}</div>
+          <div className="setting-card beta-quota-card"><span>{lang === "zh" ? "创始测试额度" : "FOUNDER BETA ALLOWANCE"}</span>{betaStatus?.authenticated && betaStatus.remaining ? <><p>{lang === "zh" ? `本轮还可使用 ${betaStatus.remaining.total} 次 · 到期 ${betaStatus.expiresAt ? new Date(betaStatus.expiresAt).toLocaleDateString("zh-CN") : "—"}` : `${betaStatus.remaining.total} sessions remain · ends ${betaStatus.expiresAt ? new Date(betaStatus.expiresAt).toLocaleDateString("en-US") : "—"}`}</p><div className="quota-pills"><small>{lang === "zh" ? `聊天 ${betaStatus.remaining.chat}/15` : `Chat ${betaStatus.remaining.chat}/15`}</small><small>{lang === "zh" ? `重写 ${betaStatus.remaining.revision}/3` : `Revision ${betaStatus.remaining.revision}/3`}</small><small>{lang === "zh" ? `故事 ${betaStatus.remaining.story}/1` : `Story ${betaStatus.remaining.story}/1`}</small></div></> : <p>{lang === "zh" ? "开始使用后会显示 7 天体验额度。" : "Your 7-day beta allowance appears once you start."}</p>}</div>
           <div className="language-card"><div><span>{lang === "zh" ? "界面语言" : "LANGUAGE"}</span><strong>{lang === "zh" ? "简体中文" : "English"}</strong></div><button onClick={switchLanguage}>{lang === "zh" ? "Switch to English" : "切换到中文"}</button></div>
           <div className="setting-card sync-card"><span>{lang === "zh" ? "跨设备同步" : "CROSS-DEVICE SYNC"}</span><p>{syncStatus === "saved" ? (lang === "zh" ? "愿望、记忆、对话、故事和练习记录已安全同步。" : "Your desire, memory, conversations, stories, and practice history are synced.") : (lang === "zh" ? "当前使用本机副本；恢复连接后会自动继续同步。" : "Using the on-device copy. Sync resumes automatically when available.")}</p></div>
           <div className="setting-card goal-lifecycle-card"><span>{lang === "zh" ? "愿望生命周期" : "DESIRE LIFECYCLE"}</span><p>{lang === "zh" ? "愿望完成后，把它留在历程中，再开启一个新的单一愿望空间。" : "When this desire is complete, keep it in your journey and open a fresh one-desire space."}</p><button className="outline-button" onClick={archiveAndBeginAgain}>{lang === "zh" ? "完成并归档，开启新愿望" : "Complete, archive, and begin again"}</button></div>
           {goalArchive.length > 0 && <div className="setting-card archive-card"><span>{lang === "zh" ? `已经发生的愿望 · ${goalArchive.length}` : `FULFILLED DESIRES · ${goalArchive.length}`}</span>{goalArchive.slice(0, 5).map((item) => <article key={item.id}><strong>{item.desire[lang] || item.desire[lang === "zh" ? "en" : "zh"]}</strong><small>{item.createdAt ? new Date(item.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US") : ""}</small></article>)}</div>}
           <div className="setting-card data-control-card"><span>{lang === "zh" ? "我的数据" : "MY DATA"}</span><p>{lang === "zh" ? "下载愿望卡、故事、对话、重写与打卡记录。私密照片和音频文件不会写入导出文件。" : "Download desire cards, stories, conversations, revisions, and check-ins. Private photo and audio files are excluded."}</p><button className="outline-button" onClick={exportMyData}>{lang === "zh" ? "导出我的数据" : "Export my data"}</button></div>
           <div className="legal-links"><a className="trust-link" href="/pricing">{lang === "zh" ? "会员与价格" : "Membership & pricing"}</a><a className="trust-link" href="/trust">{t.trust}</a><a className="trust-link" href="/privacy">{lang === "zh" ? "隐私说明" : "Privacy"}</a><a className="trust-link" href="/terms">{lang === "zh" ? "测试版条款" : "Beta terms"}</a><a className="trust-link" href="/copyright">{lang === "zh" ? "素材与版权" : "Content & copyright"}</a></div>
-          <button className="outline-button danger-button" onClick={() => { if (window.confirm(t.confirm)) { void fetch("/api/space", { method: "DELETE" }); removeStored("already-private-state-v5"); removeStored("already-practice-checkins-v1"); removeStored("already-subliminal-v1"); removeStored("already-vision-project-v1"); indexedDB.deleteDatabase("already-private-audio-v1"); indexedDB.deleteDatabase("already-private-vision-v1"); setGoal({ ...defaultGoal }); setGoalArchive([]); setConversationArchive([]); setConversationId(""); setSpNameDraft(""); setBeliefDraft(""); setStoryLibrary([]); setMessages([]); setRevisions([]); setCheckIns([]); setBoard([]); setView("home"); setOnboardingStep(0); } }}>{t.clear}</button>
+          <button className="outline-button danger-button" onClick={() => { if (window.confirm(t.confirm)) { void fetch("/api/space", { method: "DELETE", headers: { "x-already-session-id": sessionId } }); removeStored("already-private-state-v5"); removeStored("already-practice-checkins-v1"); removeStored("already-subliminal-v1"); removeStored("already-vision-project-v1"); indexedDB.deleteDatabase("already-private-audio-v1"); indexedDB.deleteDatabase("already-private-vision-v1"); setGoal({ ...defaultGoal }); setGoalArchive([]); setConversationArchive([]); setConversationId(""); setSpNameDraft(""); setBeliefDraft(""); setStoryLibrary([]); setMessages([]); setRevisions([]); setCheckIns([]); setBoard([]); setView("home"); setOnboardingStep(0); } }}>{t.clear}</button>
         </div>}
         {settingsSection !== "data" && <div className="settings-savebar"><span>{syncStatus === "saved" ? <CloudCheck size={18}/> : <FloppyDisk size={18}/>} {syncStatus === "saved" ? (lang === "zh" ? "会自动同步" : "Auto-sync is on") : (lang === "zh" ? "本机副本已保留" : "On-device copy retained")}</span><button className="primary" onClick={saveGoalSettings} disabled={Boolean(spNameError) || beliefCount > MAX_BELIEFS || !goal.companionStyle}>{goalSavedPulse ? t.savedGoal : t.saveGoal}</button></div>}
       </section>}

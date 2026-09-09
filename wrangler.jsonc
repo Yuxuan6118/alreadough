@@ -1,0 +1,23 @@
+{
+  // AlreaDough — Cloudflare Worker config. Read by both `vite build` and `wrangler deploy`.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "alreadough",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2025-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  // D1 database. Run `wrangler d1 create alreadough` once, then replace the
+  // placeholder id below with the printed database_id (it is not a secret).
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "alreadough",
+      "database_id": "00000000-0000-4000-8000-000000000000"
+    }
+  ]
+
+  // Secrets (OPENAI_API_KEY, BETA_FOUNDER_SECRET, PEXELS_API_KEY, UNSPLASH_ACCESS_KEY,
+  // OPENAI_CHAT_MODEL, OPENAI_CREATIVE_MODEL, BETA_* limits) are set with
+  // `wrangler secret put <NAME>` or in the Cloudflare dashboard — never in this file.
+}
