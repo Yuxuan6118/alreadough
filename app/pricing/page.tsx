@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Check, LockKey, Sparkle } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
+import { writeStored } from "@/lib/safe-storage";
 import "./pricing.css";
 
 type Plan = "soft" | "deep" | "atelier";
@@ -25,7 +26,7 @@ export default function PricingPage() {
 
   const reserve = () => {
     if (!email.trim()) return;
-    localStorage.setItem("alreadough-pricing-interest-v1", JSON.stringify({ email: email.trim(), plan: selected, annual, savedAt: new Date().toISOString() }));
+    writeStored("alreadough-pricing-interest-v1", JSON.stringify({ email: email.trim(), plan: selected, annual, savedAt: new Date().toISOString() }));
     setSaved(true);
   };
 

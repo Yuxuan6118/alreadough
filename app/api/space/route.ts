@@ -12,13 +12,20 @@ async function userId() {
   return requestHeaders.get("oai-authenticated-user-id");
 }
 
-async function ensureTable() {
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_spaces (
+let tableReady: Promise<unknown> | null = null;
+
+function ensureTable() {
+  if (tableReady) return tableReady;
+  tableReady = env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_spaces (
     user_id TEXT PRIMARY KEY NOT NULL,
     payload TEXT NOT NULL,
     revision INTEGER NOT NULL DEFAULT 1,
     updated_at TEXT NOT NULL
-  )`).run();
+  )`).run().catch((error) => {
+    tableReady = null; // allow the next request to retry
+    throw error;
+  });
+  return tableReady;
 }
 
 export async function GET() {

@@ -32,6 +32,7 @@ import SubliminalStudio, { PracticeCheckIn, practiceStreak, todayKey } from "./c
 import VisionCanvasStudio from "./components/VisionCanvasStudio";
 import DoughPet from "./components/DoughPet";
 import { validateSpName } from "@/lib/name-policy";
+import { readStored, writeStored, removeStored } from "@/lib/safe-storage";
 
 type View = "home" | "subliminal" | "story" | "revision" | "board" | "memory" | "settings";
 type Lang = "zh" | "en";
@@ -141,6 +142,10 @@ const defaultGoal: GoalProfile = {
 const MAX_BELIEFS = 12;
 const MAX_BACKGROUND = 4000;
 const MAX_MEMORIES = 48;
+
+// Monotonic local ids for device-only list items, so two actions in the same millisecond cannot collide.
+let localIdCounter = 0;
+const nextLocalId = () => Date.now() * 1000 + (localIdCounter = (localIdCounter + 1) % 1000);
 
 const memoryKinds: Array<{ id: MemoryKind; zh: string; en: string }> = [
   { id: "person", zh: "人物", en: "People" },
@@ -314,20 +319,20 @@ export default function Home() {
       if (Array.isArray(data.checkIns)) setCheckIns(data.checkIns as PracticeCheckIn[]);
     };
     try {
-      const saved = localStorage.getItem("already-private-state-v5");
+      const saved = readStored("already-private-state-v5");
       if (saved) restore(JSON.parse(saved));
-      const savedCheckIns = localStorage.getItem("already-practice-checkins-v1");
+      const savedCheckIns = readStored("already-practice-checkins-v1");
       if (savedCheckIns) setCheckIns(JSON.parse(savedCheckIns));
-      const storedSession = localStorage.getItem("already-session-id");
+      const storedSession = readStored("already-session-id");
       if (storedSession) setSessionId(storedSession);
       else {
         const created = crypto.randomUUID();
-        localStorage.setItem("already-session-id", created);
+        writeStored("already-session-id", created);
         setSessionId(created);
       }
     } catch { /* the private space can always start fresh */ }
     finally {
-      setAcknowledged(localStorage.getItem("already-acknowledged-v1") === "yes");
+      setAcknowledged(readStored("already-acknowledged-v1") === "yes");
       setHydrated(true);
       fetch("/api/space", { cache: "no-store" })
         .then(async (response) => ({ response, data: await response.json() as { space?: Record<string, unknown> | null } }))
@@ -353,15 +358,15 @@ export default function Home() {
   }, [hydrated, sessionId]);
 
   useEffect(() => {
-    if (!hydrated || localStorage.getItem("already-beta-survey-complete-v1") === "yes") return;
-    let accumulated = Number(localStorage.getItem("already-active-use-ms-v1") || 0);
+    if (!hydrated || readStored("already-beta-survey-complete-v1") === "yes") return;
+    let accumulated = Number(readStored("already-active-use-ms-v1") || 0);
     let lastTick = Date.now();
     const tick = () => {
       const now = Date.now();
       if (document.visibilityState === "visible") accumulated += Math.max(0, Math.min(6000, now - lastTick));
       lastTick = now;
-      localStorage.setItem("already-active-use-ms-v1", String(accumulated));
-      const dismissedAt = Number(localStorage.getItem("already-beta-survey-dismissed-v1") || 0);
+      writeStored("already-active-use-ms-v1", String(accumulated));
+      const dismissedAt = Number(readStored("already-beta-survey-dismissed-v1") || 0);
       if (accumulated >= 600_000 && (!dismissedAt || now - dismissedAt >= 86_400_000)) setSurveyOpen(true);
     };
     const resetTick = () => { lastTick = Date.now(); };
@@ -373,7 +378,7 @@ export default function Home() {
   useEffect(() => {
     if (!hydrated) return;
     const space = { lang, goal, goalArchive: goalArchive.slice(0, 20), conversationId, conversationArchive: conversationArchive.slice(0, 30), messages: messages.slice(-80), revisions: revisions.slice(0, 20), board, storyLibrary, checkIns };
-    localStorage.setItem("already-private-state-v5", JSON.stringify(space));
+    writeStored("already-private-state-v5", JSON.stringify(space));
     document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
     if (!cloudReady) return;
     const timeout = window.setTimeout(() => {
@@ -386,7 +391,7 @@ export default function Home() {
   }, [hydrated, cloudReady, lang, goal, goalArchive, conversationId, conversationArchive, messages, revisions, board, storyLibrary, checkIns]);
 
   useEffect(() => {
-    localStorage.setItem("already-practice-checkins-v1", JSON.stringify(checkIns));
+    writeStored("already-practice-checkins-v1", JSON.stringify(checkIns));
   }, [checkIns]);
 
   const dateLabel = useMemo(() => new Intl.DateTimeFormat(lang === "zh" ? "zh-CN" : "en-US", { month: "long", day: "numeric", weekday: "long" }).format(new Date()), [lang]);
@@ -679,7 +684,7 @@ export default function Home() {
 
   const acceptRevision = () => {
     if (!newScene) return;
-    setRevisions((items) => [{ id: Date.now(), old: oldScene, revised: newScene, date: new Date().toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US") }, ...items]);
+    setRevisions((items) => [{ id: nextLocalId(), old: oldScene, revised: newScene, date: new Date().toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US") }, ...items]);
     setGoal((current) => ({
       ...current,
       acceptedSceneLedger: {
@@ -709,14 +714,16 @@ export default function Home() {
   };
 
   const collectSearchImage = (item: SearchImage) => {
-    setBoard((items) => [{ id: Date.now(), title: item.title, source: item.source, image: item.image }, ...items]);
+    setBoard((items) => [{ id: nextLocalId(), title: item.title, source: item.source, image: item.image }, ...items]);
     if (item.downloadLocation) fetch("/api/images", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ downloadLocation: item.downloadLocation }) }).catch(() => null);
   };
 
   const recordCheckIn = (feeling: PracticeCheckIn["feeling"]) => {
     const date = todayKey();
+    const alreadyCheckedIn = checkIns.some((item) => item.date === date);
     setCheckIns((items) => [{ date, feeling }, ...items.filter((item) => item.date !== date)]);
-    void recordBetaEvent({ eventType: "practice_checkin", feedback: feeling });
+    // One check-in event per day: tapping the dough repeatedly must not spam the beta log.
+    if (!alreadyCheckedIn) void recordBetaEvent({ eventType: "practice_checkin", feedback: feeling });
   };
 
   const recordBetaEvent = (event: { eventType: string; mode?: string; feedback?: string; ratingBefore?: number; ratingAfter?: number }) => fetch("/api/beta/events", {
@@ -731,7 +738,7 @@ export default function Home() {
   };
 
   const dismissSurvey = () => {
-    localStorage.setItem("already-beta-survey-dismissed-v1", String(Date.now()));
+    writeStored("already-beta-survey-dismissed-v1", String(Date.now()));
     setSurveyOpen(false);
   };
 
@@ -743,7 +750,7 @@ export default function Home() {
       recordBetaEvent({ eventType: "beta_survey", mode: "return_intent", ratingAfter: surveyReturn }),
       recordBetaEvent({ eventType: "beta_survey", mode: "helpful_feature", feedback: surveyFeature }),
     ]);
-    localStorage.setItem("already-beta-survey-complete-v1", "yes");
+    writeStored("already-beta-survey-complete-v1", "yes");
     setSurveyOpen(false);
   };
 
@@ -918,7 +925,7 @@ export default function Home() {
           <p>{lang === "zh" ? "继续即表示你已阅读并同意测试版条款、隐私说明、AI 与安全说明及素材与版权规则。完整文本会一直保留在“我的空间”。" : "By continuing, you confirm that you have read and accept the beta terms, privacy notice, AI and safety notice, and content and copyright rules. They remain available in My Space."}</p>
           <div className="acknowledge-links"><a href="/terms" target="_blank">{lang === "zh" ? "测试版条款" : "Beta terms"}</a><a href="/privacy" target="_blank">{lang === "zh" ? "隐私说明" : "Privacy"}</a><a href="/trust" target="_blank">{lang === "zh" ? "AI 与安全" : "AI & safety"}</a><a href="/copyright" target="_blank">{lang === "zh" ? "素材与版权" : "Content & copyright"}</a></div>
           <label className="acknowledge-check"><input type="checkbox" id="acknowledge-choice"/><span>{lang === "zh" ? "我已阅读并同意以上说明。" : "I have read and agree to the notices above."}</span></label>
-          <div className="acknowledge-actions"><button className="outline-button" onClick={() => setDeclined(true)}>{lang === "zh" ? "不同意并退出" : "Decline and exit"}</button><button className="primary" onClick={() => { const input = document.querySelector<HTMLInputElement>("#acknowledge-choice"); if (!input?.checked) { input?.focus(); return; } localStorage.setItem("already-acknowledged-v1", "yes"); setAcknowledged(true); }}>{lang === "zh" ? "同意并进入" : "Agree and enter"}</button></div>
+          <div className="acknowledge-actions"><button className="outline-button" onClick={() => setDeclined(true)}>{lang === "zh" ? "不同意并退出" : "Decline and exit"}</button><button className="primary" onClick={() => { const input = document.querySelector<HTMLInputElement>("#acknowledge-choice"); if (!input?.checked) { input?.focus(); return; } writeStored("already-acknowledged-v1", "yes"); setAcknowledged(true); }}>{lang === "zh" ? "同意并进入" : "Agree and enter"}</button></div>
         </>}
       </section>
     </main>;
@@ -1000,9 +1007,9 @@ export default function Home() {
           {filteredMemoryItems.length ? filteredMemoryItems.map((item) => <article key={item.id} className={item.pinned ? "pinned" : ""}><header><span>{lang === "zh" ? memoryKinds.find((kind) => kind.id === item.kind)?.zh : memoryKinds.find((kind) => kind.id === item.kind)?.en}</span><div><button onClick={() => toggleMemoryPin(item.id)} aria-label={item.pinned ? (lang === "zh" ? "取消置顶" : "Unpin") : (lang === "zh" ? "置顶" : "Pin")}>{item.pinned ? "●" : "○"}</button><button onClick={() => openMemoryEditor(item)} aria-label={lang === "zh" ? "编辑记忆" : "Edit memory"}><PencilSimple size={16}/></button><button onClick={() => deleteMemoryItem(item.id)} aria-label={lang === "zh" ? "删除记忆" : "Delete memory"}><Trash size={16}/></button></div></header><h3>{item.title}</h3><p>{item.detail}</p>{item.keywords.length > 0 && <footer>{item.keywords.map((keyword) => <small key={keyword}>{keyword}</small>)}</footer>}</article>) : currentMemoryItems.length === 0 ? <div className="memory-empty"><Brain size={28}/><h3>{lang === "zh" ? "这里会慢慢长出你的上下文" : "Your context will grow here"}</h3><p>{lang === "zh" ? "继续聊天，AlreaDough 会建议值得记住的内容；你也可以亲手添加第一条。" : "Keep talking and AlreaDough will suggest durable memories, or add the first one yourself."}</p><button className="outline-button" onClick={() => openMemoryEditor()}>{lang === "zh" ? "添加第一条记忆" : "Add the first memory"}</button></div> : <div className="memory-empty memory-filter-empty"><Brain size={28}/><h3>{lang === "zh" ? "这一类还没有记忆" : "No memories in this category yet"}</h3><p>{lang === "zh" ? "换一个分类，或回到全部记忆。" : "Choose another category or return to all memories."}</p><button className="outline-button" onClick={() => setMemoryFilter("all")}>{lang === "zh" ? "查看全部记忆" : "View all memories"}</button></div>}
         </div>
         <div className="memory-library-grid">
-          <article><header><strong>{lang === "zh" ? "信念触发点" : "BELIEF TRIGGERS"}</strong><small>{goal.beliefs[lang].length}</small></header>{goal.beliefs[lang].length ? <ul>{goal.beliefs[lang].map((item) => <li key={item}>{item}</li>)}</ul> : <p>{lang === "zh" ? "还没有记录" : "Nothing recorded yet"}</p>}</article>
-          <article><header><strong>{lang === "zh" ? "回应偏好" : "RESPONSE PREFERENCES"}</strong><small>{goal.responsePreferences[lang].length}</small></header><ul>{goal.responsePreferences[lang].map((item) => <li key={item}>{item}</li>)}</ul></article>
-          <article><header><strong>{lang === "zh" ? "已接纳的新场景" : "ACCEPTED SCENES"}</strong><small>{goal.acceptedSceneLedger[lang].length}</small></header>{goal.acceptedSceneLedger[lang].length ? <ul>{goal.acceptedSceneLedger[lang].map((item) => <li key={item}>{item}</li>)}</ul> : <p>{lang === "zh" ? "在故事或重写中接纳的场景会出现在这里。" : "Scenes accepted from Stories or Revision will appear here."}</p>}</article>
+          <article><header><strong>{lang === "zh" ? "信念触发点" : "BELIEF TRIGGERS"}</strong><small>{goal.beliefs[lang].length}</small></header>{goal.beliefs[lang].length ? <ul>{goal.beliefs[lang].map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul> : <p>{lang === "zh" ? "还没有记录" : "Nothing recorded yet"}</p>}</article>
+          <article><header><strong>{lang === "zh" ? "回应偏好" : "RESPONSE PREFERENCES"}</strong><small>{goal.responsePreferences[lang].length}</small></header><ul>{goal.responsePreferences[lang].map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul></article>
+          <article><header><strong>{lang === "zh" ? "已接纳的新场景" : "ACCEPTED SCENES"}</strong><small>{goal.acceptedSceneLedger[lang].length}</small></header>{goal.acceptedSceneLedger[lang].length ? <ul>{goal.acceptedSceneLedger[lang].map((item, index) => <li key={`${index}-${item.slice(0, 24)}`}>{item}</li>)}</ul> : <p>{lang === "zh" ? "在故事或重写中接纳的场景会出现在这里。" : "Scenes accepted from Stories or Revision will appear here."}</p>}</article>
           <article className="journey-memory"><header><strong>{lang === "zh" ? "旅程摘要" : "JOURNEY SUMMARY"}</strong><small>{lang === "zh" ? "自动压缩" : "AUTO-COMPRESSED"}</small></header><p>{goal.journeySummary[lang] || (lang === "zh" ? "对话开始后，这里会形成一段简短摘要。" : "A short summary will form here after conversations begin.")}</p></article>
         </div>
         <div className="memory-actions"><button className="outline-button" onClick={() => setView("settings")}>{lang === "zh" ? "编辑愿望与偏好" : "Edit desire and preferences"}</button><button className="primary" onClick={() => setView("home")}>{lang === "zh" ? "回到对话" : "Back to chat"}</button></div>
@@ -1024,10 +1031,10 @@ export default function Home() {
 
       {view === "story" && storyReading && <section className="full-view story-view">
         <div className={`story-cover ${currentStory.tone}`}><p>{currentStory.city[lang]}</p><h1>{currentStory.title[lang]}</h1><span>{currentStory.subtitle[lang]}</span></div>
-        <article className="story-body">{storyText.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}{currentStory.anchor[lang] && <blockquote>{currentStory.anchor[lang]}</blockquote>}</article>
+        <article className="story-body">{storyText.map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>)}{currentStory.anchor[lang] && <blockquote>{currentStory.anchor[lang]}</blockquote>}</article>
         <div className="personal-story-action story-reader-actions"><button onClick={() => setStoryReading(false)}>{lang === "zh" ? "返回故事库" : "Back to stories"}</button><button onClick={() => openStoryEditor(currentStory)}><PencilSimple size={17}/>{lang === "zh" ? "编辑故事" : "Edit story"}</button><button className="primary" onClick={makeStory} disabled={storyGenerating}>{storyGenerating ? t.generating : t.generateStory}</button></div>
         {aiError && <div className="ai-notice story-ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
-        {generatedStory && <article className="generated-story"><span>AI PERSONAL STORY</span>{generatedStory.split(/\n+/).filter(Boolean).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}<button className="outline-button" onClick={acceptGeneratedStory}>{savedPulse ? (lang === "zh" ? "已收进长期故事 ✓" : "Saved to your story memory ✓") : (lang === "zh" ? "收进我的长期故事" : "Keep in my story memory")}</button></article>}
+        {generatedStory && <article className="generated-story"><span>AI PERSONAL STORY</span>{generatedStory.split(/\n+/).filter(Boolean).map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>)}<button className="outline-button" onClick={acceptGeneratedStory}>{savedPulse ? (lang === "zh" ? "已收进长期故事 ✓" : "Saved to your story memory ✓") : (lang === "zh" ? "收进我的长期故事" : "Keep in my story memory")}</button></article>}
         {storyLibrary.length > 1 && <div className="story-controls"><button onClick={() => { setStoryIndex((storyIndex - 1 + storyLibrary.length) % storyLibrary.length); setGeneratedStory(""); setAiError(""); }}>{t.previous}</button><button className="dark-button" onClick={() => { setStoryIndex((storyIndex + 1) % storyLibrary.length); setGeneratedStory(""); setAiError(""); }}>{t.next}</button></div>}
       </section>}
 
@@ -1091,7 +1098,7 @@ export default function Home() {
           {goalArchive.length > 0 && <div className="setting-card archive-card"><span>{lang === "zh" ? `已经发生的愿望 · ${goalArchive.length}` : `FULFILLED DESIRES · ${goalArchive.length}`}</span>{goalArchive.slice(0, 5).map((item) => <article key={item.id}><strong>{item.desire[lang] || item.desire[lang === "zh" ? "en" : "zh"]}</strong><small>{item.createdAt ? new Date(item.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US") : ""}</small></article>)}</div>}
           <div className="setting-card data-control-card"><span>{lang === "zh" ? "我的数据" : "MY DATA"}</span><p>{lang === "zh" ? "下载愿望卡、故事、对话、重写与打卡记录。私密照片和音频文件不会写入导出文件。" : "Download desire cards, stories, conversations, revisions, and check-ins. Private photo and audio files are excluded."}</p><button className="outline-button" onClick={exportMyData}>{lang === "zh" ? "导出我的数据" : "Export my data"}</button></div>
           <div className="legal-links"><a className="trust-link" href="/pricing">{lang === "zh" ? "会员与价格" : "Membership & pricing"}</a><a className="trust-link" href="/trust">{t.trust}</a><a className="trust-link" href="/privacy">{lang === "zh" ? "隐私说明" : "Privacy"}</a><a className="trust-link" href="/terms">{lang === "zh" ? "测试版条款" : "Beta terms"}</a><a className="trust-link" href="/copyright">{lang === "zh" ? "素材与版权" : "Content & copyright"}</a></div>
-          <button className="outline-button danger-button" onClick={() => { if (window.confirm(t.confirm)) { void fetch("/api/space", { method: "DELETE" }); localStorage.removeItem("already-private-state-v5"); localStorage.removeItem("already-practice-checkins-v1"); localStorage.removeItem("already-subliminal-v1"); localStorage.removeItem("already-vision-project-v1"); indexedDB.deleteDatabase("already-private-audio-v1"); indexedDB.deleteDatabase("already-private-vision-v1"); setGoal({ ...defaultGoal }); setGoalArchive([]); setConversationArchive([]); setConversationId(""); setSpNameDraft(""); setBeliefDraft(""); setStoryLibrary([]); setMessages([]); setRevisions([]); setCheckIns([]); setBoard([]); setView("home"); setOnboardingStep(0); } }}>{t.clear}</button>
+          <button className="outline-button danger-button" onClick={() => { if (window.confirm(t.confirm)) { void fetch("/api/space", { method: "DELETE" }); removeStored("already-private-state-v5"); removeStored("already-practice-checkins-v1"); removeStored("already-subliminal-v1"); removeStored("already-vision-project-v1"); indexedDB.deleteDatabase("already-private-audio-v1"); indexedDB.deleteDatabase("already-private-vision-v1"); setGoal({ ...defaultGoal }); setGoalArchive([]); setConversationArchive([]); setConversationId(""); setSpNameDraft(""); setBeliefDraft(""); setStoryLibrary([]); setMessages([]); setRevisions([]); setCheckIns([]); setBoard([]); setView("home"); setOnboardingStep(0); } }}>{t.clear}</button>
         </div>}
         {settingsSection !== "data" && <div className="settings-savebar"><span>{syncStatus === "saved" ? <CloudCheck size={18}/> : <FloppyDisk size={18}/>} {syncStatus === "saved" ? (lang === "zh" ? "会自动同步" : "Auto-sync is on") : (lang === "zh" ? "本机副本已保留" : "On-device copy retained")}</span><button className="primary" onClick={saveGoalSettings} disabled={Boolean(spNameError) || beliefCount > MAX_BELIEFS || !goal.companionStyle}>{goalSavedPulse ? t.savedGoal : t.saveGoal}</button></div>}
       </section>}

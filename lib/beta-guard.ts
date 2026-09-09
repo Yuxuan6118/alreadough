@@ -17,7 +17,18 @@ type GlobalRow = { request_count: number; total_tokens: number };
 
 export type BetaTicket = { userId: string; userHash: string; day: string; mode: BetaMode };
 
-export async function ensureBetaTables() {
+let betaTablesReady: Promise<void> | null = null;
+
+export function ensureBetaTables() {
+  if (betaTablesReady) return betaTablesReady;
+  betaTablesReady = createBetaTables().catch((error) => {
+    betaTablesReady = null; // allow the next request to retry
+    throw error;
+  });
+  return betaTablesReady;
+}
+
+async function createBetaTables() {
   const statements = [
     `CREATE TABLE IF NOT EXISTS beta_users (user_id TEXT PRIMARY KEY NOT NULL, started_at TEXT NOT NULL, expires_at TEXT NOT NULL, total_requests INTEGER NOT NULL DEFAULT 0, total_tokens INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, last_seen_at TEXT NOT NULL)`,
     `CREATE TABLE IF NOT EXISTS beta_usage_daily (user_id TEXT NOT NULL, usage_date TEXT NOT NULL, request_count INTEGER NOT NULL DEFAULT 0, chat_requests INTEGER NOT NULL DEFAULT 0, revision_requests INTEGER NOT NULL DEFAULT 0, story_requests INTEGER NOT NULL DEFAULT 0, input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0, total_tokens INTEGER NOT NULL DEFAULT 0, failed_requests INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL, PRIMARY KEY (user_id, usage_date))`,
@@ -106,6 +117,12 @@ export async function settleBetaRequest(ticket: BetaTicket, usage: TokenUsage, m
   await env.DB.prepare("UPDATE beta_usage_daily SET input_tokens = input_tokens + ?, output_tokens = output_tokens + ?, total_tokens = total_tokens + ?, failed_requests = failed_requests + ?, updated_at = ? WHERE user_id = ? AND usage_date = ?").bind(input, output, total, metadata.success ? 0 : 1, now, ticket.userId, ticket.day).run();
   await env.DB.prepare("UPDATE beta_users SET total_tokens = total_tokens + ? WHERE user_id = ?").bind(total, ticket.userId).run();
   await env.DB.prepare("UPDATE beta_global_daily SET total_tokens = total_tokens + ?, failed_requests = failed_requests + ?, updated_at = ? WHERE usage_date = ?").bind(total, metadata.success ? 0 : 1, now, ticket.day).run();
+  if (!metadata.success) {
+    // A failed AI call must not spend a beta user's limited allowance; only failed_requests above stays.
+    await env.DB.prepare(`UPDATE beta_usage_daily SET request_count = MAX(request_count - 1, 0), ${modeColumn(ticket.mode)} = MAX(${modeColumn(ticket.mode)} - 1, 0), updated_at = ? WHERE user_id = ? AND usage_date = ?`).bind(now, ticket.userId, ticket.day).run();
+    await env.DB.prepare("UPDATE beta_users SET total_requests = MAX(total_requests - 1, 0) WHERE user_id = ?").bind(ticket.userId).run();
+    await env.DB.prepare("UPDATE beta_global_daily SET request_count = MAX(request_count - 1, 0), updated_at = ? WHERE usage_date = ?").bind(now, ticket.day).run();
+  }
   await env.DB.prepare("INSERT INTO beta_events (id, user_hash, event_type, mode, wish_category, coach_mode, prompt_version, input_tokens, output_tokens, total_tokens, latency_ms, created_at) VALUES (?, ?, 'ai_response', ?, ?, ?, 'v1', ?, ?, ?, ?, ?)").bind(crypto.randomUUID(), ticket.userHash, ticket.mode, metadata.wishCategory || null, metadata.coachMode || null, input, output, total, metadata.latencyMs, now).run();
 }
 

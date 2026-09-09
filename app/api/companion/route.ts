@@ -29,6 +29,12 @@ function isRateLimited(sessionId: string) {
   const current = requestWindows.get(sessionId);
   if (!current || now - current.startedAt >= REQUEST_WINDOW_MS) {
     requestWindows.set(sessionId, { startedAt: now, count: 1 });
+    // Best-effort per-isolate throttle only; drop expired windows so the map cannot grow without bound.
+    if (requestWindows.size > 2000) {
+      for (const [key, value] of requestWindows) {
+        if (now - value.startedAt >= REQUEST_WINDOW_MS) requestWindows.delete(key);
+      }
+    }
     return false;
   }
   current.count += 1;
@@ -72,11 +78,8 @@ function isPayload(value: unknown): value is CompanionRequest {
 }
 
 export function GET() {
-  return json({
-    configured: Boolean(process.env.OPENAI_API_KEY),
-    chatModel: process.env.OPENAI_CHAT_MODEL || "gpt-5.6-luna",
-    creativeModel: process.env.OPENAI_CREATIVE_MODEL || "gpt-5.6-terra",
-  });
+  // Only expose whether the backend is wired up; model names are not public.
+  return json({ configured: Boolean(process.env.OPENAI_API_KEY) });
 }
 
 export async function POST(request: Request) {

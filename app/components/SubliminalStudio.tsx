@@ -3,6 +3,7 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { DownloadSimple, Pause, Play, X } from "@phosphor-icons/react";
 import { renderSubMix, type TrackEdit } from "@/lib/audio-mix";
+import { readStored, writeStored } from "@/lib/safe-storage";
 
 export type PracticeCheckIn = {
   date: string;
@@ -389,12 +390,12 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("already-subliminal-v1");
+      const saved = readStored("already-subliminal-v1");
       if (saved) {
         const parsed = JSON.parse(saved) as SavedSub;
         if (parsed.title && Array.isArray(parsed.affirmations)) {
           const restored = replaceLegacyRomanticTemplate(parsed);
-          if (restored !== parsed) localStorage.setItem("already-subliminal-v1", JSON.stringify(restored));
+          if (restored !== parsed) writeStored("already-subliminal-v1", JSON.stringify(restored));
           // Restore the private, device-local practice after the component mounts.
           // eslint-disable-next-line react-hooks/set-state-in-effect
           setProfile(restored);
@@ -452,7 +453,7 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
     const customDuration = Math.max(1, Math.min(720, durationHours * 60 + durationMinutes));
     const cleaned = { ...profile, duration: customDuration, title: profile.title.trim() || defaults[lang].title, affirmations: profile.affirmations.map((item) => item.trim()).filter(Boolean) };
     setProfile(cleaned);
-    localStorage.setItem("already-subliminal-v1", JSON.stringify(cleaned));
+    writeStored("already-subliminal-v1", JSON.stringify(cleaned));
     setSecondsLeft(cleaned.duration * 60);
     setEditing(false);
     setSavedPulse(true);
@@ -581,7 +582,14 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
     playingRef.current = true;
     setIsPlaying(true);
     setAudioError("");
-    await startAmbience();
+    try {
+      await startAmbience();
+    } catch {
+      // AudioContext blocked, or a library track failed to load / autoplay.
+      setAudioError(copy.playbackError);
+      stopPractice(false);
+      return;
+    }
     if (voiceUrl) {
       const audio = new Audio(voiceUrl);
       audio.loop = loopAudio;

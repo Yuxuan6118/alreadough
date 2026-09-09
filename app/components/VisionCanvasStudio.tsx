@@ -2,6 +2,7 @@
 
 import { ChangeEvent, CSSProperties, useEffect, useRef, useState } from "react";
 import { DownloadSimple, SlidersHorizontal, UploadSimple } from "@phosphor-icons/react";
+import { readStored, writeStored } from "@/lib/safe-storage";
 
 type Lang = "zh" | "en";
 type Layout = "editorial" | "grid" | "mosaic" | "film" | "scrapbook";
@@ -235,7 +236,7 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
   /* eslint-disable react-hooks/set-state-in-effect -- restore the device-local project after mount */
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("already-vision-project-v1");
+      const saved = readStored("already-vision-project-v1");
       if (!saved) return;
       const project = JSON.parse(saved) as SavedVisionProject;
       setTitle(project.title); setLayout(project.layout); setRatio(project.ratio); setGap(project.gap); setCorner(project.corner); setBackground(project.background);
@@ -254,7 +255,7 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
   useEffect(() => { imagesRef.current = images; }, [images]);
   useEffect(() => {
     const project: SavedVisionProject = { title, layout, ratio, gap, corner, background, images: images.map((item) => ({ id: item.id, name: item.name, zoom: item.zoom, x: item.x, y: item.y, rotate: item.rotate })) };
-    localStorage.setItem("already-vision-project-v1", JSON.stringify(project));
+    writeStored("already-vision-project-v1", JSON.stringify(project));
   }, [title, layout, ratio, gap, corner, background, images]);
   useEffect(() => () => imagesRef.current.forEach((item) => URL.revokeObjectURL(item.url)), []);
 
