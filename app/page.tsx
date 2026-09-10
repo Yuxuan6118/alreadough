@@ -1123,7 +1123,7 @@ export default function Home() {
         </form>
       </div>}
 
-      <DoughPet lang={lang} checked={checkedToday} streak={streak} onCheckIn={() => recordCheckIn("chosen")}/>
+      {view === "home" && <DoughPet lang={lang} checked={checkedToday} streak={streak} onCheckIn={() => recordCheckIn("chosen")}/>}
 
       <nav className="bottom-nav" aria-label={t.ariaNav}>
         {primaryNav.map((item) => {

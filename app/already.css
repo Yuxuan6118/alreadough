@@ -109,7 +109,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .proof-specks i:nth-child(1) { left: 18%; bottom: 24%; }
 .proof-specks i:nth-child(2) { right: 19%; top: 28%; width: 6px; height: 6px; }
 .proof-specks i:nth-child(3) { right: 28%; bottom: 18%; width: 5px; height: 5px; }
-.dough-ripple { position: absolute; z-index: 0; left: 50%; bottom: 12%; width: 90px; height: 90px; border: 2px solid var(--app-accent); border-radius: 50%; transform: translateX(-50%); pointer-events: none; }
+.dough-ripple { position: absolute; z-index: 0; left: 50%; bottom: 12%; width: 90px; height: 90px; border: 2px solid var(--app-accent); border-radius: 50%; transform: translateX(-50%); opacity: 0; pointer-events: none; }
 .dough-caption { display: grid; gap: 5px; text-align: center; }
 .dough-caption strong { font-family: Georgia, "Songti SC", serif; font-size: 18px; font-weight: 500; }
 .dough-caption small { color: var(--app-muted); font-size: 10px; }
@@ -379,12 +379,16 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .sp-name-card input[aria-invalid="true"] { border-color: var(--app-accent); }
 .field-error { margin: 8px 0 0 !important; color: var(--app-accent) !important; font-family: inherit !important; font-size: 11px !important; }
 
-.dough-pet { position: fixed; right: 14px; bottom: 18px; z-index: 35; width: 132px; display: grid; justify-items: center; pointer-events: none; }
-.dough-pet .living-dough { width: 132px; gap: 0; padding: 0; pointer-events: auto; }
-.dough-pet .dough-stage { width: 132px; }
+/* Desktop-only corner companion. Sits ABOVE the bottom-docked bars (composer,
+   settings save bar) so it never covers their controls; only the dough itself
+   is interactive. */
+.dough-pet { position: fixed; right: 16px; bottom: 96px; z-index: 12; width: 120px; display: grid; justify-items: center; pointer-events: none; }
+.dough-pet .living-dough { width: 120px; gap: 0; padding: 0; pointer-events: auto; }
+.dough-pet .living-dough:focus-visible { outline: 2px solid color-mix(in srgb,var(--app-accent) 55%,transparent); outline-offset: 4px; border-radius: 20px; }
+.dough-pet .dough-stage { width: 120px; }
 .dough-pet .dough-character-shell { width: 100%; filter: drop-shadow(0 16px 16px color-mix(in srgb,var(--app-ink) 18%,transparent)); }
 .dough-pet .dough-caption { display: none; }
-.pet-status { display: grid; justify-items: center; gap: 2px; margin-top: -8px; padding: 7px 11px; border: 1px solid var(--app-line); border-radius: 999px; background: color-mix(in srgb,var(--app-panel) 90%,transparent); backdrop-filter: blur(14px); box-shadow: var(--app-shadow); pointer-events: none; }
+.pet-status { display: grid; justify-items: center; gap: 2px; margin-top: -2px; padding: 6px 12px; border: 1px solid var(--app-line); border-radius: 999px; background: color-mix(in srgb,var(--app-panel) 92%,transparent); backdrop-filter: blur(14px); box-shadow: var(--app-shadow); pointer-events: none; }
 .pet-status strong { font-size: 10px; }
 .pet-status small { color: var(--app-muted); font-size: 9px; }
 .pet-celebration { position: absolute; inset: 8px 10px 30px; pointer-events: none; }
