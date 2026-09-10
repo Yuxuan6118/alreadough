@@ -3,12 +3,22 @@ import { env } from "cloudflare:workers";
 export type BetaMode = "chat" | "revision" | "story";
 export type TokenUsage = { input_tokens?: number; output_tokens?: number; total_tokens?: number } | null;
 
+// Public-launch defaults. The per-device trial window and lifetime cap are
+// effectively off (set BETA_TRIAL_DAYS / BETA_TOTAL_REQUESTS to bring them back
+// for a closed round). Per-device daily limits are generous enough that a real
+// user never notices, low enough that one abusive device cannot drain the day.
+// The global daily ceiling is the actual cost / abuse guard — on deepseek-v4-flash
+// even the token cap here is only a few RMB/day.
 const LIMITS = {
-  trialDays: Number(process.env.BETA_TRIAL_DAYS || 7),
-  total: Number(process.env.BETA_TOTAL_REQUESTS || 80),
-  daily: { chat: 15, revision: 3, story: 1 } as Record<BetaMode, number>,
-  globalRequests: Number(process.env.BETA_GLOBAL_DAILY_REQUESTS || 300),
-  globalTokens: Number(process.env.BETA_GLOBAL_DAILY_TOKENS || 2_000_000),
+  trialDays: Number(process.env.BETA_TRIAL_DAYS || 3650),
+  total: Number(process.env.BETA_TOTAL_REQUESTS || 100_000),
+  daily: {
+    chat: Number(process.env.BETA_DAILY_CHAT || 80),
+    revision: Number(process.env.BETA_DAILY_REVISION || 20),
+    story: Number(process.env.BETA_DAILY_STORY || 8),
+  } as Record<BetaMode, number>,
+  globalRequests: Number(process.env.BETA_GLOBAL_DAILY_REQUESTS || 3000),
+  globalTokens: Number(process.env.BETA_GLOBAL_DAILY_TOKENS || 15_000_000),
 };
 
 type UserRow = { started_at: string; expires_at: string; total_requests: number; total_tokens: number; active: number };

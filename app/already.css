@@ -224,9 +224,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .search-title strong, .search-title small { display: block; }
 .search-title strong { color: var(--app-ink); }
 .search-title small { margin-top: 4px; color: var(--app-muted); }
-.search-bar { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; margin-top: 18px; }
+.search-bar { display: grid; grid-template-columns: minmax(0,1fr) max-content; gap: 8px; margin-top: 18px; }
 .search-bar input, .board-form input { min-width: 0; height: 48px; border: 1px solid var(--app-line); border-radius: var(--app-radius-control); padding: 0 14px; color: var(--app-ink); background: var(--app-bg); outline: 0; }
-.search-bar button, .board-form button { border: 0; border-radius: var(--app-radius-control); padding: 0 18px; color: var(--app-accent-ink); background: var(--app-accent); font-weight: 700; white-space: nowrap; }
+.search-bar button, .board-form button { flex: none; width: auto; min-width: max-content; border: 0; border-radius: var(--app-radius-control); padding: 0 18px; color: var(--app-accent-ink); background: var(--app-accent); font-weight: 700; white-space: nowrap; }
 .search-suggestions { margin-top: 12px; }
 .search-error { color: var(--app-accent); font-size: 12px; }
 .search-results { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin-bottom: 28px; }
