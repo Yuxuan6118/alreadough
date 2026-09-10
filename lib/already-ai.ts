@@ -138,8 +138,8 @@ export function buildMessages(payload: CompanionRequest) {
   ];
 }
 
-function clip(value: string, max: number) {
-  return value.trim().slice(0, max);
+function clip(value: string | undefined | null, max: number) {
+  return (value ?? "").trim().slice(0, max);
 }
 
 export function buildInput(payload: CompanionRequest) {
