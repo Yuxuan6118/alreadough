@@ -81,16 +81,47 @@ async function searchOpenverse(query: string) {
   return data.results || [];
 }
 
+// Always-available ambience, synthesised offline (see scripts/gen-ambient.mjs) so
+// the Dreamscape has a usable set even when the external provider is unreachable.
+type BuiltinSound = { id: string; file: string; title: string; keywords: RegExp };
+const BUILTIN_SOUNDS: BuiltinSound[] = [
+  { id: "builtin-rain", file: "rain", title: "雨声 · Rain", keywords: /rain|shower|drizzle|storm|雨|下雨/i },
+  { id: "builtin-ocean", file: "ocean", title: "海浪 · Ocean waves", keywords: /ocean|sea|wave|surf|beach|tide|海|浪|潮/i },
+  { id: "builtin-wind", file: "wind", title: "风声 · Wind", keywords: /wind|breeze|gust|gale|风/i },
+  { id: "builtin-fire", file: "fire", title: "篝火 · Fireplace", keywords: /fire|flame|campfire|bonfire|fireplace|crackle|ember|火|篝火|壁炉|柴/i },
+  { id: "builtin-white", file: "white", title: "白噪音 · White noise", keywords: /white noise|白噪/i },
+  { id: "builtin-pink", file: "pink", title: "粉噪音 · Pink noise", keywords: /pink noise|粉噪|粉红噪/i },
+  { id: "builtin-brown", file: "brown", title: "棕噪音 · Brown noise", keywords: /brown noise|deep|rumble|hum|棕噪|低频/i },
+];
+
+function builtinResults(raw: string, translated: string[], origin: string) {
+  const hay = [raw, ...translated].join(" ");
+  const matched = BUILTIN_SOUNDS.filter((sound) => sound.keywords.test(hay));
+  const chosen = matched.length ? matched : BUILTIN_SOUNDS.filter((s) => /rain|ocean|wind|white/.test(s.file));
+  return chosen.map((sound) => ({
+    id: sound.id,
+    title: sound.title,
+    audio: new URL(`/ambient/${sound.file}.wav`, origin).toString(),
+    source: origin,
+    creator: "AlreaDough",
+    license: "内置 · Built-in",
+    licenseUrl: "",
+    duration: 0,
+    provider: "AlreaDough",
+  }));
+}
+
 export async function GET(request: NextRequest) {
   const raw = request.nextUrl.searchParams.get("q")?.trim().slice(0, 80) || "rain";
   const translatedQueries = await translateAmbientQuery(raw);
   const translated = translatedQueries.join(" · ");
   const searched = chinesePattern.test(raw) ? [raw, ...translatedQueries] : translatedQueries;
+  const builtins = builtinResults(raw, translatedQueries, request.nextUrl.origin);
 
   const batches = await Promise.allSettled(searched.map(searchOpenverse));
   if (batches.every((batch) => batch.status === "rejected")) {
-    return NextResponse.json({ results: [], queries: { original: raw, translated, searched }, error: "AUDIO_SEARCH_UNAVAILABLE" }, {
-      status: 502, headers: { "Cache-Control": "no-store, max-age=0", "CDN-Cache-Control": "no-store" },
+    return NextResponse.json({ results: builtins, queries: { original: raw, translated, searched }, provider: "builtin-only" }, {
+      headers: { "Cache-Control": "no-store, max-age=0", "CDN-Cache-Control": "no-store" },
     });
   }
 
@@ -100,11 +131,12 @@ export async function GET(request: NextRequest) {
     const valid = batch.value.filter((item) => item.url && (item.license === "cc0" || item.license === "by") && isAmbientOnly(item)).slice(0, 6);
     for (const item of valid) unique.set(item.id || item.url, item);
   }
-  const results = [...unique.values()].slice(0, 18).map((item) => ({
+  const external = [...unique.values()].slice(0, 18).map((item) => ({
     id: item.id, title: item.title || raw, audio: item.url, source: item.foreign_landing_url,
     creator: item.creator || "Openverse contributor", license: item.license === "cc0" ? "CC0" : "CC BY",
     licenseUrl: item.license_url || "", duration: item.duration || 0, provider: item.provider || "Openverse",
   }));
+  const results = [...builtins, ...external];
   return NextResponse.json({ results, queries: { original: raw, translated, searched }, filter: "environment-only-v3" }, {
     headers: { "Cache-Control": "no-store, max-age=0", "CDN-Cache-Control": "no-store" },
   });
