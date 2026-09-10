@@ -96,14 +96,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .living-dough { width: 100%; display: grid; justify-items: center; gap: 22px; border: 0; padding: 24px; color: var(--app-ink); background: transparent; }
 .dough-stage { position: relative; width: min(360px,100%); aspect-ratio: 1.18; display: grid; place-items: end center; isolation: isolate; }
 .dough-drag-shell { position: relative; z-index: 2; width: 96%; display: block; touch-action: none; cursor: grab; transform-origin: 50% 58%; }
+.dough-drag-shell:focus, .dough-drag-shell:focus-visible { outline: none; }
 .dough-drag-shell:active { cursor: grabbing; }
 .dough-character-shell { position: relative; width: 100%; display: block; transform-origin: 50% 88%; filter: drop-shadow(0 24px 24px color-mix(in srgb,var(--app-ink) 17%,transparent)); }
 .dough-character { width: 100%; height: auto; display: block; pointer-events: none; user-select: none; }
-.dough-expression { position: absolute; inset: 0; pointer-events: none; }
-.dough-expression i { position: absolute; top: 54%; width: 7.5%; aspect-ratio: 1.7; border-radius: 50%; background: color-mix(in srgb,var(--app-accent) 42%,transparent); filter: blur(1px); }
-.dough-expression i:first-child { left: 34%; }
-.dough-expression i:nth-child(2) { right: 28%; }
-.dough-expression b { position: absolute; top: 28%; right: 20%; width: 8%; aspect-ratio: 1; border: 2px solid color-mix(in srgb,var(--app-accent) 70%,transparent); border-left-color: transparent; border-bottom-color: transparent; transform: rotate(-18deg); }
 .proof-specks { position: absolute; z-index: 1; inset: 12% 8% 8%; pointer-events: none; }
 .proof-specks i { position: absolute; width: 8px; height: 8px; border: 1px solid color-mix(in srgb,var(--app-accent) 58%,transparent); border-radius: 50%; opacity: 0; }
 .proof-specks i:nth-child(1) { left: 18%; bottom: 24%; }
@@ -383,10 +379,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 /* Desktop-only corner companion. Sits ABOVE the bottom-docked bars (composer,
    settings save bar) so it never covers their controls; only the dough itself
    is interactive. */
-.dough-pet { position: fixed; right: 16px; bottom: 96px; z-index: 12; width: 120px; display: grid; justify-items: center; pointer-events: none; }
-.dough-pet .living-dough { width: 120px; gap: 0; padding: 0; pointer-events: auto; }
-.dough-pet .living-dough:focus-visible { outline: 2px solid color-mix(in srgb,var(--app-accent) 55%,transparent); outline-offset: 4px; border-radius: 20px; }
-.dough-pet .dough-stage { width: 120px; }
+.dough-pet { position: fixed; right: 40px; bottom: 104px; z-index: 12; width: 140px; display: grid; justify-items: center; pointer-events: none; }
+.dough-pet .living-dough { width: 140px; gap: 0; padding: 0; border-radius: 26px; pointer-events: auto; -webkit-tap-highlight-color: transparent; }
+.dough-pet .living-dough:focus { outline: none; }
+.dough-pet .living-dough:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb,var(--app-accent) 38%,transparent); }
+.dough-pet .dough-stage { width: 140px; overflow: visible; }
 .dough-pet .dough-character-shell { width: 100%; filter: drop-shadow(0 16px 16px color-mix(in srgb,var(--app-ink) 18%,transparent)); }
 .dough-pet .dough-caption { display: none; }
 .pet-status { display: grid; justify-items: center; gap: 2px; margin-top: -2px; padding: 6px 12px; border: 1px solid var(--app-line); border-radius: 999px; background: color-mix(in srgb,var(--app-panel) 92%,transparent); backdrop-filter: blur(14px); box-shadow: var(--app-shadow); pointer-events: none; }

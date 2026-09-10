@@ -21,6 +21,12 @@ export default function LivingDough({ lang, compact = false, onTouch }: Props) {
   const stretchY = useTransform(() => 1 + Math.min(Math.abs(dragY.get()), 76) / 150 - Math.min(Math.abs(dragX.get()), 76) / 430);
   const tilt = useTransform(() => dragX.get() / 22);
 
+  // The corner pet sits close to the viewport edge, so cap how far it can be
+  // pulled toward it — otherwise a rightward drag slides the dough off-screen.
+  const dragConstraints = compact
+    ? { left: -64, right: 30, top: -70, bottom: 40 }
+    : { left: -76, right: 76, top: -76, bottom: 76 };
+
   const touch = async () => {
     if (didDrag.current) {
       didDrag.current = false;
@@ -44,9 +50,10 @@ export default function LivingDough({ lang, compact = false, onTouch }: Props) {
       <span className="dough-stage" aria-hidden="true">
         <motion.span
           className="dough-drag-shell"
+          tabIndex={-1}
           drag={reduceMotion ? false : true}
-          dragConstraints={{ left: -76, right: 76, top: -76, bottom: 76 }}
-          dragElastic={0.3}
+          dragConstraints={dragConstraints}
+          dragElastic={0.22}
           dragMomentum={false}
           dragSnapToOrigin
           style={reduceMotion ? undefined : { x: dragX, y: dragY, scaleX: stretchX, scaleY: stretchY, rotate: tilt }}
@@ -58,11 +65,10 @@ export default function LivingDough({ lang, compact = false, onTouch }: Props) {
             key={response}
             className="dough-character-shell"
             initial={reduceMotion ? false : { scaleX: 1, scaleY: 1 }}
-            animate={reduceMotion ? undefined : response ? { scaleX: [1, 1.05, 0.98, 1], scaleY: [1, 0.91, 1.035, 1], y: [0, 5, -2, 0] } : { scaleX: [1, 1.012, 1], scaleY: [1, 1.025, 1], y: [0, -2, 0] }}
-            transition={response ? { duration: 0.7, ease: [0.16, 1, 0.3, 1] } : { duration: 4.8, repeat: Infinity, ease: "easeInOut" }}
+            animate={reduceMotion ? undefined : response ? { scaleX: [1, 1.05, 0.98, 1], scaleY: [1, 0.91, 1.035, 1], y: [0, 5, -2, 0] } : { scaleX: [1, 1.035, 1], scaleY: [1, 1.055, 1], y: [0, -4, 0] }}
+            transition={response ? { duration: 0.7, ease: [0.16, 1, 0.3, 1] } : { duration: 5.4, times: [0, 0.42, 1], ease: ["easeOut", "easeInOut"], repeat: Infinity }}
           >
-            <Image className="dough-character" src="/mascot/already-dough-fold-v3.png" alt="" width={1536} height={1024} sizes={compact ? "132px" : "360px"}/>
-            {response > 0 && <motion.span key={`expression-${response}`} className="dough-expression" initial={{ opacity: 0, scale: .78 }} animate={{ opacity: [0, 1, 1, 0], scale: [.78, 1.05, 1, .9] }} transition={{ duration: 1.15, times: [0, .18, .66, 1] }}><i/><i/><b/></motion.span>}
+            <Image className="dough-character" src="/mascot/already-dough-fold-v3.png" alt="" width={1536} height={1024} sizes={compact ? "140px" : "360px"}/>
           </motion.span>
         </motion.span>
         <span className="proof-specks"><i/><i/><i/></span>
