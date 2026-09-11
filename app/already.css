@@ -1162,3 +1162,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .dough-stretch i{display:block;width:16%;height:4px;border-radius:999px;background:#f7efe5;box-shadow:0 8px 0 #ddcfc1,0 -8px 0 #fff8}
 .opening-dough>strong{font:500 clamp(28px,5vw,44px)/1 Georgia,"Songti SC",serif;letter-spacing:-.04em}.opening-dough>strong span{color:var(--app-accent,#a65f6b)}
 @media(prefers-reduced-motion:reduce){.dough-stretch{display:none}.opening-dough-stage{height:150px}}
+
+.access-gate { position: fixed; inset: 0; z-index: 500; display: grid; place-items: center; padding: 24px; background: var(--app-bg); color: var(--app-ink); }
+.access-gate form { width: min(360px,100%); display: flex; flex-direction: column; gap: 14px; padding: 36px 30px; border: 1px solid var(--app-line); border-radius: var(--app-radius); background: var(--app-panel-strong); text-align: center; box-shadow: var(--app-shadow); }
+.access-gate h1 { margin: 0; font: 500 26px/1.2 Georgia,"Songti SC",serif; }
+.access-gate p { margin: 0; color: var(--app-muted); font-size: 13px; line-height: 1.6; }
+.access-gate input { height: 50px; border: 1px solid var(--app-line); border-radius: var(--app-radius-control); padding: 0 16px; text-align: center; font-size: 17px; letter-spacing: 2px; background: var(--app-bg); color: var(--app-ink); outline: 0; }
+.access-gate input:focus { border-color: var(--app-accent); }
+.access-gate button { height: 50px; border: 0; border-radius: var(--app-radius-control); background: var(--app-accent); color: var(--app-accent-ink); font-weight: 700; font-size: 15px; }
+.access-gate small { color: #c0392b; font-size: 12px; line-height: 1.5; }
