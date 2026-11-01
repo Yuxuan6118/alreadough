@@ -36,7 +36,7 @@ import { readStored, writeStored, removeStored } from "@/lib/safe-storage";
 
 type View = "home" | "subliminal" | "story" | "revision" | "board" | "memory" | "settings";
 type Lang = "zh" | "en";
-type Message = { id: string; role: "ai" | "user"; text: string; feedback?: "helpful" | "missed"; saved?: boolean };
+type Message = { id: string; role: "ai" | "user"; text: string; feedback?: "helpful" | "missed"; saved?: boolean; logId?: string; error?: boolean };
 type Conversation = { id: string; title: string; createdAt: string; messages: Message[] };
 type BoardItem = { id: number; title: string; source: string; image?: string };
 type Revision = { id: number; old: string; revised: string; date: string };
@@ -100,7 +100,7 @@ type AIResponse = {
 };
 type SearchImage = { title: string; image: string; source: string; credit: string; license: string; provider: string; downloadLocation?: string };
 type ImageSearchPlan = { original: string; translated: string; queries: string[] };
-type BetaStatus = { authenticated: boolean; enabled?: boolean; active?: boolean; expired?: boolean; expiresAt?: string; totalRequests?: number; totalTokens?: number; remaining?: { chat: number; revision: number; story: number; total: number }; limits?: { chat: number; revision: number; story: number; total: number; trialDays: number }; resetAt?: string };
+type BetaStatus = { authenticated: boolean; enabled?: boolean; totalRequests?: number; totalTokens?: number };
 
 const emptyStoryDraft: StoryDraft = { title: "", city: "", subtitle: "", scene: "", anchor: "" };
 const emptyMemoryDraft: MemoryDraft = { kind: "insight", title: "", detail: "", keywords: "" };
@@ -217,7 +217,7 @@ const ui = {
     companion: "信念陪伴者", here: "我在这里", companionCopy: "把旧故事交出来。AI 会结合你的当前愿望、限制性信念和最近旅程，陪你回到选择的版本。", chatPlaceholder: "写下此刻冒出的念头……",
     previous: "← 上一个", next: "下一个故事 →", revisionTitle: "让这一刻按你的方式发生", revisionCopy: "旧版本只需出现一次。接纳后，我们只保留你的新故事。", oldLabel: "刚刚什么让你离开了新故事？", oldPlaceholder: "例如：一个结果、消息或眼前情况，让我开始怀疑自己的愿望……", makeRevision: "✶ 为我重写这一刻", chosen: "你选择的新版本", accepted: "已经接纳 ✓", acceptStory: "接纳为我的新故事", history: "已接纳",
     boardTitle: "收藏你正在走进的生活", boardCopy: "从授权真实摄影中寻觅灵感，或用自己的照片编织专属愿景板。不会使用 AI 生成图片。", realPhotos: "寻梦灵感", photoCopy: "在可商用授权的真实摄影中，寻找属于你的生活画面", searchPlaceholder: "例如：冬日旅行、理想的新家", searching: "寻觅中", search: "开始寻梦", collect: "＋ 收进我的愿景", manual: "或者添加你已经喜欢的素材", nameScene: "为这个画面命名", pasteLink: "粘贴任意网站的来源链接或图片直链", addLink: "添加链接", local: "从本机添加", source: "查看来源 ↗",
-    private: "我的空间", space: "我的已完成空间", privateCopy: "愿望、记忆、对话与练习保存在这台设备；私密照片和音频只留在本机。", coreWish: "当前唯一愿望", tone: "陪伴语气", toneCopy: "温柔、坚定，不分析可能性，不用旧故事反驳新选择。", region: "使用范围", regionCopy: "面向 OpenAI 支持地区的海外中文与英文用户。", clear: "清除我的练习数据", confirm: "要清除云端与这台设备上保存的所有练习吗？", nav: ["陪伴", "故事", "重写", "愿景", "入梦声场"], ariaSettings: "打开私人设定", ariaNav: "主导航", send: "发送", activeGoal: "当前愿望", beliefs: "限制性信念地图", memory: "AI 旅程摘要", saveGoal: "保存更改", savedGoal: "更改已保存", generating: "AI 正在进入这个场景……", generateStory: "✶ 为这一刻生成专属故事", aiReady: "AI 已连接", aiSetup: "AI 待配置", trust: "AI 与安全说明",
+    private: "我的空间", space: "我的已完成空间", privateCopy: "愿望、记忆、对话与练习保存在这台设备；内测期间，你与 AI 的对话会被保存，创始人会阅读，并结合大致地区、设备类型和使用情况来改进 AlreaDough（数据库不记录 IP 地址）。私密照片和音频只留在本机。", coreWish: "当前唯一愿望", tone: "陪伴语气", toneCopy: "温柔、坚定，不分析可能性，不用旧故事反驳新选择。", region: "使用范围", regionCopy: "面向 OpenAI 支持地区的海外中文与英文用户。", clear: "清除我的练习数据", confirm: "要清除云端与这台设备上保存的所有练习吗？", nav: ["陪伴", "故事", "重写", "愿景", "入梦声场"], ariaSettings: "打开私人设定", ariaNav: "主导航", send: "发送", activeGoal: "当前愿望", beliefs: "限制性信念地图", memory: "AI 旅程摘要", saveGoal: "保存更改", savedGoal: "更改已保存", generating: "AI 正在进入这个场景……", generateStory: "✶ 为这一刻生成专属故事", aiReady: "AI 已连接", aiSetup: "AI 待配置", trust: "AI 与安全说明",
   },
   en: {
     day: "DAY 1", greeting: "Welcome back", hero: <>You do not need to convince anyone.<br />Return to the story you have already chosen.</>, wish: "MY DESIRE", happened: "ALREADY MINE", start: "Begin today’s practice",
@@ -225,7 +225,7 @@ const ui = {
     companion: "BELIEF COMPANION · GLOBAL BETA", here: "I’m here", companionCopy: "Give me the old story. Your AI uses your active desire, belief map, and recent journey to bring you back to the version you chose.", chatPlaceholder: "Write the thought that just appeared…",
     previous: "← Previous", next: "Next story →", revisionTitle: "Let this moment happen your way", revisionCopy: "The old version only needs to appear once. After revision, we keep your new story.", oldLabel: "What just pulled you away from your new story?", oldPlaceholder: "For example: A result, message, or present circumstance made me doubt my desire…", makeRevision: "✶ Revise this moment for me", chosen: "THE VERSION YOU CHOOSE", accepted: "Accepted ✓", acceptStory: "Accept as my new story", history: "ACCEPTED",
     boardTitle: "Collect the life you are entering", boardCopy: "Discover inspiration in licensed real photography, or weave a personal vision board from your own photos. No AI-generated imagery.", realPhotos: "Discover Dreamscapes", photoCopy: "Find the life you imagine through commercially licensed real photography", searchPlaceholder: "e.g. winter travel, dream home", searching: "Dreaming", search: "Discover", collect: "+ Keep in my vision", manual: "or add something you already love", nameScene: "Name this scene", pasteLink: "Paste any source link or direct image URL", addLink: "Add link", local: "Upload", source: "View source ↗",
-    private: "PRIVATE SPACE · GLOBAL BETA", space: "My already-done space", privateCopy: "Your desire card, journey summary, chats, and revisions stay on this device in this beta. Only the limited context needed for a response is sent to the AI.", coreWish: "ONE ACTIVE DESIRE", tone: "COMPANION TONE", toneCopy: "Gentle and certain. It does not debate possibility or use the old story against your new choice.", region: "BETA REGION", regionCopy: "Created for Chinese- and English-speaking users in OpenAI-supported regions.", clear: "Clear practice data on this device", confirm: "Clear all practice data saved on this device?", nav: ["Companion", "Stories", "Revise", "Vision", "Dreamscape"], ariaSettings: "Open private settings", ariaNav: "Main navigation", send: "Send", activeGoal: "ACTIVE GOAL", beliefs: "LIMITING-BELIEF MAP", memory: "AI JOURNEY SUMMARY", saveGoal: "Save active desire card", savedGoal: "Desire card saved", generating: "Your AI is entering this scene…", generateStory: "✶ Create my personal story", aiReady: "LIVE AI", aiSetup: "AI SETUP NEEDED", trust: "AI & Safety Notice",
+    private: "PRIVATE SPACE · GLOBAL BETA", space: "My already-done space", privateCopy: "Your desire card, journey summary, chats, and revisions stay on this device. During this beta, your conversations with the AI are also saved and read by the founder, together with approximate location, device type, and usage, to improve AlreaDough (our database does not record IP addresses). Photos and audio stay only on your device.", coreWish: "ONE ACTIVE DESIRE", tone: "COMPANION TONE", toneCopy: "Gentle and certain. It does not debate possibility or use the old story against your new choice.", region: "BETA REGION", regionCopy: "Created for Chinese- and English-speaking users in OpenAI-supported regions.", clear: "Clear practice data on this device", confirm: "Clear all practice data saved on this device?", nav: ["Companion", "Stories", "Revise", "Vision", "Dreamscape"], ariaSettings: "Open private settings", ariaNav: "Main navigation", send: "Send", activeGoal: "ACTIVE GOAL", beliefs: "LIMITING-BELIEF MAP", memory: "AI JOURNEY SUMMARY", saveGoal: "Save active desire card", savedGoal: "Desire card saved", generating: "Your AI is entering this scene…", generateStory: "✶ Create my personal story", aiReady: "LIVE AI", aiSetup: "AI SETUP NEEDED", trust: "AI & Safety Notice",
   },
 };
 
@@ -287,6 +287,7 @@ export default function Home() {
   const [surveyFeature, setSurveyFeature] = useState("");
   const chatInputRef = useRef<HTMLInputElement>(null);
   const requestControllerRef = useRef<AbortController | null>(null);
+  const lastLogIdRef = useRef<string | undefined>(undefined);
 
   /* eslint-disable react-hooks/set-state-in-effect -- one-time restoration from device storage */
   useEffect(() => {
@@ -332,7 +333,7 @@ export default function Home() {
       if (savedCheckIns) setCheckIns(JSON.parse(savedCheckIns));
     } catch { /* the private space can always start fresh */ }
     finally {
-      setAcknowledged(readStored("already-acknowledged-v1") === "yes");
+      setAcknowledged(readStored("already-acknowledged-v2") === "yes");
       setHydrated(true);
       fetch("/api/space", { cache: "no-store", headers: { "x-already-session-id": activeSession } })
         .then(async (response) => ({ response, data: await response.json() as { space?: Record<string, unknown> | null } }))
@@ -546,7 +547,7 @@ export default function Home() {
           acceptedSceneLedger: goal.acceptedSceneLedger[lang],
           memoryItems: goal.memoryItems[lang],
         },
-        recentMessages: recentOverride || (mode === "chat" ? sessionMessages.slice(-10) : messages.slice(-10)),
+        recentMessages: (recentOverride || (mode === "chat" ? sessionMessages : messages)).filter((item) => !item.error).slice(-10),
         recentRevisions: revisions.slice(0, 4).map((item) => item.revised),
       }),
     });
@@ -573,6 +574,7 @@ export default function Home() {
         return beliefs.some((item) => item.toLowerCase() === belief.toLowerCase()) || beliefs.length >= MAX_BELIEFS ? current : [...beliefs, belief].join("\n");
       });
     }
+    lastLogIdRef.current = typeof (data as { logId?: unknown }).logId === "string" ? (data as { logId: string }).logId : undefined;
     return data.reply;
   };
 
@@ -586,7 +588,7 @@ export default function Home() {
     requestControllerRef.current = controller;
     try {
       const reply = await callCompanion("chat", userText, controller.signal);
-      setMessages((items) => [...items, { id: crypto.randomUUID(), role: "ai", text: reply }]);
+      setMessages((items) => [...items, { id: crypto.randomUUID(), role: "ai", text: reply, logId: lastLogIdRef.current }]);
     } catch (error) {
       if (controller.signal.aborted) return;
       const message = error instanceof Error ? error.message : "AI_REQUEST_FAILED";
@@ -594,6 +596,7 @@ export default function Home() {
       setMessages((items) => [...items, {
         id: crypto.randomUUID(),
         role: "ai",
+        error: true,
         text: lang === "zh"
           ? `${goal.companionName || "你"}，AI 当前没有连接成功：${message}。你的这句话已经留在本机，请稍后再试。`
           : `${goal.companionName || "You"}, the AI could not connect: ${message}. Your message remains on this device. Please try again shortly.`,
@@ -613,7 +616,7 @@ export default function Home() {
     requestControllerRef.current = controller;
     try {
       const reply = await callCompanion("chat", preceding.text, controller.signal, kept.slice(-10));
-      setMessages((items) => [...items, { id: crypto.randomUUID(), role: "ai", text: reply }]);
+      setMessages((items) => [...items, { id: crypto.randomUUID(), role: "ai", text: reply, logId: lastLogIdRef.current }]);
     } catch (error) {
       if (!controller.signal.aborted) setAiError(error instanceof Error ? error.message : "AI_REQUEST_FAILED");
     } finally { requestControllerRef.current = null; setIsTyping(false); }
@@ -726,7 +729,7 @@ export default function Home() {
     if (!alreadyCheckedIn) void recordBetaEvent({ eventType: "practice_checkin", feedback: feeling });
   };
 
-  const recordBetaEvent = (event: { eventType: string; mode?: string; feedback?: string; ratingBefore?: number; ratingAfter?: number }) => fetch("/api/beta/events", {
+  const recordBetaEvent = (event: { eventType: string; mode?: string; feedback?: string; logId?: string; ratingBefore?: number; ratingAfter?: number }) => fetch("/api/beta/events", {
     method: "POST", headers: { "Content-Type": "application/json", "x-already-session-id": sessionId },
     body: JSON.stringify({ sessionId, wishCategory: goal.wishCategory, coachMode: goal.coachMode, ...event }),
   }).catch(() => null);
@@ -734,7 +737,7 @@ export default function Home() {
   const feedbackReply = (message: Message, feedback: "helpful" | "missed") => {
     const next = message.feedback === feedback ? undefined : feedback;
     setMessages((items) => items.map((item) => item.id === message.id ? { ...item, feedback: next } : item));
-    if (next) void recordBetaEvent({ eventType: "reply_feedback", mode: "chat", feedback: next });
+    if (next) void recordBetaEvent({ eventType: "reply_feedback", mode: "chat", feedback: next, logId: message.logId });
   };
 
   const dismissSurvey = () => {
@@ -922,10 +925,10 @@ export default function Home() {
         {declined ? <><p className="eyebrow">YOUR CHOICE</p><h1>{lang === "zh" ? "你尚未进入 AlreaDough" : "You have not entered AlreaDough"}</h1><p>{lang === "zh" ? "这台设备没有保存同意记录。你可以关闭页面，或返回重新查看。" : "No consent record was saved on this device. You may close this page or go back to review."}</p><button className="outline-button" onClick={() => setDeclined(false)}>{lang === "zh" ? "返回" : "Go back"}</button></> : <>
           <p className="eyebrow">BEFORE YOU ENTER</p>
           <h1>{lang === "zh" ? "先确认这是一段你愿意进入的体验。" : "Confirm that this is an experience you choose to enter."}</h1>
-          <p>{lang === "zh" ? "继续即表示你已阅读并同意测试版条款、隐私说明、AI 与安全说明及素材与版权规则。完整文本会一直保留在“我的空间”。" : "By continuing, you confirm that you have read and accept the beta terms, privacy notice, AI and safety notice, and content and copyright rules. They remain available in My Space."}</p>
+          <p>{lang === "zh" ? "继续即表示你已阅读并同意测试版条款、隐私说明、AI 与安全说明及素材与版权规则。完整文本会一直保留在“我的空间”。内测期间，你与 AI 的对话会被保存，创始人会阅读这些对话，并结合你的大致地区（国家或城市）、设备类型和使用情况来改进 AlreaDough。我们的数据库不记录 IP 地址。" : "By continuing, you confirm that you have read and accept the beta terms, privacy notice, AI and safety notice, and content and copyright rules. They remain available in My Space. During this beta, your conversations with the AI are saved and the founder reads them, together with your approximate location (country or city), device type, and usage, to improve AlreaDough. Our database does not record IP addresses."}</p>
           <div className="acknowledge-links"><a href="/terms" target="_blank">{lang === "zh" ? "测试版条款" : "Beta terms"}</a><a href="/privacy" target="_blank">{lang === "zh" ? "隐私说明" : "Privacy"}</a><a href="/trust" target="_blank">{lang === "zh" ? "AI 与安全" : "AI & safety"}</a><a href="/copyright" target="_blank">{lang === "zh" ? "素材与版权" : "Content & copyright"}</a></div>
           <label className="acknowledge-check"><input type="checkbox" id="acknowledge-choice"/><span>{lang === "zh" ? "我已阅读并同意以上说明。" : "I have read and agree to the notices above."}</span></label>
-          <div className="acknowledge-actions"><button className="outline-button" onClick={() => setDeclined(true)}>{lang === "zh" ? "不同意并退出" : "Decline and exit"}</button><button className="primary" onClick={() => { const input = document.querySelector<HTMLInputElement>("#acknowledge-choice"); if (!input?.checked) { input?.focus(); return; } writeStored("already-acknowledged-v1", "yes"); setAcknowledged(true); }}>{lang === "zh" ? "同意并进入" : "Agree and enter"}</button></div>
+          <div className="acknowledge-actions"><button className="outline-button" onClick={() => setDeclined(true)}>{lang === "zh" ? "不同意并退出" : "Decline and exit"}</button><button className="primary" onClick={() => { const input = document.querySelector<HTMLInputElement>("#acknowledge-choice"); if (!input?.checked) { input?.focus(); return; } writeStored("already-acknowledged-v2", "yes"); setAcknowledged(true); }}>{lang === "zh" ? "同意并进入" : "Agree and enter"}</button></div>
         </>}
       </section>
     </main>;
@@ -1091,7 +1094,7 @@ export default function Home() {
         </div>}
 
         {settingsSection === "data" && <div className="settings-section">
-          <div className="setting-card beta-quota-card"><span>{lang === "zh" ? "创始测试额度" : "FOUNDER BETA ALLOWANCE"}</span>{betaStatus?.authenticated && betaStatus.remaining ? <><p>{lang === "zh" ? `本轮还可使用 ${betaStatus.remaining.total} 次 · 到期 ${betaStatus.expiresAt ? new Date(betaStatus.expiresAt).toLocaleDateString("zh-CN") : "—"}` : `${betaStatus.remaining.total} sessions remain · ends ${betaStatus.expiresAt ? new Date(betaStatus.expiresAt).toLocaleDateString("en-US") : "—"}`}</p><div className="quota-pills"><small>{lang === "zh" ? `聊天 ${betaStatus.remaining.chat}/15` : `Chat ${betaStatus.remaining.chat}/15`}</small><small>{lang === "zh" ? `重写 ${betaStatus.remaining.revision}/3` : `Revision ${betaStatus.remaining.revision}/3`}</small><small>{lang === "zh" ? `故事 ${betaStatus.remaining.story}/1` : `Story ${betaStatus.remaining.story}/1`}</small></div></> : <p>{lang === "zh" ? "开始使用后会显示 7 天体验额度。" : "Your 7-day beta allowance appears once you start."}</p>}</div>
+          <div className="setting-card beta-quota-card"><span>{lang === "zh" ? "AI 对话" : "AI CONVERSATIONS"}</span><p>{betaStatus?.authenticated === false ? (lang === "zh" ? "正在连接这台设备…" : "Connecting this device…") : betaStatus?.enabled === false ? (lang === "zh" ? "AI 正在由创始人暂时维护，请稍后再来。" : "AI is temporarily paused by the founder. Please check back shortly.") : (lang === "zh" ? "不限制对话、重写与故事的次数。" : "No limit on chats, revisions, or stories.")}</p></div>
           <div className="language-card"><div><span>{lang === "zh" ? "界面语言" : "LANGUAGE"}</span><strong>{lang === "zh" ? "简体中文" : "English"}</strong></div><button onClick={switchLanguage}>{lang === "zh" ? "Switch to English" : "切换到中文"}</button></div>
           <div className="setting-card sync-card"><span>{lang === "zh" ? "跨设备同步" : "CROSS-DEVICE SYNC"}</span><p>{syncStatus === "saved" ? (lang === "zh" ? "愿望、记忆、对话、故事和练习记录已安全同步。" : "Your desire, memory, conversations, stories, and practice history are synced.") : (lang === "zh" ? "当前使用本机副本；恢复连接后会自动继续同步。" : "Using the on-device copy. Sync resumes automatically when available.")}</p></div>
           <div className="setting-card goal-lifecycle-card"><span>{lang === "zh" ? "愿望生命周期" : "DESIRE LIFECYCLE"}</span><p>{lang === "zh" ? "愿望完成后，把它留在历程中，再开启一个新的单一愿望空间。" : "When this desire is complete, keep it in your journey and open a fresh one-desire space."}</p><button className="outline-button" onClick={archiveAndBeginAgain}>{lang === "zh" ? "完成并归档，开启新愿望" : "Complete, archive, and begin again"}</button></div>

@@ -5,8 +5,9 @@ import { readStored, writeStored } from "@/lib/safe-storage";
 
 // Front-door gate for the whole site (web + the wrapped mobile shell share this
 // same page). Purely a soft "not open to everyone yet" gate, not a security
-// boundary: it only hides the UI, it does not stop a direct API call. The real
-// cost/abuse backstop is the per-device and global daily limits in beta-guard.
+// boundary: it only hides the UI, it does not stop a direct API call. There is
+// no per-person usage cap behind it — the only cost/abuse backstop left is the
+// site-wide global daily limit in beta-guard.
 const GATE_KEY = "already-access-gate-v1";
 const GATE_CODE = "20260910";
 

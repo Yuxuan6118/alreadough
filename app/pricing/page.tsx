@@ -8,10 +8,12 @@ import "./pricing.css";
 
 type Plan = "soft" | "deep" | "atelier";
 
+// Feature differentiation here is by depth and breadth, never by a usage count —
+// AlreaDough does not put a "times per day" cap on anyone, paid or not.
 const plans = [
-  { id: "soft" as const, zh: "轻揉", en: "Soft Start", monthly: { zh: 39, en: 5.99 }, zhCopy: "把一个愿望稳定地练进日常", enCopy: "A steady daily space for one desire", features: { zh: ["每日 10 次 AI 对话", "故事、重写与基础愿景板", "1 个声音练习"], en: ["10 AI conversations daily", "Stories, Revision, and vision board", "1 saved sound practice"] } },
-  { id: "deep" as const, zh: "醒发", en: "Deep Practice", monthly: { zh: 88, en: 12.99 }, zhCopy: "给限制性信念更深的陪伴", enCopy: "Deeper support for persistent doubt", features: { zh: ["每日 40 次 AI 对话", "全部 Coach 与完整记忆", "多轨 Sub 导出和高级愿景板"], en: ["40 AI conversations daily", "Every Coach and full memory", "Multitrack Sub export and advanced boards"] } },
-  { id: "atelier" as const, zh: "丰盛工坊", en: "Dough Atelier", monthly: { zh: 168, en: 24.99 }, zhCopy: "高频使用与长篇沉浸创作", enCopy: "High-frequency use and immersive creation", features: { zh: ["更高对话与创作额度", "长篇故事和优先生成", "新功能优先体验"], en: ["Higher conversation and creation limits", "Long-form stories and priority generation", "Early access to new tools"] } },
+  { id: "soft" as const, zh: "轻揉", en: "Soft Start", monthly: { zh: 39, en: 5.99 }, zhCopy: "把一个愿望稳定地练进日常", enCopy: "A steady daily space for one desire", features: { zh: ["AI 陪伴对话、重写与故事", "基础愿景板", "声音练习工作台"], en: ["AI chat, Revision, and Stories", "Basic vision board", "Sound practice studio"] } },
+  { id: "deep" as const, zh: "醒发", en: "Deep Practice", monthly: { zh: 88, en: 12.99 }, zhCopy: "给限制性信念更深的陪伴", enCopy: "Deeper support for persistent doubt", features: { zh: ["全部三种 Coach 方法与完整记忆", "多轨 Sub 导出", "高级愿景板"], en: ["All three Coach methods and full memory", "Multitrack Sub export", "Advanced vision board"] } },
+  { id: "atelier" as const, zh: "丰盛工坊", en: "Dough Atelier", monthly: { zh: 168, en: 24.99 }, zhCopy: "高频使用与长篇沉浸创作", enCopy: "High-frequency use and immersive creation", features: { zh: ["长篇故事与优先生成速度", "工作室级 Sub 混音与愿景工具", "新功能优先体验"], en: ["Long-form stories and priority generation", "Studio-grade Sub mixing and vision tools", "Early access to new tools"] } },
 ];
 
 export default function PricingPage() {

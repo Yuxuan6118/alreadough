@@ -49,7 +49,7 @@ async function translateAmbientQuery(raw: string) {
       cache: "no-store",
       signal: AbortSignal.timeout(8_000),
       body: JSON.stringify({
-        model: process.env.OPENAI_SEARCH_MODEL || process.env.OPENAI_CHAT_MODEL || "deepseek-v4-flash",
+        model: process.env.OPENAI_SEARCH_MODEL || process.env.OPENAI_CHAT_MODEL || "deepseek-v4-flash-0731",
         messages: [
           { role: "system", content: 'Translate the Chinese search for pure environmental audio into 1 to 3 short English search queries. If it contains multiple sound sources, separate them into individual queries so each source is searched independently. Describe only sound sources. Never add speech, voices, people, songs, music, podcasts, vehicles, or ASMR. Return only JSON: {"queries": string[]}.' },
           { role: "user", content: raw },

@@ -1,28 +1,24 @@
 import { env } from "cloudflare:workers";
+import { extractConversations, type ViewUser } from "./chat-view";
+import { readClientInfo } from "./client-info";
 
 export type BetaMode = "chat" | "revision" | "story";
 export type TokenUsage = { input_tokens?: number; output_tokens?: number; total_tokens?: number } | null;
 
-// Public-launch defaults. The per-device trial window and lifetime cap are
-// effectively off (set BETA_TRIAL_DAYS / BETA_TOTAL_REQUESTS to bring them back
-// for a closed round). Per-device daily limits are generous enough that a real
-// user never notices, low enough that one abusive device cannot drain the day.
-// The global daily ceiling is the actual cost / abuse guard — on deepseek-v4-flash
-// even the token cap here is only a few RMB/day.
+// No per-person limit: nobody using AlreaDough is ever told "you only get N
+// conversations today" or "your trial has ended." The only thing left here is a
+// site-wide cost circuit breaker — if total traffic spikes abnormally (a bug, a
+// bot, a leaked key) this stops the bill from running away. It is sized well
+// above any real usage pattern, so a real person should never hit it.
 const LIMITS = {
-  trialDays: Number(process.env.BETA_TRIAL_DAYS || 3650),
-  total: Number(process.env.BETA_TOTAL_REQUESTS || 100_000),
-  daily: {
-    chat: Number(process.env.BETA_DAILY_CHAT || 80),
-    revision: Number(process.env.BETA_DAILY_REVISION || 20),
-    story: Number(process.env.BETA_DAILY_STORY || 8),
-  } as Record<BetaMode, number>,
   globalRequests: Number(process.env.BETA_GLOBAL_DAILY_REQUESTS || 3000),
   globalTokens: Number(process.env.BETA_GLOBAL_DAILY_TOKENS || 15_000_000),
 };
+// How long a device's row is kept around for the founder dashboard's usage stats.
+// Not a trial window — nothing reads this to decide whether to allow a request.
+const DEVICE_ROW_RETENTION_DAYS = 3650;
 
-type UserRow = { started_at: string; expires_at: string; total_requests: number; total_tokens: number; active: number };
-type DailyRow = { request_count: number; chat_requests: number; revision_requests: number; story_requests: number; input_tokens: number; output_tokens: number; total_tokens: number };
+type UserRow = { total_requests: number; total_tokens: number };
 type GlobalRow = { request_count: number; total_tokens: number };
 
 export type BetaTicket = { userId: string; userHash: string; day: string; mode: BetaMode };
@@ -47,6 +43,11 @@ async function createBetaTables() {
     `CREATE TABLE IF NOT EXISTS beta_settings (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL, updated_at TEXT NOT NULL)`,
     `CREATE INDEX IF NOT EXISTS beta_events_created_idx ON beta_events(created_at)`,
     `CREATE INDEX IF NOT EXISTS beta_events_user_idx ON beta_events(user_hash, created_at)`,
+    // Beta conversation samples (users are told up front that beta chats are kept to improve the AI).
+    `CREATE TABLE IF NOT EXISTS beta_conversations (id TEXT PRIMARY KEY NOT NULL, user_hash TEXT NOT NULL, created_at TEXT NOT NULL, mode TEXT NOT NULL, coach_mode TEXT, wish_category TEXT, lang TEXT, context TEXT, user_text TEXT NOT NULL, ai_reply TEXT NOT NULL, model TEXT, feedback TEXT, feedback_at TEXT)`,
+    `CREATE INDEX IF NOT EXISTS beta_conversations_created_idx ON beta_conversations(created_at)`,
+    // One row per device: coarse location + device type + visit counts. No IP address, no fingerprint.
+    `CREATE TABLE IF NOT EXISTS beta_profiles (user_hash TEXT PRIMARY KEY NOT NULL, first_seen_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, visits INTEGER NOT NULL DEFAULT 1, country TEXT, region TEXT, city TEXT, timezone TEXT, lang TEXT, device TEXT, os TEXT, browser TEXT)`,
   ];
   for (const sql of statements) await env.DB.prepare(sql).run();
 }
@@ -76,33 +77,18 @@ export async function betaStatus(request: Request, sessionId?: string) {
   const userId = requestIdentity(request, sessionId);
   if (!userId) return { authenticated: false as const };
   const now = new Date().toISOString();
-  const day = dayKey();
-  let user = await env.DB.prepare("SELECT started_at, expires_at, total_requests, total_tokens, active FROM beta_users WHERE user_id = ?").bind(userId).first<UserRow>();
+  let user = await env.DB.prepare("SELECT total_requests, total_tokens FROM beta_users WHERE user_id = ?").bind(userId).first<UserRow>();
   if (!user) {
-    await env.DB.prepare("INSERT OR IGNORE INTO beta_users (user_id, started_at, expires_at, last_seen_at) VALUES (?, ?, ?, ?)").bind(userId, now, isoAfterDays(LIMITS.trialDays), now).run();
-    user = await env.DB.prepare("SELECT started_at, expires_at, total_requests, total_tokens, active FROM beta_users WHERE user_id = ?").bind(userId).first<UserRow>();
+    await env.DB.prepare("INSERT OR IGNORE INTO beta_users (user_id, started_at, expires_at, last_seen_at) VALUES (?, ?, ?, ?)").bind(userId, now, isoAfterDays(DEVICE_ROW_RETENTION_DAYS), now).run();
+    user = await env.DB.prepare("SELECT total_requests, total_tokens FROM beta_users WHERE user_id = ?").bind(userId).first<UserRow>();
   }
-  const daily = await env.DB.prepare("SELECT request_count, chat_requests, revision_requests, story_requests, input_tokens, output_tokens, total_tokens FROM beta_usage_daily WHERE user_id = ? AND usage_date = ?").bind(userId, day).first<DailyRow>();
   const setting = await env.DB.prepare("SELECT value FROM beta_settings WHERE key = 'ai_enabled'").first<{ value: string }>();
-  const used = { chat: daily?.chat_requests || 0, revision: daily?.revision_requests || 0, story: daily?.story_requests || 0 };
   return {
     authenticated: true as const,
+    // Founder kill switch only. There is no per-person count or trial window here.
     enabled: process.env.BETA_AI_ENABLED !== "false" && setting?.value !== "false",
-    active: Boolean(user?.active),
-    expired: !user || user.expires_at <= now,
-    startedAt: user?.started_at,
-    expiresAt: user?.expires_at,
     totalRequests: user?.total_requests || 0,
     totalTokens: user?.total_tokens || 0,
-    usedToday: used,
-    remaining: {
-      chat: Math.max(0, LIMITS.daily.chat - used.chat),
-      revision: Math.max(0, LIMITS.daily.revision - used.revision),
-      story: Math.max(0, LIMITS.daily.story - used.story),
-      total: Math.max(0, LIMITS.total - (user?.total_requests || 0)),
-    },
-    limits: { ...LIMITS.daily, total: LIMITS.total, trialDays: LIMITS.trialDays },
-    resetAt: `${day}T24:00:00.000Z`,
   };
 }
 
@@ -110,9 +96,6 @@ export async function beginBetaRequest(request: Request, sessionId: string, mode
   const status = await betaStatus(request, sessionId);
   if (!status.authenticated) return { ok: false as const, code: "SIGN_IN_REQUIRED" };
   if (!status.enabled) return { ok: false as const, code: "AI_PAUSED" };
-  if (!status.active || status.expired) return { ok: false as const, code: "TRIAL_ENDED" };
-  if (status.remaining.total <= 0) return { ok: false as const, code: "TRIAL_LIMIT_REACHED" };
-  if (status.remaining[mode] <= 0) return { ok: false as const, code: "DAILY_LIMIT_REACHED" };
   const userId = requestIdentity(request, sessionId)!;
   const day = dayKey();
   const global = await env.DB.prepare("SELECT request_count, total_tokens FROM beta_global_daily WHERE usage_date = ?").bind(day).first<GlobalRow>();
@@ -131,7 +114,8 @@ export async function settleBetaRequest(ticket: BetaTicket, usage: TokenUsage, m
   await env.DB.prepare("UPDATE beta_users SET total_tokens = total_tokens + ? WHERE user_id = ?").bind(total, ticket.userId).run();
   await env.DB.prepare("UPDATE beta_global_daily SET total_tokens = total_tokens + ?, failed_requests = failed_requests + ?, updated_at = ? WHERE usage_date = ?").bind(total, metadata.success ? 0 : 1, now, ticket.day).run();
   if (!metadata.success) {
-    // A failed AI call must not spend a beta user's limited allowance; only failed_requests above stays.
+    // Keep the analytics counters honest: a failed call shouldn't count as a served request.
+    // (There's no per-person allowance left to protect — this is just accurate bookkeeping.)
     await env.DB.prepare(`UPDATE beta_usage_daily SET request_count = MAX(request_count - 1, 0), ${modeColumn(ticket.mode)} = MAX(${modeColumn(ticket.mode)} - 1, 0), updated_at = ? WHERE user_id = ? AND usage_date = ?`).bind(now, ticket.userId, ticket.day).run();
     await env.DB.prepare("UPDATE beta_users SET total_requests = MAX(total_requests - 1, 0) WHERE user_id = ?").bind(ticket.userId).run();
     await env.DB.prepare("UPDATE beta_global_daily SET request_count = MAX(request_count - 1, 0), updated_at = ? WHERE usage_date = ?").bind(now, ticket.day).run();
@@ -166,6 +150,88 @@ export async function founderSnapshot() {
   const topFeature = await env.DB.prepare("SELECT feedback, COUNT(*) AS count FROM beta_events WHERE event_type = 'beta_survey' AND mode = 'helpful_feature' AND feedback IS NOT NULL GROUP BY feedback ORDER BY count DESC LIMIT 1").first<{ feedback: string; count: number }>();
   const setting = await env.DB.prepare("SELECT value FROM beta_settings WHERE key = 'ai_enabled'").first<{ value: string }>();
   return { day, enabled: process.env.BETA_AI_ENABLED !== "false" && setting?.value !== "false", totalUsers: users?.count || 0, activeToday: activeToday?.count || 0, requestsToday: today?.request_count || 0, tokensToday: today?.total_tokens || 0, failedToday: today?.failed_requests || 0, feedbackCount: feedback?.total || 0, helpfulRate: feedback?.total ? Math.round((feedback.helpful || 0) / feedback.total * 100) : null, ratingCount: ratings?.total || 0, averageChange: ratings?.average_change == null ? null : Number(ratings.average_change.toFixed(2)), understoodAverage: survey?.understood == null ? null : Number(survey.understood.toFixed(2)), returnIntentAverage: survey?.return_intent == null ? null : Number(survey.return_intent.toFixed(2)), topFeature: topFeature?.feedback || null, globalLimits: { requests: LIMITS.globalRequests, tokens: LIMITS.globalTokens } };
+}
+
+const clipText = (value: string, max: number) => value.trim().slice(0, max);
+
+/** Store one beta conversation turn (no desire card, name, or beliefs — only the turn itself). Never throws. */
+export async function recordConversation(ticket: BetaTicket, entry: { lang: string; coachMode?: string; wishCategory?: string; context: Array<{ role: string; text: string }>; userText: string; aiReply: string; model?: string }) {
+  try {
+    const id = crypto.randomUUID();
+    const context = JSON.stringify(entry.context.slice(-6).map((item) => ({ role: item.role, text: clipText(item.text, 600) })));
+    await env.DB.prepare("INSERT INTO beta_conversations (id, user_hash, created_at, mode, coach_mode, wish_category, lang, context, user_text, ai_reply, model) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .bind(id, ticket.userHash, new Date().toISOString(), ticket.mode, entry.coachMode || null, entry.wishCategory || null, entry.lang, context, clipText(entry.userText, 4000), clipText(entry.aiReply, 6000), entry.model || null).run();
+    return id;
+  } catch (error) {
+    console.error("recordConversation failed", String(error));
+    return null;
+  }
+}
+
+/** Attach the user's 👍/👎 to a stored sample. Only the same device can label its own sample. */
+export async function markConversationFeedback(request: Request, sessionId: string, logId: string, feedback: string) {
+  const userId = requestIdentity(request, sessionId);
+  if (!userId || !["helpful", "missed"].includes(feedback) || !/^[0-9a-f-]{36}$/.test(logId)) return false;
+  await ensureBetaTables();
+  const result = await env.DB.prepare("UPDATE beta_conversations SET feedback = ?, feedback_at = ? WHERE id = ? AND user_hash = ?").bind(feedback, new Date().toISOString(), logId, await sha256(userId)).run();
+  return Boolean(result.meta?.changes);
+}
+
+type ConversationRow = { id: string; user_hash: string; created_at: string; mode: string; coach_mode: string | null; wish_category: string | null; lang: string | null; context: string | null; user_text: string; ai_reply: string; model: string | null; feedback: string | null };
+
+export async function listConversations(limit = 500) {
+  await ensureBetaTables();
+  const rows = await env.DB.prepare("SELECT id, user_hash, created_at, mode, coach_mode, wish_category, lang, context, user_text, ai_reply, model, feedback FROM beta_conversations ORDER BY created_at DESC LIMIT ?").bind(Math.max(1, Math.min(2000, limit))).all<ConversationRow>();
+  return (rows.results || []).map(({ user_hash, ...row }: ConversationRow) => ({ ...row, user: user_hash.slice(0, 8), context: row.context ? JSON.parse(row.context) as Array<{ role: string; text: string }> : [] }));
+}
+
+/** Every synced user's chat threads (chat turns only). The label is the first 8 chars of the same hash used in beta_conversations. */
+export async function listUserChats(limit = 200): Promise<ViewUser[]> {
+  let rows: Array<{ user_id: string; payload: string; updated_at: string }>;
+  try {
+    const result = await env.DB.prepare("SELECT user_id, payload, updated_at FROM user_spaces ORDER BY updated_at DESC LIMIT ?").bind(Math.max(1, Math.min(500, limit))).all<{ user_id: string; payload: string; updated_at: string }>();
+    rows = result.results || [];
+  } catch {
+    return []; // table not created yet: nobody has synced
+  }
+  const users: ViewUser[] = [];
+  for (const row of rows) {
+    const conversations = extractConversations(row.payload);
+    if (!conversations.length) continue;
+    users.push({ label: (await sha256(row.user_id)).slice(0, 8), updatedAt: row.updated_at, messageCount: conversations.reduce((sum, item) => sum + item.messages.length, 0), conversations });
+  }
+  return users;
+}
+
+/** Record that this device opened the app (called from the status route, once per app open). Never throws. */
+export async function touchProfile(request: Request, sessionId?: string) {
+  try {
+    const userId = requestIdentity(request, sessionId);
+    if (!userId) return;
+    await ensureBetaTables();
+    const info = readClientInfo(request.headers, (request as unknown as { cf?: Record<string, unknown> }).cf);
+    const now = new Date().toISOString();
+    await env.DB.prepare("INSERT INTO beta_profiles (user_hash, first_seen_at, last_seen_at, visits, country, region, city, timezone, lang, device, os, browser) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_hash) DO UPDATE SET last_seen_at = excluded.last_seen_at, visits = visits + 1, country = COALESCE(excluded.country, country), region = COALESCE(excluded.region, region), city = COALESCE(excluded.city, city), timezone = COALESCE(excluded.timezone, timezone), lang = COALESCE(excluded.lang, lang), device = excluded.device, os = excluded.os, browser = excluded.browser")
+      .bind(await sha256(userId), now, now, info.country, info.region, info.city, info.timezone, info.lang, info.device, info.os, info.browser).run();
+  } catch (error) {
+    console.error("touchProfile failed", String(error));
+  }
+}
+
+type ProfileRow = { user_hash: string; first_seen_at: string; last_seen_at: string; visits: number; country: string | null; region: string | null; city: string | null; timezone: string | null; lang: string | null; device: string | null; os: string | null; browser: string | null; turns: number; active_days: number; helpful: number; missed: number; wish_category: string | null; coach_mode: string | null };
+
+/** One row per device with usage so far. The label matches the 8-char user label in the chat viewer. */
+export async function listProfiles(limit = 500) {
+  await ensureBetaTables();
+  const rows = await env.DB.prepare(`SELECT p.*,
+      (SELECT COUNT(*) FROM beta_conversations c WHERE c.user_hash = p.user_hash) AS turns,
+      (SELECT COUNT(DISTINCT substr(c.created_at, 1, 10)) FROM beta_conversations c WHERE c.user_hash = p.user_hash) AS active_days,
+      (SELECT COUNT(*) FROM beta_conversations c WHERE c.user_hash = p.user_hash AND c.feedback = 'helpful') AS helpful,
+      (SELECT COUNT(*) FROM beta_conversations c WHERE c.user_hash = p.user_hash AND c.feedback = 'missed') AS missed,
+      (SELECT c.wish_category FROM beta_conversations c WHERE c.user_hash = p.user_hash ORDER BY c.created_at DESC LIMIT 1) AS wish_category,
+      (SELECT c.coach_mode FROM beta_conversations c WHERE c.user_hash = p.user_hash ORDER BY c.created_at DESC LIMIT 1) AS coach_mode
+    FROM beta_profiles p ORDER BY p.last_seen_at DESC LIMIT ?`).bind(Math.max(1, Math.min(1000, limit))).all<ProfileRow>();
+  return (rows.results || []).map(({ user_hash, ...row }: ProfileRow) => ({ ...row, user: user_hash.slice(0, 8) }));
 }
 
 export async function setBetaEnabled(enabled: boolean) {

@@ -34,7 +34,7 @@ async function buildSearchPlan(original: string): Promise<SearchPlan> {
       method: "POST",
       headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: process.env.OPENAI_SEARCH_MODEL || process.env.OPENAI_CHAT_MODEL || "deepseek-v4-flash",
+        model: process.env.OPENAI_SEARCH_MODEL || process.env.OPENAI_CHAT_MODEL || "deepseek-v4-flash-0731",
         messages: [
           { role: "system", content: 'Turn a Chinese vision-board search into concise English photo-search queries. Preserve distinct subjects, places, people, actions, and mood. Produce 3-5 separate queries, not one comma-stuffed sentence. At least one query should target candid personal phone-photo aesthetics with words such as candid, everyday, diary, snapshot, natural light, or photo dump. Never add celebrity names or copyrighted platform names. Return only JSON: {"translated": string, "queries": string[]}.' },
           { role: "user", content: original },

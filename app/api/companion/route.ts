@@ -3,7 +3,8 @@ import {
   desirePreservingSafetyReply,
   type CompanionRequest,
 } from "@/lib/already-ai";
-import { beginBetaRequest, settleBetaRequest } from "@/lib/beta-guard";
+import { beginBetaRequest, recordConversation, settleBetaRequest } from "@/lib/beta-guard";
+import { cleanReply, contrastRetryNote, hasContrastFrame, isErrorEcho } from "@/lib/reply-guards";
 import { OPENAI_BASE_URL, chatContent, chatUsage, type ChatCompletion } from "@/lib/openai-base";
 
 const requestWindows = new Map<string, { startedAt: number; count: number }>();
@@ -67,6 +68,8 @@ export async function POST(request: Request) {
     return json({ error: "INVALID_JSON" }, 400);
   }
   if (!isPayload(payload)) return json({ error: "INVALID_REQUEST" }, 400);
+  // Error bubbles the client once showed ("AI could not connect…") are not things the AI said; keep them out of its context.
+  payload.recentMessages = payload.recentMessages.filter((message) => !isErrorEcho(message));
 
   if (isRateLimited(payload.sessionId)) {
     return json({
@@ -98,7 +101,7 @@ export async function POST(request: Request) {
     }, 503);
   }
 
-  const chatModel = process.env.OPENAI_CHAT_MODEL || "deepseek-v4-flash";
+  const chatModel = process.env.OPENAI_CHAT_MODEL || "deepseek-v4-flash-0731";
   const creativeModel = process.env.OPENAI_CREATIVE_MODEL || chatModel;
   const model = payload.mode === "chat" ? chatModel : creativeModel;
   const gate = await beginBetaRequest(request, payload.sessionId, payload.mode);
@@ -106,10 +109,9 @@ export async function POST(request: Request) {
     const messages: Record<string, Record<"zh" | "en", string>> = {
       SIGN_IN_REQUIRED: { zh: "无法识别这台设备，请刷新页面后再试。", en: "This device could not be identified. Please refresh and try again." },
       AI_PAUSED: { zh: "AI 服务正在由创始人暂时维护，请稍后再来。", en: "AI is temporarily paused by the founder. Please return shortly." },
-      TRIAL_ENDED: { zh: "你的 7 天创始测试期已经结束，感谢你留下的每一次体验。", en: "Your 7-day founder beta has ended. Thank you for every session." },
-      TRIAL_LIMIT_REACHED: { zh: "你的创始测试额度已经用完。", en: "Your founder beta allowance has been used." },
-      DAILY_LIMIT_REACHED: { zh: "今天这一项的体验额度已经用完，明天会自动恢复。", en: "Today's allowance for this practice is complete. It resets tomorrow." },
-      BETA_BUDGET_PAUSED: { zh: "今天的全站测试预算已经达到上限，明天会自动恢复。", en: "Today's shared beta budget has been reached. It resets tomorrow." },
+      // No per-person cap codes here on purpose — nobody is ever told "you're out for today."
+      // BETA_BUDGET_PAUSED is a site-wide cost circuit breaker, not a personal limit.
+      BETA_BUDGET_PAUSED: { zh: "AI 现在请求有点多，请稍后再试一次。", en: "AI is getting a lot of requests right now. Please try again shortly." },
     };
     return json({ error: gate.code, message: messages[gate.code]?.[payload.lang] || gate.code }, gate.code === "SIGN_IN_REQUIRED" ? 401 : 429);
   }
@@ -149,7 +151,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = JSON.parse(outputText) as {
+    let result = JSON.parse(outputText) as {
       reply: string;
       journey_summary: string;
       belief_observed: string;
@@ -160,8 +162,49 @@ export async function POST(request: Request) {
         keywords: string[];
       }>;
     };
+    // Guard: if the reply uses the "not X, it is Y" frame, ask once for a version that says the point directly.
+    // Any failure here keeps the first reply; the user is never blocked by this.
+    if (payload.mode === "chat" && hasContrastFrame(result.reply)) {
+      try {
+        const retryStartedAt = Date.now();
+        const retry = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model,
+            messages: [...buildMessages(payload), { role: "assistant" as const, content: outputText }, { role: "user" as const, content: contrastRetryNote(payload.lang) }],
+            response_format: { type: "json_object" },
+            max_tokens: 900,
+            temperature: 0.85,
+            enable_thinking: false,
+          }),
+        });
+        const retryData = await retry.json() as ChatCompletion;
+        if (retry.ok) {
+          await settleBetaRequest(gate.ticket, chatUsage(retryData), { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: true, latencyMs: Date.now() - retryStartedAt });
+          const retried = JSON.parse(chatContent(retryData).trim().replace(/^```(?:json)?\s*|\s*```$/g, "")) as typeof result;
+          const fixed = typeof retried.reply === "string" && retried.reply.trim().length > 0 && !hasContrastFrame(retried.reply);
+          console.log("contrast-frame retry", { fixed });
+          if (fixed) result = retried;
+        }
+      } catch (error) {
+        console.error("contrast-frame retry failed", String(error));
+      }
+    }
+    const reply = cleanReply(result.reply, { mode: payload.mode, name: payload.goal.companionName });
+    // Beta: keep the conversation turn (not the desire card) so replies can be reviewed and improved.
+    const logId = await recordConversation(gate.ticket, {
+      lang: payload.lang,
+      coachMode: payload.goal.coachMode,
+      wishCategory: payload.goal.wishCategory,
+      context: payload.recentMessages.slice(-6).map((message) => ({ role: message.role, text: message.text })),
+      userText: payload.userInput,
+      aiReply: reply,
+      model,
+    });
     return json({
-      reply: result.reply,
+      reply,
+      logId,
       journeySummary: result.journey_summary,
       beliefObserved: result.belief_observed,
       memoryCandidates: result.memory_candidates || [],
