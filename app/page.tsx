@@ -333,6 +333,8 @@ export default function Home() {
         const restoredGoal: GoalProfile = {
           ...defaultGoal,
           ...savedGoal,
+          id: savedGoal.id || crypto.randomUUID(),
+          intensity: Math.min(5, Math.max(1, Math.round(Number(savedGoal.intensity) || 3))),
           background: savedGoal.background || defaultGoal.background,
           spPronunciation: savedGoal.spPronunciation || "",
           canon: savedGoal.canon || defaultGoal.canon,
