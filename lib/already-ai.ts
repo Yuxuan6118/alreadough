@@ -57,7 +57,7 @@ const zhInstructions = `你是 AlreaDough 的 Belief Companion，一位温柔、
 - 先准确回应用户此刻的具体念头，再帮助她回到已经选定的完成态。根据 active_goal.category 理解愿望；只有关系类愿望才使用 active_goal.sp_reference，其他类别使用 desire_focus，不擅自把所有愿望改写成爱情。不要用泛泛肯定语盖过情绪，也不要重复固定模板。
 - 可以写第一人称或第二人称的完成态场景、inner conversation、Revision 和肯定语。
 - 不要声称你已验证另一个现实人物的私人思想，不要保证具体结果或时间。
-- 结构化输出中的 reply 是给用户看的正文；journey_summary 用不超过 500 字更新长期旅程摘要，只保留愿望、主要触发点、有效回应方式和已接纳的新故事；belief_observed 只写本轮最核心的一条限制性信念，没有则返回空字符串。
+- 结构化输出中的 reply 是给用户看的正文；journey_summary 用不超过 500 字更新长期旅程摘要，只保留愿望、主要触发点、有效回应方式和已接纳的新故事；belief_observed 只在她对自己或现实下了结论时才写（形如“如果……就说明……”“只有……我才……”），用她自己的意思写成一句完整的话；她只是提问、发泄情绪、描述发生了什么时，返回空字符串；不要写成她“相信”什么，也不要加评价。
 - memory_candidates 最多返回 2 条值得长期记住的新信息，只记录用户明确讲过且未来会有帮助的人物、地点、事件、偏好或自我洞察。不要重复已有记忆，不把想象场景写成现实经历，也不把对他人内心的推测写成事实。title 简短，detail 保留必要语境，keywords 给 2 至 5 个检索词。
 
 现实行动边界：
@@ -74,7 +74,7 @@ Core experience:
 - Respond to the exact thought before guiding the user back to the fulfilled state. Interpret the desire through active_goal.category; use active_goal.sp_reference only for relationship desires and desire_focus for other categories. Never turn every desire into romance. Do not cover emotion with generic affirmations or repeat a template.
 - You may write fulfilled-state scenes, inner conversations, revision, and affirmations in first or second person.
 - Do not claim verified access to another real person's private thoughts, and do not guarantee an outcome or date.
-- In the structured output, reply is the user-facing response; journey_summary updates long-term memory in no more than 350 words, retaining only the desire, primary triggers, helpful response patterns, and accepted new stories; belief_observed contains one core limiting belief from this turn, or an empty string.
+- In the structured output, reply is the user-facing response; journey_summary updates long-term memory in no more than 350 words, retaining only the desire, primary triggers, helpful response patterns, and accepted new stories; belief_observed is filled only when she draws a conclusion about herself or reality (like "if ... then it means ..." or "only when ... can I ..."), written as one complete sentence in her own meaning; when she is only asking, venting, or describing what happened, return an empty string; do not phrase it as what she "believes" and add no judgment.
 - Return at most two memory_candidates containing durable new facts the user explicitly shared and that will help later: a person, place, event, response preference, or self-insight. Do not repeat existing memory, record an imagined scene as lived history, or turn a guess about another person's mind into fact. Keep titles short, preserve useful context in detail, and provide 2-5 retrieval keywords.
 
 Real-world action boundary:
@@ -206,7 +206,6 @@ export function buildInput(payload: CompanionRequest) {
       category: payload.goal.wishCategory || "other",
       guidance_method: payload.goal.coachMode || "assumption",
       desire: clip(payload.goal.desire, 1400),
-      limiting_beliefs: payload.goal.beliefs.slice(0, 12).map((item) => clip(item, 240)),
       companion_name: clip(payload.goal.companionName, 80),
       desire_focus: clip(payload.goal.spName || "", 80),
       sp_reference: payload.goal.wishCategory === "relationship" ? clip(payload.goal.spName || (payload.lang === "zh" ? "对方" : "my person"), 80) : "",
