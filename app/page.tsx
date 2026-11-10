@@ -37,7 +37,7 @@ import { readStored, writeStored, removeStored } from "@/lib/safe-storage";
 type View = "home" | "subliminal" | "story" | "revision" | "board" | "memory" | "settings";
 type Lang = "zh" | "en";
 type Message = { id: string; role: "ai" | "user"; text: string; feedback?: "helpful" | "missed"; saved?: boolean; logId?: string; error?: boolean };
-type Conversation = { id: string; title: string; createdAt: string; messages: Message[] };
+type Conversation = { id: string; title: string; createdAt: string; messages: Message[]; goalId?: string };
 type BoardItem = { id: number; title: string; source: string; image?: string };
 type Revision = { id: number; old: string; revised: string; date: string };
 type GoalStatus = "active" | "embodiment" | "fulfilled" | "paused";
@@ -60,6 +60,8 @@ type GoalProfile = {
   id: string;
   setupComplete: boolean;
   status: GoalStatus;
+  /** How much she wants it, 1 (nice to have) to 5 (most). Orders the desire list. */
+  intensity: number;
   wishCategory: WishCategory;
   companionStyle: CompanionStyle;
   coachMode: CoachMode;
@@ -118,6 +120,7 @@ const defaultGoal: GoalProfile = {
   id: "",
   setupComplete: false,
   status: "active",
+  intensity: 3,
   wishCategory: "other",
   companionStyle: "",
   coachMode: "assumption",
@@ -140,6 +143,22 @@ const defaultGoal: GoalProfile = {
 };
 
 const MAX_BELIEFS = 12;
+const MAX_GOALS = 30;
+const intensityLabels: Record<Lang, string[]> = {
+  zh: ["有也不错", "想要", "很想要", "特别想要", "最想要"],
+  en: ["Nice to have", "Want it", "Really want it", "Want it a lot", "Want it most"],
+};
+const normalizeGoal = (item: Partial<GoalProfile>): GoalProfile => ({
+  ...defaultGoal,
+  ...item,
+  intensity: Math.min(5, Math.max(1, Math.round(Number(item.intensity) || 3))),
+  background: item.background || defaultGoal.background,
+  spPronunciation: item.spPronunciation || "",
+  canon: item.canon || defaultGoal.canon,
+  responsePreferences: item.responsePreferences || defaultGoal.responsePreferences,
+  acceptedSceneLedger: item.acceptedSceneLedger || defaultGoal.acceptedSceneLedger,
+  memoryItems: item.memoryItems || defaultGoal.memoryItems,
+} as GoalProfile);
 const MAX_BACKGROUND = 4000;
 const MAX_MEMORIES = 48;
 
@@ -154,6 +173,12 @@ const memoryKinds: Array<{ id: MemoryKind; zh: string; en: string }> = [
   { id: "preference", zh: "偏好", en: "Preferences" },
   { id: "insight", zh: "自我洞察", en: "Insights" },
 ];
+
+/** Two thoughts count as the same when only punctuation, case, or a leading "I believe" differs. */
+function sameBelief(a: string, b: string) {
+  const norm = (text: string) => text.toLowerCase().replace(/[\s，。,.!！？?“”"'、…]/g, "").replace(/^(我相信|我觉得|我认为|i believe|i think)/, "");
+  return norm(a) === norm(b);
+}
 
 function parseBeliefs(value: string) {
   return value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
@@ -195,6 +220,13 @@ const wishCategories: Array<{ id: WishCategory; zh: string; en: string; zhDescri
   { id: "lifestyle", zh: "生活与体验", en: "Life & Experiences", zhDescription: "居住、旅行、物品或生活方式", enDescription: "Home, travel, possessions, or lifestyle" },
   { id: "other", zh: "其他愿望", en: "Something Else", zhDescription: "用你自己的方式定义它", enDescription: "Define it in your own words" },
 ];
+
+const goalTitle = (item: GoalProfile, lang: Lang) => {
+  const text = (item.desire[lang] || item.desire.zh || item.desire.en || "").trim();
+  if (text) return text.length > 16 ? `${text.slice(0, 16)}…` : text;
+  const category = wishCategories.find((entry) => entry.id === item.wishCategory);
+  return (lang === "zh" ? category?.zh : category?.en) || "";
+};
 
 const companionStyles: Array<{ id: Exclude<CompanionStyle, "">; zh: string; en: string; zhDescription: string; enDescription: string; zhPrompt: string; enPrompt: string }> = [
   { id: "gentle", zh: "温柔抱持型", en: "Gentle Holder", zhDescription: "先接住情绪，再缓缓回到已经选择的状态。", enDescription: "Meets the feeling first, then gently returns to the chosen state.", zhPrompt: "温柔、细腻、富有安抚感。先准确接住我的感受，再自然地陪我回到已经选择的完成态。", enPrompt: "Gentle, emotionally precise, and soothing. Meet my feeling accurately, then guide me naturally into the fulfilled state I chose." },
@@ -244,6 +276,7 @@ export default function Home() {
   const [storyDraft, setStoryDraft] = useState<StoryDraft>(emptyStoryDraft);
   const [goal, setGoal] = useState<GoalProfile>(defaultGoal);
   const [goalArchive, setGoalArchive] = useState<GoalProfile[]>([]);
+  const [otherGoals, setOtherGoals] = useState<GoalProfile[]>([]);
   const [spNameDraft, setSpNameDraft] = useState(defaultGoal.spName);
   const [sessionId, setSessionId] = useState("local-beta");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -262,6 +295,7 @@ export default function Home() {
   const [aiError, setAiError] = useState("");
   const [chatInput, setChatInput] = useState("");
   const [oldScene, setOldScene] = useState("");
+  const [rewritingBelief, setRewritingBelief] = useState("");
   const [newScene, setNewScene] = useState("");
   const [generatedStory, setGeneratedStory] = useState("");
   const [storyGenerating, setStoryGenerating] = useState(false);
@@ -312,6 +346,7 @@ export default function Home() {
       }
       if (Array.isArray(data.storyLibrary)) setStoryLibrary((data.storyLibrary as Story[]).slice(0, 6));
       if (Array.isArray(data.goalArchive)) setGoalArchive((data.goalArchive as GoalProfile[]).slice(0, 20));
+      if (Array.isArray(data.otherGoals)) setOtherGoals((data.otherGoals as Partial<GoalProfile>[]).filter((item) => item?.setupComplete && item.desire && item.beliefs && item.id).map(normalizeGoal).slice(0, MAX_GOALS));
       if (Array.isArray(data.messages)) setMessages(normalizeMessages(data.messages));
       if (typeof data.conversationId === "string") setConversationId(data.conversationId);
       if (Array.isArray(data.conversationArchive)) setConversationArchive((data.conversationArchive as Conversation[]).slice(0, 30).map((item) => ({ ...item, messages: normalizeMessages(item.messages) })));
@@ -378,7 +413,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!hydrated) return;
-    const space = { lang, goal, goalArchive: goalArchive.slice(0, 20), conversationId, conversationArchive: conversationArchive.slice(0, 30), messages: messages.slice(-80), revisions: revisions.slice(0, 20), board, storyLibrary, checkIns };
+    const space = { lang, goal, goalArchive: goalArchive.slice(0, 20), otherGoals: otherGoals.slice(0, MAX_GOALS), conversationId, conversationArchive: conversationArchive.slice(0, 30), messages: messages.slice(-80), revisions: revisions.slice(0, 20), board, storyLibrary, checkIns };
     writeStored("already-private-state-v5", JSON.stringify(space));
     document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
     if (!cloudReady) return;
@@ -389,7 +424,7 @@ export default function Home() {
         .catch(() => setSyncStatus("offline"));
     }, 900);
     return () => window.clearTimeout(timeout);
-  }, [hydrated, cloudReady, sessionId, lang, goal, goalArchive, conversationId, conversationArchive, messages, revisions, board, storyLibrary, checkIns]);
+  }, [hydrated, cloudReady, sessionId, lang, goal, goalArchive, otherGoals, conversationId, conversationArchive, messages, revisions, board, storyLibrary, checkIns]);
 
   useEffect(() => {
     writeStored("already-practice-checkins-v1", JSON.stringify(checkIns));
@@ -566,12 +601,12 @@ export default function Home() {
       const belief = data.beliefObserved.trim().slice(0, 360);
       setGoal((current) => {
         const beliefs = current.beliefs[lang] || [];
-        if (beliefs.some((item) => item.toLowerCase() === belief.toLowerCase()) || beliefs.length >= MAX_BELIEFS) return current;
+        if (beliefs.some((item) => sameBelief(item, belief)) || beliefs.length >= MAX_BELIEFS) return current;
         return { ...current, beliefs: { ...current.beliefs, [lang]: [...beliefs, belief] } };
       });
       setBeliefDraft((current) => {
         const beliefs = parseBeliefs(current);
-        return beliefs.some((item) => item.toLowerCase() === belief.toLowerCase()) || beliefs.length >= MAX_BELIEFS ? current : [...beliefs, belief].join("\n");
+        return beliefs.some((item) => sameBelief(item, belief)) || beliefs.length >= MAX_BELIEFS ? current : [...beliefs, belief].join("\n");
       });
     }
     lastLogIdRef.current = typeof (data as { logId?: unknown }).logId === "string" ? (data as { logId: string }).logId : undefined;
@@ -685,8 +720,23 @@ export default function Home() {
     window.setTimeout(() => setSavedPulse(false), 1800);
   };
 
+  const removeBelief = (text: string) => {
+    setGoal((current) => ({ ...current, beliefs: { ...current.beliefs, [lang]: (current.beliefs[lang] || []).filter((item) => item !== text) } }));
+    setBeliefDraft((current) => parseBeliefs(current).filter((item) => item !== text).join("\n"));
+  };
+
+  /** Send a recorded thought into the rewrite studio; accepting the new version retires the old thought. */
+  const turnBelief = (text: string) => {
+    setOldScene(text);
+    setNewScene("");
+    setRewritingBelief(text);
+    setView("revision");
+  };
+
   const acceptRevision = () => {
     if (!newScene) return;
+    if (rewritingBelief && oldScene.trim() === rewritingBelief.trim()) removeBelief(rewritingBelief);
+    setRewritingBelief("");
     setRevisions((items) => [{ id: nextLocalId(), old: oldScene, revised: newScene, date: new Date().toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US") }, ...items]);
     setGoal((current) => ({
       ...current,
@@ -842,6 +892,7 @@ export default function Home() {
       version: 1,
       language: lang,
       activeGoal: goal,
+      otherGoals,
       archivedGoals: goalArchive,
       stories: storyLibrary,
       acceptedRevisions: revisions,
@@ -884,6 +935,7 @@ export default function Home() {
         title: conversationTitle(messages, lang),
         createdAt: new Date().toISOString(),
         messages,
+        goalId: goal.id,
       }, ...items.filter((item) => item.id !== conversationId)].slice(0, 30));
     }
     setConversationId(crypto.randomUUID());
@@ -897,15 +949,96 @@ export default function Home() {
 
   const openConversation = (conversation: Conversation) => {
     if (messages.length) {
-      setConversationArchive((items) => [{ id: conversationId || crypto.randomUUID(), title: conversationTitle(messages, lang), createdAt: new Date().toISOString(), messages }, ...items.filter((item) => item.id !== conversation.id && item.id !== conversationId)].slice(0, 30));
+      setConversationArchive((items) => [{ id: conversationId || crypto.randomUUID(), title: conversationTitle(messages, lang), createdAt: new Date().toISOString(), messages, goalId: goal.id }, ...items.filter((item) => item.id !== conversation.id && item.id !== conversationId)].slice(0, 30));
     } else {
       setConversationArchive((items) => items.filter((item) => item.id !== conversation.id));
+    }
+    const owner = conversation.goalId && conversation.goalId !== goal.id ? otherGoals.find((item) => item.id === conversation.goalId) : undefined;
+    if (owner) {
+      const leaving = currentGoalSnapshot();
+      setOtherGoals((items) => [leaving, ...items.filter((item) => item.id !== owner.id)].slice(0, MAX_GOALS));
+      setGoal(owner);
+      setSpNameDraft(owner.spName);
+      setBeliefDraft((owner.beliefs[lang] || []).join("\n"));
     }
     setConversationId(conversation.id);
     setMessages(conversation.messages);
     setHistoryOpen(false);
     setView("home");
   };
+
+  const currentGoalSnapshot = (): GoalProfile => ({
+    ...goal,
+    spName: spNameError ? goal.spName : spNameDraft.trim(),
+    beliefs: { ...goal.beliefs, [lang]: beliefCount > MAX_BELIEFS ? goal.beliefs[lang] : parseBeliefs(beliefDraft).slice(0, MAX_BELIEFS) },
+  });
+
+  const archiveCurrentConversation = () => {
+    if (!messages.length) return;
+    setConversationArchive((items) => [{ id: conversationId || crypto.randomUUID(), title: conversationTitle(messages, lang), createdAt: new Date().toISOString(), messages, goalId: goal.id }, ...items.filter((item) => item.id !== conversationId)].slice(0, 30));
+  };
+
+  const showGoal = (target: GoalProfile) => {
+    setGoal(target);
+    setSpNameDraft(target.spName);
+    setBeliefDraft((target.beliefs[lang] || []).join("\n"));
+    setConversationId(crypto.randomUUID());
+    setMessages([]);
+    setChatInput("");
+    setAiError("");
+  };
+
+  const switchGoal = (id: string) => {
+    const target = otherGoals.find((item) => item.id === id);
+    if (!target) return;
+    archiveCurrentConversation();
+    const leaving = currentGoalSnapshot();
+    setOtherGoals((items) => [leaving, ...items.filter((item) => item.id !== id)].slice(0, MAX_GOALS));
+    showGoal(target);
+    setView("home");
+    window.setTimeout(() => chatInputRef.current?.focus(), 80);
+  };
+
+  const addGoal = () => {
+    if (otherGoals.length + 1 >= MAX_GOALS) {
+      window.alert(lang === "zh" ? `愿望卡已经有 ${MAX_GOALS} 张，请先删掉一些再添加。` : `You already have ${MAX_GOALS} desire cards. Please remove some before adding more.`);
+      return;
+    }
+    archiveCurrentConversation();
+    const leaving = currentGoalSnapshot();
+    setOtherGoals((items) => [leaving, ...items].slice(0, MAX_GOALS));
+    setGoal({ ...defaultGoal, companionName: goal.companionName, companionStyle: goal.companionStyle, coachMode: goal.coachMode, tone: goal.tone, responsePreferences: goal.responsePreferences });
+    setSpNameDraft("");
+    setBeliefDraft("");
+    setMessages([]);
+    setConversationId("");
+    setOnboardingStep(1);
+    setView("home");
+  };
+
+  const cancelAddGoal = () => {
+    const [previous, ...rest] = otherGoals;
+    if (!previous) return;
+    setOtherGoals(rest);
+    showGoal(previous);
+    setOnboardingStep(0);
+  };
+
+  const deleteOtherGoal = (id: string) => {
+    const target = otherGoals.find((item) => item.id === id);
+    if (!target) return;
+    const confirmed = window.confirm(lang === "zh" ? `删除愿望「${goalTitle(target, lang)}」及它的记忆吗？这不能恢复。` : `Delete the desire “${goalTitle(target, lang)}” and its memories? This cannot be undone.`);
+    if (!confirmed) return;
+    setOtherGoals((items) => items.filter((item) => item.id !== id));
+    setConversationArchive((items) => items.filter((item) => item.goalId !== id));
+  };
+
+  const setGoalIntensity = (id: string, value: number) => {
+    if (id === goal.id) setGoal((current) => ({ ...current, intensity: value }));
+    else setOtherGoals((items) => items.map((item) => item.id === id ? { ...item, intensity: value } : item));
+  };
+
+  const sortedGoals = [goal, ...otherGoals].filter((item) => item.setupComplete).sort((a, b) => b.intensity - a.intensity);
 
   const onboardingCanContinue = [
     Boolean(goal.companionName.trim()),
@@ -945,9 +1078,9 @@ export default function Home() {
         <div className="onboarding-progress" aria-label={lang === "zh" ? `第 ${onboardingStep + 1} 步，共 3 步` : `Step ${onboardingStep + 1} of 3`}><i style={{ width: `${((onboardingStep + 1) / 3) * 100}%` }}/></div>
         <p className="eyebrow">{steps[onboardingStep]}</p>
         {onboardingStep === 0 && <div className="onboarding-panel"><h1>{lang === "zh" ? "我该怎么称呼你？" : "What should I call you?"}</h1><p>{lang === "zh" ? "先用一个你喜欢的称呼开始。语言和更多资料之后都可以随时修改。" : "Begin with a name that feels like you. Language and other details can change anytime."}</p><label><span>{lang === "zh" ? "你的称呼" : "YOUR NAME"}</span><input maxLength={24} value={goal.companionName} onChange={(event) => setGoal((current) => ({ ...current, companionName: event.target.value }))} placeholder={lang === "zh" ? "例如：安安" : "For example: Mia"}/></label></div>}
-        {onboardingStep === 1 && <div className="onboarding-panel"><h1>{lang === "zh" ? "现在，只选择一个愿望。" : "For now, choose one desire."}</h1><p>{lang === "zh" ? "选一个生活方向，再写下它已经实现时，你正在过怎样的生活。" : "Choose one area of life, then describe the life you are living when it is fulfilled."}</p><div className="option-card-grid category-grid">{wishCategories.map((category) => <button key={category.id} className={goal.wishCategory === category.id ? "selected" : ""} onClick={() => setGoal((current) => ({ ...current, wishCategory: category.id }))}><strong>{lang === "zh" ? category.zh : category.en}</strong><small>{lang === "zh" ? category.zhDescription : category.enDescription}</small></button>)}</div><label><span>{lang === "zh" ? "它已经实现时，我的生活是" : "WHEN IT IS ALREADY MINE, MY LIFE IS"}</span><textarea value={goal.desire[lang]} onChange={(event) => setGoal((current) => ({ ...current, desire: { ...current.desire, [lang]: event.target.value } }))} placeholder={lang === "zh" ? "用你自己的话写下这个愿望……" : "Write this desire in your own words…"}/></label><label className="onboarding-context"><span>{lang === "zh" ? "愿意的话，让我先了解你的处境" : "OPTIONAL CONTEXT"}</span><small>{lang === "zh" ? "可以写相关人物、已经发生过的事、当下卡住你的地方。越具体，第一次对话越不需要你重新解释。" : "Share the people involved, what has happened, and what keeps repeating. More context means less retraining in your first conversation."}</small><textarea maxLength={MAX_BACKGROUND} value={goal.background[lang]} onChange={(event) => setGoal((current) => ({ ...current, background: { ...current.background, [lang]: event.target.value } }))} placeholder={lang === "zh" ? "这部分可以稍后补充，也可以现在一次说清楚。" : "Add this later, or tell the fuller story now."}/><em>{goal.background[lang].length} / {MAX_BACKGROUND}</em></label></div>}
+        {onboardingStep === 1 && <div className="onboarding-panel"><h1>{lang === "zh" ? "先从一个愿望开始。" : "Start with one desire."}</h1><p>{lang === "zh" ? "选一个生活方向，再写下它已经实现时，你正在过怎样的生活。之后可以随时添加更多愿望。" : "Choose one area of life, then describe the life you are living when it is fulfilled. You can add more desires anytime."}</p><div className="option-card-grid category-grid">{wishCategories.map((category) => <button key={category.id} className={goal.wishCategory === category.id ? "selected" : ""} onClick={() => setGoal((current) => ({ ...current, wishCategory: category.id }))}><strong>{lang === "zh" ? category.zh : category.en}</strong><small>{lang === "zh" ? category.zhDescription : category.enDescription}</small></button>)}</div><label><span>{lang === "zh" ? "它已经实现时，我的生活是" : "WHEN IT IS ALREADY MINE, MY LIFE IS"}</span><textarea value={goal.desire[lang]} onChange={(event) => setGoal((current) => ({ ...current, desire: { ...current.desire, [lang]: event.target.value } }))} placeholder={lang === "zh" ? "用你自己的话写下这个愿望……" : "Write this desire in your own words…"}/></label><label className="onboarding-context"><span>{lang === "zh" ? "愿意的话，让我先了解你的处境" : "OPTIONAL CONTEXT"}</span><small>{lang === "zh" ? "可以写相关人物、已经发生过的事、当下卡住你的地方。越具体，第一次对话越不需要你重新解释。" : "Share the people involved, what has happened, and what keeps repeating. More context means less retraining in your first conversation."}</small><textarea maxLength={MAX_BACKGROUND} value={goal.background[lang]} onChange={(event) => setGoal((current) => ({ ...current, background: { ...current.background, [lang]: event.target.value } }))} placeholder={lang === "zh" ? "这部分可以稍后补充，也可以现在一次说清楚。" : "Add this later, or tell the fuller story now."}/><em>{goal.background[lang].length} / {MAX_BACKGROUND}</em></label></div>}
         {onboardingStep === 2 && <div className="onboarding-panel onboarding-confirm"><h1>{lang === "zh" ? "你希望怎样被陪伴？" : "How do you want to be accompanied?"}</h1><p>{lang === "zh" ? "先选最接近你的方式。背景、触发点和更多偏好可以进入后在“我的空间”补充。" : "Choose the closest style. Add context, triggers, and more preferences later in My Space."}</p><div className="option-card-grid companion-style-grid">{companionStyles.map((style) => <button key={style.id} className={goal.companionStyle === style.id ? "selected" : ""} onClick={() => chooseCompanionStyle(style.id)}><strong>{lang === "zh" ? style.zh : style.en}</strong><small>{lang === "zh" ? style.zhDescription : style.enDescription}</small></button>)}</div>{goal.companionStyle === "custom" && <label><span>{lang === "zh" ? "我的专属陪伴方式" : "MY CUSTOM COMPANION STYLE"}</span><textarea value={goal.tone[lang]} onChange={(event) => setGoal((current) => ({ ...current, tone: { ...current.tone, [lang]: event.target.value } }))}/></label>}</div>}
-        <footer className="onboarding-actions"><button className="outline-button" onClick={() => setOnboardingStep((step) => Math.max(0, step - 1))} disabled={onboardingStep === 0}>{lang === "zh" ? "返回" : "Back"}</button><button className="primary" disabled={!onboardingCanContinue} onClick={() => onboardingStep === 2 ? finishOnboarding() : setOnboardingStep((step) => Math.min(2, step + 1))}>{onboardingStep === 2 ? (lang === "zh" ? "进入 AlreaDough" : "Enter AlreaDough") : (lang === "zh" ? "继续" : "Continue")}</button></footer>
+        <footer className={`onboarding-actions${otherGoals.length > 0 ? " with-cancel" : ""}`}>{otherGoals.length > 0 && <button className="outline-button" onClick={cancelAddGoal}>{lang === "zh" ? "取消添加" : "Cancel"}</button>}<button className="outline-button" onClick={() => setOnboardingStep((step) => Math.max(0, step - 1))} disabled={onboardingStep === 0}>{lang === "zh" ? "返回" : "Back"}</button><button className="primary" disabled={!onboardingCanContinue} onClick={() => onboardingStep === 2 ? finishOnboarding() : setOnboardingStep((step) => Math.min(2, step + 1))}>{onboardingStep === 2 ? (lang === "zh" ? "进入 AlreaDough" : "Enter AlreaDough") : (lang === "zh" ? "继续" : "Continue")}</button></footer>
       </section>
     </main>;
   }
@@ -996,7 +1129,7 @@ export default function Home() {
           {isTyping && <div className="message ai typing"><i/><i/><i/></div>}
         </div>
         {aiError && <div className="ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
-        <div className={`composer home-composer ${sessionMessages.length ? "is-active" : "is-empty"}`}><div className="composer-main"><input ref={chatInputRef} value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={onChatKey} placeholder={t.chatPlaceholder} aria-label={t.chatPlaceholder}/><details className="coach-model-menu"><summary aria-label={lang === "zh" ? "切换引导模型" : "Switch guidance model"}><span>{lang === "zh" ? coachModes.find((coach) => coach.id === goal.coachMode)?.zh : coachModes.find((coach) => coach.id === goal.coachMode)?.en}</span><CaretDown size={15}/></summary><div className="coach-model-popover"><header><strong>{lang === "zh" ? "选择引导方式" : "Choose a guide"}</strong><small>{lang === "zh" ? "每条消息都可以随时切换" : "Switch for any message"}</small></header>{coachModes.map((coach) => <button type="button" className={goal.coachMode === coach.id ? "selected" : ""} key={coach.id} onClick={(event) => { setGoal((current) => ({ ...current, coachMode: coach.id })); event.currentTarget.closest("details")?.removeAttribute("open"); }}><span><strong>{lang === "zh" ? coach.zh : coach.en}</strong><small>{lang === "zh" ? coach.zhDescription : coach.enDescription}</small></span>{goal.coachMode === coach.id && <Check size={17} weight="bold"/>}</button>)}</div></details></div><button onClick={() => isTyping ? requestControllerRef.current?.abort() : sendChat()} aria-label={isTyping ? (lang === "zh" ? "停止生成" : "Stop generating") : t.send}>{isTyping ? <StopCircle size={20}/> : "↑"}</button></div>
+        <div className={`composer home-composer ${sessionMessages.length ? "is-active" : "is-empty"}`}><div className="composer-main"><input ref={chatInputRef} value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={onChatKey} placeholder={t.chatPlaceholder} aria-label={t.chatPlaceholder}/><details className="coach-model-menu goal-switch-menu"><summary aria-label={lang === "zh" ? "切换愿望" : "Switch desire"}><span>{goalTitle(goal, lang)}</span><CaretDown size={15}/></summary><div className="coach-model-popover"><header><strong>{lang === "zh" ? "现在聊哪个愿望" : "Which desire now"}</strong><small>{lang === "zh" ? "每次对话只聊当前这一个" : "Each conversation covers one desire"}</small></header>{sortedGoals.map((item) => <button type="button" className={item.id === goal.id ? "selected" : ""} key={item.id} onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); if (item.id !== goal.id) switchGoal(item.id); }}><span><strong>{goalTitle(item, lang)}</strong><small>{lang === "zh" ? wishCategories.find((entry) => entry.id === item.wishCategory)?.zh : wishCategories.find((entry) => entry.id === item.wishCategory)?.en} · {intensityLabels[lang][item.intensity - 1]}</small></span>{item.id === goal.id && <Check size={17} weight="bold"/>}</button>)}<button type="button" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); addGoal(); }}><span><strong>{lang === "zh" ? "添加愿望" : "Add a desire"}</strong><small>{lang === "zh" ? "新开一张愿望卡，各有各的记忆" : "A new card with its own memory"}</small></span><Plus size={17}/></button></div></details><details className="coach-model-menu"><summary aria-label={lang === "zh" ? "切换引导模型" : "Switch guidance model"}><span>{lang === "zh" ? coachModes.find((coach) => coach.id === goal.coachMode)?.zh : coachModes.find((coach) => coach.id === goal.coachMode)?.en}</span><CaretDown size={15}/></summary><div className="coach-model-popover"><header><strong>{lang === "zh" ? "选择引导方式" : "Choose a guide"}</strong><small>{lang === "zh" ? "每条消息都可以随时切换" : "Switch for any message"}</small></header>{coachModes.map((coach) => <button type="button" className={goal.coachMode === coach.id ? "selected" : ""} key={coach.id} onClick={(event) => { setGoal((current) => ({ ...current, coachMode: coach.id })); event.currentTarget.closest("details")?.removeAttribute("open"); }}><span><strong>{lang === "zh" ? coach.zh : coach.en}</strong><small>{lang === "zh" ? coach.zhDescription : coach.enDescription}</small></span>{goal.coachMode === coach.id && <Check size={17} weight="bold"/>}</button>)}</div></details></div><button onClick={() => isTyping ? requestControllerRef.current?.abort() : sendChat()} aria-label={isTyping ? (lang === "zh" ? "停止生成" : "Stop generating") : t.send}>{isTyping ? <StopCircle size={20}/> : "↑"}</button></div>
         {sessionMessages.length > 0 && <p className="pet-checkin-hint">{checkedToday ? (lang === "zh" ? `今天已打卡，连续 ${streak} 天` : `Checked in today. ${streak}-day streak.`) : (lang === "zh" ? "点击右下角的面团完成今日打卡" : "Tap the dough in the corner to check in today.")}</p>}
       </section>}
 
@@ -1010,7 +1143,7 @@ export default function Home() {
           {filteredMemoryItems.length ? filteredMemoryItems.map((item) => <article key={item.id} className={item.pinned ? "pinned" : ""}><header><span>{lang === "zh" ? memoryKinds.find((kind) => kind.id === item.kind)?.zh : memoryKinds.find((kind) => kind.id === item.kind)?.en}</span><div><button onClick={() => toggleMemoryPin(item.id)} aria-label={item.pinned ? (lang === "zh" ? "取消置顶" : "Unpin") : (lang === "zh" ? "置顶" : "Pin")}>{item.pinned ? "●" : "○"}</button><button onClick={() => openMemoryEditor(item)} aria-label={lang === "zh" ? "编辑记忆" : "Edit memory"}><PencilSimple size={16}/></button><button onClick={() => deleteMemoryItem(item.id)} aria-label={lang === "zh" ? "删除记忆" : "Delete memory"}><Trash size={16}/></button></div></header><h3>{item.title}</h3><p>{item.detail}</p>{item.keywords.length > 0 && <footer>{item.keywords.map((keyword) => <small key={keyword}>{keyword}</small>)}</footer>}</article>) : currentMemoryItems.length === 0 ? <div className="memory-empty"><Brain size={28}/><h3>{lang === "zh" ? "这里会慢慢长出你的上下文" : "Your context will grow here"}</h3><p>{lang === "zh" ? "继续聊天，AlreaDough 会建议值得记住的内容；你也可以亲手添加第一条。" : "Keep talking and AlreaDough will suggest durable memories, or add the first one yourself."}</p><button className="outline-button" onClick={() => openMemoryEditor()}>{lang === "zh" ? "添加第一条记忆" : "Add the first memory"}</button></div> : <div className="memory-empty memory-filter-empty"><Brain size={28}/><h3>{lang === "zh" ? "这一类还没有记忆" : "No memories in this category yet"}</h3><p>{lang === "zh" ? "换一个分类，或回到全部记忆。" : "Choose another category or return to all memories."}</p><button className="outline-button" onClick={() => setMemoryFilter("all")}>{lang === "zh" ? "查看全部记忆" : "View all memories"}</button></div>}
         </div>
         <div className="memory-library-grid">
-          <article><header><strong>{lang === "zh" ? "信念触发点" : "BELIEF TRIGGERS"}</strong><small>{goal.beliefs[lang].length}</small></header>{goal.beliefs[lang].length ? <ul>{goal.beliefs[lang].map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul> : <p>{lang === "zh" ? "还没有记录" : "Nothing recorded yet"}</p>}</article>
+          <article className="belief-card"><header><strong>{lang === "zh" ? "想换掉的念头" : "THOUGHTS TO TURN AROUND"}</strong><small>{goal.beliefs[lang].length}</small></header>{goal.beliefs[lang].length ? <details className="belief-turn-list"><summary>{lang === "zh" ? "展开，选一句来转念" : "Open and pick one to turn around"}</summary><ul>{goal.beliefs[lang].map((item, index) => <li key={`${index}-${item}`}><span>{item}</span><span className="belief-actions"><button type="button" onClick={() => turnBelief(item)}>{lang === "zh" ? "转念" : "Turn it"}</button><button type="button" aria-label={lang === "zh" ? "删除这一条" : "Delete this one"} onClick={() => removeBelief(item)}>{lang === "zh" ? "删除" : "Delete"}</button></span></li>)}</ul></details> : <p>{lang === "zh" ? "还没有想换掉的念头" : "Nothing to turn around yet"}</p>}</article>
           <article><header><strong>{lang === "zh" ? "回应偏好" : "RESPONSE PREFERENCES"}</strong><small>{goal.responsePreferences[lang].length}</small></header><ul>{goal.responsePreferences[lang].map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul></article>
           <article><header><strong>{lang === "zh" ? "已接纳的新场景" : "ACCEPTED SCENES"}</strong><small>{goal.acceptedSceneLedger[lang].length}</small></header>{goal.acceptedSceneLedger[lang].length ? <ul>{goal.acceptedSceneLedger[lang].map((item, index) => <li key={`${index}-${item.slice(0, 24)}`}>{item}</li>)}</ul> : <p>{lang === "zh" ? "在故事或重写中接纳的场景会出现在这里。" : "Scenes accepted from Stories or Revision will appear here."}</p>}</article>
           <article className="journey-memory"><header><strong>{lang === "zh" ? "旅程摘要" : "JOURNEY SUMMARY"}</strong><small>{lang === "zh" ? "自动压缩" : "AUTO-COMPRESSED"}</small></header><p>{goal.journeySummary[lang] || (lang === "zh" ? "对话开始后，这里会形成一段简短摘要。" : "A short summary will form here after conversations begin.")}</p></article>
@@ -1074,7 +1207,8 @@ export default function Home() {
         ] as const).map(([id, label]) => <button key={id} className={settingsSection === id ? "active" : ""} onClick={() => setSettingsSection(id)}>{label}</button>)}</nav>
 
         {settingsSection === "profile" && <div className="settings-section">
-          <div className="goal-status"><label><span>{t.activeGoal}</span><select value={goal.status} onChange={(event) => setGoal((current) => ({ ...current, status: event.target.value as GoalStatus }))}><option value="active">{lang === "zh" ? "正在练习" : "Active"}</option><option value="embodiment">{lang === "zh" ? "稳定进入" : "Embodying"}</option><option value="fulfilled">{lang === "zh" ? "已经发生" : "Already happened"}</option><option value="paused">{lang === "zh" ? "暂时休息" : "Paused"}</option></select></label><small>{lang === "zh" ? "每次对话只加载这一张愿望卡" : "Only this desire card is loaded into each conversation"}</small></div>
+          <div className="goal-status"><label><span>{t.activeGoal}</span><select value={goal.status} onChange={(event) => setGoal((current) => ({ ...current, status: event.target.value as GoalStatus }))}><option value="active">{lang === "zh" ? "正在练习" : "Active"}</option><option value="embodiment">{lang === "zh" ? "稳定进入" : "Embodying"}</option><option value="fulfilled">{lang === "zh" ? "已经发生" : "Already happened"}</option><option value="paused">{lang === "zh" ? "暂时休息" : "Paused"}</option></select></label><small>{lang === "zh" ? "每次对话只加载当前选中的这一张愿望卡" : "Only the selected desire card is loaded into each conversation"}</small></div>
+          <div className="setting-card goal-list-card"><label>{lang === "zh" ? "我的愿望" : "MY DESIRES"}</label><p>{lang === "zh" ? "按想要的程度排序。每个愿望有自己的记忆和对话。" : "Sorted by how much you want each one. Each desire has its own memory and conversations."}</p>{sortedGoals.map((item) => <div key={item.id} className={`goal-row ${item.id === goal.id ? "current" : ""}`}><div><strong>{goalTitle(item, lang)}</strong><small>{lang === "zh" ? wishCategories.find((entry) => entry.id === item.wishCategory)?.zh : wishCategories.find((entry) => entry.id === item.wishCategory)?.en}{item.id === goal.id ? (lang === "zh" ? " · 当前" : " · Current") : ""}</small></div><select aria-label={lang === "zh" ? "想要的程度" : "How much you want it"} value={item.intensity} onChange={(event) => setGoalIntensity(item.id, Number(event.target.value))}>{intensityLabels[lang].map((label, index) => <option key={label} value={index + 1}>{label}</option>)}</select>{item.id !== goal.id && <><button className="outline-button" onClick={() => switchGoal(item.id)}>{lang === "zh" ? "切换" : "Open"}</button><button className="outline-button" aria-label={lang === "zh" ? "删除愿望" : "Delete desire"} onClick={() => deleteOtherGoal(item.id)}><Trash size={16}/></button></>}</div>)}<button className="outline-button" onClick={addGoal}><Plus size={16}/> {lang === "zh" ? "添加愿望" : "Add a desire"}</button></div>
           <div className="setting-card editable-card"><label>{lang === "zh" ? "我喜欢的称呼" : "WHAT ALREADOUGH CALLS ME"}</label><input value={goal.companionName} onChange={(event) => setGoal((current) => ({ ...current, companionName: event.target.value }))}/></div>
           <div className="setting-card editable-card"><label>{lang === "zh" ? "愿望方向" : "DESIRE CATEGORY"}</label><div className="option-card-grid category-grid">{wishCategories.map((category) => <button key={category.id} className={goal.wishCategory === category.id ? "selected" : ""} onClick={() => setGoal((current) => ({ ...current, wishCategory: category.id }))}><strong>{lang === "zh" ? category.zh : category.en}</strong><small>{lang === "zh" ? category.zhDescription : category.enDescription}</small></button>)}</div></div>
           <div className="setting-card editable-card sp-name-card"><label>{goal.wishCategory === "relationship" ? (lang === "zh" ? "显化对象" : "MANIFESTATION PERSON") : (lang === "zh" ? "愿望焦点" : "DESIRE FOCUS")}</label><input value={spNameDraft} maxLength={24} aria-invalid={Boolean(spNameError)} onChange={(event) => setSpNameDraft(event.target.value)}/>{spNameError && <p className="field-error" role="alert">{spNameError}</p>}</div>
@@ -1088,7 +1222,7 @@ export default function Home() {
 
         {settingsSection === "memory" && <div className="settings-section">
           <div className="setting-card editable-card"><label>{lang === "zh" ? "我的背景与处境" : "MY CONTEXT"}</label><textarea maxLength={MAX_BACKGROUND} value={goal.background[lang]} onChange={(event) => setGoal((current) => ({ ...current, background: { ...current.background, [lang]: event.target.value } }))}/><div className="field-counter"><span>{goal.background[lang].length} / {MAX_BACKGROUND}</span></div></div>
-          <div className="setting-card editable-card"><label>{lang === "zh" ? "信念触发点" : "BELIEF TRIGGERS"}</label><textarea aria-invalid={beliefCount > MAX_BELIEFS} value={beliefDraft} onChange={(event) => setBeliefDraft(event.target.value)} placeholder={lang === "zh" ? `每行写一个，最多 ${MAX_BELIEFS} 条` : `One per line, up to ${MAX_BELIEFS}`}/><div className={`field-counter ${beliefCount > MAX_BELIEFS ? "over" : ""}`}><span>{beliefCount} / {MAX_BELIEFS}</span></div></div>
+          <div className="setting-card editable-card"><label>{lang === "zh" ? "想换掉的念头" : "THOUGHTS TO TURN AROUND"}</label><textarea aria-invalid={beliefCount > MAX_BELIEFS} value={beliefDraft} onChange={(event) => setBeliefDraft(event.target.value)} placeholder={lang === "zh" ? `每行写一个，最多 ${MAX_BELIEFS} 条` : `One per line, up to ${MAX_BELIEFS}`}/><div className={`field-counter ${beliefCount > MAX_BELIEFS ? "over" : ""}`}><span>{beliefCount} / {MAX_BELIEFS}</span></div></div>
           <div className="setting-card memory-card"><span>{t.memory}</span><p>{goal.journeySummary[lang] || (lang === "zh" ? "对话开始后，这里会形成简短摘要。" : "A short summary will form after conversations begin.")}</p><small>{lang === "zh" ? "每次回复后自动压缩更新，不重复发送全部历史。" : "Compressed after each response, so the full history is never resent."}</small></div>
           <button className="outline-button" onClick={() => setView("memory")}>{lang === "zh" ? "打开完整记忆库" : "Open full memory library"}</button>
         </div>}
@@ -1097,7 +1231,7 @@ export default function Home() {
           <div className="setting-card beta-quota-card"><span>{lang === "zh" ? "AI 对话" : "AI CONVERSATIONS"}</span><p>{betaStatus?.authenticated === false ? (lang === "zh" ? "正在连接这台设备…" : "Connecting this device…") : betaStatus?.enabled === false ? (lang === "zh" ? "AI 正在由创始人暂时维护，请稍后再来。" : "AI is temporarily paused by the founder. Please check back shortly.") : (lang === "zh" ? "不限制对话、重写与故事的次数。" : "No limit on chats, revisions, or stories.")}</p></div>
           <div className="language-card"><div><span>{lang === "zh" ? "界面语言" : "LANGUAGE"}</span><strong>{lang === "zh" ? "简体中文" : "English"}</strong></div><button onClick={switchLanguage}>{lang === "zh" ? "Switch to English" : "切换到中文"}</button></div>
           <div className="setting-card sync-card"><span>{lang === "zh" ? "跨设备同步" : "CROSS-DEVICE SYNC"}</span><p>{syncStatus === "saved" ? (lang === "zh" ? "愿望、记忆、对话、故事和练习记录已安全同步。" : "Your desire, memory, conversations, stories, and practice history are synced.") : (lang === "zh" ? "当前使用本机副本；恢复连接后会自动继续同步。" : "Using the on-device copy. Sync resumes automatically when available.")}</p></div>
-          <div className="setting-card goal-lifecycle-card"><span>{lang === "zh" ? "愿望生命周期" : "DESIRE LIFECYCLE"}</span><p>{lang === "zh" ? "愿望完成后，把它留在历程中，再开启一个新的单一愿望空间。" : "When this desire is complete, keep it in your journey and open a fresh one-desire space."}</p><button className="outline-button" onClick={archiveAndBeginAgain}>{lang === "zh" ? "完成并归档，开启新愿望" : "Complete, archive, and begin again"}</button></div>
+          <div className="setting-card goal-lifecycle-card"><span>{lang === "zh" ? "愿望生命周期" : "DESIRE LIFECYCLE"}</span><p>{lang === "zh" ? "愿望完成后，把它留在历程中，再开启一张新的愿望卡。" : "When this desire is complete, keep it in your journey and open a fresh desire card."}</p><button className="outline-button" onClick={archiveAndBeginAgain}>{lang === "zh" ? "完成并归档，开启新愿望" : "Complete, archive, and begin again"}</button></div>
           {goalArchive.length > 0 && <div className="setting-card archive-card"><span>{lang === "zh" ? `已经发生的愿望 · ${goalArchive.length}` : `FULFILLED DESIRES · ${goalArchive.length}`}</span>{goalArchive.slice(0, 5).map((item) => <article key={item.id}><strong>{item.desire[lang] || item.desire[lang === "zh" ? "en" : "zh"]}</strong><small>{item.createdAt ? new Date(item.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US") : ""}</small></article>)}</div>}
           <div className="setting-card data-control-card"><span>{lang === "zh" ? "我的数据" : "MY DATA"}</span><p>{lang === "zh" ? "下载愿望卡、故事、对话、重写与打卡记录。私密照片和音频文件不会写入导出文件。" : "Download desire cards, stories, conversations, revisions, and check-ins. Private photo and audio files are excluded."}</p><button className="outline-button" onClick={exportMyData}>{lang === "zh" ? "导出我的数据" : "Export my data"}</button></div>
           <div className="legal-links"><a className="trust-link" href="/pricing">{lang === "zh" ? "会员与价格" : "Membership & pricing"}</a><a className="trust-link" href="/trust">{t.trust}</a><a className="trust-link" href="/privacy">{lang === "zh" ? "隐私说明" : "Privacy"}</a><a className="trust-link" href="/terms">{lang === "zh" ? "测试版条款" : "Beta terms"}</a><a className="trust-link" href="/copyright">{lang === "zh" ? "素材与版权" : "Content & copyright"}</a></div>

@@ -152,7 +152,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .message.typing { display: flex; gap: 5px; align-items: center; }
 .message.typing i { width: 5px; height: 5px; border-radius: 50%; background: var(--app-muted); }
 .composer { position: sticky; bottom: 16px; display: grid; grid-template-columns: minmax(0,1fr) 48px; gap: 8px; padding: 10px; border: 1px solid var(--app-line); border-radius: 18px; background: color-mix(in srgb,var(--app-panel) 88%,transparent); backdrop-filter: blur(18px); box-shadow: var(--app-shadow); }
-.composer-main { min-width: 0; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; }
+.composer-main { min-width: 0; display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; }
 .composer input { min-width: 0; border: 0; padding: 0 9px; color: var(--app-ink); background: transparent; outline: 0; }
 .coach-model-menu { position: relative; min-width: 0; border-left: 1px solid var(--app-line); }
 .coach-model-menu > summary { min-height: 44px; display: flex; align-items: center; gap: 7px; padding: 0 10px 0 14px; color: var(--app-muted); cursor: pointer; list-style: none; font-size: 11px; font-weight: 650; white-space: nowrap; }
@@ -1171,3 +1171,26 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .access-gate input:focus { border-color: var(--app-accent); }
 .access-gate button { height: 50px; border: 0; border-radius: var(--app-radius-control); background: var(--app-accent); color: var(--app-accent-ink); font-weight: 700; font-size: 15px; }
 .access-gate small { color: #c0392b; font-size: 12px; line-height: 1.5; }
+
+/* several desire cards: switcher in the composer and the list in settings */
+.goal-switch-menu > summary span { max-width: 9em; overflow: hidden; text-overflow: ellipsis; }
+.goal-list-card p { margin: 6px 0 14px; color: var(--app-muted); font-size: 12px; line-height: 1.5; }
+.goal-row { display: grid; grid-template-columns: minmax(0,1fr) auto auto auto; align-items: center; gap: 8px; padding: 10px 0; border-top: 1px solid var(--app-line); }
+.goal-row > div { min-width: 0; }
+.goal-row strong, .goal-row small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.goal-row small { margin-top: 3px; color: var(--app-muted); font-size: 11px; }
+.goal-row.current strong { color: var(--app-accent); }
+.goal-row select { border: 1px solid var(--app-line); border-radius: var(--app-radius-control); padding: 7px 8px; color: var(--app-ink); background: var(--app-panel); font: inherit; font-size: 12px; }
+.goal-list-card > .outline-button { margin-top: 12px; }
+@media (max-width: 560px) { .goal-row { grid-template-columns: minmax(0,1fr) auto; } .goal-row > .outline-button { justify-self: end; } }
+.onboarding-actions.with-cancel { grid-template-columns: 110px 110px minmax(120px,1fr); }
+@media (max-width: 560px) { .onboarding-actions.with-cancel { grid-template-columns: 76px 76px 1fr; } }
+.goal-list-card > .outline-button { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; }
+
+/* belief card: thoughts she wants to turn around */
+.belief-card .belief-turn-list summary { cursor: pointer; font-size: 13px; color: var(--muted, #7b6a62); padding: 4px 0 10px; }
+.belief-card .belief-turn-list ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.belief-card .belief-turn-list li { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.belief-card .belief-actions { display: inline-flex; gap: 6px; flex-shrink: 0; }
+.belief-card .belief-actions button { font: inherit; font-size: 12px; cursor: pointer; border: 1px solid var(--line, #e2d6cc); background: transparent; color: inherit; border-radius: 999px; padding: 4px 12px; }
+.belief-card .belief-actions button:first-child { background: var(--accent, #8a5a4a); border-color: var(--accent, #8a5a4a); color: #fff; }
