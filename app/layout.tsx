@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import AccessGate from "./components/AccessGate";
 import NativeShell from "./components/NativeShell";
 import ViewportKeyboardFix from "./components/ViewportKeyboardFix";
+import ViewportDebug from "./components/ViewportDebug";
 import "./globals.css";
 import "./already.css";
 
@@ -66,6 +67,7 @@ export default function RootLayout({
       >
         <NativeShell />
         <ViewportKeyboardFix />
+        <ViewportDebug />
         <AccessGate>{children}</AccessGate>
       </body>
     </html>
