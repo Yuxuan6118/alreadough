@@ -1270,3 +1270,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .settings-view .goal-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
   .settings-view .goal-row > div { flex: 1 1 100%; }
 }
+/* narrow phones: the top bar was 7px wider than the screen and pushed the avatar off the edge */
+@media (max-width: 420px) {
+  .top-actions { gap: 0; }
+  .theme-toggle, .language-toggle, .avatar, .mobile-memory-button { width: 32px; height: 32px; }
+  .topbar .brand strong { font-size: 18px; }
+}
