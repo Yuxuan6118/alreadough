@@ -151,9 +151,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .message.user { align-self: flex-end; border-bottom-right-radius: 5px; color: var(--app-accent-ink); background: var(--app-accent); }
 .message.typing { display: flex; gap: 5px; align-items: center; }
 .message.typing i { width: 5px; height: 5px; border-radius: 50%; background: var(--app-muted); }
-.composer { position: sticky; bottom: 16px; display: grid; grid-template-columns: minmax(0,1fr) 48px; gap: 8px; padding: 10px; border: 1px solid var(--app-line); border-radius: 18px; background: color-mix(in srgb,var(--app-panel) 88%,transparent); backdrop-filter: blur(18px); box-shadow: var(--app-shadow); }
-.composer-main { min-width: 0; display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; }
+.composer { position: sticky; bottom: 16px; display: grid; grid-template-columns: minmax(0,1fr) 48px; align-items: end; gap: 8px; padding: 10px; border: 1px solid var(--app-line); border-radius: 18px; background: color-mix(in srgb,var(--app-panel) 88%,transparent); backdrop-filter: blur(18px); box-shadow: var(--app-shadow); }
+.composer-main { min-width: 0; display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: end; }
 .composer input { min-width: 0; border: 0; padding: 0 9px; color: var(--app-ink); background: transparent; outline: 0; }
+.composer textarea { min-width: 0; min-height: 40px; max-height: 220px; resize: none; overflow-y: auto; border: 0; padding: 8px 9px; color: var(--app-ink); background: transparent; outline: 0; font: inherit; line-height: 24px; }
 .coach-model-menu { position: relative; min-width: 0; border-left: 1px solid var(--app-line); }
 .coach-model-menu > summary { min-height: 44px; display: flex; align-items: center; gap: 7px; padding: 0 10px 0 14px; color: var(--app-muted); cursor: pointer; list-style: none; font-size: 11px; font-weight: 650; white-space: nowrap; }
 .coach-model-menu > summary::-webkit-details-marker { display: none; }
@@ -893,6 +894,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .message.user { max-width: 76%; line-height: 26px; }
 .composer { min-height: 56px; grid-template-columns: minmax(0,1fr) 48px; padding: 8px; }
 .composer input { min-height: 40px; font-size: 16px; line-height: 24px; }
+.composer textarea { font-size: 16px; line-height: 24px; }
 .coach-model-menu > summary { font-size: 12px; line-height: 18px; }
 .home-composer { width: min(var(--content-composer),calc(100vw - 224px - 72px)); bottom: 32px; }
 .home-composer.is-empty { width: min(var(--content-composer),100%); }
