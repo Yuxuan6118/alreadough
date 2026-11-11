@@ -1323,3 +1323,17 @@ html.kb-open .composer { bottom: calc(8px + var(--kb-offset, 0px)); }
 .install-tip small { margin-top: 2px; color: var(--app-muted); font-size: 12px; line-height: 17px; }
 .install-tip-action { flex: none; min-height: 36px; padding: 0 16px; border: 0; border-radius: 999px; color: var(--app-accent-ink); background: var(--app-accent); font-weight: 650; font-size: 14px; }
 .install-tip-close { flex: none; width: 32px; height: 32px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; color: var(--app-muted); background: transparent; }
+
+/* Sync code card (settings, data tab) */
+.sync-code-card > p { margin: 8px 0 12px; }
+.sync-code-card .sync-warning { display: block; margin-bottom: 12px; color: var(--app-accent); font-size: 13px; line-height: 1.6; }
+.sync-code-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 18px; }
+.sync-code { flex: 1 1 100%; padding: 10px 12px; border: 1px dashed var(--app-line); border-radius: 10px; color: var(--app-ink); background: color-mix(in srgb,var(--app-accent) 5%,transparent); font: 13px/1.5 ui-monospace,Menlo,monospace; word-break: break-all; user-select: all; }
+.sync-other { display: block; margin: 6px 0 12px; }
+.sync-other > span { display: block; color: var(--app-ink); font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+.sync-code-card .sync-message { display: block; margin-top: 12px; color: var(--app-muted); font-size: 13px; line-height: 1.6; }
+.onboarding-sync { margin: 22px 0 0; color: var(--app-muted); font-size: 14px; }
+.onboarding-sync > summary { cursor: pointer; padding: 6px 0; color: var(--app-accent); font-weight: 600; list-style: none; }
+.onboarding-sync > summary::-webkit-details-marker { display: none; }
+.onboarding-sync .sync-enter-only { margin-top: 10px; }
+.sync-code-row .outline-button { width: auto; flex: none; }
