@@ -1298,3 +1298,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .theme-toggle, .language-toggle, .avatar, .mobile-memory-button { width: 32px; height: 32px; }
   .topbar .brand strong { font-size: 18px; }
 }
+
+/* Keyboard up: the bottom nav steps aside and the composer sits right above the keyboard. */
+html.kb-open .bottom-nav { display: none; }
+html.kb-open .composer { bottom: calc(8px + var(--kb-offset, 0px)); }
