@@ -33,6 +33,7 @@ import SubliminalStudio, { PracticeCheckIn, practiceStreak, todayKey } from "./c
 import VisionCanvasStudio from "./components/VisionCanvasStudio";
 import DoughPet from "./components/DoughPet";
 import ReflectionPanel from "./components/ReflectionPanel";
+import InstallTip from "./components/InstallTip";
 import type { ReflectionAnswers, ReflectionQuestionId } from "@/lib/reflection";
 import { validateSpName } from "@/lib/name-policy";
 import { readStored, writeStored, removeStored } from "@/lib/safe-storage";
@@ -1305,6 +1306,7 @@ export default function Home() {
           return <button key={item.id} className={active ? "active" : ""} onClick={() => navigate(item.id)}><Icon size={21} weight={active ? "fill" : "regular"}/><span>{item.label}</span></button>;
         })}
       </nav>
+      <InstallTip lang={lang} />
     </main>
   );
 }

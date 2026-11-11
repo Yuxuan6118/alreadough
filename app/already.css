@@ -1302,3 +1302,14 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 /* Keyboard up: the bottom nav steps aside and the composer sits right above the keyboard. */
 html.kb-open .bottom-nav { display: none; }
 html.kb-open .composer { bottom: calc(8px + var(--kb-offset, 0px)); }
+
+/* "Put it on your home screen" tip, phones only (the component renders nothing elsewhere) */
+.install-tip { position: fixed; z-index: 60; top: calc(env(safe-area-inset-top) + 10px); left: 12px; right: 12px; display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; border: 1px solid var(--app-line); border-radius: 18px; background: color-mix(in srgb,var(--app-panel) 96%,transparent); backdrop-filter: blur(18px); box-shadow: 0 14px 40px color-mix(in srgb,var(--app-ink) 14%,transparent); }
+.install-tip-icon { flex: none; width: 36px; height: 36px; display: grid; place-items: center; overflow: hidden; border-radius: 10px; color: var(--app-accent); background: var(--app-panel-strong); }
+.install-tip-icon img { width: 100%; height: 100%; object-fit: cover; }
+.install-tip > div { min-width: 0; flex: 1; }
+.install-tip strong, .install-tip small { display: block; }
+.install-tip strong { color: var(--app-ink); font-size: 14px; line-height: 20px; }
+.install-tip small { margin-top: 2px; color: var(--app-muted); font-size: 12px; line-height: 17px; }
+.install-tip-action { flex: none; min-height: 36px; padding: 0 16px; border: 0; border-radius: 999px; color: var(--app-accent-ink); background: var(--app-accent); font-weight: 650; font-size: 14px; }
+.install-tip-close { flex: none; width: 32px; height: 32px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; color: var(--app-muted); background: transparent; }
