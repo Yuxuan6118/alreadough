@@ -1302,3 +1302,13 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 /* Keyboard up: the bottom nav steps aside and the composer sits right above the keyboard. */
 html.kb-open .bottom-nav { display: none; }
 html.kb-open .composer { bottom: calc(8px + var(--kb-offset, 0px)); }
+
+/* App shell on phones: pinned to what the person can actually see (--vv-height / --vv-top come from
+   window.visualViewport). The page itself never scrolls; .app-stage scrolls inside the shell, and the
+   nav and composer are fixed against the shell, so keyboard and browser-toolbar changes cannot strand them. */
+@media (max-width: 820px) {
+  html:has(.app-shell > .bottom-nav),
+  html:has(.app-shell > .bottom-nav) body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+  .app-shell:has(> .bottom-nav) { position: fixed; top: 0; left: 0; right: 0; height: var(--vv-height, 100dvh); min-height: 0; transform: translate3d(0, var(--vv-top, 0px), 0); display: flex; flex-direction: column; padding-bottom: 0; overflow: hidden; }
+  .app-shell:has(> .bottom-nav) > .app-stage { flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding-bottom: calc(42px + 72px + env(safe-area-inset-bottom)); }
+}
