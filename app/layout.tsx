@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import AccessGate from "./components/AccessGate";
 import NativeShell from "./components/NativeShell";
+import ViewportKeyboardFix from "./components/ViewportKeyboardFix";
 import "./globals.css";
 import "./already.css";
 
@@ -64,6 +65,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <NativeShell />
+        <ViewportKeyboardFix />
         <AccessGate>{children}</AccessGate>
       </body>
     </html>
