@@ -760,7 +760,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .view-heading { margin-bottom: 30px; }
   .view-heading > p:last-child { font-size: 14px; }
   .message { max-width: 88%; }
-  .composer { position: fixed; z-index: 26; left: 12px; right: 12px; bottom: calc(75px + env(safe-area-inset-bottom)); }
+  .composer { position: fixed; z-index: 26; left: 12px; right: 12px; bottom: calc(75px + env(safe-area-inset-bottom) + var(--kb-offset, 0px)); }
   .home-composer { width: auto; margin: 0; transform: none; }
   .home-composer.is-active::before { left: -12px; right: -12px; top: -42px; bottom: calc(-76px - env(safe-area-inset-bottom)); }
   .home-composer.is-empty { position: relative; left: auto; right: auto; bottom: auto; width: 100%; margin: 28px 0 0; }
@@ -792,7 +792,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .search-results { grid-template-columns: 1fr 1fr; }
   .moodboard { columns: 2; }
   .language-card { align-items: flex-start; flex-direction: column; }
-  .bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; height: calc(70px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(5,1fr); padding: 7px 8px env(safe-area-inset-bottom); border-top: 1px solid var(--app-line); background: color-mix(in srgb,var(--app-bg) 90%,transparent); backdrop-filter: blur(20px); }
+  .bottom-nav { position: fixed; left: 0; right: 0; bottom: var(--kb-offset, 0px); z-index: 30; height: calc(70px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(5,1fr); padding: 7px 8px env(safe-area-inset-bottom); border-top: 1px solid var(--app-line); background: color-mix(in srgb,var(--app-bg) 90%,transparent); backdrop-filter: blur(20px); }
   .bottom-nav button { min-width: 0; display: grid; place-items: center; gap: 3px; border: 0; color: var(--app-muted); background: transparent; font-size: 11px; }
   .bottom-nav button.active { color: var(--app-accent); font-weight: 750; }
   .bottom-nav button span { display: block; }
@@ -1294,3 +1294,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .reflect-where span, .reflect-empty { color: var(--app-muted); font-size: 13px; }
 .settings-tabs { grid-template-columns: repeat(5,1fr); }
 .settings-tabs button { padding: 0 6px; }
+
+/* narrow phones: the top bar was 7px wider than the screen and pushed the avatar off the edge */
+@media (max-width: 420px) {
+  .top-actions { gap: 0; }
+  .theme-toggle, .language-toggle, .avatar, .mobile-memory-button { width: 32px; height: 32px; }
+  .topbar .brand strong { font-size: 18px; }
+}
