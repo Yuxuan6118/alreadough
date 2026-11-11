@@ -38,8 +38,10 @@ export default function ViewportKeyboardFix() {
       root.style.setProperty("--vv-top", `${top}px`);
       root.style.setProperty("--kb-offset", "0px");
       root.classList.toggle("kb-open", isTyping(document.activeElement) && tallest - height > 120);
-      // The document itself never scrolls on phones; if iOS moved it anyway, put it back.
-      if (window.scrollX !== 0 || window.scrollY !== 0) window.scrollTo(0, 0);
+      // Only the app shell (nav + inner scroller) keeps the document still. Every other page (onboarding,
+      // privacy, pricing, ...) scrolls the document normally and must never be pulled back to the top.
+      const shellMode = window.matchMedia("(max-width: 820px)").matches && !!document.querySelector(".app-shell > .bottom-nav");
+      if (shellMode && (window.scrollX !== 0 || window.scrollY !== 0)) window.scrollTo(0, 0);
     };
 
     let frame = 0;

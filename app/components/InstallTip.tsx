@@ -13,7 +13,7 @@ const SNOOZE_MS = 14 * 86_400_000;
 const SHOW_AFTER_MS = 8000;
 
 type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
-type Mode = "android" | "ios" | "wechat";
+type Mode = "android" | "ios" | "ios-browser" | "wechat";
 
 const copy = {
   zh: {
@@ -21,6 +21,7 @@ const copy = {
     android: "一点就能打开，像 App 一样全屏使用。",
     install: "安装",
     ios: "点底部的「分享」图标，再选「添加到主屏幕」。",
+    iosBrowser: "iPhone 要用 Safari 才能添加：点分享图标，选「在 Safari 浏览器中打开」，再在 Safari 里点分享，选「添加到主屏幕」。",
     wechat: "点右上角「···」，选「在浏览器打开」，再添加到桌面。",
     close: "关闭",
   },
@@ -29,6 +30,7 @@ const copy = {
     android: "One tap to open, full screen like an app.",
     install: "Install",
     ios: "Tap the Share icon at the bottom, then “Add to Home Screen”.",
+    iosBrowser: "On iPhone this works from Safari: tap Share, choose “Open in Safari”, then in Safari tap Share and “Add to Home Screen”.",
     wechat: "Tap “···” at the top right, choose “Open in browser”, then add it to your home screen.",
     close: "Close",
   },
@@ -41,6 +43,7 @@ function detectMode(): Mode | null {
   const android = /Android/.test(ua);
   if (!ios && !android) return null;
   if (/MicroMessenger/i.test(ua)) return "wechat";
+  if (ios && /CriOS|FxiOS|EdgiOS|OPiOS|OPT\/|GSA\/|DuckDuckGo|YaBrowser|UCBrowser|Brave/i.test(ua)) return "ios-browser";
   return ios ? "ios" : "android";
 }
 
@@ -89,10 +92,10 @@ export default function InstallTip({ lang }: { lang: "zh" | "en" }) {
 
   return (
     <aside className="install-tip" role="status">
-      <span className="install-tip-icon" aria-hidden="true">{mode === "ios" ? <Export size={20}/> : <img src="/already-app-icon.png" alt="" width={28} height={28}/>}</span>
+      <span className="install-tip-icon" aria-hidden="true">{mode === "ios" || mode === "ios-browser" ? <Export size={20}/> : <img src="/already-app-icon.png" alt="" width={28} height={28}/>}</span>
       <div>
         <strong>{text.title}</strong>
-        <small>{mode === "android" ? text.android : mode === "ios" ? text.ios : text.wechat}</small>
+        <small>{mode === "android" ? text.android : mode === "ios" ? text.ios : mode === "ios-browser" ? text.iosBrowser : text.wechat}</small>
       </div>
       {mode === "android" && <button className="install-tip-action" onClick={install}>{text.install}</button>}
       <button className="install-tip-close" onClick={dismiss} aria-label={text.close}><X size={16}/></button>
