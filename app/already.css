@@ -1270,3 +1270,27 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .settings-view .goal-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
   .settings-view .goal-row > div { flex: 1 1 100%; }
 }
+
+/* Self-reflection tab: a quiet form, one desire per collapsible row. */
+.reflect-panel .reflect-intro p { margin: 8px 0 10px; }
+.reflect-panel .reflect-intro small, .reflect-panel .reflect-words p { color: var(--app-muted); font-size: 13px; line-height: 1.6; }
+.reflect-panel .reflect-care { border-left: 3px solid var(--app-accent); padding-left: 16px; }
+.reflect-goal > summary { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; cursor: pointer; list-style: none; }
+.reflect-goal > summary::-webkit-details-marker { display: none; }
+.reflect-goal > summary strong { font-family: var(--font-display); font-size: 17px; font-weight: 500; }
+.reflect-goal > summary small { flex: none; color: var(--app-muted); font-size: 12px; }
+.reflect-question { display: block; margin-top: 18px; }
+.reflect-question > span { display: block; color: var(--app-ink); font-size: 15px; font-weight: 600; }
+.reflect-question > small { display: block; margin: 3px 0 8px; color: var(--app-muted); font-size: 12px; }
+.reflect-question textarea { width: 100%; min-height: 72px; resize: vertical; border: 0; border-bottom: 1px solid var(--app-line); border-radius: 0; padding: 8px 0; color: var(--app-ink); background: transparent; font: inherit; line-height: 1.7; }
+.reflect-question textarea:focus { outline: 0; border-bottom-color: var(--app-accent); }
+.reflect-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.reflect-chips button { display: inline-flex; align-items: baseline; gap: 6px; border: 1px solid var(--app-line); border-radius: 999px; padding: 7px 14px; color: var(--app-ink); background: transparent; font-size: 15px; }
+.reflect-chips button small { color: var(--app-muted); font-size: 12px; }
+.reflect-chips button.selected { color: var(--app-accent); border-color: var(--app-accent); }
+.reflect-where { margin: 14px 0 0; padding: 0; list-style: none; }
+.reflect-where li { display: flex; flex-direction: column; gap: 2px; padding: 9px 0; border-top: 1px solid color-mix(in srgb,var(--app-line) 60%,transparent); }
+.reflect-where strong { font-size: 14px; font-weight: 600; }
+.reflect-where span, .reflect-empty { color: var(--app-muted); font-size: 13px; }
+.settings-tabs { grid-template-columns: repeat(5,1fr); }
+.settings-tabs button { padding: 0 6px; }

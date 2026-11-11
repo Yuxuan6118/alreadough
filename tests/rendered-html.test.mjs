@@ -199,3 +199,23 @@ test("contrast-frame detector catches 不是X，是Y and its variants without fl
   for (const bad of ["你白天提不起劲，大概也不是懒，是夜里没歇过来。", "这不是软弱，而是你在扛。", "不是你不够好而是时机没到", "与其说你在逃，不如说你在歇", "It's not laziness, it's exhaustion.", "That isn't weakness, it's weight.", "Not just tired, but worn down."]) assert.equal(hasContrastFrame(bad), true, bad);
   for (const ok of ["我不是很确定。", "这不是问题，是的，你说得对。", "不是每次都要说出来。", "是你自己选的，不是别人。", "你说得对，我在这儿。", "It is fine to rest.", "I'm here, and it is okay to be tired."]) assert.equal(hasContrastFrame(ok), false, ok);
 });
+
+test("self-reflection only counts words she wrote more than once, and flags danger words for a caring note", async () => {
+  const { repeatedWords, mentionsSelfHarm, reflectionQuestions } = await import("../lib/reflection.ts");
+  assert.deepEqual(reflectionQuestions.map((q) => q.id), ["feel", "worry", "give"]);
+  const goals = [
+    { id: "a", title: "感情", reflection: { feel: "我会觉得很安全，被选择", worry: "担心一个人，没有人选我" } },
+    { id: "b", title: "事业", reflection: { give: "希望带来安全和自由", worry: "" } },
+  ];
+  const words = repeatedWords(goals).map((row) => row.word);
+  assert.ok(words.includes("安全"), "a word used in two answers is reported");
+  assert.ok(!words.includes("自由"), "a word used once is not reported");
+  assert.ok(!words.includes("我") && !words.includes("希望"), "filler words are ignored");
+  const safety = repeatedWords(goals).find((row) => row.word === "安全");
+  assert.equal(safety.count, 2);
+  assert.deepEqual(safety.where.map((place) => place.goalTitle), ["感情", "事业"]);
+  assert.deepEqual(repeatedWords([{ id: "a", title: "x", reflection: { feel: "只有一次" } }]), []);
+  assert.equal(mentionsSelfHarm("最糟的时候我不想活了"), true);
+  assert.equal(mentionsSelfHarm("I want to die"), true);
+  assert.equal(mentionsSelfHarm("我担心他不回消息"), false);
+});

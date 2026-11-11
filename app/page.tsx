@@ -32,6 +32,8 @@ import {
 import SubliminalStudio, { PracticeCheckIn, practiceStreak, todayKey } from "./components/SubliminalStudio";
 import VisionCanvasStudio from "./components/VisionCanvasStudio";
 import DoughPet from "./components/DoughPet";
+import ReflectionPanel from "./components/ReflectionPanel";
+import type { ReflectionAnswers, ReflectionQuestionId } from "@/lib/reflection";
 import { validateSpName } from "@/lib/name-policy";
 import { readStored, writeStored, removeStored } from "@/lib/safe-storage";
 
@@ -78,6 +80,8 @@ type GoalProfile = {
   responsePreferences: Record<Lang, string[]>;
   acceptedSceneLedger: Record<Lang, string[]>;
   memoryItems: Record<Lang, MemoryItem[]>;
+  /** Her own answers to the optional self-reflection questions. Never sent to the AI. */
+  reflection: ReflectionAnswers;
   createdAt: string;
 };
 type Story = {
@@ -140,6 +144,7 @@ const defaultGoal: GoalProfile = {
   },
   acceptedSceneLedger: { zh: [], en: [] },
   memoryItems: { zh: [], en: [] },
+  reflection: {},
   createdAt: "",
 };
 
@@ -159,6 +164,7 @@ const normalizeGoal = (item: Partial<GoalProfile>): GoalProfile => ({
   responsePreferences: item.responsePreferences || defaultGoal.responsePreferences,
   acceptedSceneLedger: item.acceptedSceneLedger || defaultGoal.acceptedSceneLedger,
   memoryItems: item.memoryItems || defaultGoal.memoryItems,
+  reflection: item.reflection || {},
 } as GoalProfile);
 const MAX_BACKGROUND = 4000;
 const MAX_MEMORIES = 48;
@@ -284,7 +290,7 @@ export default function Home() {
   const [conversationId, setConversationId] = useState("");
   const [conversationArchive, setConversationArchive] = useState<Conversation[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [settingsSection, setSettingsSection] = useState<"profile" | "companion" | "memory" | "data">("profile");
+  const [settingsSection, setSettingsSection] = useState<"profile" | "companion" | "reflect" | "memory" | "data">("profile");
   const [memoryFilter, setMemoryFilter] = useState<MemoryKind | "all">("all");
   const [memoryEditorOpen, setMemoryEditorOpen] = useState(false);
   const [memoryEditingId, setMemoryEditingId] = useState<string | null>(null);
@@ -349,6 +355,7 @@ export default function Home() {
           responsePreferences: savedGoal.responsePreferences || defaultGoal.responsePreferences,
           acceptedSceneLedger: savedGoal.acceptedSceneLedger || defaultGoal.acceptedSceneLedger,
           memoryItems: savedGoal.memoryItems || defaultGoal.memoryItems,
+          reflection: savedGoal.reflection || {},
         } as GoalProfile;
         setGoal(restoredGoal);
         setSpNameDraft(restoredGoal.spName);
@@ -1056,6 +1063,12 @@ export default function Home() {
     else setOtherGoals((items) => items.map((item) => item.id === id ? { ...item, intensity: value } : item));
   };
 
+  const setReflectionAnswer = (id: string, question: ReflectionQuestionId, text: string) => {
+    const apply = (item: GoalProfile): GoalProfile => ({ ...item, reflection: { ...(item.reflection || {}), [question]: text } });
+    if (id === goal.id) setGoal(apply);
+    else setOtherGoals((items) => items.map((item) => item.id === id ? apply(item) : item));
+  };
+
   const sortedGoals = [goal, ...otherGoals].filter((item) => item.setupComplete).sort((a, b) => b.intensity - a.intensity);
 
   const goalMenuItems = (<>{sortedGoals.map((item) => <button type="button" className={item.id === goal.id ? "selected" : ""} key={item.id} onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); if (item.id !== goal.id) switchGoal(item.id); }}><span><strong>{goalTitle(item, lang)}</strong><small>{lang === "zh" ? wishCategories.find((entry) => entry.id === item.wishCategory)?.zh : wishCategories.find((entry) => entry.id === item.wishCategory)?.en} · {intensityLabels[lang][item.intensity - 1]}</small></span>{item.id === goal.id && <Check size={17} weight="bold"/>}</button>)}<button type="button" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); addGoal(); }}><span><strong>{lang === "zh" ? "添加愿望" : "Add a desire"}</strong><small>{lang === "zh" ? "新开一张愿望卡，各有各的记忆" : "A new card with its own memory"}</small></span><Plus size={17}/></button></>);
@@ -1224,7 +1237,7 @@ export default function Home() {
       {view === "settings" && <section className="full-view settings-view">
         <div className="view-heading"><p className="eyebrow">{t.private}</p><h1>{lang === "zh" ? `${goal.companionName}的已完成空间` : `${goal.companionName}’s already-done space`}</h1><p>{t.privateCopy}</p></div>
         <nav className="settings-tabs" aria-label={lang === "zh" ? "空间设置分类" : "Space settings sections"}>{([
-          ["profile", lang === "zh" ? "我与愿望" : "Profile & desire"], ["companion", lang === "zh" ? "AI 陪伴者" : "AI companion"], ["memory", lang === "zh" ? "记忆与旅程" : "Memory & journey"], ["data", lang === "zh" ? "数据与安全" : "Data & safety"],
+          ["profile", lang === "zh" ? "我与愿望" : "Profile & desire"], ["companion", lang === "zh" ? "AI 陪伴者" : "AI companion"], ["reflect", lang === "zh" ? "自我觉察" : "Self-reflection"], ["memory", lang === "zh" ? "记忆与旅程" : "Memory & journey"], ["data", lang === "zh" ? "数据与安全" : "Data & safety"],
         ] as const).map(([id, label]) => <button key={id} className={settingsSection === id ? "active" : ""} onClick={() => setSettingsSection(id)}>{label}</button>)}</nav>
 
         {settingsSection === "profile" && <div className="settings-section">
@@ -1240,6 +1253,8 @@ export default function Home() {
           <div className="setting-card editable-card"><label>{t.tone}</label><div className="option-card-grid companion-style-grid">{companionStyles.map((style) => <button key={style.id} className={goal.companionStyle === style.id ? "selected" : ""} onClick={() => chooseCompanionStyle(style.id)}><strong>{lang === "zh" ? style.zh : style.en}</strong><small>{lang === "zh" ? style.zhDescription : style.enDescription}</small></button>)}</div>{goal.companionStyle === "custom" && <textarea value={goal.tone[lang]} onChange={(event) => setGoal((current) => ({ ...current, tone: { ...current.tone, [lang]: event.target.value } }))}/>}</div>
           <div className="setting-card editable-card"><label>{lang === "zh" ? "引导方式" : "GUIDANCE METHOD"}</label><div className="option-card-grid coach-settings-grid">{coachModes.map((coach) => <button key={coach.id} className={goal.coachMode === coach.id ? "selected" : ""} onClick={() => setGoal((current) => ({ ...current, coachMode: coach.id }))}><strong>{lang === "zh" ? coach.zh : coach.en}</strong><small>{lang === "zh" ? coach.zhDescription : coach.enDescription}</small></button>)}</div></div>
         </div>}
+
+        {settingsSection === "reflect" && <ReflectionPanel lang={lang} currentGoalId={goal.id} goals={sortedGoals.map((item) => ({ id: item.id, title: goalTitle(item, lang), reflection: item.reflection || {} }))} onChange={setReflectionAnswer} />}
 
         {settingsSection === "memory" && <div className="settings-section">
           <div className="setting-card editable-card"><label>{lang === "zh" ? "我的背景与处境" : "MY CONTEXT"}</label><textarea maxLength={MAX_BACKGROUND} value={goal.background[lang]} onChange={(event) => setGoal((current) => ({ ...current, background: { ...current.background, [lang]: event.target.value } }))}/><div className="field-counter"><span>{goal.background[lang].length} / {MAX_BACKGROUND}</span></div></div>
