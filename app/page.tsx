@@ -411,8 +411,12 @@ export default function Home() {
       if (document.visibilityState === "visible") accumulated += Math.max(0, Math.min(6000, now - lastTick));
       lastTick = now;
       writeStored("already-active-use-ms-v1", String(accumulated));
-      const dismissedAt = Number(readStored("already-beta-survey-dismissed-v1") || 0);
-      if (accumulated >= 600_000 && (!dismissedAt || now - dismissedAt >= 86_400_000)) setSurveyOpen(true);
+      // The stamp is written when the survey opens (not only when it is dismissed), so a reload cannot bring it back the same day.
+      const lastShownAt = Number(readStored("already-beta-survey-dismissed-v1") || 0);
+      if (accumulated >= 600_000 && (!lastShownAt || now - lastShownAt >= 86_400_000)) {
+        writeStored("already-beta-survey-dismissed-v1", String(now));
+        setSurveyOpen(true);
+      }
     };
     const resetTick = () => { lastTick = Date.now(); };
     document.addEventListener("visibilitychange", resetTick);
@@ -689,7 +693,7 @@ export default function Home() {
 
   const onChatKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     // Enter sends, Shift+Enter breaks the line; Enter that only confirms an IME candidate must not send.
-    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229) {
       event.preventDefault();
       sendChat();
     }
