@@ -7,6 +7,9 @@
 name: Android APK
 
 on:
+  # Pushing to the android-build branch starts a build (a manual button only shows once the file is on main).
+  push:
+    branches: [android-build]
   workflow_dispatch:
 
 jobs:
