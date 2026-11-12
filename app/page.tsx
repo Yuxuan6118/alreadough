@@ -325,6 +325,7 @@ export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profile, setProfile] = useState<Profile>(emptyProfile);
   const [plusSection, setPlusSection] = useState<"goal" | "coach" | null>(null);
+  const [petOpen, setPetOpen] = useState(false);
   const [shellEl, setShellEl] = useState<HTMLElement | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const sidebarOpenRef = useRef(false);
@@ -429,32 +430,40 @@ export default function Home() {
   }, [view, messages.length, isTyping]);
 
   // Side panel on phones, like ChatGPT and Claude: swipe right to pull it out (the page follows the finger and
-  // slides over), swipe left or tap the page to put it away. The panel lives outside the app shell; only the
-  // shell moves, through the --drawer-x variable, so nothing inside it has to know.
+  // slides over), swipe left or tap the page to put it away. The panel lives outside the app shell and only the
+  // shell moves. While it moves the shell gets a plain inline transform (cheap, one write per frame) and the
+  // expensive effects (blur, grain) are switched off by the .drawer-moving class.
   const drawerWidth = () => Math.min(window.innerWidth * 0.82, 330);
+  const shellTransform = (x: number) => (x > 0 ? `translate3d(${Math.round(x)}px, var(--vv-top, 0px), 0)` : "");
+  const DRAWER_EASE = "transform .32s cubic-bezier(.32,.72,0,1)";
   const moveSidebar = (open: boolean) => {
     if (shellEl) {
-      shellEl.style.transition = "transform .28s cubic-bezier(.22,.8,.2,1)";
-      window.setTimeout(() => { shellEl.style.transition = ""; }, 320);
+      shellEl.classList.add("drawer-moving");
+      shellEl.style.transition = DRAWER_EASE;
+      window.setTimeout(() => { shellEl.style.transition = ""; shellEl.classList.remove("drawer-moving"); }, 360);
     }
     setSidebarOpen(open);
   };
   useEffect(() => {
     sidebarOpenRef.current = sidebarOpen;
     document.documentElement.style.setProperty("--drawer-w", `${Math.round(drawerWidth())}px`);
-    shellEl?.style.setProperty("--drawer-x", sidebarOpen ? `${Math.round(drawerWidth())}px` : "0px");
+    if (shellEl) shellEl.style.transform = shellTransform(sidebarOpen ? drawerWidth() : 0);
   }, [sidebarOpen, shellEl]);
   useEffect(() => {
     const shell = shellEl;
     if (!shell) return;
     const phone = window.matchMedia("(max-width: 820px)");
-    let startX = 0, startY = 0, lastX = 0, lastT = 0, base = 0, velocity = 0;
+    let startX = 0, startY = 0, lastX = 0, lastT = 0, base = 0, velocity = 0, currentX = 0, frame = 0;
     let decided = false, dragging = false, ignore = false;
-    const setX = (x: number) => shell.style.setProperty("--drawer-x", `${Math.round(x)}px`);
+    const paint = () => { frame = 0; shell.style.transform = shellTransform(currentX); };
+    const setX = (x: number) => { currentX = x; if (!frame) frame = window.requestAnimationFrame(paint); };
     const settle = (open: boolean) => {
-      shell.style.transition = "transform .28s cubic-bezier(.22,.8,.2,1)";
-      window.setTimeout(() => { shell.style.transition = ""; }, 320);
-      setX(open ? drawerWidth() : 0);
+      if (frame) { window.cancelAnimationFrame(frame); frame = 0; }
+      shell.classList.add("drawer-moving");
+      shell.style.transition = DRAWER_EASE;
+      window.setTimeout(() => { shell.style.transition = ""; shell.classList.remove("drawer-moving"); }, 360);
+      currentX = open ? drawerWidth() : 0;
+      shell.style.transform = shellTransform(currentX);
       setSidebarOpen(open);
     };
     // a swipe that begins in a field or a sideways-scrolling strip belongs to that control
@@ -473,7 +482,7 @@ export default function Home() {
       const touch = event.touches[0];
       startX = lastX = touch.clientX; startY = touch.clientY; lastT = Date.now();
       decided = false; dragging = false; velocity = 0;
-      base = sidebarOpenRef.current ? drawerWidth() : 0;
+      base = currentX = sidebarOpenRef.current ? drawerWidth() : 0;
       ignore = !sidebarOpenRef.current && owned(event.target);
     };
     const onMove = (event: TouchEvent) => {
@@ -485,7 +494,7 @@ export default function Home() {
         decided = true;
         const open = sidebarOpenRef.current;
         dragging = Math.abs(dx) > Math.abs(dy) * 1.4 && ((!open && dx > 0) || (open && dx < 0));
-        if (dragging) { shell.style.transition = "none"; shell.classList.add("drawer-dragging"); }
+        if (dragging) { shell.style.transition = "none"; shell.classList.add("drawer-moving"); }
       }
       if (!dragging) return;
       const now = Date.now();
@@ -496,9 +505,7 @@ export default function Home() {
     const onEnd = () => {
       if (!dragging) return;
       dragging = false;
-      shell.classList.remove("drawer-dragging");
-      const x = parseFloat(shell.style.getPropertyValue("--drawer-x")) || 0;
-      settle(velocity > 0.4 ? true : velocity < -0.4 ? false : x > drawerWidth() / 2);
+      settle(velocity > 0.4 ? true : velocity < -0.4 ? false : currentX > drawerWidth() / 2);
     };
     // while the panel is out, a tap on the page only puts the panel away
     const onTap = (event: Event) => {
@@ -513,6 +520,7 @@ export default function Home() {
     shell.addEventListener("touchcancel", onEnd);
     shell.addEventListener("click", onTap, true);
     return () => {
+      if (frame) window.cancelAnimationFrame(frame);
       shell.removeEventListener("touchstart", onStart);
       shell.removeEventListener("touchmove", onMove);
       shell.removeEventListener("touchend", onEnd);
@@ -1452,7 +1460,7 @@ export default function Home() {
       <section className="app-stage">
       <header className="topbar">
         <button type="button" className="topbar-menu" onClick={() => moveSidebar(true)} aria-label={lang === "zh" ? "打开侧边栏" : "Open the sidebar"}><List size={22}/></button>
-        <button className="brand" onClick={() => navigate("home")} aria-label="AlreaDough home"><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></button>
+        <button className="brand" onClick={() => setPetOpen((open) => !open)} aria-expanded={petOpen} aria-label={lang === "zh" ? "打开面团" : "Open the dough"}><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></button>
         <div className="top-actions"><span className={`sync-badge ${syncStatus}`}>{syncStatus === "saved" ? <CloudCheck size={15}/> : <CloudSlash size={15}/>}<span>{syncStatus === "saved" ? (lang === "zh" ? "已同步" : "Synced") : syncStatus === "saving" || syncStatus === "loading" ? (lang === "zh" ? "同步中" : "Syncing") : (lang === "zh" ? "本机模式" : "On device")}</span></span><button className="avatar" onClick={() => setMenuOpen((open) => !open)} aria-haspopup="menu" aria-expanded={menuOpen} aria-label={lang === "zh" ? "打开菜单" : "Open menu"}><UserCircle size={22}/></button>{appMenu}</div>
       </header>
 
@@ -1610,6 +1618,14 @@ export default function Home() {
       </div>}
 
       {view === "home" && <DoughPet lang={lang} checked={checkedToday} streak={streak} onCheckIn={() => recordCheckIn("chosen")}/>}
+
+      {petOpen && <>
+        <button type="button" className="pet-sheet-backdrop" aria-label={lang === "zh" ? "关闭" : "Close"} onClick={() => setPetOpen(false)} />
+        <section className="pet-sheet" role="dialog" aria-label={lang === "zh" ? "面团" : "Dough"}>
+          <header><button type="button" onClick={() => setPetOpen(false)} aria-label={lang === "zh" ? "关闭" : "Close"}>×</button></header>
+          <DoughPet inline lang={lang} checked={checkedToday} streak={streak} onCheckIn={() => recordCheckIn("chosen")}/>
+        </section>
+      </>}
 
       <nav className="bottom-nav" aria-label={t.ariaNav}>
         {primaryNav.map((item) => {
