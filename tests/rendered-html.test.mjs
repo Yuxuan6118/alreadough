@@ -257,3 +257,34 @@ test("install tip: only Safari is told to add to the home screen; other iPhone b
   assert.equal(localDayKey(new Date(2026, 10, 3)), "2026-11-03");
   assert.notEqual(localDayKey(new Date(2026, 10, 3, 23, 59)), localDayKey(new Date(2026, 10, 4, 0, 1)));
 });
+
+test("service worker: navigations go to the network with an offline page as fallback, everything else is left alone", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const vm = await import("node:vm");
+  const source = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
+  const listeners = {};
+  const calls = { fetches: [] };
+  let online = true;
+  class FakeResponse { constructor(body, init = {}) { this.body = body; this.status = init.status ?? 200; this.headers = init.headers ?? {}; } }
+  const sandbox = {
+    Response: FakeResponse,
+    fetch: async (request) => { calls.fetches.push(request.url); if (!online) throw new Error("offline"); return new FakeResponse("page"); },
+    self: { addEventListener: (type, fn) => { listeners[type] = fn; }, skipWaiting: () => {}, clients: { claim: async () => {} } },
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(source, sandbox);
+  assert.ok(listeners.fetch && listeners.install && listeners.activate, "registers install, activate and fetch handlers");
+
+  const run = async (request) => {
+    let answered;
+    listeners.fetch({ request, respondWith: (value) => { answered = value; } });
+    return answered === undefined ? undefined : await answered;
+  };
+  assert.equal((await run({ mode: "navigate", url: "https://x/" })).body, "page");
+  assert.equal(await run({ mode: "cors", url: "https://x/api/companion" }), undefined, "API calls are never intercepted");
+  assert.equal(await run({ mode: "no-cors", url: "https://x/_next/static/a.js" }), undefined, "assets are never intercepted");
+  online = false;
+  const offline = await run({ mode: "navigate", url: "https://x/" });
+  assert.equal(offline.status, 503);
+  assert.match(offline.body, /AlreaDough/);
+});

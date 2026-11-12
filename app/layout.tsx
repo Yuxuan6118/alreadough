@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import InstallTip from "./components/InstallTip";
 import AccessGate from "./components/AccessGate";
 import NativeShell from "./components/NativeShell";
 import ViewportKeyboardFix from "./components/ViewportKeyboardFix";
@@ -52,6 +53,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
+  colorScheme: "light dark", // the app draws both themes itself; stops phone browsers force-darkening it
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f4efea" },
     { media: "(prefers-color-scheme: dark)", color: "#211d1d" },
@@ -73,7 +75,7 @@ export default function RootLayout({
         <ViewportKeyboardFix />
         <NoPinchZoom />
         <ViewportDebug />
-        <AccessGate>{children}</AccessGate>
+        <AccessGate>{children}<InstallTip /></AccessGate>
       </body>
     </html>
   );

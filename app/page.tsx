@@ -35,7 +35,6 @@ import DoughPet from "./components/DoughPet";
 import ReflectionPanel from "./components/ReflectionPanel";
 import SyncPanel from "./components/SyncPanel";
 import FontSizePanel from "./components/FontSizePanel";
-import InstallTip from "./components/InstallTip";
 import type { ReflectionAnswers, ReflectionQuestionId } from "@/lib/reflection";
 import { validateSpName } from "@/lib/name-policy";
 import { readStored, writeStored, removeStored } from "@/lib/safe-storage";
@@ -339,6 +338,26 @@ export default function Home() {
     box.style.height = "auto";
     box.style.height = `${Math.min(box.scrollHeight, 220)}px`;
   }, [chatInput, view, hydrated]);
+
+  // Theme: follow the phone's light/dark setting until she picks one, then remember her pick.
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- one-time read of the system and saved theme */
+    const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+    const saved = readStored("already-theme-v1");
+    if (saved === "dark" || saved === "light") { setDark(saved === "dark"); return; }
+    if (!media) return;
+    setDark(media.matches);
+    /* eslint-enable react-hooks/set-state-in-effect */
+    const follow = (event: MediaQueryListEvent) => { if (!readStored("already-theme-v1")) setDark(event.matches); };
+    media.addEventListener("change", follow);
+    return () => media.removeEventListener("change", follow);
+  }, []);
+
+  const toggleDark = () => {
+    const next = !dark;
+    writeStored("already-theme-v1", next ? "dark" : "light");
+    setDark(next);
+  };
 
   /* eslint-disable react-hooks/set-state-in-effect -- one-time restoration from device storage */
   useEffect(() => {
@@ -1110,7 +1129,7 @@ export default function Home() {
       : ["Meet you", "One desire", "Companion style"];
     return <main className="app-shell onboarding-shell" data-theme={dark ? "dark" : "light"} data-lang={lang}>
       <div className="app-grain" aria-hidden="true" />
-      <header className="onboarding-topbar"><span className="brand"><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></span><div className="top-actions"><button className="language-toggle" onClick={switchLanguage}>{lang === "zh" ? "EN" : "中"}</button><button className="theme-toggle" onClick={() => setDark((value) => !value)} aria-label={dark ? "Light" : "Dark"}>{dark ? <Sun size={17}/> : <Moon size={17}/>}</button></div></header>
+      <header className="onboarding-topbar"><span className="brand"><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></span><div className="top-actions"><button className="language-toggle" onClick={switchLanguage}>{lang === "zh" ? "EN" : "中"}</button><button className="theme-toggle" onClick={toggleDark} aria-label={dark ? "Light" : "Dark"}>{dark ? <Sun size={17}/> : <Moon size={17}/>}</button></div></header>
       <section className="onboarding-view">
         <div className="onboarding-progress" aria-label={lang === "zh" ? `第 ${onboardingStep + 1} 步，共 3 步` : `Step ${onboardingStep + 1} of 3`}><i style={{ width: `${((onboardingStep + 1) / 3) * 100}%` }}/></div>
         <p className="eyebrow">{steps[onboardingStep]}</p>
@@ -1139,7 +1158,7 @@ export default function Home() {
         <div className="rail-footer">
           <span className={`ai-badge ${aiConnected ? "online" : aiConnected === false ? "setup" : ""}`}><i/>{aiConnected ? t.aiReady : t.aiSetup}</span>
           <button onClick={() => setView("memory")} className={view === "memory" ? "active" : ""}><Brain size={18}/><span>{lang === "zh" ? "记忆库" : "Memory"}</span></button>
-          <button onClick={() => setDark((value) => !value)} aria-label={dark ? (lang === "zh" ? "切换浅色" : "Use light theme") : (lang === "zh" ? "切换深色" : "Use dark theme")}>{dark ? <Sun size={18}/> : <Moon size={18}/>}<span>{dark ? (lang === "zh" ? "浅色" : "Light") : (lang === "zh" ? "深色" : "Dark")}</span></button>
+          <button onClick={toggleDark} aria-label={dark ? (lang === "zh" ? "切换浅色" : "Use light theme") : (lang === "zh" ? "切换深色" : "Use dark theme")}>{dark ? <Sun size={18}/> : <Moon size={18}/>}<span>{dark ? (lang === "zh" ? "浅色" : "Light") : (lang === "zh" ? "深色" : "Dark")}</span></button>
           <button onClick={switchLanguage}><span className="rail-language">{lang === "zh" ? "EN" : "中"}</span><span>{lang === "zh" ? "English" : "简体中文"}</span></button>
           <button onClick={() => setView("settings")} className={view === "settings" ? "active" : ""}><SlidersHorizontal size={18}/><span>{lang === "zh" ? "我的空间" : "My space"}</span></button>
         </div>
@@ -1148,7 +1167,7 @@ export default function Home() {
       <section className="app-stage">
       <header className="topbar">
         <button className="brand" onClick={() => navigate("home")}><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></button>
-        <div className="top-actions"><span className={`sync-badge ${syncStatus}`}>{syncStatus === "saved" ? <CloudCheck size={15}/> : <CloudSlash size={15}/>}<span>{syncStatus === "saved" ? (lang === "zh" ? "已同步" : "Synced") : syncStatus === "saving" || syncStatus === "loading" ? (lang === "zh" ? "同步中" : "Syncing") : (lang === "zh" ? "本机模式" : "On device")}</span></span><button className="mobile-memory-button" onClick={() => setView("memory")} aria-label={lang === "zh" ? "打开记忆库" : "Open memory"}><Brain size={18}/></button><button className="mobile-memory-button" onClick={() => setHistoryOpen(true)} aria-label={lang === "zh" ? "打开对话记录" : "Open conversation history"}><ChatCircleDots size={18}/></button><button className="theme-toggle" onClick={() => setDark((value) => !value)} aria-label={dark ? "Light" : "Dark"}>{dark ? <Sun size={17}/> : <Moon size={17}/>}</button><button className="language-toggle" onClick={switchLanguage} aria-label={lang === "zh" ? "Switch to English" : "切换到中文"}>{lang === "zh" ? "EN" : "中"}</button><button className="avatar" onClick={() => setView("settings")} aria-label={t.ariaSettings}>{goal.companionName.slice(0, 1) || "A"}</button></div>
+        <div className="top-actions"><span className={`sync-badge ${syncStatus}`}>{syncStatus === "saved" ? <CloudCheck size={15}/> : <CloudSlash size={15}/>}<span>{syncStatus === "saved" ? (lang === "zh" ? "已同步" : "Synced") : syncStatus === "saving" || syncStatus === "loading" ? (lang === "zh" ? "同步中" : "Syncing") : (lang === "zh" ? "本机模式" : "On device")}</span></span><button className="mobile-memory-button" onClick={() => setView("memory")} aria-label={lang === "zh" ? "打开记忆库" : "Open memory"}><Brain size={18}/></button><button className="mobile-memory-button" onClick={() => setHistoryOpen(true)} aria-label={lang === "zh" ? "打开对话记录" : "Open conversation history"}><ChatCircleDots size={18}/></button><button className="theme-toggle" onClick={toggleDark} aria-label={dark ? "Light" : "Dark"}>{dark ? <Sun size={17}/> : <Moon size={17}/>}</button><button className="language-toggle" onClick={switchLanguage} aria-label={lang === "zh" ? "Switch to English" : "切换到中文"}>{lang === "zh" ? "EN" : "中"}</button><button className="avatar" onClick={() => setView("settings")} aria-label={t.ariaSettings}>{goal.companionName.slice(0, 1) || "A"}</button></div>
       </header>
 
       {historyOpen && <div className="history-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setHistoryOpen(false); }}><aside className="history-drawer"><header><div><p className="eyebrow">{lang === "zh" ? "对话记录" : "CONVERSATION HISTORY"}</p><h2>{lang === "zh" ? "回到之前的片段" : "Return to an earlier moment"}</h2></div><button onClick={() => setHistoryOpen(false)} aria-label={lang === "zh" ? "关闭" : "Close"}>×</button></header><button className="history-new" onClick={beginNewConversation}><Plus size={17}/>{lang === "zh" ? "开始新对话" : "Start a new conversation"}</button><div className="history-list">{conversationArchive.length ? conversationArchive.map((conversation) => <article key={conversation.id}><button onClick={() => openConversation(conversation)}><strong>{conversation.title}</strong><small>{new Date(conversation.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US")}</small></button><button aria-label={lang === "zh" ? "删除对话" : "Delete conversation"} onClick={() => setConversationArchive((items) => items.filter((item) => item.id !== conversation.id))}><Trash size={16}/></button></article>) : <p>{lang === "zh" ? "完成第一段对话后，它会安全地出现在这里。" : "Your first completed conversation will appear here."}</p>}</div></aside></div>}
@@ -1311,7 +1330,6 @@ export default function Home() {
           return <button key={item.id} className={active ? "active" : ""} onClick={() => navigate(item.id)}><Icon size={21} weight={active ? "fill" : "regular"}/><span>{item.label}</span></button>;
         })}
       </nav>
-      <InstallTip lang={lang} />
     </main>
   );
 }

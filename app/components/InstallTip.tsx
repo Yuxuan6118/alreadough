@@ -21,6 +21,7 @@ const copy = {
     title: "把 AlreaDough 放到手机桌面",
     android: "一点就能打开，像 App 一样全屏使用。",
     install: "安装",
+    androidManual: "点浏览器右上角的菜单（⋮ 或 ≡），选「添加到主屏幕」或「安装应用」。",
     iosSafari: "点底部的「分享」图标，再选「添加到主屏幕」。",
     iosOther: (host: string) => `只有 Safari 可以安装到主屏幕。请用 Safari 打开 ${host}，再点「分享」→「添加到主屏幕」。`,
     copy: "复制网址",
@@ -33,6 +34,7 @@ const copy = {
     title: "Put AlreaDough on your home screen",
     android: "One tap to open, full screen like an app.",
     install: "Install",
+    androidManual: "Open the browser menu (⋮ or ≡) and choose “Add to Home screen” or “Install app”.",
     iosSafari: "Tap the Share icon at the bottom, then “Add to Home Screen”.",
     iosOther: (host: string) => `Only Safari can add this to your home screen. Open ${host} in Safari, then tap Share → “Add to Home Screen”.`,
     copy: "Copy link",
@@ -43,13 +45,30 @@ const copy = {
   },
 } as const;
 
-export default function InstallTip({ lang }: { lang: "zh" | "en" }) {
-  const [mode, setMode] = useState<InstallMode | null>(null);
+type TipMode = InstallMode | "android-manual";
+
+function pageLang(): "zh" | "en" {
+  try {
+    const saved = JSON.parse(readStored("already-private-state-v5") || "{}") as { lang?: string };
+    if (saved.lang === "zh" || saved.lang === "en") return saved.lang;
+  } catch { /* fall through to the browser language */ }
+  return (navigator.language || "").toLowerCase().startsWith("zh") ? "zh" : "en";
+}
+
+export default function InstallTip({ lang: forcedLang }: { lang?: "zh" | "en" }) {
+  const [lang, setLang] = useState<"zh" | "en">(forcedLang || "zh");
+  const [mode, setMode] = useState<TipMode | null>(null);
   const [visible, setVisible] = useState(false);
   const [copied, setCopied] = useState(false);
   const promptRef = useRef<InstallEvent | null>(null);
 
   useEffect(() => {
+    if (window.location.pathname !== "/") return; // the app itself, including its first-run screens
+    if (!forcedLang) setLang(pageLang()); // eslint-disable-line react-hooks/set-state-in-effect -- one-time read of the saved language
+    const secure = window.location.protocol === "https:" || window.location.hostname === "localhost";
+    if (secure && "serviceWorker" in navigator && !Capacitor.isNativePlatform()) {
+      navigator.serviceWorker.register("/sw.js").catch(() => { /* the manual menu route still works */ });
+    }
     const standalone = window.matchMedia?.("(display-mode: standalone)").matches
       || (navigator as Navigator & { standalone?: boolean }).standalone === true;
     if (standalone || Capacitor.isNativePlatform()) return;
@@ -75,8 +94,10 @@ export default function InstallTip({ lang }: { lang: "zh" | "en" }) {
     const onInstalled = () => { setVisible(false); writeStored(INSTALLED_KEY, "yes"); };
     window.addEventListener("beforeinstallprompt", onPrompt);
     window.addEventListener("appinstalled", onInstalled);
-    // Android only offers the tip once Chrome says the app is installable; everyone else gets text steps.
-    if (detected !== "android") { setMode(detected); arm(); }
+    // Chrome only fires the install event for installable sites; any other Android browser (or Chrome
+    // before the service worker is active) falls back to the manual menu steps after the same delay.
+    setMode(detected === "android" ? "android-manual" : detected);
+    arm();
     return () => {
       window.clearTimeout(timer);
       window.removeEventListener("beforeinstallprompt", onPrompt);
@@ -88,6 +109,7 @@ export default function InstallTip({ lang }: { lang: "zh" | "en" }) {
   const text = copy[lang];
   const host = typeof window === "undefined" ? "" : window.location.host;
   const body = mode === "android" ? text.android
+    : mode === "android-manual" ? text.androidManual
     : mode === "ios-safari" ? text.iosSafari
     : mode === "ios-other" ? text.iosOther(host)
     : mode === "wechat-ios" ? text.wechatIos
