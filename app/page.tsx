@@ -36,6 +36,7 @@ import ReflectionPanel from "./components/ReflectionPanel";
 import { AiNote, BreakReminder, ReportButton, ReportDialog, SiteRecord } from "./components/Compliance";
 import SyncPanel from "./components/SyncPanel";
 import GuidedOnboarding from "./components/GuidedOnboarding";
+import ProfilePanel from "./components/ProfilePanel";
 import FontSizePanel from "./components/FontSizePanel";
 import type { ReflectionAnswers, ReflectionQuestionId } from "@/lib/reflection";
 import { validateSpName } from "@/lib/name-policy";
@@ -309,7 +310,7 @@ export default function Home() {
   const [conversationId, setConversationId] = useState("");
   const [conversationArchive, setConversationArchive] = useState<Conversation[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [settingsSection, setSettingsSection] = useState<"profile" | "companion" | "reflect" | "memory" | "data">("profile");
+  const [settingsSection, setSettingsSection] = useState<"profile" | "about" | "companion" | "reflect" | "memory" | "data">("profile");
   const [memoryFilter, setMemoryFilter] = useState<MemoryKind | "all">("all");
   const [memoryEditorOpen, setMemoryEditorOpen] = useState(false);
   const [memoryEditingId, setMemoryEditingId] = useState<string | null>(null);
@@ -1033,6 +1034,7 @@ export default function Home() {
       language: lang,
       activeGoal: goal,
       otherGoals,
+      profile,
       archivedGoals: goalArchive,
       stories: storyLibrary,
       acceptedRevisions: revisions,
@@ -1366,7 +1368,7 @@ export default function Home() {
       {view === "settings" && <section className="full-view settings-view">
         <div className="view-heading"><p className="eyebrow">{t.private}</p><h1>{lang === "zh" ? `${goal.companionName}的已完成空间` : `${goal.companionName}’s already-done space`}</h1><p>{t.privateCopy}</p></div>
         <nav className="settings-tabs" aria-label={lang === "zh" ? "空间设置分类" : "Space settings sections"}>{([
-          ["profile", lang === "zh" ? "我与愿望" : "Profile & desire"], ["companion", lang === "zh" ? "AI 陪伴者" : "AI companion"], ["reflect", lang === "zh" ? "自我觉察" : "Self-reflection"], ["memory", lang === "zh" ? "记忆与旅程" : "Memory & journey"], ["data", lang === "zh" ? "数据与安全" : "Data & safety"],
+          ["profile", lang === "zh" ? "我与愿望" : "Profile & desire"], ["about", lang === "zh" ? "关于我" : "About me"], ["companion", lang === "zh" ? "AI 陪伴者" : "AI companion"], ["reflect", lang === "zh" ? "自我觉察" : "Self-reflection"], ["memory", lang === "zh" ? "记忆与旅程" : "Memory & journey"], ["data", lang === "zh" ? "数据与安全" : "Data & safety"],
         ] as const).map(([id, label]) => <button key={id} className={settingsSection === id ? "active" : ""} onClick={() => setSettingsSection(id)}>{label}</button>)}</nav>
 
         {settingsSection === "profile" && <div className="settings-section">
@@ -1377,6 +1379,8 @@ export default function Home() {
           <div className="setting-card editable-card sp-name-card"><label>{goal.wishCategory === "relationship" ? (lang === "zh" ? "显化对象" : "MANIFESTATION PERSON") : (lang === "zh" ? "愿望焦点" : "DESIRE FOCUS")}</label><input value={spNameDraft} maxLength={24} aria-invalid={Boolean(spNameError)} onChange={(event) => setSpNameDraft(event.target.value)}/>{spNameError && <p className="field-error" role="alert">{spNameError}</p>}</div>
           <div className="setting-card editable-card"><label>{t.coreWish}</label><textarea value={goal.desire[lang]} onChange={(event) => setGoal((current) => ({ ...current, desire: { ...current.desire, [lang]: event.target.value } }))}/></div>
         </div>}
+
+        {settingsSection === "about" && <ProfilePanel lang={lang} profile={profile} onChange={(next) => setProfile(normalizeProfile(next))} />}
 
         {settingsSection === "companion" && <div className="settings-section">
           <div className="setting-card editable-card"><label>{t.tone}</label><div className="option-card-grid companion-style-grid">{companionStyles.map((style) => <button key={style.id} className={goal.companionStyle === style.id ? "selected" : ""} onClick={() => chooseCompanionStyle(style.id)}><strong>{lang === "zh" ? style.zh : style.en}</strong><small>{lang === "zh" ? style.zhDescription : style.enDescription}</small></button>)}</div>{goal.companionStyle === "custom" && <textarea value={goal.tone[lang]} onChange={(event) => setGoal((current) => ({ ...current, tone: { ...current.tone, [lang]: event.target.value } }))}/>}</div>

@@ -1475,3 +1475,17 @@ html[data-theme="dark"].landscape-blocked::after { color: #f1e8e2; background: #
 .onboard-people-form { display: grid; gap: 8px; margin-top: 14px; }
 .onboard-more { display: grid; gap: 10px; margin-top: 24px; }
 @media (max-width: 420px) { .onboard-scale { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; } .onboard-scale button span { font-size: calc(10px * var(--fs, 1)); text-align: center; } }
+
+/* settings: about me */
+.profile-note { margin: 4px 0 12px; color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); line-height: 1.5; }
+.profile-people { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
+.profile-people li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) 34px; gap: 8px; align-items: center; }
+.profile-people li button { width: 34px; height: 34px; border: 0; border-radius: 10px; color: var(--app-muted); background: transparent; font-size: 18px; }
+.profile-add { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) auto; gap: 8px; align-items: center; }
+@media (max-width: 560px) {
+  .profile-people li { grid-template-columns: minmax(0, 1fr) 34px; }
+  .profile-people li input:nth-child(2) { grid-column: 1; }
+  .profile-people li button { grid-row: 1 / span 2; grid-column: 2; }
+  .profile-add { grid-template-columns: 1fr auto; }
+  .profile-add input:nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
+}
