@@ -1,18 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "motion/react";
 import { Capacitor } from "@capacitor/core";
 import Image from "next/image";
-import { readStored, writeStored } from "@/lib/safe-storage";
 
-// Two-finger pinch makes the dough bigger or smaller. It follows the fingers through a spring, so it wobbles a
-// little as it settles, pulls back from the limits like dough, and remembers the size it was left at.
-const SCALE_KEY = "already-dough-scale-v1";
-const MIN_SCALE = 0.6;
-const MAX_SCALE = 1.5;
-const clampScale = (value: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, value));
-// past the limits it only gives a quarter of the way, then springs back when the fingers lift
+// Two-finger pinch stretches or squeezes the dough while the fingers are down, and when they lift it springs back
+// to its normal size with a little wobble, like real dough. Nothing is remembered.
+const MIN_SCALE = 0.55;
+const MAX_SCALE = 1.55;
+// past the limits it only gives a quarter of the way, like dough that will not stretch any further
 const rubber = (value: number) => (value > MAX_SCALE ? MAX_SCALE + (value - MAX_SCALE) * 0.25 : value < MIN_SCALE ? MIN_SCALE - (MIN_SCALE - value) * 0.25 : value);
 
 type Props = {
@@ -26,16 +23,12 @@ export default function LivingDough({ lang, compact = false, onTouch }: Props) {
   const [response, setResponse] = useState(0);
   const didDrag = useRef(false);
   const pinch = useMotionValue(1);
-  const pinchSpring = useSpring(pinch, { stiffness: 240, damping: 15, mass: 0.9 });
+  const pinchSpring = useSpring(pinch, { stiffness: 230, damping: 11, mass: 0.9 });
   const [pinching, setPinching] = useState(false);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinchStart = useRef({ distance: 1, scale: 1 });
   const pinchingRef = useRef(false);
   const didPinch = useRef(false);
-  useEffect(() => {
-    const saved = Number(readStored(SCALE_KEY));
-    if (saved >= MIN_SCALE && saved <= MAX_SCALE) pinch.set(saved);
-  }, [pinch]);
   const twoFingers = () => { const [a, b] = [...pointers.current.values()]; return a && b ? Math.hypot(a.x - b.x, a.y - b.y) || 1 : 0; };
   const onPinchDown = (event: ReactPointerEvent) => {
     if (event.pointerType !== "touch") return;
@@ -56,9 +49,7 @@ export default function LivingDough({ lang, compact = false, onTouch }: Props) {
     if (pinchingRef.current && pointers.current.size < 2) {
       pinchingRef.current = false;
       setPinching(false);
-      const settled = clampScale(pinch.get());
-      pinch.set(settled);
-      writeStored(SCALE_KEY, String(Math.round(settled * 100) / 100));
+      pinch.set(1);   // let go: the spring carries it back to its own size, overshooting a little on the way
     }
   };
   const dragX = useMotionValue(0);
