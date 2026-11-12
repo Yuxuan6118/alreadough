@@ -20,7 +20,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AlreaDough | Your living desire space",
+  title: "AlreaDough", // short on purpose: Huawei and other browsers use the page title as the home-screen shortcut name
   description: "A bilingual AI space for one deeply desired life, with conversation, storytelling, sound practice, revision, and vision boards.",
   applicationName: "AlreaDough",
   appleWebApp: {

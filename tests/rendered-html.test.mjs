@@ -20,7 +20,8 @@ test("renders the AlreaDough product shell and onboarding", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>AlreaDough \| Your living desire space<\/title>/i);
+  // The page title is also the name phones give a home-screen shortcut, so it must stay short.
+  assert.match(html, /<title>AlreaDough<\/title>/i);
   assert.match(html, /AlreaDough/);
   assert.match(html, /Opening AlreaDough|正在打开 AlreaDough/);
   assert.doesNotMatch(html, /Your site is taking shape|Building your site/);
