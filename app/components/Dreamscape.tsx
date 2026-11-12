@@ -38,8 +38,20 @@ const DEFAULT_LINES: Record<Lang, string[]> = {
 };
 
 const SCRIPT: Record<Lang, string[]> = {
-  zh: ["今天早上我醒得很自然，", "窗帘透进来一点淡淡的光。", "我先喝了一杯温水，然后慢慢地走到窗边。", "一切都很安静，我也很安静。", "我知道，我想要的，已经在我的生活里了。", "我不用着急，也不用证明什么。", "我只是照着自己的节奏，做今天该做的事：", "洗个澡，换上喜欢的衣服，给自己煮一碗热热的面。", "我对自己说：谢谢你，今天也过得很好。"],
-  en: ["This morning I woke up easily,", "and a soft light came through the curtains.", "I drank a glass of warm water and walked slowly to the window.", "Everything was quiet, and so was I.", "I know that what I want is already in my life.", "I do not need to rush, and I have nothing to prove.", "I simply move at my own pace and do what today asks:", "I take a shower, put on something I like, and make myself a warm bowl of noodles.", "I tell myself: thank you, today went well too."],
+  zh: [
+    "今天早上我醒得很自然，窗帘透进来一点淡淡的光。我先喝了一杯温水，然后慢慢地走到窗边。",
+    "一切都很安静，我也很安静。我知道，我想要的，已经在我的生活里了。",
+    "我不用着急，也不用证明什么。我只是照着自己的节奏，做今天该做的事：洗个澡，换上喜欢的衣服，给自己煮一碗热热的面。",
+    "下午有一点阳光，我坐在桌前，把想写的东西一句一句写下来。晚上，我给朋友打了个电话，我们笑了很久。",
+    "我对自己说：谢谢你，今天也过得很好。",
+  ],
+  en: [
+    "This morning I woke up easily, and a soft light came through the curtains. I drank a glass of warm water and walked slowly to the window.",
+    "Everything was quiet, and so was I. I know that what I want is already in my life.",
+    "I do not need to rush, and I have nothing to prove. I simply move at my own pace and do what today asks: I take a shower, put on something I like, and make myself a warm bowl of noodles.",
+    "In the afternoon there was a little sun. I sat at my desk and wrote down, one line at a time, what I wanted to write. In the evening I called a friend, and we laughed for a long time.",
+    "I tell myself: thank you, today went well too.",
+  ],
 };
 
 /** A half-second of silence. Playing it inside her tap unlocks the player on iPhone, so the voice may start later. */
@@ -446,9 +458,6 @@ function RecordScreen({ lang, headers, onBack, onDone }: RecordProps) {
     }
   };
 
-  const perLine = 6;
-  const index = Math.min(lines.length - 1, Math.floor(seconds / perLine));
-
   if (phase === "review" || phase === "sending") {
     return (
       <section className="dream dream-record">
@@ -471,24 +480,11 @@ function RecordScreen({ lang, headers, onBack, onDone }: RecordProps) {
     <section className="dream dream-record">
       <header>
         <div className="dream-player-head"><button type="button" className="dream-back" onClick={onBack} aria-label={t("返回", "Back")}><ArrowLeft size={22} /></button><h1>{t("读一遍给自己", "Read it to yourself")}</h1></div>
-        <p>{t("约 45 秒，读完就有你自己的声音。找个安静的地方，用平时对自己说话的语气读。", "About 45 seconds. Find a quiet place and read in the voice you use with yourself.")}</p>
+        <p>{t("约 45 秒。找个安静的地方，用平时对自己说话的语气读，可以上下滑动看全文。", "About 45 seconds. Find a quiet place and read in the voice you use with yourself. Scroll to see all of it.")}</p>
       </header>
-      <div className="dream-script" aria-live="polite">
-        {phase === "recording" ? (
-          <>
-            <span className="done">{lines[index - 1] || ""}</span>
-            <span className="now">{lines[index]}</span>
-            <span className="next">{lines[index + 1] || ""}</span>
-            <span className="next">{lines[index + 2] || ""}</span>
-          </>
-        ) : (
-          <>
-            <span className="now">{lines[0]}</span>
-            <span className="next">{lines[1]}</span>
-            <span className="next">{lines[2]}</span>
-          </>
-        )}
-      </div>
+      <article className="dream-article" tabIndex={0} aria-label={t("要读的稿子，可以上下滑动", "The text to read, you can scroll it")}>
+        {lines.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+      </article>
       <div className="dream-recorder">
         <button type="button" className="dream-record-button" onClick={phase === "recording" ? stop : () => void start()} aria-label={phase === "recording" ? t("停止录音", "Stop recording") : t("开始录音", "Start recording")}>{phase === "recording" ? <Stop size={28} weight="fill" /> : <Microphone size={30} weight="fill" />}</button>
         <strong>{clock(seconds)}</strong>
