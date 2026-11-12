@@ -1489,3 +1489,5 @@ html[data-theme="dark"].landscape-blocked::after { color: #f1e8e2; background: #
   .profile-add { grid-template-columns: 1fr auto; }
   .profile-add input:nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
 }
+/* iPhone home-screen app: the app follows the phone's light/dark setting, so the manual switch is hidden */
+html.follow-system-theme .theme-toggle, html.follow-system-theme .theme-menu-item { display: none; }

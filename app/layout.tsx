@@ -76,7 +76,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <script dangerouslySetInnerHTML={{ __html: "try{var s=localStorage.getItem('already-font-size-v1');if(s==='small'||s==='large')document.documentElement.dataset.fontSize=s}catch(e){}try{var t=localStorage.getItem('already-theme-v1');var d=t?t==='dark':matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.dataset.theme=d?'dark':'light'}catch(e){}" }} />
+        <script dangerouslySetInnerHTML={{ __html: "try{var s=localStorage.getItem('already-font-size-v1');if(s==='small'||s==='large')document.documentElement.dataset.fontSize=s}catch(e){}try{var t=navigator.standalone===true?null:localStorage.getItem('already-theme-v1');var d=t?t==='dark':matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.dataset.theme=d?'dark':'light'}catch(e){}" }} />
         <NativeShell />
         <ViewportKeyboardFix />
         <NoPinchZoom />

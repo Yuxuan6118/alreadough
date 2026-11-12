@@ -168,6 +168,7 @@ const defaultGoal: GoalProfile = {
   createdAt: "",
 };
 
+const isIosHomeApp = () => typeof navigator !== "undefined" && (navigator as Navigator & { standalone?: boolean }).standalone === true;
 const MAX_BELIEFS = 12;
 const MAX_GOALS = 30;
 const intensityLabels: Record<Lang, string[]> = {
@@ -362,15 +363,19 @@ export default function Home() {
   }, [chatInput, view, hydrated]);
 
   // Theme: follow the phone's light/dark setting until she picks one, then remember her pick.
+  // Exception: the iPhone home-screen app. iOS colours its top strip from the phone's own setting and the page
+  // cannot change that, so there the app always follows the phone and the manual switch is hidden.
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- one-time read of the system and saved theme */
     const media = window.matchMedia?.("(prefers-color-scheme: dark)");
-    const saved = readStored("already-theme-v1");
+    const iosHomeApp = isIosHomeApp();
+    if (iosHomeApp) document.documentElement.classList.add("follow-system-theme");
+    const saved = iosHomeApp ? null : readStored("already-theme-v1");
     if (saved === "dark" || saved === "light") { setDark(saved === "dark"); return; }
     if (!media) return;
     setDark(media.matches);
     /* eslint-enable react-hooks/set-state-in-effect */
-    const follow = (event: MediaQueryListEvent) => { if (!readStored("already-theme-v1")) setDark(event.matches); };
+    const follow = (event: MediaQueryListEvent) => { if (iosHomeApp || !readStored("already-theme-v1")) setDark(event.matches); };
     media.addEventListener("change", follow);
     return () => media.removeEventListener("change", follow);
   }, []);
@@ -392,6 +397,7 @@ export default function Home() {
   }, [dark]);
 
   const toggleDark = () => {
+    if (isIosHomeApp()) return;
     const next = !dark;
     writeStored("already-theme-v1", next ? "dark" : "light");
     setDark(next);
@@ -1247,7 +1253,7 @@ export default function Home() {
       <button type="button" role="menuitem" className={view === "settings" ? "active" : ""} onClick={() => { setView("settings"); closeMenu(); }}><SlidersHorizontal size={18}/><span>{lang === "zh" ? "我的空间" : "My space"}</span></button>
       <button type="button" role="menuitem" className="app-menu-phone" onClick={() => { setView("memory"); closeMenu(); }}><Brain size={18}/><span>{lang === "zh" ? "记忆库" : "Memory"}</span></button>
       <button type="button" role="menuitem" className="app-menu-phone" onClick={() => { setHistoryOpen(true); closeMenu(); }}><ChatCircleDots size={18}/><span>{lang === "zh" ? "对话记录" : "Conversation history"}</span></button>
-      <button type="button" role="menuitem" onClick={() => { toggleDark(); closeMenu(); }}>{dark ? <Sun size={18}/> : <Moon size={18}/>}<span>{dark ? (lang === "zh" ? "浅色" : "Light") : (lang === "zh" ? "深色" : "Dark")}</span></button>
+      <button type="button" role="menuitem" className="theme-menu-item" onClick={() => { toggleDark(); closeMenu(); }}>{dark ? <Sun size={18}/> : <Moon size={18}/>}<span>{dark ? (lang === "zh" ? "浅色" : "Light") : (lang === "zh" ? "深色" : "Dark")}</span></button>
       <button type="button" role="menuitem" onClick={() => { switchLanguage(); closeMenu(); }}><span className="rail-language">{lang === "zh" ? "EN" : "中"}</span><span>{lang === "zh" ? "English" : "简体中文"}</span></button>
     </div>
   </> : null;
