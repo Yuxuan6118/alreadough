@@ -1613,3 +1613,8 @@ html[data-theme="dark"].landscape-blocked::after { color: #f1e8e2; background: #
   .studio-savebar small { display: none; }
   .track-fades > div { grid-template-columns: 1fr; }
 }
+
+/* pinch hit box: the dough in the phone sheet is small, so the invisible frame around it counts too. Two fingers anywhere in
+   this frame start the pinch (the close button and the sheet header stay above it). */
+.dough-pet-inline .dough-stage::before { content: ""; position: absolute; z-index: 0; inset: -64px -40px -24px; touch-action: none; }
+.pet-sheet > header { z-index: 20; }   /* above the dough (z-index 12) and its pinch frame, so the close button always works */
