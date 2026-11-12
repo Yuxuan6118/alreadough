@@ -1,9 +1,19 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "motion/react";
 import { Capacitor } from "@capacitor/core";
 import Image from "next/image";
+import { readStored, writeStored } from "@/lib/safe-storage";
+
+// Two-finger pinch makes the dough bigger or smaller. It follows the fingers through a spring, so it wobbles a
+// little as it settles, pulls back from the limits like dough, and remembers the size it was left at.
+const SCALE_KEY = "already-dough-scale-v1";
+const MIN_SCALE = 0.6;
+const MAX_SCALE = 1.5;
+const clampScale = (value: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, value));
+// past the limits it only gives a quarter of the way, then springs back when the fingers lift
+const rubber = (value: number) => (value > MAX_SCALE ? MAX_SCALE + (value - MAX_SCALE) * 0.25 : value < MIN_SCALE ? MIN_SCALE - (MIN_SCALE - value) * 0.25 : value);
 
 type Props = {
   lang: "zh" | "en";
@@ -15,6 +25,42 @@ export default function LivingDough({ lang, compact = false, onTouch }: Props) {
   const reduceMotion = useReducedMotion();
   const [response, setResponse] = useState(0);
   const didDrag = useRef(false);
+  const pinch = useMotionValue(1);
+  const pinchSpring = useSpring(pinch, { stiffness: 240, damping: 15, mass: 0.9 });
+  const [pinching, setPinching] = useState(false);
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinchStart = useRef({ distance: 1, scale: 1 });
+  const pinchingRef = useRef(false);
+  const didPinch = useRef(false);
+  useEffect(() => {
+    const saved = Number(readStored(SCALE_KEY));
+    if (saved >= MIN_SCALE && saved <= MAX_SCALE) pinch.set(saved);
+  }, [pinch]);
+  const twoFingers = () => { const [a, b] = [...pointers.current.values()]; return a && b ? Math.hypot(a.x - b.x, a.y - b.y) || 1 : 0; };
+  const onPinchDown = (event: ReactPointerEvent) => {
+    if (event.pointerType !== "touch") return;
+    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pointers.current.size === 2) {
+      pinchStart.current = { distance: twoFingers(), scale: pinch.get() };
+      pinchingRef.current = true; didPinch.current = true; didDrag.current = false;
+      setPinching(true);
+    }
+  };
+  const onPinchMove = (event: ReactPointerEvent) => {
+    if (!pointers.current.has(event.pointerId)) return;
+    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pinchingRef.current && pointers.current.size === 2) pinch.set(rubber(pinchStart.current.scale * (twoFingers() / pinchStart.current.distance)));
+  };
+  const onPinchUp = (event: ReactPointerEvent) => {
+    if (!pointers.current.delete(event.pointerId)) return;
+    if (pinchingRef.current && pointers.current.size < 2) {
+      pinchingRef.current = false;
+      setPinching(false);
+      const settled = clampScale(pinch.get());
+      pinch.set(settled);
+      writeStored(SCALE_KEY, String(Math.round(settled * 100) / 100));
+    }
+  };
   const dragX = useMotionValue(0);
   const dragY = useMotionValue(0);
   const stretchX = useTransform(() => 1 + Math.min(Math.abs(dragX.get()), 76) / 150 - Math.min(Math.abs(dragY.get()), 76) / 430);
@@ -28,6 +74,10 @@ export default function LivingDough({ lang, compact = false, onTouch }: Props) {
     : { left: -76, right: 76, top: -76, bottom: 76 };
 
   const touch = async () => {
+    if (didPinch.current) {   // lifting the fingers after a pinch is not a tap
+      didPinch.current = false;
+      return;
+    }
     if (didDrag.current) {
       didDrag.current = false;
       return;
@@ -47,11 +97,11 @@ export default function LivingDough({ lang, compact = false, onTouch }: Props) {
       onClick={touch}
       aria-label={lang === "zh" ? "轻触正在醒发的面团" : "Touch the living dough"}
     >
-      <span className="dough-stage" aria-hidden="true">
+      <motion.span className="dough-stage" aria-hidden="true" style={{ scale: reduceMotion ? pinch : pinchSpring, transformOrigin: "50% 100%" }} onPointerDown={onPinchDown} onPointerMove={onPinchMove} onPointerUp={onPinchUp} onPointerCancel={onPinchUp}>
         <motion.span
           className="dough-drag-shell"
           tabIndex={-1}
-          drag={reduceMotion ? false : true}
+          drag={reduceMotion || pinching ? false : true}
           dragConstraints={dragConstraints}
           dragElastic={0.22}
           dragMomentum={false}
@@ -79,7 +129,7 @@ export default function LivingDough({ lang, compact = false, onTouch }: Props) {
           animate={reduceMotion || !response ? undefined : { opacity: 0, scale: 1.35 }}
           transition={{ duration: 0.82, ease: [0.16, 1, 0.3, 1] }}
         />
-      </span>
+      </motion.span>
       <span className="dough-caption">
         <strong>{lang === "zh" ? "它已经在醒发" : "Already rising"}</strong>
         <small>{lang === "zh" ? "轻轻碰一下" : "A little touch"}</small>
