@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { headers } from "next/headers";
-import { deleteBetaRecords } from "@/lib/beta-guard";
+import { deleteBetaRecords, requestIdentity } from "@/lib/beta-guard";
+import { deleteAllVoiceData } from "@/lib/voice-db";
 
 const MAX_PAYLOAD_BYTES = 750_000;
 
@@ -78,5 +79,8 @@ export async function DELETE(request: Request) {
   await env.DB.prepare("DELETE FROM user_spaces WHERE user_id = ?").bind(id).run();
   // The synced space is only part of what we keep: chats, profile, events and reports go too.
   await deleteBetaRecords(request);
-  return json({ deleted: true });
+  // her cloned voice is deleted at the provider too; if that fails we say so instead of claiming everything is gone
+  const deviceUser = requestIdentity(request);
+  const voiceDeleted = deviceUser ? await deleteAllVoiceData(deviceUser).catch(() => false) : true;
+  return json({ deleted: true, voiceDeleted });
 }

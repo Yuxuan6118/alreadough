@@ -503,3 +503,37 @@ test("delete my data removes chats, profile, events and reports, not only the sy
   // payments are kept on purpose
   assert.doesNotMatch(guard.slice(guard.indexOf("export async function deleteBetaRecords")), /entitlements/);
 });
+
+test("voice limits: Chinese counts double, long text and a full day are refused, samples must be readable WAV of 8 to 60 seconds", async () => {
+  const { billedChars, checkSpeakText, remainingToday, wavSeconds, checkSample, encodeWav, VOICE_LIMITS } = await import("../lib/voice-limits.ts");
+  assert.equal(billedChars("你好"), 4);
+  assert.equal(billedChars("中A文123"), 8);
+  assert.equal(checkSpeakText("   ").ok, false);
+  assert.equal(checkSpeakText("我".repeat(1501)).code, "TEXT_TOO_LONG");
+  assert.equal(checkSpeakText("我".repeat(1500)).ok, true);
+  assert.equal(checkSpeakText("好\u0000的").text, "好的");
+  assert.equal(remainingToday(0, 0, 100).allowed, true);
+  assert.equal(remainingToday(VOICE_LIMITS.userDailyBilled - 50, 0, 100).allowed, false);
+  assert.equal(remainingToday(0, VOICE_LIMITS.globalDailyBilled, 1).allowed, false);
+  const make = (seconds) => encodeWav(new Float32Array(Math.round(24000 * seconds)), 24000);
+  assert.ok(Math.abs(wavSeconds(make(10)) - 10) < 0.01);
+  assert.equal(wavSeconds(new Uint8Array(10)), null);
+  assert.equal(checkSample(make(3)).code, "SAMPLE_TOO_SHORT");
+  assert.equal(checkSample(make(70)).code, "SAMPLE_TOO_LONG");
+  assert.equal(checkSample(make(30)).ok, true);
+  assert.equal(checkSample(new Uint8Array(100)).code, "BAD_AUDIO");
+});
+
+test("delete my data also deletes the cloned voice, and the voice routes enforce consent and limits", async () => {
+  const space = await readFile(new URL("../app/api/space/route.ts", import.meta.url), "utf8");
+  const voice = await readFile(new URL("../app/api/voice/route.ts", import.meta.url), "utf8");
+  const speak = await readFile(new URL("../app/api/voice/speak/route.ts", import.meta.url), "utf8");
+  assert.match(space, /deleteAllVoiceData/);
+  assert.match(voice, /CONSENT_REQUIRED/);
+  assert.match(voice, /recordEnroll/);
+  assert.match(speak, /reserveChars/);
+  assert.match(speak, /refundChars/);
+  // the recording itself is never stored: only the provider's voice id
+  const db = await readFile(new URL("../lib/voice-db.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(db, /audio TEXT|audio BLOB|sample/i);
+});
