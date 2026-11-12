@@ -9,6 +9,7 @@ import AppKit
 //   pull         drag it and it stretches like dough, let go and it springs back  (same as the web dough)
 //   pull far     keep pulling past the stretch limit and it breaks free and follows you; drop it anywhere
 //   hold, move   or hold 0.4 s without moving, then drag: the same pick-up (it remembers the spot)
+//   pinch        pinch with two fingers on the trackpad: it grows or shrinks, and springs back when you let go (like the phone)
 //   3 quick taps a proofing party: it puffs up and bursts into confetti             (new)
 //   nap          untouched for 90 s it dozes, slower breathing and drifting z; point at it to wake it (new)
 //   double-click opens AlreaDough in the browser
@@ -19,7 +20,7 @@ let defaults = UserDefaults.standard
 // Room around the dough for stretching, ripples and confetti. It scales with the dough: a pulled dough grows past its own
 // size, and anything beyond the window is cut off (that showed up as an invisible wall when pulling upwards).
 func padFor(_ width: CGFloat) -> CGFloat { max(90, width * 0.64) }
-var padding: CGFloat = padFor(280)
+var padding: CGFloat = padFor(190)
 
 // MARK: colours (the web theme tokens)
 
@@ -43,6 +44,7 @@ let confettiSpots: [(x: CGFloat, y: CGFloat, r: CGFloat)] = [
 final class PetView: NSView {
     private let image: CGImage
     private let imageSize: CGSize               // the dough itself, without the padding
+    private let pinchLayer = CALayer()          // two-finger pinch (trackpad)
     private let dragLayer = CALayer()           // stretch / pull / carry
     private let charLayer = CALayer()           // breathing and the click bounce
     private let fxLayer = CALayer()             // ripple, confetti, z
@@ -118,7 +120,12 @@ final class PetView: NSView {
 
         dragLayer.addSublayer(charLayer)
         layer?.addSublayer(fxLayer)
-        layer?.addSublayer(dragLayer)
+        // pinch grows and shrinks the dough from its bottom edge, so it stays on the floor
+        pinchLayer.bounds = CGRect(origin: .zero, size: bounds.size)
+        pinchLayer.anchorPoint = CGPoint(x: 0.5, y: padding / bounds.height)
+        pinchLayer.position = CGPoint(x: bounds.width / 2, y: padding)
+        pinchLayer.addSublayer(dragLayer)
+        layer?.addSublayer(pinchLayer)
 
         // web: .proof-specks (three small rings that float up and fade, 4.8 s, delays 0 / 1.55 / 3.1)
         let areaLeft = rect.minX + imageSize.width * 0.08, areaRight = rect.maxX - imageSize.width * 0.08
@@ -400,6 +407,43 @@ final class PetView: NSView {
         dragLayer.add(spring, forKey: "spring")
     }
 
+    // MARK: pinch (same feel as the phone: follows the fingers, rubber at the limits, springs back with a wobble)
+
+    private var pinchValue: CGFloat = 1
+    private let minPinch: CGFloat = 0.55, maxPinch: CGFloat = 1.55
+
+    private func rubber(_ value: CGFloat) -> CGFloat {
+        if value > maxPinch { return maxPinch + (value - maxPinch) * 0.25 }
+        if value < minPinch { return minPinch - (minPinch - value) * 0.25 }
+        return value
+    }
+
+    override func magnify(with event: NSEvent) {
+        wake(playful: false)
+        switch event.phase {
+        case .began:
+            pinchValue = 1
+            pinchLayer.removeAnimation(forKey: "pinch-spring")
+        case .changed:
+            pinchValue = rubber(pinchValue * (1 + event.magnification))
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            pinchLayer.transform = CATransform3DMakeScale(pinchValue, pinchValue, 1)
+            CATransaction.commit()
+        case .ended, .cancelled:
+            let from = pinchLayer.presentation()?.transform ?? pinchLayer.transform
+            let spring = CASpringAnimation(keyPath: "transform")
+            spring.fromValue = NSValue(caTransform3D: from)
+            spring.toValue = NSValue(caTransform3D: CATransform3DIdentity)
+            spring.mass = 0.9; spring.stiffness = 230; spring.damping = 11
+            spring.duration = spring.settlingDuration
+            pinchLayer.transform = CATransform3DIdentity
+            pinchLayer.add(spring, forKey: "pinch-spring")
+            pinchValue = 1
+        default: break
+        }
+    }
+
     // MARK: mouse
 
     override func mouseDown(with event: NSEvent) {
@@ -478,7 +522,7 @@ final class PetView: NSView {
         menu.addItem(home)
         let sizeMenu = NSMenu()
         let current = imageSize.width
-        for (title, width) in [("小", 190.0), ("中", 280.0), ("大", 380.0), ("特大", 520.0)] {
+        for (title, width) in [("特小", 130.0), ("小", 160.0), ("中", 190.0), ("大", 270.0), ("特大", 520.0)] {
             let item = NSMenuItem(title: title, action: #selector(chooseSize(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = width
@@ -524,7 +568,7 @@ final class PetApp: NSObject, NSApplicationDelegate {
         }
         image = cgImage
         let saved = defaults.double(forKey: "width2")
-        showPet(width: saved > 0 ? CGFloat(saved) : 280, origin: nil)
+        showPet(width: saved > 0 ? CGFloat(saved) : 190, origin: nil)
         // Only the dough takes the mouse; the transparent margin lets clicks through to whatever is underneath.
         watcher = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in self?.watchMouse() }
     }
