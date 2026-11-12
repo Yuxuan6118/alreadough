@@ -7,7 +7,8 @@ import AppKit
 //   idle         slow breathing, little proofing specks rise now and then          (same as the web dough)
 //   click        squish and bounce, a ripple ring and 14 pieces of confetti         (same as the web dough)
 //   pull         drag it and it stretches like dough, let go and it springs back  (same as the web dough)
-//   hold, move   hold 0.4 s without moving, then drag: picks it up and carries it (it remembers the spot)
+//   pull far     keep pulling past the stretch limit and it breaks free and follows you; drop it anywhere
+//   hold, move   or hold 0.4 s without moving, then drag: the same pick-up (it remembers the spot)
 //   3 quick taps a proofing party: it puffs up and bursts into confetti             (new)
 //   nap          untouched for 90 s it dozes, slower breathing and drifting z; point at it to wake it (new)
 //   double-click opens AlreaDough in the browser
@@ -50,6 +51,9 @@ final class PetView: NSView {
     private var downScreen = NSPoint.zero
     private var windowAtDown = NSPoint.zero
     private var holdTimer: Timer?
+    private var lastPull = CGPoint.zero
+    private var lastStretch = CATransform3DIdentity
+    private let breakFreeDistance: CGFloat = 92
     private var tapTimes: [TimeInterval] = []
     private var lastTouched = Date()
     private var napping = false
@@ -57,6 +61,7 @@ final class PetView: NSView {
 
     var onCarryEnd: (() -> Void)?
     var onSizeChoice: ((CGFloat) -> Void)?
+    var onResetPosition: (() -> Void)?
 
     init(image: CGImage, imageSize: CGSize) {
         self.image = image
@@ -341,15 +346,43 @@ final class PetView: NSView {
         let sx = 1 + ax / 150 - ay / 430
         let sy = 1 + ay / 150 - ax / 430
         let tilt = -(tx / 22) * .pi / 180
-        var transform = CATransform3DIdentity
-        transform = CATransform3DTranslate(transform, tx, ty, 0)
-        transform = CATransform3DRotate(transform, tilt, 0, 0, 1)
-        transform = CATransform3DScale(transform, sx, sy, 1)
+        var stretch = CATransform3DIdentity
+        stretch = CATransform3DRotate(stretch, tilt, 0, 0, 1)
+        stretch = CATransform3DScale(stretch, sx, sy, 1)
+        lastPull = CGPoint(x: tx, y: ty)
+        lastStretch = stretch
+        let transform = CATransform3DConcat(stretch, CATransform3DMakeTranslation(tx, ty, 0))
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         dragLayer.removeAnimation(forKey: "spring")
         dragLayer.transform = transform
         CATransaction.commit()
+    }
+
+    // The dough has been pulled past its limit: it breaks free and the whole pet follows the mouse. The window moves
+    // to where the dough looks right now, the stretch relaxes with a spring, so nothing jumps.
+    private func breakFree() {
+        guard let window = window else { return }
+        mode = .carry
+        windowAtDown = NSPoint(x: windowAtDown.x + lastPull.x, y: windowAtDown.y + lastPull.y)
+        downScreen = NSEvent.mouseLocation
+        let from = lastStretch
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        dragLayer.removeAnimation(forKey: "spring")
+        dragLayer.transform = CATransform3DIdentity
+        window.setFrameOrigin(windowAtDown)
+        CATransaction.commit()
+        let relax = CASpringAnimation(keyPath: "transform")
+        relax.fromValue = NSValue(caTransform3D: from)
+        relax.toValue = NSValue(caTransform3D: CATransform3DIdentity)
+        relax.mass = 1; relax.stiffness = 380; relax.damping = 15
+        relax.duration = relax.settlingDuration
+        dragLayer.add(relax, forKey: "relax")
+        let lift = CABasicAnimation(keyPath: "transform.scale")
+        lift.toValue = 1.06; lift.duration = 0.18; lift.fillMode = .forwards; lift.isRemovedOnCompletion = false
+        dragLayer.add(lift, forKey: "lift")
+        NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
     }
 
     private func springBack() {
@@ -398,7 +431,8 @@ final class PetView: NSView {
             dragLayer.removeAnimation(forKey: "press")
         }
         switch mode {
-        case .pull: pull(dx: dx, dy: dy)
+        case .pull:
+            if hypot(dx, dy) > breakFreeDistance { breakFree() } else { pull(dx: dx, dy: dy) }
         case .carry: window?.setFrameOrigin(NSPoint(x: windowAtDown.x + dx, y: windowAtDown.y + dy))
         default: break
         }
@@ -435,6 +469,9 @@ final class PetView: NSView {
         let open = NSMenuItem(title: "打开 AlreaDough", action: #selector(openSite), keyEquivalent: "")
         open.target = self
         menu.addItem(open)
+        let home = NSMenuItem(title: "放回屏幕右下角", action: #selector(goHome), keyEquivalent: "")
+        home.target = self
+        menu.addItem(home)
         let sizeMenu = NSMenu()
         let current = imageSize.width
         for (title, width) in [("小", 130.0), ("中", 190.0), ("大", 270.0)] {
@@ -455,6 +492,7 @@ final class PetView: NSView {
     }
 
     @objc private func openSite() { NSWorkspace.shared.open(siteURL) }
+    @objc private func goHome() { onResetPosition?() }
     @objc private func chooseSize(_ sender: NSMenuItem) {
         if let width = sender.representedObject as? Double { onSizeChoice?(CGFloat(width)) }
     }
@@ -500,7 +538,8 @@ final class PetApp: NSObject, NSApplicationDelegate {
         panel.isMovable = false
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
         petView = PetView(image: image, imageSize: imageSize)
-        petView.onCarryEnd = { [weak self] in self?.saveOrigin() }
+        petView.onCarryEnd = { [weak self] in self?.keepReachable() }
+        petView.onResetPosition = { [weak self] in self?.goHome() }
         petView.onSizeChoice = { [weak self] newWidth in self?.resize(toWidth: newWidth) }
         panel.contentView = petView
         panel.orderFrontRegardless()
@@ -521,6 +560,34 @@ final class PetApp: NSObject, NSApplicationDelegate {
         }
         let area = (NSScreen.main ?? NSScreen.screens[0]).visibleFrame
         return NSPoint(x: area.maxX - size.width - 24, y: area.minY + 16)
+    }
+
+    // Anywhere on any screen is fine, but at least half of the dough must stay on a screen so it can always be grabbed again.
+    private func keepReachable() {
+        guard let panel = panel else { return }
+        let dough = NSRect(x: panel.frame.minX + padding, y: panel.frame.minY + padding, width: panel.frame.width - padding * 2, height: panel.frame.height - padding * 2)
+        let screens = NSScreen.screens.map { $0.frame }
+        let screen = screens.max(by: { $0.intersection(dough).width * $0.intersection(dough).height < $1.intersection(dough).width * $1.intersection(dough).height }) ?? (NSScreen.main?.frame ?? .zero)
+        let slackX = dough.width * 0.5, slackY = dough.height * 0.5
+        var shiftX: CGFloat = 0, shiftY: CGFloat = 0
+        if dough.minX < screen.minX - slackX { shiftX = screen.minX - slackX - dough.minX }
+        if dough.maxX > screen.maxX + slackX { shiftX = screen.maxX + slackX - dough.maxX }
+        if dough.minY < screen.minY - slackY { shiftY = screen.minY - slackY - dough.minY }
+        if dough.maxY > screen.maxY + slackY { shiftY = screen.maxY + slackY - dough.maxY }
+        if shiftX != 0 || shiftY != 0 {
+            var frame = panel.frame
+            frame.origin.x += shiftX; frame.origin.y += shiftY
+            panel.setFrame(frame, display: true, animate: true)
+        }
+        saveOrigin()
+    }
+
+    private func goHome() {
+        guard let panel = panel else { return }
+        let area = (NSScreen.main ?? NSScreen.screens[0]).visibleFrame
+        let origin = NSPoint(x: area.maxX - panel.frame.width - 24 + padding, y: area.minY + 16)
+        panel.setFrame(NSRect(origin: origin, size: panel.frame.size), display: true, animate: true)
+        saveOrigin()
     }
 
     private func saveOrigin() {
