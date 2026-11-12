@@ -1,0 +1,54 @@
+# Builds an installable Android APK of AlreaDough on GitHub's servers (nothing is installed on your Mac).
+# Run it by hand: GitHub repo -> Actions -> "Android APK" -> Run workflow. When it finishes, open the run
+# and download the "alreadough-android" file at the bottom; unzip it to get the .apk.
+#
+# The app is a thin native shell (Capacitor) that opens https://alreadough.com, the same design as the
+# iPhone shell, so a website update shows up in the app without making a new APK.
+name: Android APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CAPACITOR_SERVER_URL: https://alreadough.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install the project and the Android pieces of Capacitor
+        run: |
+          npm install --no-audit --no-fund
+          npm install --no-save --no-audit --no-fund @capacitor/android@^8.5.1 @capacitor/assets
+
+      - name: Create the Android project
+        run: npx cap add android
+
+      - name: Use the AlreaDough logo as the app icon
+        run: |
+          mkdir -p assets
+          cp public/already-app-icon.png assets/icon-only.png
+          npx capacitor-assets generate --android --iconBackgroundColor '#F4EFEA' --iconBackgroundColorDark '#211D1D'
+
+      - name: Sync and build the APK
+        run: |
+          npx cap sync android
+          cd android
+          ./gradlew assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alreadough-android
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
