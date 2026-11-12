@@ -30,6 +30,9 @@ export default function ViewportKeyboardFix() {
 
     const sync = () => {
       const viewport = window.visualViewport;
+      // While the page is pinch-zoomed (or iOS is auto-zooming into a field), the visual viewport shrinks and
+      // grows with the zoom, not with the keyboard. Following it makes the whole shell flash, so hold still.
+      if (viewport && Math.abs(viewport.scale - 1) > 0.02) return;
       const height = Math.round(viewport ? viewport.height : window.innerHeight);
       const top = Math.round(viewport ? viewport.offsetTop : 0);
       if (window.innerWidth !== lastWidth) { lastWidth = window.innerWidth; tallest = 0; }
