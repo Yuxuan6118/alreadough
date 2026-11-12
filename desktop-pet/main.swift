@@ -9,7 +9,8 @@ import AppKit
 //   pull         drag it and it stretches like dough, let go and it springs back  (same as the web dough)
 //   pull far     keep pulling past the stretch limit and it breaks free and follows you; drop it anywhere
 //   hold, move   or hold 0.4 s without moving, then drag: the same pick-up (it remembers the spot)
-//   pinch        pinch with two fingers on the trackpad: it grows or shrinks, and springs back when you let go (like the phone)
+//   pinch        pinch with two fingers on the trackpad, or slide two fingers up/down on it: it grows or shrinks and
+//                springs back when you let go (like the phone)
 //   3 quick taps a proofing party: it puffs up and bursts into confetti             (new)
 //   nap          untouched for 90 s it dozes, slower breathing and drifting z; point at it to wake it (new)
 //   double-click opens AlreaDough in the browser
@@ -418,6 +419,29 @@ final class PetView: NSView {
         return value
     }
 
+    private func applyPinch(factor: CGFloat) {
+        pinchValue = rubber(pinchValue * factor)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        pinchLayer.transform = CATransform3DMakeScale(pinchValue, pinchValue, 1)
+        CATransaction.commit()
+    }
+
+    private func releasePinch() {
+        scrollReleaseTimer?.invalidate()
+        guard pinchValue != 1 else { return }
+        let from = pinchLayer.presentation()?.transform ?? pinchLayer.transform
+        let spring = CASpringAnimation(keyPath: "transform")
+        spring.fromValue = NSValue(caTransform3D: from)
+        spring.toValue = NSValue(caTransform3D: CATransform3DIdentity)
+        spring.mass = 0.9; spring.stiffness = 230; spring.damping = 11
+        spring.duration = spring.settlingDuration
+        pinchLayer.transform = CATransform3DIdentity
+        pinchLayer.add(spring, forKey: "pinch-spring")
+        pinchValue = 1
+    }
+
+    // The pinch gesture itself. macOS does not always hand it to a floating window that is not in front.
     override func magnify(with event: NSEvent) {
         wake(playful: false)
         switch event.phase {
@@ -425,22 +449,27 @@ final class PetView: NSView {
             pinchValue = 1
             pinchLayer.removeAnimation(forKey: "pinch-spring")
         case .changed:
-            pinchValue = rubber(pinchValue * (1 + event.magnification))
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            pinchLayer.transform = CATransform3DMakeScale(pinchValue, pinchValue, 1)
-            CATransaction.commit()
+            applyPinch(factor: 1 + event.magnification)
         case .ended, .cancelled:
-            let from = pinchLayer.presentation()?.transform ?? pinchLayer.transform
-            let spring = CASpringAnimation(keyPath: "transform")
-            spring.fromValue = NSValue(caTransform3D: from)
-            spring.toValue = NSValue(caTransform3D: CATransform3DIdentity)
-            spring.mass = 0.9; spring.stiffness = 230; spring.damping = 11
-            spring.duration = spring.settlingDuration
-            pinchLayer.transform = CATransform3DIdentity
-            pinchLayer.add(spring, forKey: "pinch-spring")
-            pinchValue = 1
+            releasePinch()
         default: break
+        }
+    }
+
+    // Two fingers sliding up or down on the trackpad (or a mouse wheel) with the pointer on the dough does the same thing.
+    // Scroll events always reach the window under the pointer, so this works even when the pinch does not arrive.
+    private var scrollReleaseTimer: Timer?
+    override func scrollWheel(with event: NSEvent) {
+        if event.momentumPhase != [] { return }          // the glide after the fingers lift is not part of the gesture
+        wake(playful: false)
+        let up = event.isDirectionInvertedFromDevice ? -event.scrollingDeltaY : event.scrollingDeltaY   // fingers moving up
+        if event.phase == .began || event.phase == .mayBegin { pinchLayer.removeAnimation(forKey: "pinch-spring"); pinchValue = 1 }
+        if up != 0 { applyPinch(factor: exp(up * 0.012)) }
+        if event.phase == .ended || event.phase == .cancelled {
+            releasePinch()
+        } else if event.phase == [] {                    // a mouse wheel has no phases: let go when it goes quiet
+            scrollReleaseTimer?.invalidate()
+            scrollReleaseTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: false) { [weak self] _ in self?.releasePinch() }
         }
     }
 
