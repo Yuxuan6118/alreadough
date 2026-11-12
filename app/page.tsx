@@ -34,6 +34,7 @@ import VisionCanvasStudio from "./components/VisionCanvasStudio";
 import DoughPet from "./components/DoughPet";
 import ReflectionPanel from "./components/ReflectionPanel";
 import SyncPanel from "./components/SyncPanel";
+import FontSizePanel from "./components/FontSizePanel";
 import InstallTip from "./components/InstallTip";
 import type { ReflectionAnswers, ReflectionQuestionId } from "@/lib/reflection";
 import { validateSpName } from "@/lib/name-policy";
@@ -1270,6 +1271,7 @@ export default function Home() {
           <div className="setting-card beta-quota-card"><span>{lang === "zh" ? "AI 对话" : "AI CONVERSATIONS"}</span><p>{betaStatus?.authenticated === false ? (lang === "zh" ? "正在连接这台设备…" : "Connecting this device…") : betaStatus?.enabled === false ? (lang === "zh" ? "AI 正在由创始人暂时维护，请稍后再来。" : "AI is temporarily paused by the founder. Please check back shortly.") : (lang === "zh" ? "不限制对话、重写与故事的次数。" : "No limit on chats, revisions, or stories.")}</p></div>
           <div className="language-card"><div><span>{lang === "zh" ? "界面语言" : "LANGUAGE"}</span><strong>{lang === "zh" ? "简体中文" : "English"}</strong></div><button onClick={switchLanguage}>{lang === "zh" ? "Switch to English" : "切换到中文"}</button></div>
           <div className="setting-card sync-card"><span>{lang === "zh" ? "跨设备同步" : "CROSS-DEVICE SYNC"}</span><p>{syncStatus === "saved" ? (lang === "zh" ? "愿望、记忆、对话、故事和练习记录已安全同步。" : "Your desire, memory, conversations, stories, and practice history are synced.") : (lang === "zh" ? "当前使用本机副本；恢复连接后会自动继续同步。" : "Using the on-device copy. Sync resumes automatically when available.")}</p></div>
+          <FontSizePanel lang={lang} />
           <SyncPanel lang={lang} sessionId={sessionId} syncStatus={syncStatus} hasLocalData={goal.setupComplete} />
           <div className="setting-card goal-lifecycle-card"><span>{lang === "zh" ? "愿望生命周期" : "DESIRE LIFECYCLE"}</span><p>{lang === "zh" ? "愿望完成后，把它留在历程中，再开启一张新的愿望卡。" : "When this desire is complete, keep it in your journey and open a fresh desire card."}</p><button className="outline-button" onClick={archiveAndBeginAgain}>{lang === "zh" ? "完成并归档，开启新愿望" : "Complete, archive, and begin again"}</button></div>
           {goalArchive.length > 0 && <div className="setting-card archive-card"><span>{lang === "zh" ? `已经发生的愿望 · ${goalArchive.length}` : `FULFILLED DESIRES · ${goalArchive.length}`}</span>{goalArchive.slice(0, 5).map((item) => <article key={item.id}><strong>{item.desire[lang] || item.desire[lang === "zh" ? "en" : "zh"]}</strong><small>{item.createdAt ? new Date(item.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US") : ""}</small></article>)}</div>}

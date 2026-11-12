@@ -6,10 +6,10 @@
 .vision-preview .vision-frame>button{position:absolute;right:7px;top:7px;border:0;border-radius:50%;width:25px;height:25px;background:#30231fd9;color:#fff}
 .vision-preview.scrapbook .vision-frame{box-shadow:0 8px 20px #3b2a2328}
 .vision-first-step{min-height:220px;display:grid;place-items:center;align-content:center;gap:8px;margin:18px 0;padding:28px;border:1px dashed var(--app-line);border-radius:22px;color:var(--app-muted);background:color-mix(in srgb,var(--app-panel) 72%,transparent);text-align:center}
-.vision-first-step strong{max-width:520px;color:var(--app-ink);font:500 20px/1.55 var(--font-display)}
-.vision-first-step span{font-size:12px}
+.vision-first-step strong{max-width:520px;color:var(--app-ink);font:500 calc(20px * var(--fs, 1))/1.55 var(--font-display)}
+.vision-first-step span{font-size:calc(12px * var(--fs, 1))}
 .vision-advanced{grid-column:1/-1;border-top:1px solid var(--app-line);padding-top:14px}
-.vision-advanced summary{display:flex;align-items:center;gap:7px;width:max-content;color:var(--app-muted);cursor:pointer;font-size:12px;font-weight:700;list-style:none}
+.vision-advanced summary{display:flex;align-items:center;gap:7px;width:max-content;color:var(--app-muted);cursor:pointer;font-size:calc(12px * var(--fs, 1));font-weight:700;list-style:none}
 .vision-advanced summary::-webkit-details-marker{display:none}
 .vision-advanced .collage-style-controls{margin-top:16px}
 .vision-maker-heading{max-width:650px}
@@ -34,7 +34,7 @@
 .vision-color-button:active{transform:scale(.97)}
 .vision-color-button:has(input:focus-visible){box-shadow:0 0 0 3px color-mix(in srgb,var(--app-accent) 28%,transparent),inset 0 1px 0 #ffffff4a}
 .vision-color-button i{width:12px;height:12px;border:2px solid currentColor;border-radius:50%;opacity:.82}
-.vision-color-button b{font:700 10px/1 var(--font-body);letter-spacing:.06em}
+.vision-color-button b{font:700 calc(10px * var(--fs, 1))/1 var(--font-body);letter-spacing:.06em}
 .vision-color-button input[type=color]{position:absolute;inset:0;width:100%!important;height:100%!important;margin:0!important;padding:0!important;border:0!important;opacity:0;cursor:pointer}
 .vision-export{display:flex!important;align-items:center;justify-content:center;gap:8px;min-height:48px;border-radius:999px!important;margin-top:4px}
 @media(max-width:700px){.vision-controls{grid-template-columns:1fr;padding:18px!important}.vision-controls>label,.vision-advanced{grid-column:1}.frame-editor{grid-template-columns:1fr}.frame-editor>div{grid-row:auto}.vision-preview.phone{width:86%}}

@@ -64,10 +64,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <script dangerouslySetInnerHTML={{ __html: "try{var s=localStorage.getItem('already-font-size-v1');if(s==='small'||s==='large')document.documentElement.dataset.fontSize=s}catch(e){}" }} />
         <NativeShell />
         <ViewportKeyboardFix />
         <NoPinchZoom />
