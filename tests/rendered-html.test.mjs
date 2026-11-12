@@ -353,3 +353,70 @@ test("payments: only a paid checkout grants a plan; renewals extend it and cance
   assert.equal(isActive({ status: "active", periodEnd: "2026-01-01T00:00:00Z" }, now), false);
   assert.equal(isActive(null, now), false);
 });
+
+test("leaving: only a whole-message goodbye ends the chat; ordinary sentences never do", async () => {
+  const { isExitIntent, exitReply } = await import("../lib/reply-guards.ts");
+  for (const text of ["不聊了", "我先走了", "再见", "拜拜～", "晚安", "好的，我下线了", "先这样吧", "今天就到这里吧", "别聊了", "bye", "Good night!", "I have to go", "talk later", "那我去睡了"]) {
+    assert.equal(isExitIntent(text), true, text);
+  }
+  for (const text of ["", "不用了", "结束了", "我不想聊他了", "再见到他我会怎样", "他走了", "我要退出这段关系吗", "晚安之后他还会找我吗", "stop being so negative about him", "I do not want to go back to him"]) {
+    assert.equal(isExitIntent(text), false, text);
+  }
+  assert.ok(!/[?？]/.test(exitReply("zh")) && !/[?？]/.test(exitReply("en")), "the goodbye asks nothing");
+});
+
+test("crisis replies name a local help line by country, and the prompts carry a content boundary", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const { crisisResources } = await import("../lib/crisis-resources.ts");
+  assert.match(crisisResources("zh", "CN"), /12356/);
+  assert.match(crisisResources("zh", null), /12356/, "Chinese text with no country falls back to the mainland line");
+  assert.match(crisisResources("en", "US"), /988/);
+  assert.match(crisisResources("zh", "US"), /988/);
+  assert.equal(crisisResources("en", "FR"), "");
+  const source = await readFile(new URL("../lib/already-ai.ts", import.meta.url), "utf8");
+  assert.match(source, /crisisResources\(lang, country\)/, "the self-harm reply appends the local line");
+  assert.match(source, /你的价值不取决于它/, "and still tells her she is not rejected");
+  assert.match(source, /内容边界/);
+  assert.match(source, /Content boundary/);
+  assert.match(source, /她说要结束/);
+});
+
+test("break reminder: fires after 2 hours of continuous chatting, never while idle or hidden, and resets after a long pause", async () => {
+  const { BREAK_AFTER_MS, newUsageState, markActive, tickUsage } = await import("../lib/usage-break.ts");
+  const TICK = 30_000;
+  let now = 0;
+  let state = newUsageState(now);
+  let reminders = 0;
+  const chat = (ms, { visible = true, send = true } = {}) => {
+    for (let spent = 0; spent < ms; spent += TICK) {
+      now += TICK;
+      if (send && spent % (5 * 60_000) === 0) state = markActive(state, now); // a message every 5 minutes
+      const result = tickUsage(state, now, visible, TICK);
+      state = result.state;
+      if (result.remind) reminders += 1;
+    }
+  };
+  chat(BREAK_AFTER_MS - 10 * 60_000);
+  assert.equal(reminders, 0, "not before 2 hours");
+  chat(15 * 60_000);
+  assert.equal(reminders, 1, "once at about 2 hours");
+  chat(60 * 60_000);
+  assert.equal(reminders, 1, "not again within the next 2 hours");
+  chat(65 * 60_000);
+  assert.equal(reminders, 2, "again after another 2 hours");
+
+  // Hidden tab or no messages: nothing counts.
+  now = 0; state = newUsageState(now); reminders = 0;
+  chat(3 * 60 * 60_000, { visible: false });
+  assert.equal(reminders, 0, "a hidden page never counts");
+  chat(3 * 60 * 60_000, { send: false });
+  assert.equal(reminders, 0, "idle with no messages never counts");
+
+  // A pause longer than 30 minutes starts the clock over.
+  now = 0; state = newUsageState(now); reminders = 0;
+  chat(100 * 60_000);
+  now += 40 * 60_000;
+  state = tickUsage(state, now, true, TICK).state;
+  chat(100 * 60_000);
+  assert.equal(reminders, 0, "100 min + pause + 100 min is not 2 hours in a row");
+});

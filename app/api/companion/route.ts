@@ -4,7 +4,8 @@ import {
   type CompanionRequest,
 } from "@/lib/already-ai";
 import { beginBetaRequest, recordConversation, settleBetaRequest } from "@/lib/beta-guard";
-import { cleanReply, contrastRetryNote, hasContrastFrame, isErrorEcho } from "@/lib/reply-guards";
+import { cleanReply, contrastRetryNote, exitReply, hasContrastFrame, isErrorEcho, isExitIntent } from "@/lib/reply-guards";
+import { readClientInfo } from "@/lib/client-info";
 import { OPENAI_BASE_URL, chatContent, chatUsage, type ChatCompletion } from "@/lib/openai-base";
 
 const requestWindows = new Map<string, { startedAt: number; count: number }>();
@@ -79,7 +80,8 @@ export async function POST(request: Request) {
   }
 
   const name = payload.goal.companionName.trim() || (payload.lang === "zh" ? "你" : "you");
-  const safetyReply = desirePreservingSafetyReply(payload.userInput, payload.lang, name);
+  const country = readClientInfo(request.headers, (request as Request & { cf?: Record<string, unknown> }).cf).country;
+  const safetyReply = desirePreservingSafetyReply(payload.userInput, payload.lang, name, country);
   if (safetyReply) {
     return json({
       reply: safetyReply,
@@ -87,6 +89,18 @@ export async function POST(request: Request) {
       beliefObserved: "",
       memoryCandidates: [],
       model: "desire-preserving-safety-route",
+      usage: null,
+    });
+  }
+
+  // She asked to stop: end it right here, no model call, no follow-up question.
+  if (payload.mode === "chat" && isExitIntent(payload.userInput)) {
+    return json({
+      reply: exitReply(payload.lang),
+      journeySummary: payload.goal.journeySummary,
+      beliefObserved: "",
+      memoryCandidates: [],
+      model: "exit-route",
       usage: null,
     });
   }

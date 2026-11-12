@@ -33,6 +33,7 @@ import SubliminalStudio, { PracticeCheckIn, practiceStreak, todayKey } from "./c
 import VisionCanvasStudio from "./components/VisionCanvasStudio";
 import DoughPet from "./components/DoughPet";
 import ReflectionPanel from "./components/ReflectionPanel";
+import { AiLabel, BreakReminder, ReportButton, ReportDialog, SiteRecord } from "./components/Compliance";
 import SyncPanel from "./components/SyncPanel";
 import FontSizePanel from "./components/FontSizePanel";
 import type { ReflectionAnswers, ReflectionQuestionId } from "@/lib/reflection";
@@ -320,6 +321,7 @@ export default function Home() {
   const [savedPulse, setSavedPulse] = useState(false);
   const [goalSavedPulse, setGoalSavedPulse] = useState(false);
   const [acknowledged, setAcknowledged] = useState<boolean | null>(null);
+  const [reportTarget, setReportTarget] = useState<{ excerpt?: string } | null>(null);
   const [declined, setDeclined] = useState(false);
   const [betaStatus, setBetaStatus] = useState<BetaStatus | null>(null);
   const [surveyOpen, setSurveyOpen] = useState(false);
@@ -407,7 +409,7 @@ export default function Home() {
       if (savedCheckIns) setCheckIns(JSON.parse(savedCheckIns));
     } catch { /* the private space can always start fresh */ }
     finally {
-      setAcknowledged(readStored("already-acknowledged-v2") === "yes");
+      setAcknowledged(readStored("already-acknowledged-v3") === "yes");
       setHydrated(true);
       fetch("/api/space", { cache: "no-store", headers: { "x-already-session-id": activeSession } })
         .then(async (response) => ({ response, data: await response.json() as { space?: Record<string, unknown> | null } }))
@@ -1117,7 +1119,9 @@ export default function Home() {
           <p>{lang === "zh" ? "继续即表示你已阅读并同意测试版条款、隐私说明、AI 与安全说明及素材与版权规则。完整文本会一直保留在“我的空间”。内测期间，你与 AI 的对话会被保存，创始人会阅读这些对话，并结合你的大致地区（国家或城市）、设备类型和使用情况来改进 AlreaDough。我们的数据库不记录 IP 地址。" : "By continuing, you confirm that you have read and accept the beta terms, privacy notice, AI and safety notice, and content and copyright rules. They remain available in My Space. During this beta, your conversations with the AI are saved and the founder reads them, together with your approximate location (country or city), device type, and usage, to improve AlreaDough. Our database does not record IP addresses."}</p>
           <div className="acknowledge-links"><a href="/terms" target="_blank">{lang === "zh" ? "测试版条款" : "Beta terms"}</a><a href="/privacy" target="_blank">{lang === "zh" ? "隐私说明" : "Privacy"}</a><a href="/trust" target="_blank">{lang === "zh" ? "AI 与安全" : "AI & safety"}</a><a href="/copyright" target="_blank">{lang === "zh" ? "素材与版权" : "Content & copyright"}</a></div>
           <label className="acknowledge-check"><input type="checkbox" id="acknowledge-choice"/><span>{lang === "zh" ? "我已阅读并同意以上说明。" : "I have read and agree to the notices above."}</span></label>
-          <div className="acknowledge-actions"><button className="outline-button" onClick={() => setDeclined(true)}>{lang === "zh" ? "不同意并退出" : "Decline and exit"}</button><button className="primary" onClick={() => { const input = document.querySelector<HTMLInputElement>("#acknowledge-choice"); if (!input?.checked) { input?.focus(); return; } writeStored("already-acknowledged-v2", "yes"); setAcknowledged(true); }}>{lang === "zh" ? "同意并进入" : "Agree and enter"}</button></div>
+          <label className="acknowledge-check"><input type="checkbox" id="acknowledge-adult"/><span>{lang === "zh" ? "我已年满 18 周岁，并理解本服务面向成年人。" : "I am 18 or older and understand this service is for adults."}</span></label>
+          <div className="acknowledge-actions"><button className="outline-button" onClick={() => setDeclined(true)}>{lang === "zh" ? "不同意并退出" : "Decline and exit"}</button><button className="primary" onClick={() => { const input = document.querySelector<HTMLInputElement>("#acknowledge-choice"); if (!input?.checked) { input?.focus(); return; } const adult = document.querySelector<HTMLInputElement>("#acknowledge-adult"); if (!adult?.checked) { adult?.focus(); return; } writeStored("already-acknowledged-v3", "yes"); setAcknowledged(true); }}>{lang === "zh" ? "同意并进入" : "Agree and enter"}</button></div>
+          <SiteRecord lang={lang} />
         </>}
       </section>
     </main>;
@@ -1179,9 +1183,9 @@ export default function Home() {
           <p>{t.hero}</p>
         </div>}
         <div className="home-ai-thread">
-          {sessionMessages.map((message, index) => <div className={`message-group ${message.role}`} key={message.id}><div className={`message ${message.role}`}>{message.text}</div><div className="message-actions">
+          {sessionMessages.map((message, index) => <div className={`message-group ${message.role}`} key={message.id}><div className={`message ${message.role}`}>{message.text}</div>{message.role === "ai" && !message.error && <AiLabel lang={lang} />}<div className="message-actions">
             <button onClick={() => navigator.clipboard.writeText(message.text)} aria-label={lang === "zh" ? "复制" : "Copy"}><Copy size={15}/><span>{lang === "zh" ? "复制" : "Copy"}</span></button>
-            {message.role === "user" ? <button onClick={() => editUserMessage(index)}><NotePencil size={15}/><span>{lang === "zh" ? "编辑并重发" : "Edit and resend"}</span></button> : <><button onClick={() => regenerateReply(index)}><ArrowClockwise size={15}/><span>{lang === "zh" ? "重新回答" : "Regenerate"}</span></button><button onClick={() => saveReplyAsStory(message)}><BookmarkSimple size={15}/><span>{message.saved ? (lang === "zh" ? "已保存" : "Saved") : (lang === "zh" ? "存为故事" : "Save as story")}</span></button><button onClick={() => { setOldScene(message.text); setView("revision"); }}><ArrowsClockwise size={15}/><span>{lang === "zh" ? "带入重写" : "Take to revision"}</span></button><button onClick={() => { setGoal((current) => ({ ...current, acceptedSceneLedger: { ...current.acceptedSceneLedger, [lang]: [message.text.slice(0, 500), ...current.acceptedSceneLedger[lang]].slice(0, 8) } })); setView("subliminal"); }}><Waveform size={15}/><span>{lang === "zh" ? "带入声场" : "Take to Dreamscape"}</span></button><button className={message.feedback === "helpful" ? "selected" : ""} onClick={() => feedbackReply(message, "helpful")}><ThumbsUp size={15}/><span>{lang === "zh" ? "懂我" : "Helpful"}</span></button><button className={message.feedback === "missed" ? "selected" : ""} onClick={() => feedbackReply(message, "missed")}><ThumbsDown size={15}/><span>{lang === "zh" ? "不适合" : "Not for me"}</span></button></>}
+            {message.role === "user" ? <button onClick={() => editUserMessage(index)}><NotePencil size={15}/><span>{lang === "zh" ? "编辑并重发" : "Edit and resend"}</span></button> : <><button onClick={() => regenerateReply(index)}><ArrowClockwise size={15}/><span>{lang === "zh" ? "重新回答" : "Regenerate"}</span></button><button onClick={() => saveReplyAsStory(message)}><BookmarkSimple size={15}/><span>{message.saved ? (lang === "zh" ? "已保存" : "Saved") : (lang === "zh" ? "存为故事" : "Save as story")}</span></button><button onClick={() => { setOldScene(message.text); setView("revision"); }}><ArrowsClockwise size={15}/><span>{lang === "zh" ? "带入重写" : "Take to revision"}</span></button><button onClick={() => { setGoal((current) => ({ ...current, acceptedSceneLedger: { ...current.acceptedSceneLedger, [lang]: [message.text.slice(0, 500), ...current.acceptedSceneLedger[lang]].slice(0, 8) } })); setView("subliminal"); }}><Waveform size={15}/><span>{lang === "zh" ? "带入声场" : "Take to Dreamscape"}</span></button><button className={message.feedback === "helpful" ? "selected" : ""} onClick={() => feedbackReply(message, "helpful")}><ThumbsUp size={15}/><span>{lang === "zh" ? "懂我" : "Helpful"}</span></button><button className={message.feedback === "missed" ? "selected" : ""} onClick={() => feedbackReply(message, "missed")}><ThumbsDown size={15}/><span>{lang === "zh" ? "不适合" : "Not for me"}</span></button><ReportButton lang={lang} onClick={() => setReportTarget({ excerpt: message.text })}/></>}
           </div></div>)}
           {isTyping && <div className="message ai typing"><i/><i/><i/></div>}
         </div>
@@ -1294,6 +1298,7 @@ export default function Home() {
           <SyncPanel lang={lang} sessionId={sessionId} syncStatus={syncStatus} hasLocalData={goal.setupComplete} />
           <div className="setting-card goal-lifecycle-card"><span>{lang === "zh" ? "愿望生命周期" : "DESIRE LIFECYCLE"}</span><p>{lang === "zh" ? "愿望完成后，把它留在历程中，再开启一张新的愿望卡。" : "When this desire is complete, keep it in your journey and open a fresh desire card."}</p><button className="outline-button" onClick={archiveAndBeginAgain}>{lang === "zh" ? "完成并归档，开启新愿望" : "Complete, archive, and begin again"}</button></div>
           {goalArchive.length > 0 && <div className="setting-card archive-card"><span>{lang === "zh" ? `已经发生的愿望 · ${goalArchive.length}` : `FULFILLED DESIRES · ${goalArchive.length}`}</span>{goalArchive.slice(0, 5).map((item) => <article key={item.id}><strong>{item.desire[lang] || item.desire[lang === "zh" ? "en" : "zh"]}</strong><small>{item.createdAt ? new Date(item.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US") : ""}</small></article>)}</div>}
+          <div className="setting-card report-card"><span>{lang === "zh" ? "联系与举报" : "CONTACT & REPORTS"}</span><p>{lang === "zh" ? "发现不当、违法或让你不舒服的内容，可以在这里举报。每条 AI 回复下面也有“举报”按钮。我们会尽快查看。" : "If you see anything inappropriate, unlawful, or upsetting, report it here. Every AI reply also has a Report button. We read these as soon as we can."}</p><button className="outline-button" onClick={() => setReportTarget({})}>{lang === "zh" ? "举报内容或反馈问题" : "Report content or send feedback"}</button><SiteRecord lang={lang} /></div>
           <div className="setting-card data-control-card"><span>{lang === "zh" ? "我的数据" : "MY DATA"}</span><p>{lang === "zh" ? "下载愿望卡、故事、对话、重写与打卡记录。私密照片和音频文件不会写入导出文件。" : "Download desire cards, stories, conversations, revisions, and check-ins. Private photo and audio files are excluded."}</p><button className="outline-button" onClick={exportMyData}>{lang === "zh" ? "导出我的数据" : "Export my data"}</button></div>
           <div className="legal-links"><a className="trust-link" href="/pricing">{lang === "zh" ? "会员与价格" : "Membership & pricing"}</a><a className="trust-link" href="/trust">{t.trust}</a><a className="trust-link" href="/privacy">{lang === "zh" ? "隐私说明" : "Privacy"}</a><a className="trust-link" href="/terms">{lang === "zh" ? "测试版条款" : "Beta terms"}</a><a className="trust-link" href="/copyright">{lang === "zh" ? "素材与版权" : "Content & copyright"}</a></div>
           <button className="outline-button danger-button" onClick={() => { if (window.confirm(t.confirm)) { void fetch("/api/space", { method: "DELETE", headers: { "x-already-session-id": sessionId } }); removeStored("already-private-state-v5"); removeStored("already-practice-checkins-v1"); removeStored("already-subliminal-v1"); removeStored("already-vision-project-v1"); indexedDB.deleteDatabase("already-private-audio-v1"); indexedDB.deleteDatabase("already-private-vision-v1"); setGoal({ ...defaultGoal }); setGoalArchive([]); setConversationArchive([]); setConversationId(""); setSpNameDraft(""); setBeliefDraft(""); setStoryLibrary([]); setMessages([]); setRevisions([]); setCheckIns([]); setBoard([]); setView("home"); setOnboardingStep(0); } }}>{t.clear}</button>
@@ -1330,6 +1335,8 @@ export default function Home() {
           return <button key={item.id} className={active ? "active" : ""} onClick={() => navigate(item.id)}><Icon size={21} weight={active ? "fill" : "regular"}/><span>{item.label}</span></button>;
         })}
       </nav>
+      {reportTarget && <ReportDialog lang={lang} sessionId={sessionId} excerpt={reportTarget.excerpt} onClose={() => setReportTarget(null)} />}
+      <BreakReminder lang={lang} activity={messages.length + (isTyping ? 1 : 0)} />
     </main>
   );
 }

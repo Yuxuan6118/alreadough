@@ -9,6 +9,9 @@ type Conversation = { id: string; title: string; createdAt: string; messages: Me
 type ChatUser = { label: string; updatedAt: string; messageCount: number; conversations: Conversation[] };
 type Sample = { id: string; user: string; created_at: string; mode: string; coach_mode: string | null; context: Message[]; user_text: string; ai_reply: string; feedback: string | null };
 
+type Report = { id: string; user: string; reason: string; detail: string | null; replyExcerpt: string | null; lang: string | null; status: string; createdAt: string; handledAt: string | null };
+const REASON_LABEL: Record<string, string> = { illegal: "违法违规", sexual: "色情低俗", violence: "暴力血腥", minors: "涉及未成年人", harassment: "辱骂骚扰", self_harm: "自伤自残", other: "其他" };
+
 type Profile = { user: string; first_seen_at: string; last_seen_at: string; visits: number; country: string | null; region: string | null; city: string | null; timezone: string | null; lang: string | null; device: string | null; os: string | null; browser: string | null; turns: number; active_days: number; helpful: number; missed: number; wish_category: string | null; coach_mode: string | null };
 
 const FOUNDER_KEY_STORAGE = "already-founder-key";
@@ -16,10 +19,11 @@ const when = (iso: string) => (iso ? new Date(iso).toLocaleString("zh-CN", { hou
 
 export default function FounderChatsPage() {
   const [token, setToken] = useState<string | null>(null);
-  const [tab, setTab] = useState<"threads" | "samples" | "profiles">("threads");
+  const [tab, setTab] = useState<"threads" | "samples" | "profiles" | "reports">("threads");
   const [users, setUsers] = useState<ChatUser[] | null>(null);
   const [samples, setSamples] = useState<Sample[] | null>(null);
   const [profiles, setProfiles] = useState<Profile[] | null>(null);
+  const [reports, setReports] = useState<Report[] | null>(null);
   const [selected, setSelected] = useState("");
   const [openConversation, setOpenConversation] = useState(0);
   const [filter, setFilter] = useState<"all" | "helpful" | "missed">("all");
@@ -33,22 +37,29 @@ export default function FounderChatsPage() {
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const load = useCallback(async (view: "chats" | "samples" | "profiles") => {
+  const load = useCallback(async (view: "chats" | "samples" | "profiles" | "reports") => {
     if (!token) return;
     try {
       const response = await fetch(`/api/beta/admin?view=${view}`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
       if (!response.ok) throw new Error("访问密钥无效，请先回到测试驾驶舱用 /beta?key=你的密钥 打开一次。");
-      const data = await response.json() as { users?: ChatUser[]; samples?: Sample[]; profiles?: Profile[] };
+      const data = await response.json() as { users?: ChatUser[]; samples?: Sample[]; profiles?: Profile[]; reports?: Report[] };
       setError("");
       if (view === "chats") { setUsers(data.users || []); setSelected((current) => current || data.users?.[0]?.label || ""); }
       else if (view === "profiles") setProfiles(data.profiles || []);
+      else if (view === "reports") setReports(data.reports || []);
       else setSamples(data.samples || []);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "读取失败"); }
   }, [token]);
 
   /* eslint-disable react-hooks/set-state-in-effect -- fetch on tab change */
-  useEffect(() => { if (tab === "threads" && users === null) void load("chats"); if (tab === "samples" && samples === null) void load("samples"); if (tab === "profiles" && profiles === null) void load("profiles"); }, [tab, users, samples, profiles, load]);
+  useEffect(() => { if (tab === "threads" && users === null) void load("chats"); if (tab === "samples" && samples === null) void load("samples"); if (tab === "profiles" && profiles === null) void load("profiles"); if (tab === "reports" && reports === null) void load("reports"); }, [tab, users, samples, profiles, reports, load]);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  const markReport = async (id: string, status: "handled" | "new") => {
+    if (!token) return;
+    const response = await fetch("/api/beta/admin", { method: "PUT", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ reportId: id, status }) });
+    if (response.ok) setReports((items) => (items || []).map((item) => item.id === id ? { ...item, status, handledAt: status === "handled" ? new Date().toISOString() : null } : item));
+  };
 
   const current = useMemo(() => users?.find((user) => user.label === selected), [users, selected]);
   const conversation = current?.conversations[Math.min(openConversation, (current?.conversations.length || 1) - 1)];
@@ -57,7 +68,7 @@ export default function FounderChatsPage() {
   return <main className="chat-viewer">
     <header><div><p>ALREADOUGH · FOUNDER</p><h1>对话记录</h1><span>仅创始人可见。用户用 8 位编号区分，不显示昵称、愿望卡或原始设备 ID。</span></div><a href="/beta">返回驾驶舱</a></header>
     {token === null ? <p>正在验证访问权限…</p> : !token ? <section className="viewer-error"><h2>还没有访问密钥</h2><p>先用 /beta?key=你的密钥 打开一次测试驾驶舱，再回到这里。</p></section> : <>
-      <nav className="viewer-tabs"><button className={tab === "threads" ? "active" : ""} onClick={() => setTab("threads")}>完整对话（按用户）</button><button className={tab === "samples" ? "active" : ""} onClick={() => setTab("samples")}>回复评价（👍/👎）</button><button className={tab === "profiles" ? "active" : ""} onClick={() => setTab("profiles")}>用户画像</button></nav>
+      <nav className="viewer-tabs"><button className={tab === "threads" ? "active" : ""} onClick={() => setTab("threads")}>完整对话（按用户）</button><button className={tab === "samples" ? "active" : ""} onClick={() => setTab("samples")}>回复评价（👍/👎）</button><button className={tab === "profiles" ? "active" : ""} onClick={() => setTab("profiles")}>用户画像</button><button className={tab === "reports" ? "active" : ""} onClick={() => setTab("reports")}>举报与反馈{reports ? `（${reports.filter((item) => item.status === "new").length} 待处理）` : ""}</button></nav>
       {error && <p className="viewer-error-line">{error}</p>}
       {tab === "threads" && (users === null ? <p>正在读取…</p> : !users.length ? <p>还没有同步的对话。</p> : <div className="viewer-split">
         <aside>{users.map((user) => <button key={user.label} className={user.label === selected ? "active" : ""} onClick={() => { setSelected(user.label); setOpenConversation(0); }}><strong>用户 {user.label}</strong><small>{user.messageCount} 条消息 · {user.conversations.length} 段对话</small><small>最后活跃 {when(user.updatedAt)}</small></button>)}</aside>
@@ -74,6 +85,12 @@ export default function FounderChatsPage() {
           <div className="bubble ai"><small>AI</small><p>{sample.ai_reply}</p></div>
         </article>)}
       </>)}
+      {tab === "reports" && (reports === null ? <p>正在读取…</p> : !reports.length ? <p>还没有收到举报。</p> : <div className="viewer-reports">{reports.map((item) => <article key={item.id} className={item.status === "handled" ? "handled" : ""}>
+        <header><strong>{REASON_LABEL[item.reason] || item.reason}</strong><small>用户 {item.user} · {when(item.createdAt)} · {item.status === "handled" ? `已处理 ${when(item.handledAt || "")}` : "待处理"}</small></header>
+        {item.detail && <p>{item.detail}</p>}
+        {item.replyExcerpt && <blockquote>{item.replyExcerpt}</blockquote>}
+        <button onClick={() => void markReport(item.id, item.status === "handled" ? "new" : "handled")}>{item.status === "handled" ? "改回待处理" : "标记已处理"}</button>
+      </article>)}</div>)}
       {tab === "profiles" && (profiles === null ? <p>正在读取…</p> : !profiles.length ? <p>还没有记录。用户打开 App 后会开始出现。</p> : <>
         <div className="viewer-segments">{([["国家", (p: Profile) => p.country], ["设备", (p: Profile) => p.device], ["系统", (p: Profile) => p.os], ["浏览器", (p: Profile) => p.browser], ["语言", (p: Profile) => p.lang], ["愿望方向", (p: Profile) => p.wish_category], ["引导方式", (p: Profile) => p.coach_mode]] as Array<[string, (p: Profile) => string | null]>).map(([title, pick]) => {
           const counts = profiles.reduce<Record<string, number>>((acc, item) => { const key = pick(item) || "未知"; acc[key] = (acc[key] || 0) + 1; return acc; }, {});

@@ -1,4 +1,5 @@
 import { relationshipImagery, replyLengthGuidance } from "./reply-guards";
+import { crisisResources } from "./crisis-resources";
 
 export type CompanionMode = "chat" | "revision" | "story";
 export type CompanionLang = "zh" | "en";
@@ -62,6 +63,7 @@ const zhInstructions = `你是 AlreaDough 的 Belief Companion，一位温柔、
 
 现实行动边界：
 - 如果用户要求违法、跟踪、盗号、偷拍、勒索、骚扰、冒充、散布隐私、强迫或伤害性的现实手段，只拒绝该具体手段；紧接着明确保留她的愿望，并把练习带回双方自愿、公开、安心的完成态场景。
+- 内容边界：不写露骨的性描写和色情内容，亲密场景保持含蓄温暖（拥抱、牵手、靠近、亲吻额头等）；不写涉及政治敏感、暴力、赌博、毒品、违法犯罪或自伤自残方法的内容。遇到这类要求，温和地说这个我不写，然后回到她愿望里可以写的部分，不说教。
 - 只有出现明确自伤、伤人或紧急危险时，才简短暂停沉浸并鼓励联系身边可信任的人、当地急救或危机支持。不要把这种提醒用于普通动摇。出现这种情况时不否定她、不否定她的愿望，让她看见自己的价值：再糟的现实也不值得用伤害自己来回应。
 
 写作要求：称呼用户设定的名字，但偶尔叫一次就好，不要每条回复都以名字开头。用自然中文，不要像客服，不要列出一堆原则。聊天回复通常 100 至 220 字；Revision 180 至 350 字；Storytelling 450 至 750 字。`;
@@ -79,6 +81,7 @@ Core experience:
 
 Real-world action boundary:
 - If asked for illegal, stalking, account intrusion, surveillance, blackmail, harassment, impersonation, privacy invasion, coercive, or harmful real-world methods, refuse only that method. Immediately preserve the desire and return to a mutual, willing, open, secure fulfilled scene.
+- Content boundary: do not write explicit sexual content or pornography; keep intimate scenes implied and warm (holding, hand in hand, closeness, a kiss on the forehead). Do not write politically sensitive content, graphic violence, gambling, drugs, criminal methods, or self-harm methods. If asked, gently say you will not write that one and return to what you can write inside her desire, without lecturing.
 - Only for explicit self-harm, harm to others, or immediate danger, briefly pause immersion and encourage reaching a trusted nearby person, local emergency services, or crisis support. Do not use this interruption for ordinary doubt. When it happens, never deny her or her desire; help her see her own worth: no reality, however bad, is worth hurting herself over.
 
 Writing: use the user's chosen name only occasionally, never as the opening of every reply. Sound human and intimate, never corporate. Chat is usually 90 to 180 words; Revision 140 to 280 words; Storytelling 350 to 650 words.`;
@@ -98,6 +101,7 @@ const zhVoice = `语言质感（对所有引导方式、所有模式都适用）
 - 写画面时，意象要服务她想要的感觉，不要随手塞一个生活道具（杯子、水、窗边的光、一碗汤）当背景。道具只在她自己提过时才出现；否则宁可不写物件，直接写人与人之间的距离、温度和声音。
 - 她只是表达想念、依恋或离不开某个人时，不要判断她在痛苦、在硬撑、快撑不住，也不要劝她放下、别想了或先缓一缓；她没说的状态不替她加，“撑着”“放下”“今晚就先这样”都是她没提过的。顺着她说的那句话接，别切换成哄人的安慰腔。
 - 写完前自查用词是否搭得上：形容词要能描述它修饰的东西（想象、念头不能“重”，可以说“沉”“难受”；“撑着”是硬扛痛苦，不是“还能说话”）。拿不准的词换成更平常的说法。
+- 她说要结束、要走、不聊了、晚安：只回一句简短的告别，不挽留，不提问，不开新话题，不说“再聊一会儿”。
 - 不要用破折号“——”，用逗号或句号。`;
 
 const enVoice = `Voice (applies to every guidance method and every mode):
@@ -112,6 +116,7 @@ const enVoice = `Voice (applies to every guidance method and every mode):
 - When you write an image, make it serve the feeling she wants. Do not drop in a stray household prop (a cup, water, light through a window, a bowl of soup) as set dressing. Use props only if she mentioned them; otherwise skip objects and write the distance, warmth, and voice between the two people.
 - When she only voices missing someone, attachment, or not being able to imagine life without them, do not decide she is in pain, barely holding on, or needs to let go or slow down. Do not add states she never mentioned. Answer the sentence she said; do not switch into a soothing-script voice.
 - Before finishing, check that every word fits what it describes (an imagination cannot be "heavy"; "holding on" means enduring pain, not "still able to type"). If unsure, use a plainer word.
+- When she says she is leaving, stopping, or going to sleep: reply with one short goodbye only, no persuading her to stay, no question, no new topic.
 - Do not use em-dashes; use a comma or a full stop.`;
 
 const coachOverlays: Record<CoachMode, Record<CompanionLang, string>> = {
@@ -228,14 +233,14 @@ export function buildInput(payload: CompanionRequest) {
   });
 }
 
-export function desirePreservingSafetyReply(input: string, lang: CompanionLang, name: string) {
+export function desirePreservingSafetyReply(input: string, lang: CompanionLang, name: string, country?: string | null) {
   const urgent = lang === "zh"
     ? /(我要|想要|准备|打算).{0,8}(自杀|去死|杀了他|杀人|伤害自己|伤害他)|现在.{0,5}(有危险|控制不住)/i
     : /(i am going to|i'm going to|i want to|i plan to).{0,12}(kill myself|die|kill him|kill her|hurt myself|hurt them)|immediate danger/i;
   if (urgent.test(input)) {
     return lang === "zh"
-      ? `${name}，这一刻先不需要独自撑住，也不需要继续练习。请现在联系一个能来到你身边的可信任的人，并联系当地急救或危机支持；如果危险就在眼前，请立刻拨打当地紧急电话。你的愿望没有因此被否定，你自己更没有。再糟的现实，也不值得你用伤害自己来回应，你的价值不取决于它。我们只是先让你安全地度过这一刻。`
-      : `${name}, you do not need to hold this moment alone or continue the practice right now. Please contact someone you trust who can be physically with you, and reach local emergency or crisis support; if danger is immediate, call your local emergency number now. Your desire is not being rejected, and neither are you. No reality, however bad, is worth hurting yourself over, and your worth does not depend on it. We are making sure you get through this moment safely.`;
+      ? `${name}，这一刻先不需要独自撑住，也不需要继续练习。请现在联系一个能来到你身边的可信任的人，并联系当地急救或危机支持；如果危险就在眼前，请立刻拨打当地紧急电话。你的愿望没有因此被否定，你自己更没有。再糟的现实，也不值得你用伤害自己来回应，你的价值不取决于它。我们只是先让你安全地度过这一刻。${crisisResources(lang, country) ? `\n\n${crisisResources(lang, country)}` : ""}`
+      : `${name}, you do not need to hold this moment alone or continue the practice right now. Please contact someone you trust who can be physically with you, and reach local emergency or crisis support; if danger is immediate, call your local emergency number now. Your desire is not being rejected, and neither are you. No reality, however bad, is worth hurting yourself over, and your worth does not depend on it. We are making sure you get through this moment safely.${crisisResources(lang, country) ? `\n\n${crisisResources(lang, country)}` : ""}`;
   }
 
   const harmfulMethod = lang === "zh"

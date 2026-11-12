@@ -1366,3 +1366,17 @@ html[data-font-size="large"] { --fs: 1.2; }
 .font-size-glyph.large { font-size: 30px; }
 .font-size-options small { font-size: 13px; }
 .font-size-sample { font-family: var(--font-display); }
+
+/* compliance: AI label, report dialog, filing numbers, break reminder */
+.ai-label { display: block; margin: 6px 0 0; color: var(--app-muted); font-size: 12px; line-height: 17px; opacity: .8; }
+.report-modal h2 { margin: 0 0 12px; }
+.report-excerpt { margin: 0 0 14px; padding: 8px 12px; border-left: 3px solid var(--app-line); color: var(--app-muted); font-size: 13px; line-height: 1.6; }
+.report-reasons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.report-reasons button { padding: 8px 14px; border: 1px solid var(--app-line); border-radius: 999px; color: var(--app-ink); background: var(--app-panel); font-size: 14px; }
+.report-reasons button.selected { color: var(--app-accent-ink); background: var(--app-accent); border-color: var(--app-accent); }
+.report-modal label { display: grid; gap: 6px; margin-bottom: 14px; font-size: 13px; color: var(--app-muted); }
+.report-modal textarea { min-height: 84px; padding: 10px 12px; border: 1px solid var(--app-line); border-radius: 12px; color: var(--app-ink); background: var(--app-panel); font: inherit; font-size: 15px; resize: vertical; }
+.report-card .outline-button { margin-top: 10px; }
+.site-record { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 14px; color: var(--app-muted); font-size: 12px; line-height: 18px; }
+.site-record a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.break-tip { top: calc(env(safe-area-inset-top) + 66px); }

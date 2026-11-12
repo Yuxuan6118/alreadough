@@ -48,6 +48,9 @@ async function createBetaTables() {
     `CREATE INDEX IF NOT EXISTS beta_conversations_created_idx ON beta_conversations(created_at)`,
     // One row per device: coarse location + device type + visit counts. No IP address, no fingerprint.
     `CREATE TABLE IF NOT EXISTS beta_profiles (user_hash TEXT PRIMARY KEY NOT NULL, first_seen_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, visits INTEGER NOT NULL DEFAULT 1, country TEXT, region TEXT, city TEXT, timezone TEXT, lang TEXT, device TEXT, os TEXT, browser TEXT)`,
+    // User reports of AI replies and content (the complaint channel). Only a device hash, the reason, and a short excerpt.
+    `CREATE TABLE IF NOT EXISTS beta_reports (id TEXT PRIMARY KEY NOT NULL, user_hash TEXT NOT NULL, reason TEXT NOT NULL, detail TEXT, reply_excerpt TEXT, lang TEXT, status TEXT NOT NULL DEFAULT 'new', created_at TEXT NOT NULL, handled_at TEXT)`,
+    `CREATE INDEX IF NOT EXISTS beta_reports_created_idx ON beta_reports(created_at)`,
   ];
   for (const sql of statements) await env.DB.prepare(sql).run();
 }
@@ -237,6 +240,37 @@ export async function listProfiles(limit = 500) {
 export async function setBetaEnabled(enabled: boolean) {
   await ensureBetaTables();
   await env.DB.prepare("INSERT INTO beta_settings (key, value, updated_at) VALUES ('ai_enabled', ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at").bind(String(enabled), new Date().toISOString()).run();
+}
+
+const REPORT_REASONS = new Set(["illegal", "sexual", "violence", "minors", "harassment", "self_harm", "other"]);
+
+export async function recordReport(request: Request, sessionId: string, report: { reason: string; detail?: string; replyExcerpt?: string; lang?: string }) {
+  await ensureBetaTables();
+  const userId = requestIdentity(request, sessionId);
+  if (!userId) return { ok: false as const, code: "SIGN_IN_REQUIRED" };
+  if (!REPORT_REASONS.has(report.reason)) return { ok: false as const, code: "INVALID_REASON" };
+  const hash = await sha256(userId);
+  const since = new Date(Date.now() - 86_400_000).toISOString();
+  const recent = await env.DB.prepare("SELECT COUNT(*) AS n FROM beta_reports WHERE user_hash = ? AND created_at > ?").bind(hash, since).first<{ n: number }>();
+  if ((recent?.n ?? 0) >= 20) return { ok: false as const, code: "TOO_MANY_REPORTS" };
+  const id = crypto.randomUUID();
+  await env.DB.prepare("INSERT INTO beta_reports (id, user_hash, reason, detail, reply_excerpt, lang, status, created_at) VALUES (?, ?, ?, ?, ?, ?, 'new', ?)")
+    .bind(id, hash, report.reason, (report.detail || "").trim().slice(0, 1000) || null, (report.replyExcerpt || "").trim().slice(0, 800) || null, report.lang === "en" ? "en" : "zh", new Date().toISOString()).run();
+  return { ok: true as const, id };
+}
+
+type ReportRow = { id: string; user_hash: string; reason: string; detail: string | null; reply_excerpt: string | null; lang: string | null; status: string; created_at: string; handled_at: string | null };
+
+export async function listReports(limit = 200) {
+  await ensureBetaTables();
+  const rows = await env.DB.prepare("SELECT id, user_hash, reason, detail, reply_excerpt, lang, status, created_at, handled_at FROM beta_reports ORDER BY created_at DESC LIMIT ?").bind(Math.max(1, Math.min(500, limit))).all<ReportRow>();
+  return (rows.results || []).map((row: ReportRow) => ({ id: row.id, user: row.user_hash.slice(0, 8), reason: row.reason, detail: row.detail, replyExcerpt: row.reply_excerpt, lang: row.lang, status: row.status, createdAt: row.created_at, handledAt: row.handled_at }));
+}
+
+export async function setReportStatus(id: string, status: "new" | "handled") {
+  await ensureBetaTables();
+  const result = await env.DB.prepare("UPDATE beta_reports SET status = ?, handled_at = ? WHERE id = ?").bind(status, status === "handled" ? new Date().toISOString() : null, id).run();
+  return Boolean(result.meta?.changes);
 }
 
 export { LIMITS };

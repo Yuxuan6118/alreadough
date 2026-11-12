@@ -36,3 +36,11 @@
 .viewer-table table { border-collapse: collapse; width: 100%; font-size: 13px; }
 .viewer-table th, .viewer-table td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .viewer-table th { color: var(--muted); font-weight: 600; font-size: 12px; }
+.viewer-reports { display: grid; gap: 12px; }
+.viewer-reports article { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 8px; }
+.viewer-reports article.handled { opacity: .6; }
+.viewer-reports header { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: baseline; }
+.viewer-reports header small { color: var(--muted); font-size: 12px; }
+.viewer-reports p, .viewer-reports blockquote { margin: 0; white-space: pre-wrap; line-height: 1.7; font-size: 14px; }
+.viewer-reports blockquote { border-left: 3px solid var(--line); padding-left: 10px; color: var(--muted); }
+.viewer-reports button { justify-self: start; border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 6px 14px; font-size: 13px; }

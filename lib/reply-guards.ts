@@ -63,3 +63,23 @@ export function relationshipImagery(lang: "zh" | "en") {
     ? "她的愿望是和某个人的关系。需要画面或想象时，用亲密、温暖的东西：被他抱着、牵着手、额头靠着额头、靠在他肩上、他的体温和心跳、他叫她名字的声音、他亲她的额头或脸。可以从这些里选一个贴合她这句话的，别每次都用同一个，也别每次都写拥抱。不要用杯子、水、饭菜、窗光这类道具当画面的主角，除非她自己提过。她没要画面时就不写，先回应她这句话本身。"
     : "Her desire is about a relationship with a particular person. When an image or imagined moment helps, use closeness and warmth: being held by him, holding hands, foreheads together, leaning on his shoulder, his body heat and heartbeat, his voice saying her name, a kiss on the forehead or cheek. Pick one that fits what she just said; vary it, and do not default to a hug every time. Do not make props such as cups, water, food, or window light the center of the image unless she mentioned them. If she did not ask for an image, skip it and answer the thing she said.";
 }
+
+/**
+ * She says she wants to stop (bye, not chatting any more, going to sleep). The service must stop at once and not
+ * keep her talking, so the route answers with a fixed farewell instead of asking the model. Whole-message matches
+ * only, so a sentence that merely contains one of these words is never treated as leaving.
+ */
+const ZH_EXIT = /^(?:好的?|嗯+|那|那我|好吧)*(?:我先?|先|就)?(?:不聊了?|不说了?|不想聊了?|不想说了?|不想再聊了?|别聊了|别说了|走了|走啦|下线了?|退出|退出对话|结束对话|停止对话|先这样|就这样|到这(?:里|儿)|今天(?:就|先)?到这(?:里|儿)?|再见|拜拜|拜拜啦|拜|88|886|晚安|去睡了|去睡觉了|要睡了|去忙了)(?:了|吧|啦|哦|呀|哈|的)*(?:谢谢|谢了|多谢)?$/;
+const EN_EXIT = /^(?:bye(?: bye)?|goodbye|good ?night|gotta go|i(?:'ve got| have)? to go|i(?:'m| am) (?:done|leaving|going now)|that'?s (?:all|it)|stop|quit|exit|end (?:the )?chat|talk (?:to you )?later|see you(?: later)?|let'?s stop|i(?:'ll| will) stop here)$/;
+
+export function isExitIntent(text: string) {
+  const raw = (text || "").trim();
+  if (!raw || raw.length > 30) return false;
+  const zh = raw.replace(/[\s。！!？?，,、…~～.]+/g, "");
+  const en = raw.toLowerCase().replace(/[。！!？?，,、…~～.]+/g, "").replace(/\s+/g, " ").trim();
+  return ZH_EXIT.test(zh) || EN_EXIT.test(en);
+}
+
+export function exitReply(lang: "zh" | "en") {
+  return lang === "zh" ? "好的，今天就到这里。照顾好自己。" : "Okay, we'll stop here. Take care of yourself.";
+}
