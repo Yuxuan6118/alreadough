@@ -30,9 +30,13 @@ export const metadata: Metadata = {
   },
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/already-app-icon.png",
-    shortcut: "/already-app-icon.png",
-    apple: "/already-app-icon.png",
+    // Small files on purpose: a 1.4MB favicon often times out on phones, and the system then draws a letter instead of the logo.
+    icon: [
+      { url: "/already-app-icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    shortcut: "/already-app-icon-192.png",
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
   openGraph: {
     title: "AlreaDough | Your living desire space",
