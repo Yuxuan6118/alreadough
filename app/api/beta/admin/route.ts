@@ -1,3 +1,4 @@
+import { listPayments } from "@/lib/payments-db";
 import { founderSnapshot, listConversations, listProfiles, listUserChats, setBetaEnabled } from "@/lib/beta-guard";
 
 function timingSafeEqual(a: string, b: string) {
@@ -26,6 +27,7 @@ export async function GET(request: Request) {
   const view = new URL(request.url).searchParams.get("view");
   // Readable views for the founder chat page: full threads per user, and the rated reply samples.
   if (view === "chats") return Response.json({ users: await listUserChats() }, { headers: { "Cache-Control": "no-store" } });
+  if (view === "payments") return Response.json(await listPayments(), { headers: { "Cache-Control": "no-store" } });
   if (view === "profiles") return Response.json({ profiles: await listProfiles() }, { headers: { "Cache-Control": "no-store" } });
   if (view === "samples") return Response.json({ samples: await listConversations(300) }, { headers: { "Cache-Control": "no-store" } });
   if (new URL(request.url).searchParams.get("export") === "conversations") {

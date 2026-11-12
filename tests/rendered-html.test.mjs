@@ -288,3 +288,68 @@ test("service worker: navigations go to the network with an offline page as fall
   assert.equal(offline.status, 503);
   assert.match(offline.body, /AlreaDough/);
 });
+
+test("payments: off by default, closed for mainland China, and Stripe notifications must carry a valid signature", async () => {
+  const { paymentsConfig, channelFor, signStripePayload, verifyStripeSignature } = await import("../lib/payments.ts");
+  assert.equal(paymentsConfig({}).enabled, false);
+  assert.equal(paymentsConfig({ PAYMENTS_ENABLED: "1", STRIPE_SECRET_KEY: "sk_test_x" }).enabled, false, "needs the webhook secret too");
+  const on = paymentsConfig({ PAYMENTS_ENABLED: "1", STRIPE_SECRET_KEY: "sk_test_x", STRIPE_WEBHOOK_SECRET: "whsec_x" });
+  assert.equal(on.enabled, true);
+  assert.equal(channelFor("US", on), "stripe");
+  assert.equal(channelFor("CN", on), "reserve", "mainland China has no legitimate channel yet");
+  assert.equal(channelFor("US", paymentsConfig({})), "reserve");
+
+  const body = JSON.stringify({ id: "evt_1", type: "checkout.session.completed" });
+  const now = 1_700_000_000;
+  const good = await signStripePayload("whsec_x", now, body);
+  assert.equal(await verifyStripeSignature(body, `t=${now},v1=${good}`, "whsec_x", 300, now), true);
+  assert.equal(await verifyStripeSignature(body + " ", `t=${now},v1=${good}`, "whsec_x", 300, now), false, "a changed body fails");
+  assert.equal(await verifyStripeSignature(body, `t=${now},v1=${good}`, "whsec_other", 300, now), false, "a wrong secret fails");
+  assert.equal(await verifyStripeSignature(body, `t=${now},v1=${good}`, "whsec_x", 300, now + 301), false, "an old signature is a replay");
+  assert.equal(await verifyStripeSignature(body, null, "whsec_x", 300, now), false);
+  assert.equal(await verifyStripeSignature(body, `t=${now},v1=deadbeef`, "whsec_x", 300, now), false);
+});
+
+test("payments: card is a subscription in USD, Alipay and WeChat are one-time in CNY, and the device id rides along", async () => {
+  const { buildCheckoutParams, amountFor } = await import("../lib/payments.ts");
+  assert.equal(amountFor("deep", "monthly", "usd"), 1299);
+  assert.equal(amountFor("deep", "annual", "usd"), 12990, "annual is ten months");
+  const base = { plan: "deep", billing: "annual", lang: "zh", deviceId: "device:abc", origin: "https://alreadough.com" };
+  const card = buildCheckoutParams({ ...base, method: "card" });
+  assert.equal(card.get("mode"), "subscription");
+  assert.equal(card.get("line_items[0][price_data][currency]"), "usd");
+  assert.equal(card.get("line_items[0][price_data][recurring][interval]"), "year");
+  assert.equal(card.get("payment_method_types[0]"), "card");
+  assert.equal(card.get("client_reference_id"), "device:abc");
+  const wallet = buildCheckoutParams({ ...base, billing: "monthly", method: "wallet" });
+  assert.equal(wallet.get("mode"), "payment", "Stripe cannot do Alipay or WeChat in subscription mode");
+  assert.equal(wallet.get("line_items[0][price_data][currency]"), "cny");
+  assert.equal(wallet.get("line_items[0][price_data][unit_amount]"), "8800");
+  assert.equal(wallet.get("payment_method_types[0]"), "alipay");
+  assert.equal(wallet.get("payment_method_types[1]"), "wechat_pay");
+  assert.equal(wallet.has("line_items[0][price_data][recurring][interval]"), false);
+});
+
+test("payments: only a paid checkout grants a plan; renewals extend it and cancellation revokes it", async () => {
+  const { entitlementFromEvent, isActive } = await import("../lib/payments.ts");
+  const now = Date.parse("2026-11-12T00:00:00Z");
+  const session = (extra = {}) => ({ id: "evt_1", type: "checkout.session.completed", data: { object: { id: "cs_1", payment_status: "paid", client_reference_id: "device:abc", customer: "cus_1", subscription: "sub_1", metadata: { device_id: "device:abc", plan: "deep", billing: "monthly", method: "card" }, ...extra } } });
+  const grant = entitlementFromEvent(session(), now);
+  assert.equal(grant.kind, "grant");
+  assert.equal(grant.deviceId, "device:abc");
+  assert.equal(grant.plan, "deep");
+  assert.equal(Date.parse(grant.periodEnd) - now, 31 * 86_400_000);
+  assert.equal(entitlementFromEvent(session({ payment_status: "unpaid" }), now).kind, "ignore", "no money yet, no plan");
+  assert.equal(entitlementFromEvent(session({ metadata: { device_id: "device:abc", plan: "gold", billing: "monthly", method: "card" } }), now).kind, "ignore", "an unknown plan is ignored");
+  const annualWallet = entitlementFromEvent(session({ subscription: null, metadata: { device_id: "device:abc", plan: "soft", billing: "annual", method: "wallet" } }), now);
+  assert.equal(Date.parse(annualWallet.periodEnd) - now, 366 * 86_400_000);
+  const paid = entitlementFromEvent({ id: "evt_2", type: "invoice.paid", data: { object: { subscription: "sub_1", lines: { data: [{ period: { end: 1_800_000_000 } }] } } } }, now);
+  assert.deepEqual(paid, { kind: "extend", subscription: "sub_1", periodEnd: new Date(1_800_000_000 * 1000).toISOString() });
+  assert.deepEqual(entitlementFromEvent({ id: "evt_3", type: "customer.subscription.deleted", data: { object: { id: "sub_1" } } }, now), { kind: "revoke", subscription: "sub_1" });
+  assert.equal(entitlementFromEvent({ id: "evt_4", type: "charge.refunded", data: { object: {} } }, now).kind, "ignore");
+  assert.equal(entitlementFromEvent({}, now).kind, "ignore", "a malformed event never throws");
+  assert.equal(isActive({ status: "active", periodEnd: "2027-01-01T00:00:00Z" }, now), true);
+  assert.equal(isActive({ status: "canceled", periodEnd: "2027-01-01T00:00:00Z" }, now), false);
+  assert.equal(isActive({ status: "active", periodEnd: "2026-01-01T00:00:00Z" }, now), false);
+  assert.equal(isActive(null, now), false);
+});

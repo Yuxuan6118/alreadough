@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { Check, LockKey, Sparkle } from "@phosphor-icons/react";
-import { useMemo, useState } from "react";
-import { writeStored } from "@/lib/safe-storage";
+import { useEffect, useMemo, useState } from "react";
+import { Capacitor } from "@capacitor/core";
+import { readStored } from "@/lib/safe-storage";
 import "./pricing.css";
 
 type Plan = "soft" | "deep" | "atelier";
@@ -20,17 +21,62 @@ export default function PricingPage() {
   const [lang, setLang] = useState<"zh" | "en">("zh");
   const [annual, setAnnual] = useState(false);
   const [selected, setSelected] = useState<Plan>("deep");
-  const [email, setEmail] = useState("");
+  const [contact, setContact] = useState("");
   const [saved, setSaved] = useState(false);
+  const [channel, setChannel] = useState<"reserve" | "stripe">("reserve");
+  const [activePlan, setActivePlan] = useState<string | null>(null);
+  const [canManage, setCanManage] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
   const plan = useMemo(() => plans.find((item) => item.id === selected) || plans[1], [selected]);
   const amount = annual ? Math.round(plan.monthly[lang] * 10 * 100) / 100 : plan.monthly[lang];
   const currency = lang === "zh" ? "¥" : "$";
+  const deviceHeaders = (): Record<string, string> => ({ "Content-Type": "application/json", "x-already-session-id": readStored("already-session-id") || "" });
+  const billing = annual ? "annual" : "monthly";
 
-  const reserve = () => {
-    if (!email.trim()) return;
-    writeStored("alreadough-pricing-interest-v1", JSON.stringify({ email: email.trim(), plan: selected, annual, savedAt: new Date().toISOString() }));
-    setSaved(true);
+  useEffect(() => {
+    // The iPhone app must not link out to a web checkout (App Store rules), so it only ever shows the reservation form.
+    if (Capacitor.isNativePlatform()) return;
+    const query = new URLSearchParams(window.location.search);
+    if (query.get("paid")) setNotice("paid");
+    fetch("/api/pay/status", { cache: "no-store", headers: deviceHeaders() })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data: { channel?: "reserve" | "stripe"; plan?: string | null; canManage?: boolean } | null) => {
+        if (!data) return;
+        if (data.channel === "stripe") setChannel("stripe");
+        setActivePlan(data.plan || null);
+        setCanManage(!!data.canManage);
+      })
+      .catch(() => {});
+  }, []);
+
+  const reserve = async () => {
+    if (!contact.trim()) return;
+    setNotice("");
+    try {
+      const response = await fetch("/api/pay/interest", { method: "POST", headers: deviceHeaders(), body: JSON.stringify({ plan: selected, billing, contact: contact.trim(), lang }) });
+      if (!response.ok) throw new Error("save failed");
+      setSaved(true);
+    } catch {
+      setNotice("error");
+    }
   };
+
+  const goTo = async (path: string, body: Record<string, unknown>) => {
+    setBusy(true);
+    setNotice("");
+    try {
+      const response = await fetch(path, { method: "POST", headers: deviceHeaders(), body: JSON.stringify(body) });
+      const data = await response.json().catch(() => null) as { url?: string } | null;
+      if (!response.ok || !data?.url) throw new Error("no url");
+      window.location.assign(data.url);
+    } catch {
+      setNotice("error");
+      setBusy(false);
+    }
+  };
+  const checkout = (method: "card" | "wallet") => goTo("/api/pay/checkout", { plan: selected, billing, method, lang });
+  const manage = () => goTo("/api/pay/portal", {});
 
   return <main className="pricing-page">
     <nav><Link href="/">Alrea<span>Dough</span></Link><button onClick={() => setLang((value) => value === "zh" ? "en" : "zh")}>{lang === "zh" ? "English" : "中文"}</button></nav>
@@ -42,8 +88,21 @@ export default function PricingPage() {
       <ul>{item.features[lang].map((feature) => <li key={feature}><Check weight="bold"/>{feature}</li>)}</ul>
     </button>)}</section>
     <section className="checkout-preview">
-      <div><Sparkle/><h2>{lang === "zh" ? `预留「${plan.zh}」` : `Reserve ${plan.en}`}</h2><p>{lang === "zh" ? "正式收费前会再次显示价格、额度、续费与退款信息，由你确认后才会付款。" : "Before launch, you will review price, allowances, renewal, and refunds before any payment."}</p></div>
-      <aside><dl><div><dt>{lang === "zh" ? "套餐" : "Plan"}</dt><dd>{lang === "zh" ? plan.zh : plan.en}</dd></div><div><dt>{lang === "zh" ? "周期" : "Billing"}</dt><dd>{annual ? (lang === "zh" ? "每年" : "Yearly") : (lang === "zh" ? "每月" : "Monthly")}</dd></div><div><dt>{lang === "zh" ? "预计合计" : "Estimated total"}</dt><dd>{currency}{amount}</dd></div></dl><label><span>{lang === "zh" ? "接收开放通知的邮箱" : "Email for launch notice"}</span><input type="email" value={email} onChange={(event) => { setEmail(event.target.value); setSaved(false); }} placeholder="you@example.com"/></label><button onClick={reserve} disabled={!email.trim()}>{saved ? (lang === "zh" ? "已为你保留" : "Reserved") : (lang === "zh" ? "保留创始价格" : "Reserve founding price")}</button><small><LockKey/>{lang === "zh" ? "当前不收集银行卡。网页正式版将使用 Stripe，iPhone App 将使用 Apple 内购。" : "No card details are collected. Web checkout will use Stripe and iPhone purchases will use Apple."}</small></aside>
+      {notice === "paid" && <p className="pay-notice" role="status">{lang === "zh" ? "付款成功，谢谢你。套餐会在几秒内生效，稍后回到应用就能看到。" : "Payment received, thank you. Your plan activates within seconds."}</p>}
+      {activePlan && <p className="pay-notice" role="status">{lang === "zh" ? `你当前的套餐：${plans.find((item) => item.id === activePlan)?.zh || ""}` : `Your current plan: ${plans.find((item) => item.id === activePlan)?.en || ""}`}{canManage && <button className="pay-link" onClick={manage} disabled={busy}>{lang === "zh" ? "管理订阅 / 取消" : "Manage or cancel"}</button>}</p>}
+      <div><Sparkle/><h2>{channel === "stripe" ? (lang === "zh" ? `选择「${plan.zh}」` : `Choose ${plan.en}`) : (lang === "zh" ? `预留「${plan.zh}」` : `Reserve ${plan.en}`)}</h2><p>{channel === "stripe" ? (lang === "zh" ? "付款页由 Stripe 提供，我们不会接触你的银行卡号。" : "Checkout is hosted by Stripe. We never see your card number.") : (lang === "zh" ? "正式收费前会再次显示价格、额度、续费与退款信息，由你确认后才会付款。" : "Before launch, you will review price, allowances, renewal, and refunds before any payment.")}</p></div>
+      <aside><dl><div><dt>{lang === "zh" ? "套餐" : "Plan"}</dt><dd>{lang === "zh" ? plan.zh : plan.en}</dd></div><div><dt>{lang === "zh" ? "周期" : "Billing"}</dt><dd>{annual ? (lang === "zh" ? "每年" : "Yearly") : (lang === "zh" ? "每月" : "Monthly")}</dd></div><div><dt>{lang === "zh" ? "预计合计" : "Estimated total"}</dt><dd>{currency}{amount}</dd></div></dl>
+        {channel === "stripe" ? <>
+          <button onClick={() => checkout("card")} disabled={busy}>{lang === "zh" ? "银行卡订阅（Visa 等，自动续费）" : "Subscribe with card (auto-renews)"}</button>
+          {lang === "zh" && <button onClick={() => checkout("wallet")} disabled={busy}>支付宝 / 微信支付（一次性，¥{amount}）</button>}
+          <small><LockKey/>{lang === "zh" ? "银行卡按月或按年自动扣款，可随时在“管理订阅”里取消。支付宝和微信是一次性购买，到期前需要你再购买一次。" : "Cards renew automatically and can be canceled any time under Manage. Alipay and WeChat Pay are one-time purchases."}</small>
+        </> : <>
+          <label><span>{lang === "zh" ? "接收开放通知的邮箱或微信号" : "Email or WeChat for the launch notice"}</span><input type="text" value={contact} onChange={(event) => { setContact(event.target.value); setSaved(false); }} placeholder={lang === "zh" ? "you@example.com 或 微信号" : "you@example.com"}/></label>
+          <button onClick={reserve} disabled={!contact.trim()}>{saved ? (lang === "zh" ? "已为你保留" : "Reserved") : (lang === "zh" ? "保留创始价格" : "Reserve founding price")}</button>
+          <small><LockKey/>{lang === "zh" ? "当前不收款，也不收集银行卡。我们只记录你想要的套餐和你留下的联系方式。" : "No payment is taken and no card details are collected. We only keep the plan you chose and the contact you leave."}</small>
+        </>}
+        {notice === "error" && <small role="alert">{lang === "zh" ? "没有成功，请稍后再试。" : "That did not work. Please try again shortly."}</small>}
+      </aside>
     </section>
   </main>;
 }
