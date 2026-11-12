@@ -248,6 +248,11 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
     exportLimit: "网页端一次最多导出 10 分钟；更长练习可循环播放这个文件。",
     openStudio: "打开声音工作台",
     closeStudio: "关闭声音工作台",
+    tabContent: "内容",
+    tabSound: "声音",
+    tabPlayback: "播放",
+    tabExport: "导出",
+    saveBarHint: "改动先保存，才会用在下一次练习里",
   } : {
     eyebrow: "DREAMSCAPE · PRIVATE AUDIO PRACTICE",
     heading: "Hear the life you already have",
@@ -338,10 +343,16 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
     exportLimit: "Web exports are capped at 10 minutes. Loop the finished file for longer practices.",
     openStudio: "Open sound studio",
     closeStudio: "Close sound studio",
+    tabContent: "Content",
+    tabSound: "Sound",
+    tabPlayback: "Playback",
+    tabExport: "Export",
+    saveBarHint: "Save to use your changes in the next practice",
   };
 
   const [profile, setProfile] = useState<SavedSub>(defaults[lang]);
   const [editing, setEditing] = useState(false);
+  const [studioTab, setStudioTab] = useState<"content" | "sound" | "playback" | "export">("content");
   const [savedPulse, setSavedPulse] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -744,9 +755,9 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
     void deleteAudioTrack(kind);
   };
 
-  const editControl = (edit: TrackEdit, setEdit: (value: TrackEdit) => void) => <section className="track-edit"><header><strong>{copy.trim}</strong></header><div>{([
+  const editControl = (edit: TrackEdit, setEdit: (value: TrackEdit) => void) => <details className="track-fades"><summary>{copy.trim}<span>{edit.fadeIn.toFixed(1)} / {edit.fadeOut.toFixed(1)} {copy.seconds}</span></summary><div>{([
     ["fadeIn", copy.fadeIn], ["fadeOut", copy.fadeOut],
-  ] as const).map(([key, label]) => <label className="fade-control" key={key}><span>{label}</span><input aria-label={label} type="range" min="0" max="60" step="0.5" value={edit[key]} onChange={(event) => setEdit({ ...edit, [key]: Math.max(0, Math.min(60, Number(event.target.value))) })}/><b>{edit[key].toFixed(1)} {copy.seconds}</b></label>)}</div></section>;
+  ] as const).map(([key, label]) => <label className="fade-control" key={key}><span>{label}</span><input aria-label={label} type="range" min="0" max="60" step="0.5" value={edit[key]} onChange={(event) => setEdit({ ...edit, [key]: Math.max(0, Math.min(60, Number(event.target.value))) })}/><b>{edit[key].toFixed(1)} {copy.seconds}</b></label>)}</div></details>;
 
   const exportMix = async () => {
     if (!voiceUrl) { setAudioError(copy.exportNeedsVoice); return; }
@@ -788,19 +799,23 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
       </div>
       <aside className="session-summary">
         <p className="eyebrow">SESSION</p><h3>{lang === "zh" ? "今天怎么听" : "How you are listening"}</h3>
-        <dl><div><dt>{copy.mode}</dt><dd>{profile.mode === "clear" ? copy.deliveryClear : profile.mode === "soft" ? copy.deliverySoft : copy.deliveryMasked}</dd></div><div><dt>{copy.duration}</dt><dd>{(profile.durationMode || "timer") === "continuous" ? copy.continuous : `${profile.duration} min`}</dd></div><div><dt>{copy.ambience}</dt><dd>{librarySound?.title || profile.ambience}</dd></div></dl>
+        <dl><div role="button" tabIndex={0} onClick={() => { setStudioTab("sound"); setEditing(true); }}><dt>{copy.mode}</dt><dd>{profile.mode === "clear" ? copy.deliveryClear : profile.mode === "soft" ? copy.deliverySoft : copy.deliveryMasked}</dd></div><div role="button" tabIndex={0} onClick={() => { setStudioTab("playback"); setEditing(true); }}><dt>{copy.duration}</dt><dd>{(profile.durationMode || "timer") === "continuous" ? copy.continuous : `${profile.duration} min`}</dd></div><div role="button" tabIndex={0} onClick={() => { setStudioTab("sound"); setEditing(true); }}><dt>{copy.ambience}</dt><dd>{librarySound?.title || profile.ambience}</dd></div></dl>
         <button className={`outline-button studio-toggle ${editing ? "is-open" : ""}`} aria-expanded={editing} onClick={() => setEditing((current) => !current)}>{editing && <X size={16} weight="bold"/>}{editing ? copy.closeStudio : copy.openStudio}</button>
       </aside>
     </div>
 
-    {editing && <div className="sub-editor">
+    {editing && <div className="sub-editor studio-panel">
+      <nav className="studio-tabs" role="tablist" aria-label={copy.openStudio}>{([["content", copy.tabContent], ["sound", copy.tabSound], ["playback", copy.tabPlayback], ["export", copy.tabExport]] as const).map(([id, label]) => <button type="button" role="tab" aria-selected={studioTab === id} className={studioTab === id ? "active" : ""} key={id} onClick={() => setStudioTab(id)}>{label}</button>)}</nav>
+      {studioTab === "content" && <div className="studio-pane">
       <div className="sub-editor-core">
         <label className="sub-title-field">{copy.title}<input value={profile.title} onChange={(event) => setProfile((current) => ({ ...current, title: event.target.value }))}/></label>
         <fieldset className="affirmation-editor"><legend>{copy.affirmations}</legend>{profile.affirmations.map((item, index) => <div className="affirmation-row" key={`affirmation-${index}`}><textarea value={item} onChange={(event) => setProfile((current) => ({ ...current, affirmations: current.affirmations.map((line, lineIndex) => lineIndex === index ? event.target.value : line) }))}/><button type="button" onClick={() => setProfile((current) => ({ ...current, affirmations: current.affirmations.filter((_, lineIndex) => lineIndex !== index) }))} aria-label={lang === "zh" ? `删除第 ${index + 1} 句` : `Remove line ${index + 1}`}><X weight="bold"/></button></div>)}<button type="button" className="add-line" onClick={() => setProfile((current) => ({ ...current, affirmations: [...current.affirmations, ""] }))}>{copy.add}</button></fieldset>
       </div>
+        <p className="desire-reference"><span>{lang === "zh" ? "当前愿望" : "Active desire"}</span><strong>{desire}</strong></p>
+      </div>}
+      {studioTab === "sound" && <div className="studio-pane">
       <fieldset className="delivery-cards"><legend>{copy.mode}</legend>{(["clear", "soft", "subliminal"] as const).map((mode) => { const label = mode === "clear" ? copy.deliveryClear : mode === "soft" ? copy.deliverySoft : copy.deliveryMasked; const description = mode === "clear" ? copy.deliveryClearCopy : mode === "soft" ? copy.deliverySoftCopy : copy.deliveryMaskedCopy; return <button className={profile.mode === mode ? "selected" : ""} key={mode} onClick={() => setProfile((current) => ({ ...current, mode }))}><strong>{label}</strong><small>{description}</small><i>{mode === "clear" ? "100%" : mode === "soft" ? "58%" : "16%"}</i></button>; })}</fieldset>
-      <section className="duration-studio"><div><p className="eyebrow">PLAYBACK</p><h3>{copy.duration}</h3></div><div className="duration-mode-tabs"><button className={(profile.durationMode || "timer") === "timer" ? "selected" : ""} onClick={() => setProfile((current) => ({ ...current, durationMode: "timer" }))}>{copy.timer}</button><button className={profile.durationMode === "continuous" ? "selected" : ""} onClick={() => setProfile((current) => ({ ...current, durationMode: "continuous" }))}>{copy.continuous}</button></div><div className="duration-inputs"><label><input aria-label={copy.hours} type="number" min="0" max="12" value={durationHours} onChange={(event) => setDurationHours(Math.max(0, Math.min(12, Number(event.target.value))))}/><span>{copy.hours}</span></label><label><input aria-label={copy.minutes} type="number" min="0" max="59" value={durationMinutes} onChange={(event) => setDurationMinutes(Math.max(0, Math.min(59, Number(event.target.value))))}/><span>{copy.minutes}</span></label></div>{profile.durationMode === "continuous" && <label className="completion-goal"><span>{copy.completionGoal}</span><input aria-label={copy.completionGoal} type="number" min="1" max="180" value={profile.completionMinutes || 5} onChange={(event) => setProfile((current) => ({ ...current, completionMinutes: Math.max(1, Math.min(180, Number(event.target.value))) }))}/><b>{copy.minutes}</b><small>{copy.completionHint}</small></label>}<label className="background-play"><input aria-label={copy.backgroundPlay} type="checkbox" checked={backgroundPlay} onChange={(event) => setBackgroundPlay(event.target.checked)}/><span><strong>{copy.backgroundPlay}</strong><small>{copy.backgroundPlayHint}</small></span></label></section>
-      <div className="mixer-heading"><p className="eyebrow">{lang === "zh" ? "声音混音台" : "SUB MIXER"}</p><h3>{copy.mixer}</h3><small>{copy.mixerCopy}</small></div>
+      <div className="mixer-heading"><h3>{copy.mixer}</h3><small>{copy.mixerCopy}</small></div>
       <p className="audio-upload-help">{copy.audioFormats}</p>
       <div className="track-stack">
         <section className="audio-track voice-track">
@@ -813,12 +828,16 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
           <div className="track-index">03</div><div className="track-main"><div className="track-copy"><strong>{copy.soundLibrary}</strong><small>{librarySound ? `${librarySound.title} · ${librarySound.creator} · ${librarySound.license}` : copy.ambienceTrack}</small></div><div className="sound-search"><input value={soundQuery} onChange={(event) => setSoundQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void searchSounds(); }} placeholder={copy.soundSearch}/><button type="button" onClick={searchSounds} disabled={soundSearching}>{soundSearching ? copy.searching : copy.search}</button></div>{soundSearchMeta && soundSearchMeta.original !== soundSearchMeta.translated && <small className="sound-query-meta">{copy.searchedTogether}: <b>{soundSearchMeta.original}</b><i>＋</i><b>{soundSearchMeta.translated}</b></small>}{soundResults.length > 0 && <div className="sound-results">{soundResults.slice(0, 9).map((sound) => <article className={librarySound?.id === sound.id ? "selected" : ""} key={sound.id}><div className="sound-card-main"><button className="sound-preview" type="button" aria-label={`${previewingSoundId === sound.id ? copy.stopPreview : copy.previewSound}: ${sound.title}`} onClick={() => void previewSound(sound)}>{previewingSoundId === sound.id ? <Pause weight="fill"/> : <Play weight="fill"/>}</button><div className="sound-card-copy"><strong title={sound.title}>{sound.title}</strong><small title={`${sound.creator} · ${sound.license}`}>{sound.creator} · {sound.license}</small></div></div><button className="sound-choose" type="button" onClick={() => void chooseLibrarySound(sound)}>{librarySound?.id === sound.id ? `✓ ${copy.selectedSound}` : copy.useSound}</button></article>)}</div>}{soundSearched && !soundSearching && soundResults.length === 0 && <small className="sound-empty">{copy.noSounds}</small>}<label className="track-slider"><span>{copy.volume}</span><input type="range" min="0" max="100" value={ambienceVolume} onChange={(event) => { const next = Number(event.target.value); setAmbienceVolume(next); if (libraryAudioRef.current) libraryAudioRef.current.volume = next / 100; if (previewAudioRef.current) previewAudioRef.current.volume = Math.max(0.2, next / 100); }}/><b>{ambienceVolume}%</b></label>{editControl(ambienceEdit, setAmbienceEdit)}</div>
         </section>
       </div>
-      <section className="mixer-footer">
+      </div>}
+      {studioTab === "playback" && <div className="studio-pane">
+      <section className="duration-studio"><div><h3>{copy.duration}</h3></div><div className="duration-mode-tabs"><button className={(profile.durationMode || "timer") === "timer" ? "selected" : ""} onClick={() => setProfile((current) => ({ ...current, durationMode: "timer" }))}>{copy.timer}</button><button className={profile.durationMode === "continuous" ? "selected" : ""} onClick={() => setProfile((current) => ({ ...current, durationMode: "continuous" }))}>{copy.continuous}</button></div><div className="duration-inputs"><label><input aria-label={copy.hours} type="number" min="0" max="12" value={durationHours} onChange={(event) => setDurationHours(Math.max(0, Math.min(12, Number(event.target.value))))}/><span>{copy.hours}</span></label><label><input aria-label={copy.minutes} type="number" min="0" max="59" value={durationMinutes} onChange={(event) => setDurationMinutes(Math.max(0, Math.min(59, Number(event.target.value))))}/><span>{copy.minutes}</span></label></div>{profile.durationMode === "continuous" && <label className="completion-goal"><span>{copy.completionGoal}</span><input aria-label={copy.completionGoal} type="number" min="1" max="180" value={profile.completionMinutes || 5} onChange={(event) => setProfile((current) => ({ ...current, completionMinutes: Math.max(1, Math.min(180, Number(event.target.value))) }))}/><b>{copy.minutes}</b><small>{copy.completionHint}</small></label>}<label className="background-play"><input aria-label={copy.backgroundPlay} type="checkbox" checked={backgroundPlay} onChange={(event) => setBackgroundPlay(event.target.checked)}/><span><strong>{copy.backgroundPlay}</strong><small>{copy.backgroundPlayHint}</small></span></label></section>
         <div className="mix-options"><label>{copy.speed}<input type="range" min="0.1" max="10" step="0.1" value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))}/><b>{playbackSpeed.toFixed(1)}×</b></label><label className="loop-check"><input type="checkbox" checked={loopAudio} onChange={(event) => setLoopAudio(event.target.checked)}/><span className="toggle-control" aria-hidden="true"><i/></span><span>{copy.loop}</span></label></div>
-        <div className="mixer-commit"><p className="desire-reference"><span>{lang === "zh" ? "当前愿望" : "Active desire"}</span><strong>{desire}</strong></p><button className="primary" onClick={saveProfile}>{savedPulse ? copy.saved : copy.save}</button></div>
-      </section>
+      </div>}
+      {studioTab === "export" && <div className="studio-pane">
       <section className="mix-export"><label className="audio-rights"><input type="checkbox" checked={rightsConfirmed} onChange={(event) => setRightsConfirmed(event.target.checked)}/><span>{copy.rights}</span></label><small>{copy.exportLimit}</small><button className="primary" type="button" onClick={exportMix} disabled={exporting || !voiceUrl}><DownloadSimple size={18}/>{exporting ? copy.exporting : copy.exportMix}</button>{exportMessage && <p aria-live="polite">{exportMessage}</p>}</section>
+      </div>}
       {audioError && <p className="audio-error">{audioError}</p>}
+      <div className="studio-savebar"><small>{copy.saveBarHint}</small><button className="primary" onClick={saveProfile}>{savedPulse ? copy.saved : copy.save}</button></div>
     </div>}
 
     <section className="practice-progress practice-progress-separated"><div><span>✦</span><strong>{streak}</strong><small>{copy.streak} · {copy.days}</small></div><div className="week-checks"><p>{copy.thisWeek}</p><div>{week.map((day) => <span className={day.complete ? "complete" : ""} key={day.key}><i>{day.complete ? "✓" : ""}</i>{day.label}</span>)}</div></div></section>
