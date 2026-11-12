@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   applicationName: "AlreaDough",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent", // see-through: the strip at the very top shows the page's own day/night background instead of following the phone's system setting
+    statusBarStyle: "default",
     title: "AlreaDough",
   },
   manifest: "/manifest.webmanifest",
