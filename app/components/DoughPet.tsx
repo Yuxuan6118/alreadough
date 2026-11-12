@@ -8,9 +8,10 @@ type Props = {
   checked: boolean;
   streak: number;
   onCheckIn: () => void;
+  inline?: boolean;
 };
 
-export default function DoughPet({ lang, checked, streak, onCheckIn }: Props) {
+export default function DoughPet({ lang, checked, streak, onCheckIn, inline = false }: Props) {
   const [celebration, setCelebration] = useState(0);
   const celebrate = () => {
     onCheckIn();
@@ -18,7 +19,7 @@ export default function DoughPet({ lang, checked, streak, onCheckIn }: Props) {
   };
 
   return (
-    <aside className="dough-pet" aria-live="polite">
+    <aside className={`dough-pet${inline ? " dough-pet-inline" : ""}`} aria-live="polite">
       <LivingDough lang={lang} compact onTouch={celebrate} />
       <div className="pet-status">
         <strong>{checked ? (lang === "zh" ? "今天已打卡" : "Checked in today") : (lang === "zh" ? "点我打卡" : "Tap to check in")}</strong>
