@@ -15,6 +15,7 @@ import {
   ArrowsClockwise,
   Brain,
   CaretDown,
+  List,
   UserCircle,
   Check,
   ArrowClockwise,
@@ -324,6 +325,9 @@ export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profile, setProfile] = useState<Profile>(emptyProfile);
   const [plusSection, setPlusSection] = useState<"goal" | "coach" | null>(null);
+  const [shellEl, setShellEl] = useState<HTMLElement | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarOpenRef = useRef(false);
   const [aiError, setAiError] = useState("");
   const [chatInput, setChatInput] = useState("");
   const [oldScene, setOldScene] = useState("");
@@ -423,6 +427,99 @@ export default function Home() {
     };
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [view, messages.length, isTyping]);
+
+  // Side panel on phones, like ChatGPT and Claude: swipe right to pull it out (the page follows the finger and
+  // slides over), swipe left or tap the page to put it away. The panel lives outside the app shell; only the
+  // shell moves, through the --drawer-x variable, so nothing inside it has to know.
+  const drawerWidth = () => Math.min(window.innerWidth * 0.82, 330);
+  const moveSidebar = (open: boolean) => {
+    if (shellEl) {
+      shellEl.style.transition = "transform .28s cubic-bezier(.22,.8,.2,1)";
+      window.setTimeout(() => { shellEl.style.transition = ""; }, 320);
+    }
+    setSidebarOpen(open);
+  };
+  useEffect(() => {
+    sidebarOpenRef.current = sidebarOpen;
+    document.documentElement.style.setProperty("--drawer-w", `${Math.round(drawerWidth())}px`);
+    shellEl?.style.setProperty("--drawer-x", sidebarOpen ? `${Math.round(drawerWidth())}px` : "0px");
+  }, [sidebarOpen, shellEl]);
+  useEffect(() => {
+    const shell = shellEl;
+    if (!shell) return;
+    const phone = window.matchMedia("(max-width: 820px)");
+    let startX = 0, startY = 0, lastX = 0, lastT = 0, base = 0, velocity = 0;
+    let decided = false, dragging = false, ignore = false;
+    const setX = (x: number) => shell.style.setProperty("--drawer-x", `${Math.round(x)}px`);
+    const settle = (open: boolean) => {
+      shell.style.transition = "transform .28s cubic-bezier(.22,.8,.2,1)";
+      window.setTimeout(() => { shell.style.transition = ""; }, 320);
+      setX(open ? drawerWidth() : 0);
+      setSidebarOpen(open);
+    };
+    // a swipe that begins in a field or a sideways-scrolling strip belongs to that control
+    const owned = (target: EventTarget | null) => {
+      let node = target as HTMLElement | null;
+      while (node && node !== shell) {
+        if (node.matches?.("textarea, input, select, [data-no-drawer]")) return true;
+        const style = getComputedStyle(node);
+        if ((style.overflowX === "auto" || style.overflowX === "scroll") && node.scrollWidth > node.clientWidth + 2) return true;
+        node = node.parentElement;
+      }
+      return false;
+    };
+    const onStart = (event: TouchEvent) => {
+      if (!phone.matches || event.touches.length !== 1) { ignore = true; return; }
+      const touch = event.touches[0];
+      startX = lastX = touch.clientX; startY = touch.clientY; lastT = Date.now();
+      decided = false; dragging = false; velocity = 0;
+      base = sidebarOpenRef.current ? drawerWidth() : 0;
+      ignore = !sidebarOpenRef.current && owned(event.target);
+    };
+    const onMove = (event: TouchEvent) => {
+      if (ignore) return;
+      const touch = event.touches[0];
+      const dx = touch.clientX - startX, dy = touch.clientY - startY;
+      if (!decided) {
+        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+        decided = true;
+        const open = sidebarOpenRef.current;
+        dragging = Math.abs(dx) > Math.abs(dy) * 1.4 && ((!open && dx > 0) || (open && dx < 0));
+        if (dragging) { shell.style.transition = "none"; shell.classList.add("drawer-dragging"); }
+      }
+      if (!dragging) return;
+      const now = Date.now();
+      velocity = (touch.clientX - lastX) / Math.max(1, now - lastT);
+      lastX = touch.clientX; lastT = now;
+      setX(Math.max(0, Math.min(drawerWidth(), base + dx)));
+    };
+    const onEnd = () => {
+      if (!dragging) return;
+      dragging = false;
+      shell.classList.remove("drawer-dragging");
+      const x = parseFloat(shell.style.getPropertyValue("--drawer-x")) || 0;
+      settle(velocity > 0.4 ? true : velocity < -0.4 ? false : x > drawerWidth() / 2);
+    };
+    // while the panel is out, a tap on the page only puts the panel away
+    const onTap = (event: Event) => {
+      if (!sidebarOpenRef.current) return;
+      event.preventDefault();
+      event.stopPropagation();
+      settle(false);
+    };
+    shell.addEventListener("touchstart", onStart, { passive: true });
+    shell.addEventListener("touchmove", onMove, { passive: true });
+    shell.addEventListener("touchend", onEnd);
+    shell.addEventListener("touchcancel", onEnd);
+    shell.addEventListener("click", onTap, true);
+    return () => {
+      shell.removeEventListener("touchstart", onStart);
+      shell.removeEventListener("touchmove", onMove);
+      shell.removeEventListener("touchend", onEnd);
+      shell.removeEventListener("touchcancel", onEnd);
+      shell.removeEventListener("click", onTap, true);
+    };
+  }, [shellEl]);
 
   // Theme: follow the phone's light/dark setting until she picks one, then remember her pick.
   useEffect(() => {
@@ -1316,7 +1413,24 @@ export default function Home() {
   </> : null;
 
   return (
-    <main className="app-shell" data-theme={dark ? "dark" : "light"} data-lang={lang}>
+    <>
+    <aside className={`swipe-sidebar${sidebarOpen ? " open" : ""}`} aria-label={lang === "zh" ? "侧边栏" : "Sidebar"} aria-hidden={!sidebarOpen} inert={!sidebarOpen} data-theme={dark ? "dark" : "light"}>
+      <header><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></header>
+      <button type="button" className="swipe-new" onClick={() => { beginNewConversation(); moveSidebar(false); }}><Plus size={18}/>{lang === "zh" ? "新对话" : "New conversation"}</button>
+      <nav className="swipe-nav" aria-label={t.ariaNav}>
+        {primaryNav.map((item) => {
+          const Icon = item.icon;
+          return <button type="button" key={item.id} className={view === item.id ? "active" : ""} onClick={() => { navigate(item.id); moveSidebar(false); }}><Icon size={20} weight={view === item.id ? "fill" : "regular"}/><span>{item.label}</span></button>;
+        })}
+        <button type="button" className={view === "memory" ? "active" : ""} onClick={() => { setView("memory"); moveSidebar(false); }}><Brain size={20}/><span>{lang === "zh" ? "记忆库" : "Memory"}</span></button>
+      </nav>
+      <div className="swipe-history">
+        <small>{lang === "zh" ? "对话记录" : "Conversations"}</small>
+        {conversationArchive.length ? conversationArchive.map((conversation) => <button type="button" key={conversation.id} onClick={() => { openConversation(conversation); moveSidebar(false); }}><span>{conversation.title}</span><small>{new Date(conversation.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US")}</small></button>) : <p>{lang === "zh" ? "完成第一段对话后，它会出现在这里。" : "Your first conversation will appear here."}</p>}
+      </div>
+      <footer><button type="button" onClick={() => { setView("settings"); moveSidebar(false); }}><UserCircle size={24}/><span>{goal.companionName || (lang === "zh" ? "我的空间" : "My space")}</span></button></footer>
+    </aside>
+    <main ref={setShellEl} className={`app-shell${sidebarOpen ? " drawer-open" : ""}`} data-theme={dark ? "dark" : "light"} data-lang={lang}>
       <div className="app-grain" aria-hidden="true" />
       <aside className="app-rail">
         <button className="brand" onClick={() => navigate("home")} aria-label="AlreaDough home"><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></button>
@@ -1337,6 +1451,7 @@ export default function Home() {
 
       <section className="app-stage">
       <header className="topbar">
+        <button type="button" className="topbar-menu" onClick={() => moveSidebar(true)} aria-label={lang === "zh" ? "打开侧边栏" : "Open the sidebar"}><List size={22}/></button>
         <button className="brand" onClick={() => navigate("home")} aria-label="AlreaDough home"><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></button>
         <div className="top-actions"><span className={`sync-badge ${syncStatus}`}>{syncStatus === "saved" ? <CloudCheck size={15}/> : <CloudSlash size={15}/>}<span>{syncStatus === "saved" ? (lang === "zh" ? "已同步" : "Synced") : syncStatus === "saving" || syncStatus === "loading" ? (lang === "zh" ? "同步中" : "Syncing") : (lang === "zh" ? "本机模式" : "On device")}</span></span><button className="avatar" onClick={() => setMenuOpen((open) => !open)} aria-haspopup="menu" aria-expanded={menuOpen} aria-label={lang === "zh" ? "打开菜单" : "Open menu"}><UserCircle size={22}/></button>{appMenu}</div>
       </header>
@@ -1506,5 +1621,6 @@ export default function Home() {
       {reportTarget && <ReportDialog lang={lang} sessionId={sessionId} excerpt={reportTarget.excerpt} onClose={() => setReportTarget(null)} />}
       <BreakReminder lang={lang} activity={messages.length + (isTyping ? 1 : 0)} />
     </main>
+    </>
   );
 }
