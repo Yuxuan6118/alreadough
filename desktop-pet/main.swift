@@ -557,6 +557,7 @@ final class PetApp: NSObject, NSApplicationDelegate {
     private var image: CGImage!
     private let aspect: CGFloat = 1024.0 / 1536.0
     private var watcher: Timer?
+    private var magnifyMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard let path = Bundle.main.path(forResource: "dough", ofType: "png"),
@@ -571,6 +572,12 @@ final class PetApp: NSObject, NSApplicationDelegate {
         showPet(width: saved > 0 ? CGFloat(saved) : 190, origin: nil)
         // Only the dough takes the mouse; the transparent margin lets clicks through to whatever is underneath.
         watcher = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in self?.watchMouse() }
+        // A floating, non-activating window does not always get trackpad gestures from the system. If the pinch is sent
+        // elsewhere while the pointer rests on the dough, take it from the global stream (read-only; apps are unaffected).
+        magnifyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .magnify) { [weak self] event in
+            guard let view = self?.petView, view.doughScreenRect().contains(NSEvent.mouseLocation) else { return }
+            view.magnify(with: event)
+        }
     }
 
     private func showPet(width: CGFloat, origin: NSPoint?) {
