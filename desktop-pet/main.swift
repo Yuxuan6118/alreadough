@@ -16,7 +16,10 @@ import AppKit
 
 let siteURL = URL(string: "https://alreadough.com")!
 let defaults = UserDefaults.standard
-let padding: CGFloat = 56          // room around the dough for stretching, ripples and confetti
+// Room around the dough for stretching, ripples and confetti. It scales with the dough: a pulled dough grows past its own
+// size, and anything beyond the window is cut off (that showed up as an invisible wall when pulling upwards).
+func padFor(_ width: CGFloat) -> CGFloat { max(90, width * 0.64) }
+var padding: CGFloat = padFor(190)
 
 // MARK: colours (the web theme tokens)
 
@@ -526,6 +529,7 @@ final class PetApp: NSObject, NSApplicationDelegate {
     }
 
     private func showPet(width: CGFloat, origin: NSPoint?) {
+        padding = padFor(width)
         let imageSize = CGSize(width: width, height: width * aspect)
         let size = NSSize(width: imageSize.width + padding * 2, height: imageSize.height + padding * 2)
         panel?.orderOut(nil)
@@ -559,7 +563,7 @@ final class PetApp: NSObject, NSApplicationDelegate {
             if NSScreen.screens.contains(where: { $0.visibleFrame.intersects(frame) }) { return saved }
         }
         let area = (NSScreen.main ?? NSScreen.screens[0]).visibleFrame
-        return NSPoint(x: area.maxX - size.width - 24, y: area.minY + 16)
+        return NSPoint(x: area.maxX - 24 - (size.width - padding), y: area.minY + 16 - padding)
     }
 
     // Anywhere on any screen is fine, but at least half of the dough must stay on a screen so it can always be grabbed again.
@@ -585,7 +589,7 @@ final class PetApp: NSObject, NSApplicationDelegate {
     private func goHome() {
         guard let panel = panel else { return }
         let area = (NSScreen.main ?? NSScreen.screens[0]).visibleFrame
-        let origin = NSPoint(x: area.maxX - panel.frame.width - 24 + padding, y: area.minY + 16)
+        let origin = NSPoint(x: area.maxX - 24 - (panel.frame.width - padding), y: area.minY + 16 - padding)
         panel.setFrame(NSRect(origin: origin, size: panel.frame.size), display: true, animate: true)
         saveOrigin()
     }
@@ -598,9 +602,10 @@ final class PetApp: NSObject, NSApplicationDelegate {
 
     private func resize(toWidth width: CGFloat) {
         let old = panel.frame
-        let newSize = NSSize(width: width + padding * 2, height: width * aspect + padding * 2)
-        // keep the bottom edge and the horizontal centre where they were
-        let origin = NSPoint(x: old.midX - newSize.width / 2, y: old.minY)
+        let oldPad = padding
+        let newPad = padFor(width)
+        let doughBottom = old.minY + oldPad
+        let origin = NSPoint(x: old.midX - (width + newPad * 2) / 2, y: doughBottom - newPad)
         defaults.set(Double(width), forKey: "width")
         defaults.set(Double(origin.x), forKey: "x")
         defaults.set(Double(origin.y), forKey: "y")
