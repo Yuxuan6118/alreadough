@@ -61,6 +61,7 @@ export default function InstallTip({ lang: forcedLang }: { lang?: "zh" | "en" })
   const [visible, setVisible] = useState(false);
   const [copied, setCopied] = useState(false);
   const promptRef = useRef<InstallEvent | null>(null);
+  const tipRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (window.location.pathname !== "/") return; // the app itself, including its first-run screens
@@ -71,20 +72,20 @@ export default function InstallTip({ lang: forcedLang }: { lang?: "zh" | "en" })
     }
     const standalone = window.matchMedia?.("(display-mode: standalone)").matches
       || (navigator as Navigator & { standalone?: boolean }).standalone === true;
-    if (standalone || Capacitor.isNativePlatform()) return;
-    if (readStored(INSTALLED_KEY) === "yes") return;
-    const detected = detectInstallMode(navigator.userAgent, navigator.maxTouchPoints);
+    const forced = new URLSearchParams(window.location.search).get("install") === "1"; // test link: /?install=1 always shows the tip
+    if (!forced && (standalone || Capacitor.isNativePlatform())) return;
+    if (!forced && readStored(INSTALLED_KEY) === "yes") return;
+    const detected = detectInstallMode(navigator.userAgent, navigator.maxTouchPoints) || (forced ? "android" : null);
     if (!detected) return;
 
     const today = localDayKey();
     const reveal = () => {
-      if (readStored(DAY_KEY) === today) return;
-      writeStored(DAY_KEY, today); // counted when it appears, so a reload cannot bring it back the same day
-      setVisible(true);
+      if (!forced && readStored(DAY_KEY) === today) return;
+      setVisible(true); // today is only used up once the tip is confirmed on screen (see the effect below)
     };
 
     let timer = 0;
-    const arm = () => { window.clearTimeout(timer); timer = window.setTimeout(reveal, SHOW_AFTER_MS); };
+    const arm = () => { window.clearTimeout(timer); timer = window.setTimeout(reveal, forced ? 1000 : SHOW_AFTER_MS); };
     const onPrompt = (event: Event) => {
       event.preventDefault();
       promptRef.current = event as InstallEvent;
@@ -104,6 +105,19 @@ export default function InstallTip({ lang: forcedLang }: { lang?: "zh" | "en" })
       window.removeEventListener("appinstalled", onInstalled);
     };
   }, []);
+
+  // A browser's ad or pop-up blocker can hide the tip without telling the page. Only count today as used
+  // when the tip really has a box on screen, so a hidden tip gets another chance on the next visit.
+  useEffect(() => {
+    if (!visible || new URLSearchParams(window.location.search).get("install") === "1") return;
+    const timer = window.setTimeout(() => {
+      const box = tipRef.current;
+      if (box && box.offsetHeight > 0 && window.getComputedStyle(box).visibility !== "hidden" && window.getComputedStyle(box).display !== "none") {
+        writeStored(DAY_KEY, localDayKey());
+      }
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [visible]);
 
   if (!visible || !mode) return null;
   const text = copy[lang];
@@ -131,7 +145,7 @@ export default function InstallTip({ lang: forcedLang }: { lang?: "zh" | "en" })
   };
 
   return (
-    <aside className="install-tip" role="status">
+    <aside className="install-tip" role="status" ref={tipRef}>
       <span className="install-tip-icon" aria-hidden="true">{mode === "android" ? <img src="/already-app-icon.png" alt="" width={28} height={28}/> : <Export size={20}/>}</span>
       <div>
         <strong>{text.title}</strong>
