@@ -1509,3 +1509,12 @@ html[data-theme="dark"].landscape-blocked::after { color: #f1e8e2; background: #
 /* small down arrow above the composer when the thread is scrolled away from the newest message */
 .composer > .scroll-bottom-button { position: absolute; left: 50%; top: -52px; transform: translateX(-50%); width: 38px; height: 38px; display: grid; place-items: center; padding: 0; border: 1px solid var(--app-line); border-radius: 50%; color: var(--app-ink); background: color-mix(in srgb,var(--app-panel) 94%,transparent); backdrop-filter: blur(14px); box-shadow: var(--app-shadow); cursor: pointer; }
 .composer > .scroll-bottom-button:active { transform: translateX(-50%) scale(.94); }
+
+/* phones: the top bar stays put while the chat scrolls underneath, so the logo and the menu can always be tapped */
+.topbar { position: sticky; top: 0; z-index: 40; background: var(--app-bg); box-shadow: 0 0 0 100vmax var(--app-bg); clip-path: inset(0 -100vmax); }
+/* the + menu: two folded rows that show the current choice; open one to change it */
+.coach-model-popover > button.plus-section-head { min-height: 58px; grid-template-columns: minmax(0,1fr) 18px; margin-bottom: 4px; background: var(--app-panel-strong); }
+.plus-section-head small { margin: 0 0 3px; font-size: calc(10px * var(--fs, 1)); letter-spacing: .06em; }
+.plus-section-head strong { font-size: calc(14px * var(--fs, 1)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.coach-model-popover > button.plus-section-head svg { color: var(--app-muted); transition: transform .2s; }
+.coach-model-popover > button.plus-section-head.open svg { transform: rotate(180deg); }

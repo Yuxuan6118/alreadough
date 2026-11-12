@@ -15,6 +15,7 @@ import {
   ArrowsClockwise,
   Brain,
   CaretDown,
+  UserCircle,
   Check,
   ArrowClockwise,
   BookmarkSimple,
@@ -322,7 +323,7 @@ export default function Home() {
   const [aiConnected, setAiConnected] = useState<boolean | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [profile, setProfile] = useState<Profile>(emptyProfile);
-  const [petOpen, setPetOpen] = useState(false);
+  const [plusSection, setPlusSection] = useState<"goal" | "coach" | null>(null);
   const [aiError, setAiError] = useState("");
   const [chatInput, setChatInput] = useState("");
   const [oldScene, setOldScene] = useState("");
@@ -1313,7 +1314,6 @@ export default function Home() {
       <button type="button" role="menuitem" onClick={() => { switchLanguage(); closeMenu(); }}><span className="rail-language">{lang === "zh" ? "EN" : "中"}</span><span>{lang === "zh" ? "English" : "简体中文"}</span></button>
     </div>
   </> : null;
-  const avatarLetter = goal.companionName.slice(0, 1) || "A";
 
   return (
     <main className="app-shell" data-theme={dark ? "dark" : "light"} data-lang={lang}>
@@ -1330,15 +1330,15 @@ export default function Home() {
         </nav>
         <div className="rail-footer">
           <button onClick={() => setView("memory")} className={view === "memory" ? "active" : ""}><Brain size={18}/><span>{lang === "zh" ? "记忆库" : "Memory"}</span></button>
-          <button className={`rail-menu-button${view === "settings" || menuOpen ? " active" : ""}`} onClick={() => setMenuOpen((open) => !open)} aria-haspopup="menu" aria-expanded={menuOpen}><span className="rail-avatar">{avatarLetter}</span><span>{goal.companionName || (lang === "zh" ? "我的空间" : "My space")}</span></button>
+          <button className={`rail-menu-button${view === "settings" || menuOpen ? " active" : ""}`} onClick={() => setMenuOpen((open) => !open)} aria-haspopup="menu" aria-expanded={menuOpen}><span className="rail-avatar"><UserCircle size={18}/></span><span>{goal.companionName || (lang === "zh" ? "我的空间" : "My space")}</span></button>
           {appMenu}
         </div>
       </aside>
 
       <section className="app-stage">
       <header className="topbar">
-        <button className="brand" onClick={() => setPetOpen((open) => !open)} aria-expanded={petOpen} aria-label={lang === "zh" ? "打开面团宠物" : "Open the dough pet"}><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></button>
-        <div className="top-actions"><span className={`sync-badge ${syncStatus}`}>{syncStatus === "saved" ? <CloudCheck size={15}/> : <CloudSlash size={15}/>}<span>{syncStatus === "saved" ? (lang === "zh" ? "已同步" : "Synced") : syncStatus === "saving" || syncStatus === "loading" ? (lang === "zh" ? "同步中" : "Syncing") : (lang === "zh" ? "本机模式" : "On device")}</span></span><button className="avatar" onClick={() => setMenuOpen((open) => !open)} aria-haspopup="menu" aria-expanded={menuOpen} aria-label={lang === "zh" ? "打开菜单" : "Open menu"}>{avatarLetter}</button>{appMenu}</div>
+        <button className="brand" onClick={() => navigate("home")} aria-label="AlreaDough home"><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></button>
+        <div className="top-actions"><span className={`sync-badge ${syncStatus}`}>{syncStatus === "saved" ? <CloudCheck size={15}/> : <CloudSlash size={15}/>}<span>{syncStatus === "saved" ? (lang === "zh" ? "已同步" : "Synced") : syncStatus === "saving" || syncStatus === "loading" ? (lang === "zh" ? "同步中" : "Syncing") : (lang === "zh" ? "本机模式" : "On device")}</span></span><button className="avatar" onClick={() => setMenuOpen((open) => !open)} aria-haspopup="menu" aria-expanded={menuOpen} aria-label={lang === "zh" ? "打开菜单" : "Open menu"}><UserCircle size={22}/></button>{appMenu}</div>
       </header>
 
       {historyOpen && <div className="history-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setHistoryOpen(false); }}><aside className="history-drawer"><header><div><p className="eyebrow">{lang === "zh" ? "对话记录" : "CONVERSATION HISTORY"}</p><h2>{lang === "zh" ? "回到之前的片段" : "Return to an earlier moment"}</h2></div><button onClick={() => setHistoryOpen(false)} aria-label={lang === "zh" ? "关闭" : "Close"}>×</button></header><button className="history-new" onClick={beginNewConversation}><Plus size={17}/>{lang === "zh" ? "开始新对话" : "Start a new conversation"}</button><div className="history-list">{conversationArchive.length ? conversationArchive.map((conversation) => <article key={conversation.id}><button onClick={() => openConversation(conversation)}><strong>{conversation.title}</strong><small>{new Date(conversation.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US")}</small></button><button aria-label={lang === "zh" ? "删除对话" : "Delete conversation"} onClick={() => setConversationArchive((items) => items.filter((item) => item.id !== conversation.id))}><Trash size={16}/></button></article>) : <p>{lang === "zh" ? "完成第一段对话后，它会安全地出现在这里。" : "Your first completed conversation will appear here."}</p>}</div></aside></div>}
@@ -1357,7 +1357,7 @@ export default function Home() {
           {isTyping && <div className="message ai typing"><i/><i/><i/></div>}
         </div>
         {aiError && <div className="ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
-        <div className={`composer home-composer ${sessionMessages.length ? "is-active" : "is-empty"}`}>{showJump && sessionMessages.length > 0 && <button type="button" className="scroll-bottom-button" onClick={() => scrollChatToBottom(true)} aria-label={lang === "zh" ? "回到最新消息" : "Jump to the latest message"}><ArrowDown size={18} weight="bold"/></button>}<details className="coach-model-menu composer-plus"><summary aria-label={lang === "zh" ? "更多选项" : "More options"}><Plus size={20}/></summary><div className="coach-model-popover"><header><strong>{lang === "zh" ? "现在聊哪个愿望" : "Which desire now"}</strong><small>{lang === "zh" ? "每次对话只聊当前这一个" : "Each conversation covers one desire"}</small></header>{goalMenuItems}<header><strong>{lang === "zh" ? "选择引导方式" : "Choose a guide"}</strong><small>{lang === "zh" ? "每条消息都可以随时切换" : "Switch for any message"}</small></header>{coachMenuItems}</div></details><div className="composer-main"><textarea ref={chatInputRef} rows={1} value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={onChatKey} placeholder={t.chatPlaceholder} aria-label={t.chatPlaceholder}/></div><button className="composer-send" onClick={() => isTyping ? requestControllerRef.current?.abort() : sendChat()} aria-label={isTyping ? (lang === "zh" ? "停止生成" : "Stop generating") : t.send}>{isTyping ? <StopCircle size={20}/> : <><span className="send-up">↑</span><ArrowElbowDownLeft className="send-return" size={20}/></>}</button><AiNote lang={lang} /></div>
+        <div className={`composer home-composer ${sessionMessages.length ? "is-active" : "is-empty"}`}>{showJump && sessionMessages.length > 0 && <button type="button" className="scroll-bottom-button" onClick={() => scrollChatToBottom(true)} aria-label={lang === "zh" ? "回到最新消息" : "Jump to the latest message"}><ArrowDown size={18} weight="bold"/></button>}<details className="coach-model-menu composer-plus" onToggle={(event) => { if (!event.currentTarget.open) setPlusSection(null); }}><summary aria-label={lang === "zh" ? "更多选项" : "More options"}><Plus size={20}/></summary><div className="coach-model-popover plus-sections"><button type="button" className={`plus-section-head${plusSection === "goal" ? " open" : ""}`} aria-expanded={plusSection === "goal"} onClick={() => setPlusSection((current) => current === "goal" ? null : "goal")}><span><small>{lang === "zh" ? "现在聊哪个愿望" : "Which desire now"}</small><strong>{goalTitle(goal, lang)}</strong></span><CaretDown size={16}/></button>{plusSection === "goal" && goalMenuItems}<button type="button" className={`plus-section-head${plusSection === "coach" ? " open" : ""}`} aria-expanded={plusSection === "coach"} onClick={() => setPlusSection((current) => current === "coach" ? null : "coach")}><span><small>{lang === "zh" ? "引导方式" : "Guidance method"}</small><strong>{lang === "zh" ? coachModes.find((coach) => coach.id === goal.coachMode)?.zh : coachModes.find((coach) => coach.id === goal.coachMode)?.en}</strong></span><CaretDown size={16}/></button>{plusSection === "coach" && coachMenuItems}</div></details><div className="composer-main"><textarea ref={chatInputRef} rows={1} value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={onChatKey} placeholder={t.chatPlaceholder} aria-label={t.chatPlaceholder}/></div><button className="composer-send" onClick={() => isTyping ? requestControllerRef.current?.abort() : sendChat()} aria-label={isTyping ? (lang === "zh" ? "停止生成" : "Stop generating") : t.send}>{isTyping ? <StopCircle size={20}/> : <><span className="send-up">↑</span><ArrowElbowDownLeft className="send-return" size={20}/></>}</button><AiNote lang={lang} /></div>
       </section>}
 
       {view === "subliminal" && <SubliminalStudio lang={lang} desire={goal.desire[lang]} focusText={goal.acceptedSceneLedger[lang][0]} checkIns={checkIns} onCheckIn={recordCheckIn}/>}
@@ -1495,13 +1495,6 @@ export default function Home() {
       </div>}
 
       {view === "home" && <DoughPet lang={lang} checked={checkedToday} streak={streak} onCheckIn={() => recordCheckIn("chosen")}/>}
-      {petOpen && <>
-        <button type="button" className="pet-sheet-backdrop" aria-label={lang === "zh" ? "关闭" : "Close"} onClick={() => setPetOpen(false)} />
-        <section className="pet-sheet" role="dialog" aria-label={lang === "zh" ? "面团宠物" : "Dough pet"}>
-          <header><strong>{lang === "zh" ? "面团在这里" : "Dough is here"}</strong><button type="button" onClick={() => setPetOpen(false)} aria-label={lang === "zh" ? "关闭" : "Close"}>×</button></header>
-          <DoughPet inline lang={lang} checked={checkedToday} streak={streak} onCheckIn={() => recordCheckIn("chosen")}/>
-        </section>
-      </>}
 
       <nav className="bottom-nav" aria-label={t.ariaNav}>
         {primaryNav.map((item) => {
