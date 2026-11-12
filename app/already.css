@@ -1489,3 +1489,8 @@ html[data-theme="dark"].landscape-blocked::after { color: #f1e8e2; background: #
   .profile-add { grid-template-columns: 1fr auto; }
   .profile-add input:nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
 }
+/* installed iPhone app: the status bar is see-through, so plain pages (privacy, terms, pricing) leave room for it;
+   the main app and the first-run screens already handle the safe area themselves */
+@media (display-mode: standalone) {
+  body:not(:has(.app-shell)) { padding-top: env(safe-area-inset-top); }
+}
