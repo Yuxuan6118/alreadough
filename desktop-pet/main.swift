@@ -19,7 +19,7 @@ let defaults = UserDefaults.standard
 // Room around the dough for stretching, ripples and confetti. It scales with the dough: a pulled dough grows past its own
 // size, and anything beyond the window is cut off (that showed up as an invisible wall when pulling upwards).
 func padFor(_ width: CGFloat) -> CGFloat { max(90, width * 0.64) }
-var padding: CGFloat = padFor(190)
+var padding: CGFloat = padFor(280)
 
 // MARK: colours (the web theme tokens)
 
@@ -57,6 +57,7 @@ final class PetView: NSView {
     private var lastPull = CGPoint.zero
     private var lastStretch = CATransform3DIdentity
     private let breakFreeDistance: CGFloat = 92
+    private var unit: CGFloat { imageSize.width / 190 }   // effects were drawn for a 190 pt dough; scale them with it
     private var tapTimes: [TimeInterval] = []
     private var lastTouched = Date()
     private var napping = false
@@ -160,7 +161,7 @@ final class PetView: NSView {
         }
         charLayer.add(make("transform.scale.x", 1, 1 + 0.035 * amount), forKey: "breath-x")
         charLayer.add(make("transform.scale.y", 1, 1 + 0.055 * amount), forKey: "breath-y")
-        charLayer.add(make("transform.translation.y", 0, 4 * amount), forKey: "breath-lift")
+        charLayer.add(make("transform.translation.y", 0, 4 * amount * unit), forKey: "breath-lift")
     }
 
     private func startSpecks() {
@@ -169,7 +170,7 @@ final class PetView: NSView {
             fade.values = [0, 0, 0.72, 0, 0]
             fade.keyTimes = [0, 0.72, 0.82, 0.94, 1]
             let rise = CAKeyframeAnimation(keyPath: "transform.translation.y")
-            rise.values = [-5, -5, 0, 18, -5]
+            rise.values = [-5 * unit, -5 * unit, 0, 18 * unit, -5 * unit]
             rise.keyTimes = [0, 0.72, 0.82, 0.94, 1]
             let grow = CAKeyframeAnimation(keyPath: "transform.scale")
             grow.values = [0.7, 0.7, 0.9, 1.08, 0.7]
@@ -200,7 +201,7 @@ final class PetView: NSView {
         // additive, so it plays on top of the breathing
         charLayer.add(make("transform.scale.x", [0, 0.05 * strength, -0.02 * strength, 0]), forKey: "squish-x")
         charLayer.add(make("transform.scale.y", [0, -0.09 * strength, 0.035 * strength, 0]), forKey: "squish-y")
-        charLayer.add(make("transform.translation.y", [0, -5 * strength, 2 * strength, 0]), forKey: "squish-lift")
+        charLayer.add(make("transform.translation.y", [0, -5 * strength * unit, 2 * strength * unit, 0]), forKey: "squish-lift")
     }
 
     // web: .dough-ripple, 2px accent ring, opacity .52 -> 0, scale .2 -> 1.35 over .82 s
@@ -238,8 +239,8 @@ final class PetView: NSView {
         }
         for (index, spot) in spots.enumerated() {
             let piece = CALayer()
-            piece.bounds = CGRect(x: 0, y: 0, width: 7, height: 12)
-            piece.cornerRadius = 3.5
+            piece.bounds = CGRect(x: 0, y: 0, width: 7 * unit, height: 12 * unit)
+            piece.cornerRadius = 3.5 * unit
             piece.anchorPoint = CGPoint(x: 0, y: 1)
             piece.position = centre
             let number = index + 1
@@ -247,7 +248,7 @@ final class PetView: NSView {
             fxLayer.addSublayer(piece)
             let move = CABasicAnimation(keyPath: "position")
             move.fromValue = NSValue(point: centre)
-            move.toValue = NSValue(point: CGPoint(x: centre.x + spot.x, y: centre.y - spot.y))   // CSS y points down
+            move.toValue = NSValue(point: CGPoint(x: centre.x + spot.x * unit, y: centre.y - spot.y * unit))   // CSS y points down
             let turn = CABasicAnimation(keyPath: "transform.rotation.z")
             turn.fromValue = 0; turn.toValue = -spot.r * .pi / 180
             let fade = CABasicAnimation(keyPath: "opacity")
@@ -309,18 +310,18 @@ final class PetView: NSView {
         let z = CATextLayer()
         z.string = "z"
         z.font = NSFont.systemFont(ofSize: 16, weight: .semibold)
-        z.fontSize = CGFloat.random(in: 13...18)
+        z.fontSize = CGFloat.random(in: 13...18) * unit
         z.foregroundColor = accent().withAlphaComponent(0.85).cgColor
         z.alignmentMode = .center
         z.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
-        z.bounds = CGRect(x: 0, y: 0, width: 20, height: 22)
+        z.bounds = CGRect(x: 0, y: 0, width: 20 * unit, height: 22 * unit)
         let start = CGPoint(x: padding + imageSize.width * 0.72, y: padding + imageSize.height * 0.78)
         z.position = start
         z.opacity = 0
         fxLayer.addSublayer(z)
         let rise = CABasicAnimation(keyPath: "position")
         rise.fromValue = NSValue(point: start)
-        rise.toValue = NSValue(point: CGPoint(x: start.x + 14, y: start.y + 34))
+        rise.toValue = NSValue(point: CGPoint(x: start.x + 14 * unit, y: start.y + 34 * unit))
         let fade = CAKeyframeAnimation(keyPath: "opacity")
         fade.values = [0, 1, 1, 0]
         fade.keyTimes = [0, 0.2, 0.7, 1]
@@ -343,8 +344,8 @@ final class PetView: NSView {
     }
 
     private func pull(dx: CGFloat, dy: CGFloat) {
-        let tx = elastic(dx, low: -52, high: 52)
-        let ty = elastic(dy, low: -22, high: 52)    // screen y points up: a downward pull has less room above the floor
+        let tx = elastic(dx / unit, low: -52, high: 52)
+        let ty = elastic(dy / unit, low: -22, high: 52)    // screen y points up: a downward pull has less room above the floor
         let ax = min(abs(tx), 76), ay = min(abs(ty), 76)
         let sx = 1 + ax / 150 - ay / 430
         let sy = 1 + ay / 150 - ax / 430
@@ -352,9 +353,9 @@ final class PetView: NSView {
         var stretch = CATransform3DIdentity
         stretch = CATransform3DRotate(stretch, tilt, 0, 0, 1)
         stretch = CATransform3DScale(stretch, sx, sy, 1)
-        lastPull = CGPoint(x: tx, y: ty)
+        lastPull = CGPoint(x: tx * unit, y: ty * unit)
         lastStretch = stretch
-        let transform = CATransform3DConcat(stretch, CATransform3DMakeTranslation(tx, ty, 0))
+        let transform = CATransform3DConcat(stretch, CATransform3DMakeTranslation(tx * unit, ty * unit, 0))
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         dragLayer.removeAnimation(forKey: "spring")
@@ -435,7 +436,7 @@ final class PetView: NSView {
         }
         switch mode {
         case .pull:
-            if hypot(dx, dy) > breakFreeDistance { breakFree() } else { pull(dx: dx, dy: dy) }
+            if hypot(dx, dy) > breakFreeDistance * unit { breakFree() } else { pull(dx: dx, dy: dy) }
         case .carry: window?.setFrameOrigin(NSPoint(x: windowAtDown.x + dx, y: windowAtDown.y + dy))
         default: break
         }
@@ -477,7 +478,7 @@ final class PetView: NSView {
         menu.addItem(home)
         let sizeMenu = NSMenu()
         let current = imageSize.width
-        for (title, width) in [("小", 130.0), ("中", 190.0), ("大", 270.0)] {
+        for (title, width) in [("小", 190.0), ("中", 280.0), ("大", 380.0), ("特大", 520.0)] {
             let item = NSMenuItem(title: title, action: #selector(chooseSize(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = width
@@ -522,8 +523,8 @@ final class PetApp: NSObject, NSApplicationDelegate {
             return
         }
         image = cgImage
-        let saved = defaults.double(forKey: "width")
-        showPet(width: saved > 0 ? CGFloat(saved) : 190, origin: nil)
+        let saved = defaults.double(forKey: "width2")
+        showPet(width: saved > 0 ? CGFloat(saved) : 280, origin: nil)
         // Only the dough takes the mouse; the transparent margin lets clicks through to whatever is underneath.
         watcher = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in self?.watchMouse() }
     }
@@ -606,7 +607,7 @@ final class PetApp: NSObject, NSApplicationDelegate {
         let newPad = padFor(width)
         let doughBottom = old.minY + oldPad
         let origin = NSPoint(x: old.midX - (width + newPad * 2) / 2, y: doughBottom - newPad)
-        defaults.set(Double(width), forKey: "width")
+        defaults.set(Double(width), forKey: "width2")
         defaults.set(Double(origin.x), forKey: "x")
         defaults.set(Double(origin.y), forKey: "y")
         showPet(width: width, origin: origin)
