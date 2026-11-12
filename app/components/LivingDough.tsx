@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "motion/react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { motion, useAnimate, useMotionValue, useReducedMotion, useSpring, useTransform } from "motion/react";
 import { Capacitor } from "@capacitor/core";
 import Image from "next/image";
 
@@ -22,6 +22,26 @@ export default function LivingDough({ lang, compact = false, onTouch }: Props) {
   const reduceMotion = useReducedMotion();
   const [response, setResponse] = useState(0);
   const didDrag = useRef(false);
+  // The breathing loop and the tap squish both run on the same element. They used to be swapped by changing the
+  // element's key, which destroyed and rebuilt the dough (and its picture) on every tap: on a phone that showed as the
+  // dough blinking out and back in, and the breathing never came back afterwards.
+  const [shellRef, animateShell] = useAnimate<HTMLSpanElement>();
+  const idleLoop = useRef<{ stop: () => void } | null>(null);
+  const startIdle = () => {
+    if (reduceMotion || !shellRef.current) return;
+    idleLoop.current = animateShell(shellRef.current, { scaleX: [1, 1.035, 1], scaleY: [1, 1.055, 1], y: [0, -4, 0] }, { duration: 5.4, times: [0, 0.42, 1], ease: ["easeOut", "easeInOut"], repeat: Infinity });
+  };
+  const playResponse = async () => {
+    if (reduceMotion || !shellRef.current) return;
+    idleLoop.current?.stop();
+    await animateShell(shellRef.current, { scaleX: [1, 1.05, 0.98, 1], scaleY: [1, 0.91, 1.035, 1], y: [0, 5, -2, 0] }, { duration: 0.7, ease: [0.16, 1, 0.3, 1] });
+    startIdle();
+  };
+  useEffect(() => {
+    startIdle();
+    return () => idleLoop.current?.stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- start the loop once, when the dough appears
+  }, []);
   const pinch = useMotionValue(1);
   const pinchSpring = useSpring(pinch, { stiffness: 230, damping: 11, mass: 0.9 });
   const [pinching, setPinching] = useState(false);
@@ -29,6 +49,36 @@ export default function LivingDough({ lang, compact = false, onTouch }: Props) {
   const pinchStart = useRef({ distance: 1, scale: 1 });
   const pinchingRef = useRef(false);
   const didPinch = useRef(false);
+  const stageRef = useRef<HTMLSpanElement | null>(null);
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    let timer = 0, base = 1, active = false;
+    const follow = (next: number) => pinch.set(rubber(next));
+    const release = () => { active = false; pinch.set(1); };   // the spring does the bounce back
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey) return;   // a trackpad pinch arrives as ctrl + wheel
+      event.preventDefault();
+      if (!active) { active = true; pinch.jump?.(1); }
+      follow(pinch.get() * Math.exp(-event.deltaY * 0.012));
+      window.clearTimeout(timer);
+      timer = window.setTimeout(release, 140);
+    };
+    const onGestureStart = (event: Event) => { event.preventDefault(); base = pinch.get(); };
+    const onGestureChange = (event: Event) => { event.preventDefault(); follow(base * ((event as Event & { scale: number }).scale || 1)); };
+    const onGestureEnd = (event: Event) => { event.preventDefault(); release(); };
+    stage.addEventListener("wheel", onWheel, { passive: false });
+    stage.addEventListener("gesturestart", onGestureStart);
+    stage.addEventListener("gesturechange", onGestureChange);
+    stage.addEventListener("gestureend", onGestureEnd);
+    return () => {
+      window.clearTimeout(timer);
+      stage.removeEventListener("wheel", onWheel);
+      stage.removeEventListener("gesturestart", onGestureStart);
+      stage.removeEventListener("gesturechange", onGestureChange);
+      stage.removeEventListener("gestureend", onGestureEnd);
+    };
+  }, [pinch]);
   const twoFingers = () => { const [a, b] = [...pointers.current.values()]; return a && b ? Math.hypot(a.x - b.x, a.y - b.y) || 1 : 0; };
   const onPinchDown = (event: ReactPointerEvent) => {
     if (event.pointerType !== "touch") return;
@@ -74,6 +124,7 @@ export default function LivingDough({ lang, compact = false, onTouch }: Props) {
       return;
     }
     setResponse((value) => value + 1);
+    void playResponse();
     onTouch?.();
     if (Capacitor.isNativePlatform()) {
       const { Haptics, ImpactStyle } = await import("@capacitor/haptics");
@@ -88,7 +139,7 @@ export default function LivingDough({ lang, compact = false, onTouch }: Props) {
       onClick={touch}
       aria-label={lang === "zh" ? "轻触正在醒发的面团" : "Touch the living dough"}
     >
-      <motion.span className="dough-stage" aria-hidden="true" style={{ scale: reduceMotion ? pinch : pinchSpring, transformOrigin: "50% 100%" }} onPointerDown={onPinchDown} onPointerMove={onPinchMove} onPointerUp={onPinchUp} onPointerCancel={onPinchUp}>
+      <motion.span ref={stageRef} className="dough-stage" aria-hidden="true" style={{ scale: reduceMotion ? pinch : pinchSpring, transformOrigin: "50% 100%" }} onPointerDown={onPinchDown} onPointerMove={onPinchMove} onPointerUp={onPinchUp} onPointerCancel={onPinchUp}>
         <motion.span
           className="dough-drag-shell"
           tabIndex={-1}
@@ -102,15 +153,9 @@ export default function LivingDough({ lang, compact = false, onTouch }: Props) {
           onDrag={() => { didDrag.current = true; }}
           whileTap={reduceMotion ? undefined : { scale: 0.97 }}
         >
-          <motion.span
-            key={response}
-            className="dough-character-shell"
-            initial={reduceMotion ? false : { scaleX: 1, scaleY: 1 }}
-            animate={reduceMotion ? undefined : response ? { scaleX: [1, 1.05, 0.98, 1], scaleY: [1, 0.91, 1.035, 1], y: [0, 5, -2, 0] } : { scaleX: [1, 1.035, 1], scaleY: [1, 1.055, 1], y: [0, -4, 0] }}
-            transition={response ? { duration: 0.7, ease: [0.16, 1, 0.3, 1] } : { duration: 5.4, times: [0, 0.42, 1], ease: ["easeOut", "easeInOut"], repeat: Infinity }}
-          >
-            <Image className="dough-character" src="/mascot/already-dough-fold-v3.png" alt="" width={1536} height={1024} sizes={compact ? "140px" : "360px"}/>
-          </motion.span>
+          <span ref={shellRef} className="dough-character-shell">
+            <Image className="dough-character" src="/mascot/already-dough-fold-v3.png" alt="" width={1536} height={1024} loading="eager" sizes={compact ? "140px" : "360px"}/>
+          </span>
         </motion.span>
         <span className="proof-specks"><i/><i/><i/></span>
         <motion.span
