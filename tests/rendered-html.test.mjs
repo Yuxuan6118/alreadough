@@ -537,3 +537,16 @@ test("delete my data also deletes the cloned voice, and the voice routes enforce
   const db = await readFile(new URL("../lib/voice-db.ts", import.meta.url), "utf8");
   assert.doesNotMatch(db, /audio TEXT|audio BLOB|sample/i);
 });
+
+test("my space: one way in from the drawer and the rail, no avatar menu, memory and settings live in one list", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  // the entries that used to overlap are gone
+  assert.doesNotMatch(page, /className="avatar"/);
+  assert.doesNotMatch(page, /const appMenu/);
+  assert.doesNotMatch(page, /rail-footer">\s*<button onClick=\{\(\) => setView\("memory"\)\}/);
+  assert.equal((page.match(/setView\("settings"\)/g) || []).length, 1, "only openSpace may open settings");
+  // the list has three groups and a single memory library entry
+  assert.match(page, /<SpaceNav/);
+  for (const id of ["wishes", "about", "companion", "reflect", "library", "memory", "look", "voice", "sync", "help"]) assert.match(page, new RegExp(`id: "${id}"`));
+  assert.match(page, /id === "library" \? setView\("memory"\)/);
+});

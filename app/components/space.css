@@ -1,0 +1,28 @@
+/* My space: one list, three groups. Tokens only, no new colours. */
+.space-layout { width: 100%; max-width: 1040px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+.space-list h1 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: calc(30px * var(--fs, 1)); line-height: 1.25; }
+.space-list header p { margin: 6px 0 0; color: var(--app-muted); font-size: calc(15px * var(--fs, 1)); line-height: 1.5; text-wrap: pretty; }
+.space-list header { margin-bottom: 26px; }
+.space-list section { margin-bottom: 26px; }
+.space-list h2 { margin: 0 0 6px; color: var(--app-muted); font-family: var(--font-body); font-weight: 500; font-size: calc(13px * var(--fs, 1)); }
+.space-list ul { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--app-line); }
+.space-list li { border-bottom: 1px solid var(--app-line); }
+.space-list li button { width: 100%; min-height: 54px; display: flex; align-items: center; gap: 10px; padding: 0 2px; border: 0; background: transparent; color: var(--app-ink); font-size: calc(16px * var(--fs, 1)); text-align: left; }
+.space-list li button span { flex: 1; }
+.space-list li button small { color: var(--app-muted); font-size: calc(14px * var(--fs, 1)); }
+.space-list li button svg { flex: none; color: var(--app-muted); }
+.space-list li button.active { color: var(--app-accent); }
+.space-detail-head { display: flex; align-items: center; gap: 6px; margin-bottom: 18px; }
+.space-detail-head h2 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: calc(26px * var(--fs, 1)); }
+.space-back { width: 40px; height: 40px; margin-left: -10px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--app-muted); }
+.space-layout:not(.has-detail) .space-detail { display: none; }
+.space-layout.has-detail .space-list { display: none; }
+@media (min-width: 1000px) {
+  .space-layout { grid-template-columns: 300px minmax(0, 1fr); gap: 56px; }
+  .space-layout .space-list, .space-layout.has-detail .space-list, .space-layout:not(.has-detail) .space-detail { display: block; }
+  .space-back { display: none; }
+}
+.voice-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+.voice-note { color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); line-height: 1.6; }
+.look-theme { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; }
+.look-theme strong { font-weight: 500; }

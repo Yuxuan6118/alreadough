@@ -26,6 +26,7 @@ import {
   CloudSlash,
   ArrowDown,
   ArrowElbowDownLeft,
+  ArrowLeft,
   Copy,
   FloppyDisk,
   NotePencil,
@@ -42,12 +43,15 @@ import { AiNote, BreakReminder, ReportButton, ReportDialog, SiteRecord } from ".
 import SyncPanel from "./components/SyncPanel";
 import GuidedOnboarding from "./components/GuidedOnboarding";
 import ProfilePanel from "./components/ProfilePanel";
+import SpaceNav from "./components/SpaceNav";
+import VoiceSettings from "./components/VoiceSettings";
 import FontSizePanel from "./components/FontSizePanel";
 import type { ReflectionAnswers, ReflectionQuestionId } from "@/lib/reflection";
 import { validateSpName } from "@/lib/name-policy";
 import { answersToSeeds, type GoalSeed, type OnboardingAnswers, type ProfileSeed } from "@/lib/onboarding-flow";
 import { readStored, writeStored, removeStored } from "@/lib/safe-storage";
 
+type SpaceSection = "wishes" | "about" | "companion" | "reflect" | "memory" | "look" | "voice" | "sync" | "help";
 type View = "home" | "subliminal" | "story" | "revision" | "board" | "memory" | "settings";
 type Lang = "zh" | "en";
 type Message = { id: string; role: "ai" | "user"; text: string; feedback?: "helpful" | "missed"; saved?: boolean; logId?: string; error?: boolean };
@@ -315,7 +319,7 @@ export default function Home() {
   const [conversationId, setConversationId] = useState("");
   const [conversationArchive, setConversationArchive] = useState<Conversation[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [settingsSection, setSettingsSection] = useState<"profile" | "about" | "companion" | "reflect" | "memory" | "data">("profile");
+  const [settingsSection, setSettingsSection] = useState<SpaceSection | null>(null);
   const [memoryFilter, setMemoryFilter] = useState<MemoryKind | "all">("all");
   const [memoryEditorOpen, setMemoryEditorOpen] = useState(false);
   const [memoryEditingId, setMemoryEditingId] = useState<string | null>(null);
@@ -1422,17 +1426,11 @@ export default function Home() {
     </main>;
   }
 
-  const closeMenu = () => setMenuOpen(false);
-  const appMenu = menuOpen ? <>
-    <button type="button" className="app-menu-backdrop" aria-label={lang === "zh" ? "关闭菜单" : "Close menu"} onClick={closeMenu} />
-    <div className="app-menu" role="menu">
-      <button type="button" role="menuitem" className={view === "settings" ? "active" : ""} onClick={() => { setView("settings"); closeMenu(); }}><SlidersHorizontal size={18}/><span>{lang === "zh" ? "我的空间" : "My space"}</span></button>
-      <button type="button" role="menuitem" className="app-menu-phone" onClick={() => { setView("memory"); closeMenu(); }}><Brain size={18}/><span>{lang === "zh" ? "记忆库" : "Memory"}</span></button>
-      <button type="button" role="menuitem" className="app-menu-phone" onClick={() => { setHistoryOpen(true); closeMenu(); }}><ChatCircleDots size={18}/><span>{lang === "zh" ? "对话记录" : "Conversation history"}</span></button>
-      <button type="button" role="menuitem" onClick={() => { toggleDark(); closeMenu(); }}>{dark ? <Sun size={18}/> : <Moon size={18}/>}<span>{dark ? (lang === "zh" ? "浅色" : "Light") : (lang === "zh" ? "深色" : "Dark")}</span></button>
-      <button type="button" role="menuitem" onClick={() => { switchLanguage(); closeMenu(); }}><span className="rail-language">{lang === "zh" ? "EN" : "中"}</span><span>{lang === "zh" ? "English" : "简体中文"}</span></button>
-    </div>
-  </> : null;
+  /** One way into My space: from the list (phone) or straight to a section. On a wide screen the first section is already open. */
+  const openSpace = (section?: SpaceSection) => {
+    setSettingsSection(section ?? (typeof window !== "undefined" && window.matchMedia("(min-width: 1000px)").matches ? "wishes" : null));
+    setView("settings");
+  };
 
   return (
     <>
@@ -1444,13 +1442,12 @@ export default function Home() {
           const Icon = item.icon;
           return <button type="button" key={item.id} className={view === item.id ? "active" : ""} onClick={() => { navigate(item.id); moveSidebar(false); }}><Icon size={20} weight={view === item.id ? "fill" : "regular"}/><span>{item.label}</span></button>;
         })}
-        <button type="button" className={view === "memory" ? "active" : ""} onClick={() => { setView("memory"); moveSidebar(false); }}><Brain size={20}/><span>{lang === "zh" ? "记忆库" : "Memory"}</span></button>
       </nav>
       <div className="swipe-history">
         <small>{lang === "zh" ? "对话记录" : "Conversations"}</small>
         {conversationArchive.length ? conversationArchive.map((conversation) => <button type="button" key={conversation.id} onClick={() => { openConversation(conversation); moveSidebar(false); }}><span>{conversation.title}</span><small>{new Date(conversation.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US")}</small></button>) : <p>{lang === "zh" ? "完成第一段对话后，它会出现在这里。" : "Your first conversation will appear here."}</p>}
       </div>
-      <footer><button type="button" onClick={() => { setView("settings"); moveSidebar(false); }}><UserCircle size={24}/><span>{goal.companionName || (lang === "zh" ? "我的空间" : "My space")}</span><GearSix size={20} className="swipe-gear" aria-hidden="true"/></button></footer>
+      <footer><button type="button" onClick={() => { openSpace(); moveSidebar(false); }}><UserCircle size={24}/><span>{goal.companionName || (lang === "zh" ? "我的空间" : "My space")}</span><GearSix size={20} className="swipe-gear" aria-hidden="true"/></button></footer>
     </aside>
     <main ref={setShellEl} className={`app-shell${sidebarOpen ? " drawer-open" : ""}`} data-theme={dark ? "dark" : "light"} data-lang={lang}>
       <div className="app-grain" aria-hidden="true" />
@@ -1465,9 +1462,7 @@ export default function Home() {
           })}
         </nav>
         <div className="rail-footer">
-          <button onClick={() => setView("memory")} className={view === "memory" ? "active" : ""}><Brain size={18}/><span>{lang === "zh" ? "记忆库" : "Memory"}</span></button>
-          <button className={`rail-menu-button${view === "settings" || menuOpen ? " active" : ""}`} onClick={() => setMenuOpen((open) => !open)} aria-haspopup="menu" aria-expanded={menuOpen}><span className="rail-avatar"><UserCircle size={18}/></span><span>{goal.companionName || (lang === "zh" ? "我的空间" : "My space")}</span></button>
-          {appMenu}
+          <button className={`rail-menu-button${view === "settings" || view === "memory" ? " active" : ""}`} onClick={() => openSpace()}><span className="rail-avatar"><UserCircle size={18}/></span><span>{goal.companionName || (lang === "zh" ? "我的空间" : "My space")}</span></button>
         </div>
       </aside>
 
@@ -1475,7 +1470,7 @@ export default function Home() {
       <header className="topbar">
         <button type="button" className="topbar-menu" onClick={() => moveSidebar(true)} aria-label={lang === "zh" ? "打开侧边栏" : "Open the sidebar"}><List size={22}/></button>
         <button className="brand" onClick={() => setPetOpen((open) => !open)} aria-expanded={petOpen} aria-label={lang === "zh" ? "打开面团" : "Open the dough"}><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></button>
-        <div className="top-actions"><span className={`sync-badge ${syncStatus}`}>{syncStatus === "saved" ? <CloudCheck size={15}/> : <CloudSlash size={15}/>}<span>{syncStatus === "saved" ? (lang === "zh" ? "已同步" : "Synced") : syncStatus === "saving" || syncStatus === "loading" ? (lang === "zh" ? "同步中" : "Syncing") : (lang === "zh" ? "本机模式" : "On device")}</span></span><button className="avatar" onClick={() => setMenuOpen((open) => !open)} aria-haspopup="menu" aria-expanded={menuOpen} aria-label={lang === "zh" ? "打开菜单" : "Open menu"}><UserCircle size={22}/></button>{appMenu}</div>
+        <div className="top-actions"><span className={`sync-badge ${syncStatus}`}>{syncStatus === "saved" ? <CloudCheck size={15}/> : <CloudSlash size={15}/>}<span>{syncStatus === "saved" ? (lang === "zh" ? "已同步" : "Synced") : syncStatus === "saving" || syncStatus === "loading" ? (lang === "zh" ? "同步中" : "Syncing") : (lang === "zh" ? "本机模式" : "On device")}</span></span></div>
       </header>
 
       {historyOpen && <div className="history-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setHistoryOpen(false); }}><aside className="history-drawer"><header><div><p className="eyebrow">{lang === "zh" ? "对话记录" : "CONVERSATION HISTORY"}</p><h2>{lang === "zh" ? "回到之前的片段" : "Return to an earlier moment"}</h2></div><button onClick={() => setHistoryOpen(false)} aria-label={lang === "zh" ? "关闭" : "Close"}>×</button></header><button className="history-new" onClick={beginNewConversation}><Plus size={17}/>{lang === "zh" ? "开始新对话" : "Start a new conversation"}</button><div className="history-list">{conversationArchive.length ? conversationArchive.map((conversation) => <article key={conversation.id}><button onClick={() => openConversation(conversation)}><strong>{conversation.title}</strong><small>{new Date(conversation.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US")}</small></button><button aria-label={lang === "zh" ? "删除对话" : "Delete conversation"} onClick={() => setConversationArchive((items) => items.filter((item) => item.id !== conversation.id))}><Trash size={16}/></button></article>) : <p>{lang === "zh" ? "完成第一段对话后，它会安全地出现在这里。" : "Your first completed conversation will appear here."}</p>}</div></aside></div>}
@@ -1530,7 +1525,7 @@ export default function Home() {
           <article><header><strong>{lang === "zh" ? "已接纳的新场景" : "ACCEPTED SCENES"}</strong><small>{goal.acceptedSceneLedger[lang].length}</small></header>{goal.acceptedSceneLedger[lang].length ? <ul>{goal.acceptedSceneLedger[lang].map((item, index) => <li key={`${index}-${item.slice(0, 24)}`}>{item}</li>)}</ul> : <p>{lang === "zh" ? "在故事或重写中接纳的场景会出现在这里。" : "Scenes accepted from Stories or Revision will appear here."}</p>}</article>
           <article className="journey-memory"><header><strong>{lang === "zh" ? "旅程摘要" : "JOURNEY SUMMARY"}</strong><small>{lang === "zh" ? "自动压缩" : "AUTO-COMPRESSED"}</small></header><p>{goal.journeySummary[lang] || (lang === "zh" ? "对话开始后，这里会形成一段简短摘要。" : "A short summary will form here after conversations begin.")}</p></article>
         </div>
-        <div className="memory-actions"><button className="outline-button" onClick={() => setView("settings")}>{lang === "zh" ? "编辑愿望与偏好" : "Edit desire and preferences"}</button><button className="primary" onClick={() => setView("home")}>{lang === "zh" ? "回到对话" : "Back to chat"}</button></div>
+        <div className="memory-actions"><button className="outline-button" onClick={() => openSpace("wishes")}>{lang === "zh" ? "编辑愿望与偏好" : "Edit desire and preferences"}</button><button className="primary" onClick={() => setView("home")}>{lang === "zh" ? "回到对话" : "Back to chat"}</button></div>
         {memoryEditorOpen && <div className="memory-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setMemoryEditorOpen(false); }}><section className="memory-modal" role="dialog" aria-modal="true" aria-labelledby="memory-editor-title"><header><div><p className="eyebrow">{lang === "zh" ? "由你决定保留什么" : "YOU CHOOSE WHAT STAYS"}</p><h2 id="memory-editor-title">{memoryEditingId ? (lang === "zh" ? "编辑这条记忆" : "Edit this memory") : (lang === "zh" ? "添加一条记忆" : "Add a memory")}</h2></div><button onClick={() => setMemoryEditorOpen(false)} aria-label={lang === "zh" ? "关闭" : "Close"}>×</button></header><label><span>{lang === "zh" ? "类型" : "TYPE"}</span><select value={memoryDraft.kind} onChange={(event) => setMemoryDraft((current) => ({ ...current, kind: event.target.value as MemoryKind }))}>{memoryKinds.map((kind) => <option key={kind.id} value={kind.id}>{lang === "zh" ? kind.zh : kind.en}</option>)}</select></label><label><span>{lang === "zh" ? "标题" : "TITLE"}</span><input maxLength={80} value={memoryDraft.title} onChange={(event) => setMemoryDraft((current) => ({ ...current, title: event.target.value }))} placeholder={lang === "zh" ? "例如：我喜欢先被理解" : "For example: Meet the feeling first"}/></label><label><span>{lang === "zh" ? "具体内容" : "DETAIL"}</span><textarea maxLength={600} value={memoryDraft.detail} onChange={(event) => setMemoryDraft((current) => ({ ...current, detail: event.target.value }))} placeholder={lang === "zh" ? "写下以后对话中仍然有用的语境。" : "Write the context that will still matter later."}/></label><label><span>{lang === "zh" ? "检索词" : "KEYWORDS"}</span><input value={memoryDraft.keywords} onChange={(event) => setMemoryDraft((current) => ({ ...current, keywords: event.target.value }))} placeholder={lang === "zh" ? "用逗号分隔，最多 5 个" : "Comma-separated, up to 5"}/></label><footer><button className="outline-button" onClick={() => setMemoryEditorOpen(false)}>{lang === "zh" ? "取消" : "Cancel"}</button><button className="primary" disabled={!memoryDraft.title.trim() || !memoryDraft.detail.trim()} onClick={saveMemoryItem}>{lang === "zh" ? "保存到记忆库" : "Save to memory"}</button></footer></section></div>}
       </section>}
 
@@ -1582,53 +1577,83 @@ export default function Home() {
         </> : <VisionCanvasStudio lang={lang}/>} 
       </section>}
 
-      {view === "settings" && <section className="full-view settings-view">
-        <div className="view-heading"><p className="eyebrow">{t.private}</p><h1>{lang === "zh" ? `${goal.companionName}的已完成空间` : `${goal.companionName}’s already-done space`}</h1><p>{t.privateCopy}</p></div>
-        <nav className="settings-tabs" aria-label={lang === "zh" ? "空间设置分类" : "Space settings sections"}>{([
-          ["profile", lang === "zh" ? "我与愿望" : "Profile & desire"], ["about", lang === "zh" ? "关于我" : "About me"], ["companion", lang === "zh" ? "AI 陪伴者" : "AI companion"], ["reflect", lang === "zh" ? "自我觉察" : "Self-reflection"], ["memory", lang === "zh" ? "记忆与旅程" : "Memory & journey"], ["data", lang === "zh" ? "数据与安全" : "Data & safety"],
-        ] as const).map(([id, label]) => <button key={id} className={settingsSection === id ? "active" : ""} onClick={() => setSettingsSection(id)}>{label}</button>)}</nav>
-
-        {settingsSection === "profile" && <div className="settings-section">
-          <div className="goal-status"><label><span>{t.activeGoal}</span><select value={goal.status} onChange={(event) => setGoal((current) => ({ ...current, status: event.target.value as GoalStatus }))}><option value="active">{lang === "zh" ? "正在练习" : "Active"}</option><option value="embodiment">{lang === "zh" ? "稳定进入" : "Embodying"}</option><option value="fulfilled">{lang === "zh" ? "已经发生" : "Already happened"}</option><option value="paused">{lang === "zh" ? "暂时休息" : "Paused"}</option></select></label><small>{lang === "zh" ? "每次对话只加载当前选中的这一张愿望卡" : "Only the selected desire card is loaded into each conversation"}</small></div>
-          <div className="setting-card goal-list-card"><label>{lang === "zh" ? "我的愿望" : "MY DESIRES"}</label><p>{lang === "zh" ? "按想要的程度排序。每个愿望有自己的记忆和对话。" : "Sorted by how much you want each one. Each desire has its own memory and conversations."}</p>{sortedGoals.map((item) => <div key={item.id} className={`goal-row ${item.id === goal.id ? "current" : ""}`}><div><strong>{goalTitle(item, lang)}</strong><small>{lang === "zh" ? wishCategories.find((entry) => entry.id === item.wishCategory)?.zh : wishCategories.find((entry) => entry.id === item.wishCategory)?.en}{item.id === goal.id ? (lang === "zh" ? " · 当前" : " · Current") : ""}</small></div><select aria-label={lang === "zh" ? "想要的程度" : "How much you want it"} value={item.intensity} onChange={(event) => setGoalIntensity(item.id, Number(event.target.value))}>{intensityLabels[lang].map((label, index) => <option key={label} value={index + 1}>{label}</option>)}</select>{item.id !== goal.id && <><button className="outline-button" onClick={() => switchGoal(item.id)}>{lang === "zh" ? "切换" : "Open"}</button><button className="outline-button" aria-label={lang === "zh" ? "删除愿望" : "Delete desire"} onClick={() => deleteOtherGoal(item.id)}><Trash size={16}/></button></>}</div>)}<button className="outline-button" onClick={addGoal}><Plus size={16}/> {lang === "zh" ? "添加愿望" : "Add a desire"}</button></div>
-          <div className="setting-card editable-card"><label>{lang === "zh" ? "我喜欢的称呼" : "WHAT ALREADOUGH CALLS ME"}</label><input value={goal.companionName} onChange={(event) => setGoal((current) => ({ ...current, companionName: event.target.value }))}/></div>
-          <div className="setting-card editable-card"><label>{lang === "zh" ? "愿望方向" : "DESIRE CATEGORY"}</label><div className="option-card-grid category-grid">{wishCategories.map((category) => <button key={category.id} className={goal.wishCategory === category.id ? "selected" : ""} onClick={() => setGoal((current) => ({ ...current, wishCategory: category.id }))}><strong>{lang === "zh" ? category.zh : category.en}</strong><small>{lang === "zh" ? category.zhDescription : category.enDescription}</small></button>)}</div></div>
-          <div className="setting-card editable-card sp-name-card"><label>{goal.wishCategory === "relationship" ? (lang === "zh" ? "显化对象" : "MANIFESTATION PERSON") : (lang === "zh" ? "愿望焦点" : "DESIRE FOCUS")}</label><input value={spNameDraft} maxLength={24} aria-invalid={Boolean(spNameError)} onChange={(event) => setSpNameDraft(event.target.value)}/>{spNameError && <p className="field-error" role="alert">{spNameError}</p>}</div>
-          <div className="setting-card editable-card"><label>{t.coreWish}</label><textarea value={goal.desire[lang]} onChange={(event) => setGoal((current) => ({ ...current, desire: { ...current.desire, [lang]: event.target.value } }))}/></div>
-        </div>}
-
-        {settingsSection === "about" && <ProfilePanel lang={lang} profile={profile} onChange={(next) => setProfile(normalizeProfile(next))} />}
-
-        {settingsSection === "companion" && <div className="settings-section">
-          <div className="setting-card editable-card"><label>{t.tone}</label><div className="option-card-grid companion-style-grid">{companionStyles.map((style) => <button key={style.id} className={goal.companionStyle === style.id ? "selected" : ""} onClick={() => chooseCompanionStyle(style.id)}><strong>{lang === "zh" ? style.zh : style.en}</strong><small>{lang === "zh" ? style.zhDescription : style.enDescription}</small></button>)}</div>{goal.companionStyle === "custom" && <textarea value={goal.tone[lang]} onChange={(event) => setGoal((current) => ({ ...current, tone: { ...current.tone, [lang]: event.target.value } }))}/>}</div>
-          <div className="setting-card editable-card"><label>{lang === "zh" ? "引导方式" : "GUIDANCE METHOD"}</label><div className="option-card-grid coach-settings-grid">{coachModes.map((coach) => <button key={coach.id} className={goal.coachMode === coach.id ? "selected" : ""} onClick={() => setGoal((current) => ({ ...current, coachMode: coach.id }))}><strong>{lang === "zh" ? coach.zh : coach.en}</strong><small>{lang === "zh" ? coach.zhDescription : coach.enDescription}</small></button>)}</div></div>
-          <div className="setting-card pet-card"><span>{lang === "zh" ? "桌面小面团（Mac）" : "DESKTOP DOUGH (MAC)"}</span><p>{lang === "zh" ? "让面团住在你的电脑桌面上：它会呼吸，轻点会弹一下，拉一拉会拉长再弹回去，连点三下会开一场醒发派对。没有打卡，也不打扰你。" : "Let the dough live on your Mac desktop. It breathes, bounces when you tap it, stretches when you pull it, and throws a proofing party on three quick taps. No check-ins, no interruptions."}</p><a className="primary pet-download" href="/downloads/AlreaDough-Pet-mac.zip" download>{lang === "zh" ? "下载 Mac 桌宠" : "Download for Mac"}</a><ol><li>{lang === "zh" ? "解压后，把「AlreaDough Pet」拖进「应用程序」文件夹。" : "Unzip it and drag “AlreaDough Pet” into your Applications folder."}</li><li>{lang === "zh" ? "第一次打开如果提示无法验证开发者：到「系统设置 → 隐私与安全性」，点「仍要打开」。" : "If macOS says it cannot verify the developer: System Settings → Privacy & Security → Open Anyway."}</li><li>{lang === "zh" ? "拉一拉面团会拉长；拉得够远它就会挣脱，跟着你走，放在屏幕任何地方都行。右键可以换大小、放回右下角或退出。" : "Pull the dough and it stretches; pull far enough and it breaks free and follows you, so you can leave it anywhere on screen. Right-click for size, to send it back to the corner, or to quit."}</li></ol><small>{lang === "zh" ? "仅限 Mac 电脑，手机上请直接使用 AlreaDough。" : "Mac only. On a phone, just use AlreaDough."}</small></div>
-        </div>}
-
-        {settingsSection === "reflect" && <ReflectionPanel lang={lang} currentGoalId={goal.id} goals={sortedGoals.map((item) => ({ id: item.id, title: goalTitle(item, lang), reflection: item.reflection || {} }))} onChange={setReflectionAnswer} />}
-
-        {settingsSection === "memory" && <div className="settings-section">
-          <div className="setting-card editable-card"><label>{lang === "zh" ? "我的背景与处境" : "MY CONTEXT"}</label><textarea maxLength={MAX_BACKGROUND} value={goal.background[lang]} onChange={(event) => setGoal((current) => ({ ...current, background: { ...current.background, [lang]: event.target.value } }))}/><div className="field-counter"><span>{goal.background[lang].length} / {MAX_BACKGROUND}</span></div></div>
-          <div className="setting-card editable-card"><label>{lang === "zh" ? "想换掉的念头" : "THOUGHTS TO TURN AROUND"}</label><textarea aria-invalid={beliefCount > MAX_BELIEFS} value={beliefDraft} onChange={(event) => setBeliefDraft(event.target.value)} placeholder={lang === "zh" ? `每行写一个，最多 ${MAX_BELIEFS} 条` : `One per line, up to ${MAX_BELIEFS}`}/><div className={`field-counter ${beliefCount > MAX_BELIEFS ? "over" : ""}`}><span>{beliefCount} / {MAX_BELIEFS}</span></div></div>
-          <div className="setting-card memory-card"><span>{t.memory}</span><p>{goal.journeySummary[lang] || (lang === "zh" ? "对话开始后，这里会形成简短摘要。" : "A short summary will form after conversations begin.")}</p><small>{lang === "zh" ? "每次回复后自动压缩更新，不重复发送全部历史。" : "Compressed after each response, so the full history is never resent."}</small></div>
-          <button className="outline-button" onClick={() => setView("memory")}>{lang === "zh" ? "打开完整记忆库" : "Open full memory library"}</button>
-        </div>}
-
-        {settingsSection === "data" && <div className="settings-section">
-          <div className="setting-card beta-quota-card"><span>{lang === "zh" ? "AI 对话" : "AI CONVERSATIONS"}</span><p>{betaStatus?.authenticated === false ? (lang === "zh" ? "正在连接这台设备…" : "Connecting this device…") : betaStatus?.enabled === false ? (lang === "zh" ? "AI 正在由创始人暂时维护，请稍后再来。" : "AI is temporarily paused by the founder. Please check back shortly.") : (lang === "zh" ? "不限制对话、重写与故事的次数。" : "No limit on chats, revisions, or stories.")}</p></div>
-          <div className="language-card"><div><span>{lang === "zh" ? "界面语言" : "LANGUAGE"}</span><strong>{lang === "zh" ? "简体中文" : "English"}</strong></div><button onClick={switchLanguage}>{lang === "zh" ? "Switch to English" : "切换到中文"}</button></div>
-          <div className="setting-card sync-card"><span>{lang === "zh" ? "跨设备同步" : "CROSS-DEVICE SYNC"}</span><p>{syncStatus === "saved" ? (lang === "zh" ? "愿望、记忆、对话、故事和练习记录已安全同步。" : "Your desire, memory, conversations, stories, and practice history are synced.") : (lang === "zh" ? "当前使用本机副本；恢复连接后会自动继续同步。" : "Using the on-device copy. Sync resumes automatically when available.")}</p></div>
-          <FontSizePanel lang={lang} />
-          <SyncPanel lang={lang} sessionId={sessionId} syncStatus={syncStatus} hasLocalData={goal.setupComplete} />
-          <div className="setting-card goal-lifecycle-card"><span>{lang === "zh" ? "愿望生命周期" : "DESIRE LIFECYCLE"}</span><p>{lang === "zh" ? "愿望完成后，把它留在历程中，再开启一张新的愿望卡。" : "When this desire is complete, keep it in your journey and open a fresh desire card."}</p><button className="outline-button" onClick={archiveAndBeginAgain}>{lang === "zh" ? "完成并归档，开启新愿望" : "Complete, archive, and begin again"}</button></div>
-          {goalArchive.length > 0 && <div className="setting-card archive-card"><span>{lang === "zh" ? `已经发生的愿望 · ${goalArchive.length}` : `FULFILLED DESIRES · ${goalArchive.length}`}</span>{goalArchive.slice(0, 5).map((item) => <article key={item.id}><strong>{item.desire[lang] || item.desire[lang === "zh" ? "en" : "zh"]}</strong><small>{item.createdAt ? new Date(item.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US") : ""}</small></article>)}</div>}
-          <div className="setting-card report-card"><span>{lang === "zh" ? "联系与举报" : "CONTACT & REPORTS"}</span><p>{lang === "zh" ? "发现不当、违法或让你不舒服的内容，可以在这里举报。每条 AI 回复下面也有“举报”按钮。我们会尽快查看。" : "If you see anything inappropriate, unlawful, or upsetting, report it here. Every AI reply also has a Report button. We read these as soon as we can."}</p><button className="outline-button" onClick={() => setReportTarget({})}>{lang === "zh" ? "举报内容或反馈问题" : "Report content or send feedback"}</button><SiteRecord lang={lang} /></div>
-          <div className="setting-card data-control-card"><span>{lang === "zh" ? "我的数据" : "MY DATA"}</span><p>{lang === "zh" ? "下载愿望卡、故事、对话、重写与打卡记录。私密照片和音频文件不会写入导出文件。" : "Download desire cards, stories, conversations, revisions, and check-ins. Private photo and audio files are excluded."}</p><button className="outline-button" onClick={exportMyData}>{lang === "zh" ? "导出我的数据" : "Export my data"}</button></div>
-          <div className="legal-links"><a className="trust-link" href="/pricing">{lang === "zh" ? "会员与价格" : "Membership & pricing"}</a><a className="trust-link" href="/trust">{t.trust}</a><a className="trust-link" href="/privacy">{lang === "zh" ? "隐私说明" : "Privacy"}</a><a className="trust-link" href="/terms">{lang === "zh" ? "测试版条款" : "Beta terms"}</a><a className="trust-link" href="/copyright">{lang === "zh" ? "素材与版权" : "Content & copyright"}</a></div>
-          <button className="outline-button danger-button" onClick={() => { if (window.confirm(t.confirm)) { void fetch("/api/space", { method: "DELETE", headers: { "x-already-session-id": sessionId } }); removeStored("already-private-state-v5"); removeStored("already-practice-checkins-v1"); removeStored("already-subliminal-v1"); removeStored("already-vision-project-v1"); indexedDB.deleteDatabase("already-private-audio-v1"); indexedDB.deleteDatabase("already-private-vision-v1"); removeStored("already-opening-v1"); setProfile(emptyProfile); setOtherGoals([]); setGoal({ ...defaultGoal }); setGoalArchive([]); setConversationArchive([]); setConversationId(""); setSpNameDraft(""); setBeliefDraft(""); setStoryLibrary([]); setMessages([]); setRevisions([]); setCheckIns([]); setBoard([]); setView("home"); setOnboardingStep(0); } }}>{t.clear}</button>
-        </div>}
-        {settingsSection !== "data" && <div className="settings-savebar"><span>{syncStatus === "saved" ? <CloudCheck size={18}/> : <FloppyDisk size={18}/>} {syncStatus === "saved" ? (lang === "zh" ? "会自动同步" : "Auto-sync is on") : (lang === "zh" ? "本机副本已保留" : "On-device copy retained")}</span><button className="primary" onClick={saveGoalSettings} disabled={Boolean(spNameError) || beliefCount > MAX_BELIEFS || !goal.companionStyle}>{goalSavedPulse ? t.savedGoal : t.saveGoal}</button></div>}
-      </section>}
+      {view === "settings" && (() => {
+        const shown: SpaceSection = settingsSection ?? "wishes";
+        const zhText = lang === "zh";
+        const titles: Record<SpaceSection, string> = { wishes: zhText ? "我的愿望" : "My desires", about: zhText ? "关于我" : "About me", companion: zhText ? "陪伴方式" : "Companion style", reflect: zhText ? "自我觉察" : "Self-reflection", memory: zhText ? "背景与念头" : "Background and thoughts", look: zhText ? "外观与语言" : "Look and language", voice: zhText ? "我的声音" : "My voice", sync: zhText ? "同步与数据" : "Sync and data", help: zhText ? "帮助与条款" : "Help and terms" };
+        return <section className="full-view settings-view space">
+          <div className={`space-layout${settingsSection ? " has-detail" : ""}`}>
+            <SpaceNav
+              title={zhText ? "我的空间" : "My space"}
+              intro={zhText ? "愿望、记忆和设置都在这里。" : "Your desires, memory and settings live here."}
+              active={settingsSection}
+              onSelect={(id) => id === "library" ? setView("memory") : setSettingsSection(id as SpaceSection)}
+              groups={[
+                { title: zhText ? "我" : "Me", rows: [
+                  { id: "wishes", label: titles.wishes, value: String(sortedGoals.length) },
+                  { id: "about", label: titles.about },
+                  { id: "companion", label: titles.companion },
+                  { id: "reflect", label: titles.reflect },
+                ] },
+                { title: zhText ? "记忆" : "Memory", rows: [
+                  { id: "library", label: zhText ? "记忆库" : "Memory library", value: String(currentMemoryItems.length) },
+                  { id: "memory", label: titles.memory },
+                ] },
+                { title: zhText ? "应用" : "App", rows: [
+                  { id: "look", label: titles.look, value: dark ? (zhText ? "深色" : "Dark") : (zhText ? "浅色" : "Light") },
+                  { id: "voice", label: titles.voice },
+                  { id: "sync", label: titles.sync },
+                  { id: "help", label: titles.help },
+                ] },
+              ]}
+            />
+            <div className="space-detail">
+              <header className="space-detail-head"><button type="button" className="space-back" onClick={() => setSettingsSection(null)} aria-label={zhText ? "返回我的空间" : "Back to My space"}><ArrowLeft size={22}/></button><h2>{titles[shown]}</h2></header>
+              {shown === "wishes" && <div className="settings-section">
+                <div className="goal-status"><label><span>{t.activeGoal}</span><select value={goal.status} onChange={(event) => setGoal((current) => ({ ...current, status: event.target.value as GoalStatus }))}><option value="active">{lang === "zh" ? "正在练习" : "Active"}</option><option value="embodiment">{lang === "zh" ? "稳定进入" : "Embodying"}</option><option value="fulfilled">{lang === "zh" ? "已经发生" : "Already happened"}</option><option value="paused">{lang === "zh" ? "暂时休息" : "Paused"}</option></select></label><small>{lang === "zh" ? "每次对话只加载当前选中的这一张愿望卡" : "Only the selected desire card is loaded into each conversation"}</small></div>
+                <div className="setting-card goal-list-card"><label>{lang === "zh" ? "我的愿望" : "MY DESIRES"}</label><p>{lang === "zh" ? "按想要的程度排序。每个愿望有自己的记忆和对话。" : "Sorted by how much you want each one. Each desire has its own memory and conversations."}</p>{sortedGoals.map((item) => <div key={item.id} className={`goal-row ${item.id === goal.id ? "current" : ""}`}><div><strong>{goalTitle(item, lang)}</strong><small>{lang === "zh" ? wishCategories.find((entry) => entry.id === item.wishCategory)?.zh : wishCategories.find((entry) => entry.id === item.wishCategory)?.en}{item.id === goal.id ? (lang === "zh" ? " · 当前" : " · Current") : ""}</small></div><select aria-label={lang === "zh" ? "想要的程度" : "How much you want it"} value={item.intensity} onChange={(event) => setGoalIntensity(item.id, Number(event.target.value))}>{intensityLabels[lang].map((label, index) => <option key={label} value={index + 1}>{label}</option>)}</select>{item.id !== goal.id && <><button className="outline-button" onClick={() => switchGoal(item.id)}>{lang === "zh" ? "切换" : "Open"}</button><button className="outline-button" aria-label={lang === "zh" ? "删除愿望" : "Delete desire"} onClick={() => deleteOtherGoal(item.id)}><Trash size={16}/></button></>}</div>)}<button className="outline-button" onClick={addGoal}><Plus size={16}/> {lang === "zh" ? "添加愿望" : "Add a desire"}</button></div>
+                <div className="setting-card editable-card"><label>{lang === "zh" ? "我喜欢的称呼" : "WHAT ALREADOUGH CALLS ME"}</label><input value={goal.companionName} onChange={(event) => setGoal((current) => ({ ...current, companionName: event.target.value }))}/></div>
+                <div className="setting-card editable-card"><label>{lang === "zh" ? "愿望方向" : "DESIRE CATEGORY"}</label><div className="option-card-grid category-grid">{wishCategories.map((category) => <button key={category.id} className={goal.wishCategory === category.id ? "selected" : ""} onClick={() => setGoal((current) => ({ ...current, wishCategory: category.id }))}><strong>{lang === "zh" ? category.zh : category.en}</strong><small>{lang === "zh" ? category.zhDescription : category.enDescription}</small></button>)}</div></div>
+                <div className="setting-card editable-card sp-name-card"><label>{goal.wishCategory === "relationship" ? (lang === "zh" ? "显化对象" : "MANIFESTATION PERSON") : (lang === "zh" ? "愿望焦点" : "DESIRE FOCUS")}</label><input value={spNameDraft} maxLength={24} aria-invalid={Boolean(spNameError)} onChange={(event) => setSpNameDraft(event.target.value)}/>{spNameError && <p className="field-error" role="alert">{spNameError}</p>}</div>
+                <div className="setting-card editable-card"><label>{t.coreWish}</label><textarea value={goal.desire[lang]} onChange={(event) => setGoal((current) => ({ ...current, desire: { ...current.desire, [lang]: event.target.value } }))}/></div>
+                <div className="setting-card goal-lifecycle-card"><span>{lang === "zh" ? "愿望生命周期" : "DESIRE LIFECYCLE"}</span><p>{lang === "zh" ? "愿望完成后，把它留在历程中，再开启一张新的愿望卡。" : "When this desire is complete, keep it in your journey and open a fresh desire card."}</p><button className="outline-button" onClick={archiveAndBeginAgain}>{lang === "zh" ? "完成并归档，开启新愿望" : "Complete, archive, and begin again"}</button></div>
+                {goalArchive.length > 0 && <div className="setting-card archive-card"><span>{lang === "zh" ? `已经发生的愿望 · ${goalArchive.length}` : `FULFILLED DESIRES · ${goalArchive.length}`}</span>{goalArchive.slice(0, 5).map((item) => <article key={item.id}><strong>{item.desire[lang] || item.desire[lang === "zh" ? "en" : "zh"]}</strong><small>{item.createdAt ? new Date(item.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US") : ""}</small></article>)}</div>}
+              </div>}
+              {shown === "about" && <ProfilePanel lang={lang} profile={profile} onChange={(next) => setProfile(normalizeProfile(next))} />}
+              {shown === "companion" && <div className="settings-section">
+                <div className="setting-card editable-card"><label>{t.tone}</label><div className="option-card-grid companion-style-grid">{companionStyles.map((style) => <button key={style.id} className={goal.companionStyle === style.id ? "selected" : ""} onClick={() => chooseCompanionStyle(style.id)}><strong>{lang === "zh" ? style.zh : style.en}</strong><small>{lang === "zh" ? style.zhDescription : style.enDescription}</small></button>)}</div>{goal.companionStyle === "custom" && <textarea value={goal.tone[lang]} onChange={(event) => setGoal((current) => ({ ...current, tone: { ...current.tone, [lang]: event.target.value } }))}/>}</div>
+                <div className="setting-card editable-card"><label>{lang === "zh" ? "引导方式" : "GUIDANCE METHOD"}</label><div className="option-card-grid coach-settings-grid">{coachModes.map((coach) => <button key={coach.id} className={goal.coachMode === coach.id ? "selected" : ""} onClick={() => setGoal((current) => ({ ...current, coachMode: coach.id }))}><strong>{lang === "zh" ? coach.zh : coach.en}</strong><small>{lang === "zh" ? coach.zhDescription : coach.enDescription}</small></button>)}</div></div>
+                <div className="setting-card pet-card"><span>{lang === "zh" ? "桌面小面团（Mac）" : "DESKTOP DOUGH (MAC)"}</span><p>{lang === "zh" ? "让面团住在你的电脑桌面上：它会呼吸，轻点会弹一下，拉一拉会拉长再弹回去，连点三下会开一场醒发派对。没有打卡，也不打扰你。" : "Let the dough live on your Mac desktop. It breathes, bounces when you tap it, stretches when you pull it, and throws a proofing party on three quick taps. No check-ins, no interruptions."}</p><a className="primary pet-download" href="/downloads/AlreaDough-Pet-mac.zip" download>{lang === "zh" ? "下载 Mac 桌宠" : "Download for Mac"}</a><ol><li>{lang === "zh" ? "解压后，把「AlreaDough Pet」拖进「应用程序」文件夹。" : "Unzip it and drag “AlreaDough Pet” into your Applications folder."}</li><li>{lang === "zh" ? "第一次打开如果提示无法验证开发者：到「系统设置 → 隐私与安全性」，点「仍要打开」。" : "If macOS says it cannot verify the developer: System Settings → Privacy & Security → Open Anyway."}</li><li>{lang === "zh" ? "拉一拉面团会拉长；拉得够远它就会挣脱，跟着你走，放在屏幕任何地方都行。右键可以换大小、放回右下角或退出。" : "Pull the dough and it stretches; pull far enough and it breaks free and follows you, so you can leave it anywhere on screen. Right-click for size, to send it back to the corner, or to quit."}</li></ol><small>{lang === "zh" ? "仅限 Mac 电脑，手机上请直接使用 AlreaDough。" : "Mac only. On a phone, just use AlreaDough."}</small></div>
+              </div>}
+              {shown === "reflect" && <ReflectionPanel lang={lang} currentGoalId={goal.id} goals={sortedGoals.map((item) => ({ id: item.id, title: goalTitle(item, lang), reflection: item.reflection || {} }))} onChange={setReflectionAnswer} />}
+              {shown === "memory" && <div className="settings-section">
+                <div className="setting-card editable-card"><label>{lang === "zh" ? "我的背景与处境" : "MY CONTEXT"}</label><textarea maxLength={MAX_BACKGROUND} value={goal.background[lang]} onChange={(event) => setGoal((current) => ({ ...current, background: { ...current.background, [lang]: event.target.value } }))}/><div className="field-counter"><span>{goal.background[lang].length} / {MAX_BACKGROUND}</span></div></div>
+                <div className="setting-card editable-card"><label>{lang === "zh" ? "想换掉的念头" : "THOUGHTS TO TURN AROUND"}</label><textarea aria-invalid={beliefCount > MAX_BELIEFS} value={beliefDraft} onChange={(event) => setBeliefDraft(event.target.value)} placeholder={lang === "zh" ? `每行写一个，最多 ${MAX_BELIEFS} 条` : `One per line, up to ${MAX_BELIEFS}`}/><div className={`field-counter ${beliefCount > MAX_BELIEFS ? "over" : ""}`}><span>{beliefCount} / {MAX_BELIEFS}</span></div></div>
+                <div className="setting-card memory-card"><span>{t.memory}</span><p>{goal.journeySummary[lang] || (lang === "zh" ? "对话开始后，这里会形成简短摘要。" : "A short summary will form after conversations begin.")}</p><small>{lang === "zh" ? "每次回复后自动压缩更新，不重复发送全部历史。" : "Compressed after each response, so the full history is never resent."}</small></div>
+                <button className="outline-button" onClick={() => setView("memory")}>{lang === "zh" ? "打开完整记忆库" : "Open full memory library"}</button>
+              </div>}
+              {shown === "look" && <div className="settings-section">
+                <div className="language-card"><div><span>{lang === "zh" ? "外观" : "APPEARANCE"}</span><strong>{dark ? (lang === "zh" ? "深色" : "Dark") : (lang === "zh" ? "浅色" : "Light")}</strong></div><button onClick={toggleDark}>{dark ? (lang === "zh" ? "切换浅色" : "Use light") : (lang === "zh" ? "切换深色" : "Use dark")}</button></div>
+                <div className="language-card"><div><span>{lang === "zh" ? "界面语言" : "LANGUAGE"}</span><strong>{lang === "zh" ? "简体中文" : "English"}</strong></div><button onClick={switchLanguage}>{lang === "zh" ? "Switch to English" : "切换到中文"}</button></div>
+                <FontSizePanel lang={lang} />
+              </div>}
+              {shown === "voice" && <VoiceSettings lang={lang} sessionId={sessionId} onRecord={() => navigate("subliminal")} />}
+              {shown === "sync" && <div className="settings-section">
+                <div className="setting-card sync-card"><span>{lang === "zh" ? "跨设备同步" : "CROSS-DEVICE SYNC"}</span><p>{syncStatus === "saved" ? (lang === "zh" ? "愿望、记忆、对话、故事和练习记录已安全同步。" : "Your desire, memory, conversations, stories, and practice history are synced.") : (lang === "zh" ? "当前使用本机副本；恢复连接后会自动继续同步。" : "Using the on-device copy. Sync resumes automatically when available.")}</p></div>
+                <SyncPanel lang={lang} sessionId={sessionId} syncStatus={syncStatus} hasLocalData={goal.setupComplete} />
+                <div className="setting-card data-control-card"><span>{lang === "zh" ? "我的数据" : "MY DATA"}</span><p>{lang === "zh" ? "下载愿望卡、故事、对话、重写与打卡记录。私密照片和音频文件不会写入导出文件。" : "Download desire cards, stories, conversations, revisions, and check-ins. Private photo and audio files are excluded."}</p><button className="outline-button" onClick={exportMyData}>{lang === "zh" ? "导出我的数据" : "Export my data"}</button></div>
+                <button className="outline-button danger-button" onClick={() => { if (window.confirm(t.confirm)) { void fetch("/api/space", { method: "DELETE", headers: { "x-already-session-id": sessionId } }); removeStored("already-private-state-v5"); removeStored("already-practice-checkins-v1"); removeStored("already-subliminal-v1"); removeStored("already-vision-project-v1"); indexedDB.deleteDatabase("already-private-audio-v1"); indexedDB.deleteDatabase("already-private-vision-v1"); removeStored("already-opening-v1"); setProfile(emptyProfile); setOtherGoals([]); setGoal({ ...defaultGoal }); setGoalArchive([]); setConversationArchive([]); setConversationId(""); setSpNameDraft(""); setBeliefDraft(""); setStoryLibrary([]); setMessages([]); setRevisions([]); setCheckIns([]); setBoard([]); setView("home"); setOnboardingStep(0); } }}>{t.clear}</button>
+              </div>}
+              {shown === "help" && <div className="settings-section">
+                <div className="setting-card beta-quota-card"><span>{lang === "zh" ? "AI 对话" : "AI CONVERSATIONS"}</span><p>{betaStatus?.authenticated === false ? (lang === "zh" ? "正在连接这台设备…" : "Connecting this device…") : betaStatus?.enabled === false ? (lang === "zh" ? "AI 正在由创始人暂时维护，请稍后再来。" : "AI is temporarily paused by the founder. Please check back shortly.") : (lang === "zh" ? "不限制对话、重写与故事的次数。" : "No limit on chats, revisions, or stories.")}</p></div>
+                <div className="setting-card report-card"><span>{lang === "zh" ? "联系与举报" : "CONTACT & REPORTS"}</span><p>{lang === "zh" ? "发现不当、违法或让你不舒服的内容，可以在这里举报。每条 AI 回复下面也有“举报”按钮。我们会尽快查看。" : "If you see anything inappropriate, unlawful, or upsetting, report it here. Every AI reply also has a Report button. We read these as soon as we can."}</p><button className="outline-button" onClick={() => setReportTarget({})}>{lang === "zh" ? "举报内容或反馈问题" : "Report content or send feedback"}</button><SiteRecord lang={lang} /></div>
+                <div className="legal-links"><a className="trust-link" href="/pricing">{lang === "zh" ? "会员与价格" : "Membership & pricing"}</a><a className="trust-link" href="/trust">{t.trust}</a><a className="trust-link" href="/privacy">{lang === "zh" ? "隐私说明" : "Privacy"}</a><a className="trust-link" href="/terms">{lang === "zh" ? "测试版条款" : "Beta terms"}</a><a className="trust-link" href="/copyright">{lang === "zh" ? "素材与版权" : "Content & copyright"}</a></div>
+              </div>}
+              {shown !== "sync" && shown !== "help" && shown !== "voice" && shown !== "look" && <div className="settings-savebar"><span>{syncStatus === "saved" ? <CloudCheck size={18}/> : <FloppyDisk size={18}/>} {syncStatus === "saved" ? (lang === "zh" ? "会自动同步" : "Auto-sync is on") : (lang === "zh" ? "本机副本已保留" : "On-device copy retained")}</span><button className="primary" onClick={saveGoalSettings} disabled={Boolean(spNameError) || beliefCount > MAX_BELIEFS || !goal.companionStyle}>{goalSavedPulse ? t.savedGoal : t.saveGoal}</button></div>}
+            </div>
+          </div>
+        </section>;
+      })()}
 
       </section>
 
