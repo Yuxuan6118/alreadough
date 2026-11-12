@@ -1491,3 +1491,19 @@ html[data-theme="dark"].landscape-blocked::after { color: #f1e8e2; background: #
 }
 /* iPhone home-screen app: the app follows the phone's light/dark setting, so the manual switch is hidden */
 html.follow-system-theme .theme-toggle, html.follow-system-theme .theme-menu-item { display: none; }
+/* installed iPhone app: the status bar is see-through, so the page paints that strip itself in the page colour
+   (env() is 0 anywhere the content does not run under the bar), and plain pages leave room for it */
+@media (display-mode: standalone) {
+  html::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: env(safe-area-inset-top);
+    background: var(--app-bg);
+    z-index: 2147482000;
+    pointer-events: none;
+  }
+  body:not(:has(.app-shell)) { padding-top: env(safe-area-inset-top); }
+}

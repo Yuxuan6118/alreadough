@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   applicationName: "AlreaDough",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent", // see-through: the page paints the strip itself (already.css, installed-app block), so it always matches the page and the phone-following theme
     title: "AlreaDough",
   },
   manifest: "/manifest.webmanifest",
