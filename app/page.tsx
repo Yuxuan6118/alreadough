@@ -355,6 +355,22 @@ export default function Home() {
     return () => media.removeEventListener("change", follow);
   }, []);
 
+  // The page edge (status bar strip, overscroll area) and the browser's bar colour follow the theme in use,
+  // not only the phone's system setting.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.theme = dark ? "dark" : "light";
+    let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"][data-app-theme]');
+    if (!meta) {
+      document.querySelectorAll('meta[name="theme-color"]').forEach((node) => node.remove());
+      meta = document.createElement("meta");
+      meta.name = "theme-color";
+      meta.setAttribute("data-app-theme", "yes");
+      document.head.appendChild(meta);
+    }
+    meta.content = dark ? "#211d1d" : "#f4efea";
+  }, [dark]);
+
   const toggleDark = () => {
     const next = !dark;
     writeStored("already-theme-v1", next ? "dark" : "light");

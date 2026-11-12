@@ -1381,3 +1381,26 @@ html[data-font-size="large"] { --fs: 1.2; }
 .site-record { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 14px; color: var(--app-muted); font-size: 12px; line-height: 18px; }
 .site-record a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .break-tip { top: calc(env(safe-area-inset-top) + 66px); }
+
+/* The page edge follows the theme in use (the dark variables otherwise live only on .app-shell). */
+html[data-theme="dark"] { --app-bg: #211d1d; background: #211d1d; color-scheme: dark; }
+html[data-theme="light"] { --app-bg: #f4efea; background: #f4efea; color-scheme: light; }
+
+/* Short screens (phones held sideways use the sidebar layout): the sidebar scrolls instead of cutting its lower buttons off. */
+.app-rail { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.app-rail::-webkit-scrollbar { display: none; }
+@media (max-height: 560px) {
+  .app-rail { padding-top: 14px; padding-bottom: 10px; }
+  .app-rail .rail-footer { margin-top: 10px; }
+}
+/* Very narrow screens (folding phones' cover display, 280px) must not force sideways scrolling. */
+body { min-width: 0; }
+
+/* Top bar on narrow phones: the wordmark gives way before any button leaves the screen. */
+@media (max-width: 420px) {
+  .topbar { gap: 4px; }
+  .topbar .brand { flex: 0 1 auto; min-width: 0; }
+  .topbar .brand strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .top-actions { flex: none; }
+}
+@media (max-width: 330px) { .topbar .brand strong { display: none; } }
