@@ -17,6 +17,7 @@ import {
   CaretDown,
   List,
   UserCircle,
+  GearSix,
   Check,
   ArrowClockwise,
   BookmarkSimple,
@@ -521,8 +522,19 @@ export default function Home() {
     shell.addEventListener("touchend", onEnd);
     shell.addEventListener("touchcancel", onEnd);
     shell.addEventListener("click", onTap, true);
+    // The panel is a sibling of the shell, not inside it, so a swipe that starts on the panel
+    // needs the same handlers; otherwise it only closes when the finger starts on the page.
+    const panel = document.querySelector<HTMLElement>(".swipe-sidebar");
+    panel?.addEventListener("touchstart", onStart, { passive: true });
+    panel?.addEventListener("touchmove", onMove, { passive: true });
+    panel?.addEventListener("touchend", onEnd);
+    panel?.addEventListener("touchcancel", onEnd);
     return () => {
       if (frame) window.cancelAnimationFrame(frame);
+      panel?.removeEventListener("touchstart", onStart);
+      panel?.removeEventListener("touchmove", onMove);
+      panel?.removeEventListener("touchend", onEnd);
+      panel?.removeEventListener("touchcancel", onEnd);
       shell.removeEventListener("touchstart", onStart);
       shell.removeEventListener("touchmove", onMove);
       shell.removeEventListener("touchend", onEnd);
@@ -1438,7 +1450,7 @@ export default function Home() {
         <small>{lang === "zh" ? "对话记录" : "Conversations"}</small>
         {conversationArchive.length ? conversationArchive.map((conversation) => <button type="button" key={conversation.id} onClick={() => { openConversation(conversation); moveSidebar(false); }}><span>{conversation.title}</span><small>{new Date(conversation.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US")}</small></button>) : <p>{lang === "zh" ? "完成第一段对话后，它会出现在这里。" : "Your first conversation will appear here."}</p>}
       </div>
-      <footer><button type="button" onClick={() => { setView("settings"); moveSidebar(false); }}><UserCircle size={24}/><span>{goal.companionName || (lang === "zh" ? "我的空间" : "My space")}</span></button></footer>
+      <footer><button type="button" onClick={() => { setView("settings"); moveSidebar(false); }}><UserCircle size={24}/><span>{goal.companionName || (lang === "zh" ? "我的空间" : "My space")}</span><GearSix size={20} className="swipe-gear" aria-hidden="true"/></button></footer>
     </aside>
     <main ref={setShellEl} className={`app-shell${sidebarOpen ? " drawer-open" : ""}`} data-theme={dark ? "dark" : "light"} data-lang={lang}>
       <div className="app-grain" aria-hidden="true" />

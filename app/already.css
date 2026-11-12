@@ -1534,15 +1534,18 @@ html[data-theme="dark"].landscape-blocked::after { color: #f1e8e2; background: #
   .swipe-sidebar button:active { background: var(--app-panel-strong); }
   .swipe-sidebar .swipe-new { margin-bottom: 6px; background: var(--app-panel-strong); font-weight: 600; }
   .swipe-nav { display: grid; gap: 2px; padding-bottom: 10px; border-bottom: 1px solid var(--app-line); }
-  .swipe-nav button.active { color: var(--app-accent); font-weight: 600; }
+  .swipe-nav button.active { color: var(--app-accent); font-weight: 600; background: rgba(166, 95, 107, .12); background: color-mix(in srgb, var(--app-accent) 13%, transparent); }
   .swipe-history { flex: 1 1 auto; min-height: 0; display: grid; align-content: start; gap: 2px; padding-top: 12px; overflow-y: auto; }
-  .swipe-history > small { padding: 0 12px 6px; color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); letter-spacing: .06em; }
+  .swipe-sidebar { --drawer-muted: #6a5f5a; }
+  .swipe-sidebar[data-theme="dark"] { --drawer-muted: var(--app-muted); }
+  .swipe-history > small { padding: 0 12px 6px; color: var(--drawer-muted); font-size: calc(13px * var(--fs, 1)); font-weight: 600; letter-spacing: .06em; }
   .swipe-history button { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; min-height: 44px; font-size: calc(15px * var(--fs, 1)); }
   .swipe-history button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .swipe-history button small { color: var(--app-muted); font-size: calc(11px * var(--fs, 1)); }
-  .swipe-history p { margin: 0; padding: 4px 12px; color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); line-height: 1.6; }
+  .swipe-history button small { color: var(--drawer-muted); font-size: calc(11px * var(--fs, 1)); }
+  .swipe-history p { margin: 0; padding: 4px 12px; color: var(--drawer-muted); font-size: calc(14px * var(--fs, 1)); line-height: 1.6; }
   .swipe-sidebar > footer { padding-top: 10px; border-top: 1px solid var(--app-line); }
   .swipe-sidebar > footer button { font-weight: 600; }
+  .swipe-sidebar .swipe-gear { margin-left: auto; flex-shrink: 0; color: var(--drawer-muted); }
   .app-shell:has(> .bottom-nav) { z-index: 1; touch-action: pan-y; }
   .app-shell.drawer-open:has(> .bottom-nav), .app-shell.drawer-moving:has(> .bottom-nav) { box-shadow: -8px 0 28px rgba(0, 0, 0, .22); will-change: transform; }
   .app-shell.drawer-moving * { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
