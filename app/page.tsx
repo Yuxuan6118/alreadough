@@ -44,14 +44,13 @@ import SyncPanel from "./components/SyncPanel";
 import GuidedOnboarding from "./components/GuidedOnboarding";
 import ProfilePanel from "./components/ProfilePanel";
 import SpaceNav from "./components/SpaceNav";
-import VoiceSettings from "./components/VoiceSettings";
 import FontSizePanel from "./components/FontSizePanel";
 import type { ReflectionAnswers, ReflectionQuestionId } from "@/lib/reflection";
 import { validateSpName } from "@/lib/name-policy";
 import { answersToSeeds, type GoalSeed, type OnboardingAnswers, type ProfileSeed } from "@/lib/onboarding-flow";
 import { readStored, writeStored, removeStored } from "@/lib/safe-storage";
 
-type SpaceSection = "wishes" | "about" | "companion" | "reflect" | "memory" | "look" | "voice" | "sync" | "help";
+type SpaceSection = "wishes" | "about" | "companion" | "reflect" | "memory" | "look" | "sync" | "help";
 type View = "home" | "subliminal" | "story" | "revision" | "board" | "memory" | "settings";
 type Lang = "zh" | "en";
 type Message = { id: string; role: "ai" | "user"; text: string; feedback?: "helpful" | "missed"; saved?: boolean; logId?: string; error?: boolean };
@@ -1580,7 +1579,7 @@ export default function Home() {
       {view === "settings" && (() => {
         const shown: SpaceSection = settingsSection ?? "wishes";
         const zhText = lang === "zh";
-        const titles: Record<SpaceSection, string> = { wishes: zhText ? "我的愿望" : "My desires", about: zhText ? "关于我" : "About me", companion: zhText ? "陪伴方式" : "Companion style", reflect: zhText ? "自我觉察" : "Self-reflection", memory: zhText ? "背景与念头" : "Background and thoughts", look: zhText ? "外观与语言" : "Look and language", voice: zhText ? "我的声音" : "My voice", sync: zhText ? "同步与数据" : "Sync and data", help: zhText ? "帮助与条款" : "Help and terms" };
+        const titles: Record<SpaceSection, string> = { wishes: zhText ? "我的愿望" : "My desires", about: zhText ? "关于我" : "About me", companion: zhText ? "陪伴方式" : "Companion style", reflect: zhText ? "自我觉察" : "Self-reflection", memory: zhText ? "背景与念头" : "Background and thoughts", look: zhText ? "外观与语言" : "Look and language", sync: zhText ? "同步与数据" : "Sync and data", help: zhText ? "帮助与条款" : "Help and terms" };
         return <section className="full-view settings-view space">
           <div className={`space-layout${settingsSection ? " has-detail" : ""}`}>
             <SpaceNav
@@ -1601,7 +1600,6 @@ export default function Home() {
                 ] },
                 { title: zhText ? "应用" : "App", rows: [
                   { id: "look", label: titles.look, value: dark ? (zhText ? "深色" : "Dark") : (zhText ? "浅色" : "Light") },
-                  { id: "voice", label: titles.voice },
                   { id: "sync", label: titles.sync },
                   { id: "help", label: titles.help },
                 ] },
@@ -1637,7 +1635,6 @@ export default function Home() {
                 <div className="language-card"><div><span>{lang === "zh" ? "界面语言" : "LANGUAGE"}</span><strong>{lang === "zh" ? "简体中文" : "English"}</strong></div><button onClick={switchLanguage}>{lang === "zh" ? "Switch to English" : "切换到中文"}</button></div>
                 <FontSizePanel lang={lang} />
               </div>}
-              {shown === "voice" && <VoiceSettings lang={lang} sessionId={sessionId} onRecord={() => navigate("subliminal")} />}
               {shown === "sync" && <div className="settings-section">
                 <div className="setting-card sync-card"><span>{lang === "zh" ? "跨设备同步" : "CROSS-DEVICE SYNC"}</span><p>{syncStatus === "saved" ? (lang === "zh" ? "愿望、记忆、对话、故事和练习记录已安全同步。" : "Your desire, memory, conversations, stories, and practice history are synced.") : (lang === "zh" ? "当前使用本机副本；恢复连接后会自动继续同步。" : "Using the on-device copy. Sync resumes automatically when available.")}</p></div>
                 <SyncPanel lang={lang} sessionId={sessionId} syncStatus={syncStatus} hasLocalData={goal.setupComplete} />
@@ -1649,7 +1646,7 @@ export default function Home() {
                 <div className="setting-card report-card"><span>{lang === "zh" ? "联系与举报" : "CONTACT & REPORTS"}</span><p>{lang === "zh" ? "发现不当、违法或让你不舒服的内容，可以在这里举报。每条 AI 回复下面也有“举报”按钮。我们会尽快查看。" : "If you see anything inappropriate, unlawful, or upsetting, report it here. Every AI reply also has a Report button. We read these as soon as we can."}</p><button className="outline-button" onClick={() => setReportTarget({})}>{lang === "zh" ? "举报内容或反馈问题" : "Report content or send feedback"}</button><SiteRecord lang={lang} /></div>
                 <div className="legal-links"><a className="trust-link" href="/pricing">{lang === "zh" ? "会员与价格" : "Membership & pricing"}</a><a className="trust-link" href="/trust">{t.trust}</a><a className="trust-link" href="/privacy">{lang === "zh" ? "隐私说明" : "Privacy"}</a><a className="trust-link" href="/terms">{lang === "zh" ? "测试版条款" : "Beta terms"}</a><a className="trust-link" href="/copyright">{lang === "zh" ? "素材与版权" : "Content & copyright"}</a></div>
               </div>}
-              {shown !== "sync" && shown !== "help" && shown !== "voice" && shown !== "look" && <div className="settings-savebar"><span>{syncStatus === "saved" ? <CloudCheck size={18}/> : <FloppyDisk size={18}/>} {syncStatus === "saved" ? (lang === "zh" ? "会自动同步" : "Auto-sync is on") : (lang === "zh" ? "本机副本已保留" : "On-device copy retained")}</span><button className="primary" onClick={saveGoalSettings} disabled={Boolean(spNameError) || beliefCount > MAX_BELIEFS || !goal.companionStyle}>{goalSavedPulse ? t.savedGoal : t.saveGoal}</button></div>}
+              {shown !== "sync" && shown !== "help" && shown !== "look" && <div className="settings-savebar"><span>{syncStatus === "saved" ? <CloudCheck size={18}/> : <FloppyDisk size={18}/>} {syncStatus === "saved" ? (lang === "zh" ? "会自动同步" : "Auto-sync is on") : (lang === "zh" ? "本机副本已保留" : "On-device copy retained")}</span><button className="primary" onClick={saveGoalSettings} disabled={Boolean(spNameError) || beliefCount > MAX_BELIEFS || !goal.companionStyle}>{goalSavedPulse ? t.savedGoal : t.saveGoal}</button></div>}
             </div>
           </div>
         </section>;

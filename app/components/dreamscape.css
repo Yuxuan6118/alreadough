@@ -76,3 +76,4 @@
 @media (max-width: 820px) {
   .app-stage .dream { min-height: calc(100dvh - 78px - env(safe-area-inset-top)); padding-top: 10px; padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
 }
+.dream-row.accent span { color: var(--app-accent); font-weight: 500; }

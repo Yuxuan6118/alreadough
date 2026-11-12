@@ -547,6 +547,6 @@ test("my space: one way in from the drawer and the rail, no avatar menu, memory 
   assert.equal((page.match(/setView\("settings"\)/g) || []).length, 1, "only openSpace may open settings");
   // the list has three groups and a single memory library entry
   assert.match(page, /<SpaceNav/);
-  for (const id of ["wishes", "about", "companion", "reflect", "library", "memory", "look", "voice", "sync", "help"]) assert.match(page, new RegExp(`id: "${id}"`));
+  for (const id of ["wishes", "about", "companion", "reflect", "library", "memory", "look", "sync", "help"]) assert.match(page, new RegExp(`id: "${id}"`));
   assert.match(page, /id === "library" \? setView\("memory"\)/);
 });

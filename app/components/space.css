@@ -22,7 +22,5 @@
   .space-layout .space-list, .space-layout.has-detail .space-list, .space-layout:not(.has-detail) .space-detail { display: block; }
   .space-back { display: none; }
 }
-.voice-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
-.voice-note { color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); line-height: 1.6; }
 .look-theme { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; }
 .look-theme strong { font-weight: 500; }

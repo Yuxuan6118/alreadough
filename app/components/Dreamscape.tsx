@@ -352,13 +352,13 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
       <p className="dream-start-note">{t(`约 ${estimateMinutes} 分钟，轻声加雨声`, `About ${estimateMinutes} minutes, soft voice with rain`)}</p>
       {message && <p className="dream-message" role="status">{message}</p>}
       <ul className="dream-list">
-        <li><button type="button" className="dream-row" onClick={() => void begin("affirm")}><span>{t("我的肯定语", "My affirmations")}</span><small>{t("约 1 分钟", "About 1 minute")}</small></button></li>
-        <li><button type="button" className="dream-row" onClick={() => void begin("story")} disabled={!story}><span>{t("我的故事", "My story")}</span><small>{story ? t("读给我听", "Read to me") : t("还没有故事", "No story yet")}</small></button></li>
         <li>
           {voice.has
             ? <><span>{t("用我的声音", "Use my voice")}</span><button type="button" className={`dream-switch${useMine ? " on" : ""}`} role="switch" aria-checked={useMine} aria-label={t("用我的声音", "Use my voice")} onClick={flipUseMine}><i /></button></>
-            : <button type="button" className="dream-row" onClick={() => setScreen("record")}><span>{t("录下我的声音", "Record my voice")}</span><small>{t("约 45 秒", "About 45 seconds")}</small></button>}
+            : <button type="button" className="dream-row accent" onClick={() => setScreen("record")}><span>{t("录下我的声音", "Record my voice")}</span><small>{t("约 45 秒", "About 45 seconds")}</small></button>}
         </li>
+        <li><button type="button" className="dream-row" onClick={() => void begin("affirm")}><span>{t("我的肯定语", "My affirmations")}</span><small>{t("约 1 分钟", "About 1 minute")}</small></button></li>
+        <li><button type="button" className="dream-row" onClick={() => void begin("story")} disabled={!story}><span>{t("我的故事", "My story")}</span><small>{story ? t("读给我听", "Read to me") : t("还没有故事", "No story yet")}</small></button></li>
       </ul>
       <div className="dream-links">
         {voice.has && <button type="button" className="dream-record-link" onClick={() => setScreen("record")}><Microphone size={16} />{t("重新录我的声音", "Record my voice again")}</button>}
