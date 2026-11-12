@@ -231,3 +231,29 @@ test("sync code: accepts a pasted device id in any tidy-up form and rejects ever
   assert.equal(isShareableSyncCode(id), true);
   assert.equal(isShareableSyncCode("local-beta"), false, "the pre-load placeholder is never shown as a code");
 });
+
+test("install tip: only Safari is told to add to the home screen; other iPhone browsers are sent to Safari; once per day key", async () => {
+  const { detectInstallMode, localDayKey } = await import("../lib/install-mode.ts");
+  const safari = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";
+  const chrome = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/126.0.0.0 Mobile/15E148 Safari/604.1";
+  const firefox = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/127.0 Mobile/15E148 Safari/605.1.15";
+  const wechat = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.50(0x18003230) NetType/WIFI Language/zh_CN";
+  const inApp = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 XiaoHongShu/8.40";
+  const androidChrome = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36";
+  const androidWechat = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/116.0 Mobile Safari/537.36 MicroMessenger/8.0.47";
+  const ipadDesktopMode = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15";
+  const mac = ipadDesktopMode;
+
+  assert.equal(detectInstallMode(safari), "ios-safari");
+  assert.equal(detectInstallMode(chrome), "ios-other");
+  assert.equal(detectInstallMode(firefox), "ios-other");
+  assert.equal(detectInstallMode(inApp), "ios-other");
+  assert.equal(detectInstallMode(wechat), "wechat-ios");
+  assert.equal(detectInstallMode(androidChrome), "android");
+  assert.equal(detectInstallMode(androidWechat), "wechat-android");
+  assert.equal(detectInstallMode(ipadDesktopMode, 5), "ios-safari");
+  assert.equal(detectInstallMode(mac, 0), null);
+  assert.equal(detectInstallMode(""), null);
+  assert.equal(localDayKey(new Date(2026, 10, 3)), "2026-11-03");
+  assert.notEqual(localDayKey(new Date(2026, 10, 3, 23, 59)), localDayKey(new Date(2026, 10, 4, 0, 1)));
+});
