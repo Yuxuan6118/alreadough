@@ -274,3 +274,24 @@ export async function setReportStatus(id: string, status: "new" | "handled") {
 }
 
 export { LIMITS };
+
+/**
+ * "Delete my data": removes everything we keep about this device beyond the synced space itself:
+ * her chats, her profile row, usage events, reports she sent, and her usage counters.
+ * Payment records are left alone on purpose (a paid plan must keep working and be refundable).
+ */
+export async function deleteBetaRecords(request: Request) {
+  const userId = requestIdentity(request);
+  if (!userId) return { deleted: false as const };
+  await ensureBetaTables();
+  const userHash = await sha256(userId);
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM beta_conversations WHERE user_hash = ?").bind(userHash),
+    env.DB.prepare("DELETE FROM beta_profiles WHERE user_hash = ?").bind(userHash),
+    env.DB.prepare("DELETE FROM beta_events WHERE user_hash = ?").bind(userHash),
+    env.DB.prepare("DELETE FROM beta_reports WHERE user_hash = ?").bind(userHash),
+    env.DB.prepare("DELETE FROM beta_usage_daily WHERE user_id = ?").bind(userId),
+    env.DB.prepare("DELETE FROM beta_users WHERE user_id = ?").bind(userId),
+  ]);
+  return { deleted: true as const };
+}

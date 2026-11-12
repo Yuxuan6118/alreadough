@@ -421,3 +421,85 @@ test("break reminder: fires after 2 hours of continuous chatting, never while id
   chat(100 * 60_000);
   assert.equal(reminders, 0, "100 min + pause + 100 min is not 2 hours in a row");
 });
+
+test("opening questions: the flow follows her choices, adding a desire reuses the slot, and answers become cards plus one profile", async () => {
+  const { buildFlow, wishModule, answersToSeeds, emptyAnswers, emptyWish, splitLines, canAdvance, STEPS } = await import("../lib/onboarding-flow.ts");
+  const ids = (slots) => slots.map((slot) => slot.id);
+  // before she has picked a kind there are no kind-specific questions
+  assert.deepEqual(wishModule("", true), ["wish", "category", "scene", "intensity", "pullback", "evidence", "exclude"]);
+  assert.deepEqual(wishModule("relationship", true).slice(0, 5), ["wish", "category", "sp_name", "rel_state", "rel_close"]);
+  assert.deepEqual(wishModule("relationship", false), ["wish", "category", "sp_name", "scene", "intensity"]);
+  // one "add another?" slot, after the last desire only; the tail appears once she is finished
+  const one = ids(buildFlow(["wealth"], false));
+  assert.equal(one.filter((id) => id === "more").length, 1);
+  assert.equal(one.at(-1), "more");
+  assert.deepEqual(ids(buildFlow(["wealth"], true)).slice(-4), ["people", "never", "situation", "style"]);
+  const two = buildFlow(["wealth", "self"], false);
+  assert.equal(two.filter((slot) => slot.id === "more").length, 1);
+  assert.equal(two.at(-1).wish, 1);
+  // adding a desire puts that desire's first step exactly where "add another?" was
+  const before = buildFlow(["wealth"], false);
+  const after = buildFlow(["wealth", ""], false);
+  assert.equal(before.findIndex((slot) => slot.id === "more"), after.findIndex((slot) => slot.wish === 1 && slot.id === "wish"));
+  // every step id in every flow exists and has a prompt in both languages
+  for (const kind of ["relationship", "wealth", "self", "lifestyle", "other"]) {
+    for (const slot of buildFlow([kind, kind], true)) {
+      assert.ok(STEPS[slot.id], `missing step ${slot.id}`);
+      assert.ok(STEPS[slot.id].prompt.zh && STEPS[slot.id].prompt.en);
+    }
+  }
+  // required steps
+  const answers = emptyAnswers();
+  assert.equal(canAdvance("name", answers, null), false);
+  assert.equal(canAdvance("wish", answers, 0), false);
+  assert.equal(canAdvance("scene", answers, 0), true);
+  // answers become one card per desire and a single profile
+  answers.name = "安安";
+  answers.country = "美国";
+  answers.never = "我的体重\n我的前任";
+  answers.people = [{ id: "1", name: "妈妈", relation: "最爱我的人" }];
+  answers.wishes[0] = { ...emptyWish(), wish: "他回到我身边", kind: "relationship", specifics: { sp_name: "Elvin", rel_close: "他从身后抱住我" }, scene: "窗边喝咖啡", intensity: 5, pullback: "来不及了", exclude: "前任\n我的体重" };
+  answers.wishes.push({ ...emptyWish(), wish: "拿到纽约的 offer", kind: "wealth", intensity: 4 });
+  answers.wishes.push({ ...emptyWish(), wish: "   " });
+  const { goals, profile } = answersToSeeds(answers, "zh");
+  assert.equal(goals.length, 2);
+  assert.equal(goals[0].spName, "Elvin");
+  assert.equal(goals[1].spName, "");
+  assert.deepEqual(goals[0].beliefs, ["来不及了"]);
+  assert.match(goals[0].background, /他从身后抱住我/);
+  assert.match(goals[0].background, /窗边喝咖啡/);
+  assert.equal(goals[0].intensity, 5);
+  assert.deepEqual(profile.neverInclude, ["我的体重", "我的前任", "前任"]);
+  assert.equal(profile.people[0].name, "妈妈");
+  assert.deepEqual(splitLines("a\n\nA\n b ；c"), ["a", "b", "c"]);
+});
+
+test("opening replies: a stock or contrast line is thrown away, a plain concrete line is kept", async () => {
+  const { sanitizeOnboardingReply, isReplyStep, onboardingSystem } = await import("../lib/onboarding-ai.ts");
+  const { hasContrastFrame } = await import("../lib/reply-guards.ts");
+  assert.equal(sanitizeOnboardingReply("你在纽约的研究生院里，窗边那张书桌是你的。", "zh", "安安"), "你在纽约的研究生院里，窗边那张书桌是你的。");
+  assert.equal(sanitizeOnboardingReply("安安，他在你身边。", "zh", "安安"), "他在你身边。");
+  assert.equal(sanitizeOnboardingReply("我理解你想要安全感。", "zh"), "");
+  assert.equal(sanitizeOnboardingReply("It's completely understandable to want that.", "en"), "");
+  assert.equal(sanitizeOnboardingReply("好的。", "zh").length > 0, true);
+  assert.equal(sanitizeOnboardingReply("他在你身边 ✨", "zh"), "");
+  assert.equal(sanitizeOnboardingReply("你已经在那里了！", "zh"), "你已经在那里了。");
+  assert.equal(sanitizeOnboardingReply("a".repeat(400), "en"), "");
+  assert.equal(sanitizeOnboardingReply("```\n窗边有光。\n```", "zh"), "窗边有光。");
+  assert.equal(hasContrastFrame("这不是梦，是你的日子。"), true);
+  assert.equal(isReplyStep("scene"), true);
+  assert.equal(isReplyStep("name"), false);
+  assert.match(onboardingSystem("zh", "pullback"), /只改写这句话本身/);
+  assert.match(onboardingSystem("zh", "wish"), /只用她的词/);
+});
+
+test("delete my data removes chats, profile, events and reports, not only the synced space", async () => {
+  const route = await readFile(new URL("../app/api/space/route.ts", import.meta.url), "utf8");
+  const guard = await readFile(new URL("../lib/beta-guard.ts", import.meta.url), "utf8");
+  assert.match(route, /export async function DELETE[\s\S]*deleteBetaRecords\(request\)/);
+  for (const table of ["beta_conversations", "beta_profiles", "beta_events", "beta_reports", "beta_usage_daily", "beta_users"]) {
+    assert.match(guard, new RegExp(`DELETE FROM ${table} WHERE`));
+  }
+  // payments are kept on purpose
+  assert.doesNotMatch(guard.slice(guard.indexOf("export async function deleteBetaRecords")), /entitlements/);
+});

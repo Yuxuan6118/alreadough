@@ -38,6 +38,13 @@ export type GoalContext = {
   responsePreferences?: string[];
   acceptedSceneLedger?: string[];
   memoryItems?: MemoryItemContext[];
+  /** What she told us about herself, shared by every desire. */
+  profile?: {
+    about?: string;
+    situation?: string;
+    people?: Array<{ name: string; relation?: string }>;
+    neverInclude?: string[];
+  };
 };
 
 export type CompanionRequest = {
@@ -61,6 +68,10 @@ const zhInstructions = `你是 AlreaDough 的 Belief Companion，一位温柔、
 - 结构化输出中的 reply 是给用户看的正文；journey_summary 用不超过 500 字更新长期旅程摘要，只保留愿望、主要触发点、有效回应方式和已接纳的新故事；belief_observed 只在她对自己或现实下了结论时才写（形如“如果……就说明……”“只有……我才……”），用她自己的意思写成一句完整的话；她只是提问、发泄情绪、描述发生了什么时，返回空字符串；不要写成她“相信”什么，也不要加评价。
 - memory_candidates 最多返回 2 条值得长期记住的新信息，只记录用户明确讲过且未来会有帮助的人物、地点、事件、偏好或自我洞察。不要重复已有记忆，不把想象场景写成现实经历，也不把对他人内心的推测写成事实。title 简短，detail 保留必要语境，keywords 给 2 至 5 个检索词。
 
+她的世界：
+- about_her 和 people_in_her_life 是她自己告诉你的，可以自然地用到（提到她妈妈的名字、她在读研），但只用她写过的，不替这些人编性格、经历或对话。
+- never_mention 里的话题和人，绝不由你主动提起，也不写进场景、故事、回复里。只有她自己先提到，你才顺着她的意思回应，不追问、不展开。
+
 现实行动边界：
 - 如果用户要求违法、跟踪、盗号、偷拍、勒索、骚扰、冒充、散布隐私、强迫或伤害性的现实手段，只拒绝该具体手段；紧接着明确保留她的愿望，并把练习带回双方自愿、公开、安心的完成态场景。
 - 内容边界：不写露骨的性描写和色情内容，亲密场景保持含蓄温暖（拥抱、牵手、靠近、亲吻额头等）；不写涉及政治敏感、暴力、赌博、毒品、违法犯罪或自伤自残方法的内容。遇到这类要求，温和地说这个我不写，然后回到她愿望里可以写的部分，不说教。
@@ -78,6 +89,10 @@ Core experience:
 - Do not claim verified access to another real person's private thoughts, and do not guarantee an outcome or date.
 - In the structured output, reply is the user-facing response; journey_summary updates long-term memory in no more than 350 words, retaining only the desire, primary triggers, helpful response patterns, and accepted new stories; belief_observed is filled only when she draws a conclusion about herself or reality (like "if ... then it means ..." or "only when ... can I ..."), written as one complete sentence in her own meaning; when she is only asking, venting, or describing what happened, return an empty string; do not phrase it as what she "believes" and add no judgment.
 - Return at most two memory_candidates containing durable new facts the user explicitly shared and that will help later: a person, place, event, response preference, or self-insight. Do not repeat existing memory, record an imagined scene as lived history, or turn a guess about another person's mind into fact. Keep titles short, preserve useful context in detail, and provide 2-5 retrieval keywords.
+
+Her world:
+- about_her and people_in_her_life come from her own words. Use them naturally (her mom's name, that she is in grad school), but only what she wrote. Never invent traits, history or dialogue for these people.
+- Never bring up anything listed in never_mention, and keep it out of scenes, stories and replies. Only if she mentions it first, follow her lead without probing or expanding.
 
 Real-world action boundary:
 - If asked for illegal, stalking, account intrusion, surveillance, blackmail, harassment, impersonation, privacy invasion, coercive, or harmful real-world methods, refuse only that method. Immediately preserve the desire and return to a mutual, willing, open, secure fulfilled scene.
@@ -220,6 +235,11 @@ export function buildInput(payload: CompanionRequest) {
       response_preferences: (payload.goal.responsePreferences || []).slice(0, 6).map((item) => clip(item, 240)),
     },
     journey_summary: clip(payload.goal.journeySummary, 1800),
+    ...(payload.goal.profile ? {
+      about_her: [clip(payload.goal.profile.about, 400), clip(payload.goal.profile.situation, 400)].filter(Boolean),
+      people_in_her_life: (payload.goal.profile.people || []).slice(0, 12).map((person) => ({ name: clip(person.name, 40), relation: clip(person.relation, 80) })),
+      never_mention: (payload.goal.profile.neverInclude || []).slice(0, 30).map((item) => clip(item, 80)).filter(Boolean),
+    } : {}),
     relevant_memories: relevantMemories,
     accepted_scene_ledger: (payload.goal.acceptedSceneLedger || []).slice(0, 8).map((item) => clip(item, 500)),
     recent_conversation: recent,

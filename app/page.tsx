@@ -35,9 +35,11 @@ import DoughPet from "./components/DoughPet";
 import ReflectionPanel from "./components/ReflectionPanel";
 import { AiNote, BreakReminder, ReportButton, ReportDialog, SiteRecord } from "./components/Compliance";
 import SyncPanel from "./components/SyncPanel";
+import GuidedOnboarding from "./components/GuidedOnboarding";
 import FontSizePanel from "./components/FontSizePanel";
 import type { ReflectionAnswers, ReflectionQuestionId } from "@/lib/reflection";
 import { validateSpName } from "@/lib/name-policy";
+import { answersToSeeds, type GoalSeed, type OnboardingAnswers, type ProfileSeed } from "@/lib/onboarding-flow";
 import { readStored, writeStored, removeStored } from "@/lib/safe-storage";
 
 type View = "home" | "subliminal" | "story" | "revision" | "board" | "memory" | "settings";
@@ -87,6 +89,20 @@ type GoalProfile = {
   reflection: ReflectionAnswers;
   createdAt: string;
 };
+/** What she told us about herself, shared by every desire. */
+type Profile = ProfileSeed;
+const emptyProfile: Profile = { country: "", about: "", situation: "", people: [], neverInclude: [] };
+const normalizeProfile = (value: unknown): Profile => {
+  const raw = (value && typeof value === "object" ? value : {}) as Partial<Profile>;
+  return {
+    country: typeof raw.country === "string" ? raw.country.slice(0, 60) : "",
+    about: typeof raw.about === "string" ? raw.about.slice(0, 400) : "",
+    situation: typeof raw.situation === "string" ? raw.situation.slice(0, 400) : "",
+    people: Array.isArray(raw.people) ? raw.people.filter((item) => item && typeof item.name === "string" && item.name.trim()).slice(0, 12).map((item) => ({ id: String(item.id || crypto.randomUUID()), name: item.name.slice(0, 40), relation: typeof item.relation === "string" ? item.relation.slice(0, 80) : "" })) : [],
+    neverInclude: Array.isArray(raw.neverInclude) ? raw.neverInclude.filter((item): item is string => typeof item === "string" && item.trim().length > 0).slice(0, 30).map((item) => item.slice(0, 80)) : [],
+  };
+};
+
 type Story = {
   id: string;
   title: Record<Lang, string>;
@@ -303,6 +319,7 @@ export default function Home() {
   const [isTyping, setIsTyping] = useState(false);
   const [aiConnected, setAiConnected] = useState<boolean | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [profile, setProfile] = useState<Profile>(emptyProfile);
   const [petOpen, setPetOpen] = useState(false);
   const [aiError, setAiError] = useState("");
   const [chatInput, setChatInput] = useState("");
@@ -403,6 +420,7 @@ export default function Home() {
         setSpNameDraft(restoredGoal.spName);
         setBeliefDraft((restoredGoal.beliefs[restoredLang] || []).join("\n"));
       }
+      if (data.profile) setProfile(normalizeProfile(data.profile));
       if (Array.isArray(data.storyLibrary)) setStoryLibrary((data.storyLibrary as Story[]).slice(0, 6));
       if (Array.isArray(data.goalArchive)) setGoalArchive((data.goalArchive as GoalProfile[]).slice(0, 20));
       if (Array.isArray(data.otherGoals)) setOtherGoals((data.otherGoals as Partial<GoalProfile>[]).filter((item) => item?.setupComplete && item.desire && item.beliefs && item.id).map(normalizeGoal).slice(0, MAX_GOALS));
@@ -476,7 +494,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!hydrated) return;
-    const space = { lang, goal, goalArchive: goalArchive.slice(0, 20), otherGoals: otherGoals.slice(0, MAX_GOALS), conversationId, conversationArchive: conversationArchive.slice(0, 30), messages: messages.slice(-80), revisions: revisions.slice(0, 20), board, storyLibrary, checkIns };
+    const space = { lang, goal, goalArchive: goalArchive.slice(0, 20), otherGoals: otherGoals.slice(0, MAX_GOALS), conversationId, conversationArchive: conversationArchive.slice(0, 30), messages: messages.slice(-80), revisions: revisions.slice(0, 20), board, storyLibrary, checkIns, profile };
     writeStored("already-private-state-v5", JSON.stringify(space));
     document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
     if (!cloudReady) return;
@@ -487,7 +505,7 @@ export default function Home() {
         .catch(() => setSyncStatus("offline"));
     }, 900);
     return () => window.clearTimeout(timeout);
-  }, [hydrated, cloudReady, sessionId, lang, goal, goalArchive, otherGoals, conversationId, conversationArchive, messages, revisions, board, storyLibrary, checkIns]);
+  }, [hydrated, cloudReady, sessionId, lang, goal, goalArchive, otherGoals, conversationId, conversationArchive, messages, revisions, board, storyLibrary, checkIns, profile]);
 
   useEffect(() => {
     writeStored("already-practice-checkins-v1", JSON.stringify(checkIns));
@@ -514,6 +532,60 @@ export default function Home() {
     { id: "board" as View, label: t.nav[3], icon: ImagesSquare },
     { id: "subliminal" as View, label: t.nav[4], icon: Waveform },
   ];
+
+  const goalFromSeed = (seed: GoalSeed, base: GoalProfile): GoalProfile => ({
+    ...base,
+    id: crypto.randomUUID(),
+    setupComplete: true,
+    status: "active",
+    wishCategory: seed.wishCategory,
+    intensity: seed.intensity,
+    spName: seed.spName,
+    desire: { ...base.desire, [lang]: seed.desire },
+    background: { ...base.background, [lang]: seed.background },
+    beliefs: { ...base.beliefs, [lang]: seed.beliefs.slice(0, MAX_BELIEFS) },
+    journeySummary: { ...base.journeySummary, [lang]: seedJourneySummary(seed.background) },
+    canon: { ...base.canon, [lang]: [seed.desire] },
+    createdAt: new Date().toISOString(),
+  });
+
+  /** The whole opening is done: every desire becomes a card, and what she said about herself is kept once. */
+  const finishGuidedOpening = (answers: OnboardingAnswers) => {
+    const { goals: seeds, profile: seedProfile } = answersToSeeds(answers, lang);
+    if (!seeds.length || !answers.name.trim()) return;
+    const preset = companionStyles.find((item) => item.id === answers.style);
+    const base: GoalProfile = {
+      ...defaultGoal,
+      companionName: answers.name.trim(),
+      companionStyle: (answers.style as CompanionStyle) || "gentle",
+      tone: { ...defaultGoal.tone, [lang]: answers.style === "custom" ? answers.customTone.trim() : (lang === "zh" ? preset?.zhPrompt : preset?.enPrompt) || "" },
+    };
+    const cards = seeds.map((seed) => goalFromSeed(seed, base));
+    const [first, ...rest] = cards;
+    setProfile((current) => ({ ...normalizeProfile({ ...seedProfile, neverInclude: [...current.neverInclude, ...seedProfile.neverInclude] }) }));
+    setGoal(first);
+    setOtherGoals(rest.slice(0, MAX_GOALS));
+    setSpNameDraft(first.spName);
+    setBeliefDraft(first.beliefs[lang].join("\n"));
+    setMessages([]);
+    setConversationId(crypto.randomUUID());
+    setOnboardingStep(0);
+  };
+
+  /** One more desire added from inside the app: it keeps her name and way of being accompanied. */
+  const finishExtraWish = (answers: OnboardingAnswers) => {
+    const { goals: seeds, profile: seedProfile } = answersToSeeds(answers, lang);
+    const seed = seeds[0];
+    if (!seed) return;
+    const completed = goalFromSeed(seed, goal);
+    if (seedProfile.neverInclude.length) setProfile((current) => normalizeProfile({ ...current, neverInclude: [...current.neverInclude, ...seedProfile.neverInclude] }));
+    setGoal(completed);
+    setSpNameDraft(completed.spName);
+    setBeliefDraft(completed.beliefs[lang].join("\n"));
+    setMessages([]);
+    setConversationId(crypto.randomUUID());
+    setOnboardingStep(0);
+  };
 
   const finishOnboarding = () => {
     const name = goal.companionName.trim();
@@ -644,6 +716,7 @@ export default function Home() {
           responsePreferences: goal.responsePreferences[lang],
           acceptedSceneLedger: goal.acceptedSceneLedger[lang],
           memoryItems: goal.memoryItems[lang],
+          profile: { about: profile.about, situation: profile.situation, people: profile.people.map((person) => ({ name: person.name, relation: person.relation })), neverInclude: profile.neverInclude },
         },
         recentMessages: (recentOverride || (mode === "chat" ? sessionMessages : messages)).filter((item) => !item.error).slice(-10),
         recentRevisions: revisions.slice(0, 4).map((item) => item.revised),
@@ -1146,21 +1219,22 @@ export default function Home() {
   }
 
   if (!goal.setupComplete) {
-    const steps = lang === "zh"
-      ? ["认识你", "一个愿望", "陪伴方式"]
-      : ["Meet you", "One desire", "Companion style"];
+    const adding = otherGoals.length > 0;
     return <main className="app-shell onboarding-shell" data-theme={dark ? "dark" : "light"} data-lang={lang}>
       <div className="app-grain" aria-hidden="true" />
       <header className="onboarding-topbar"><span className="brand"><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></span><div className="top-actions"><button className="language-toggle" onClick={switchLanguage}>{lang === "zh" ? "EN" : "中"}</button><button className="theme-toggle" onClick={toggleDark} aria-label={dark ? "Light" : "Dark"}>{dark ? <Sun size={17}/> : <Moon size={17}/>}</button></div></header>
-      <section className="onboarding-view">
-        <div className="onboarding-progress" aria-label={lang === "zh" ? `第 ${onboardingStep + 1} 步，共 3 步` : `Step ${onboardingStep + 1} of 3`}><i style={{ width: `${((onboardingStep + 1) / 3) * 100}%` }}/></div>
-        <p className="eyebrow">{steps[onboardingStep]}</p>
-        {onboardingStep === 0 && <div className="onboarding-panel"><h1>{lang === "zh" ? "我该怎么称呼你？" : "What should I call you?"}</h1><p>{lang === "zh" ? "先用一个你喜欢的称呼开始。语言和更多资料之后都可以随时修改。" : "Begin with a name that feels like you. Language and other details can change anytime."}</p><label><span>{lang === "zh" ? "你的称呼" : "YOUR NAME"}</span><input maxLength={24} value={goal.companionName} onChange={(event) => setGoal((current) => ({ ...current, companionName: event.target.value }))} placeholder={lang === "zh" ? "例如：安安" : "For example: Mia"}/></label></div>}
-        {onboardingStep === 0 && <details className="onboarding-sync"><summary>{lang === "zh" ? "已经在另一台设备用过？用同步码继续" : "Already used it on another device? Continue with a sync code"}</summary><SyncPanel enterOnly lang={lang} sessionId={sessionId} syncStatus={syncStatus} hasLocalData={false} /></details>}
-        {onboardingStep === 1 && <div className="onboarding-panel"><h1>{lang === "zh" ? "先从一个愿望开始。" : "Start with one desire."}</h1><p>{lang === "zh" ? "选一个生活方向，再写下它已经实现时，你正在过怎样的生活。之后可以随时添加更多愿望。" : "Choose one area of life, then describe the life you are living when it is fulfilled. You can add more desires anytime."}</p><div className="option-card-grid category-grid">{wishCategories.map((category) => <button key={category.id} className={goal.wishCategory === category.id ? "selected" : ""} onClick={() => setGoal((current) => ({ ...current, wishCategory: category.id }))}><strong>{lang === "zh" ? category.zh : category.en}</strong><small>{lang === "zh" ? category.zhDescription : category.enDescription}</small></button>)}</div><label><span>{lang === "zh" ? "它已经实现时，我的生活是" : "WHEN IT IS ALREADY MINE, MY LIFE IS"}</span><textarea value={goal.desire[lang]} onChange={(event) => setGoal((current) => ({ ...current, desire: { ...current.desire, [lang]: event.target.value } }))} placeholder={lang === "zh" ? "用你自己的话写下这个愿望……" : "Write this desire in your own words…"}/></label><label className="onboarding-context"><span>{lang === "zh" ? "愿意的话，让我先了解你的处境" : "OPTIONAL CONTEXT"}</span><small>{lang === "zh" ? "可以写相关人物、已经发生过的事、当下卡住你的地方。越具体，第一次对话越不需要你重新解释。" : "Share the people involved, what has happened, and what keeps repeating. More context means less retraining in your first conversation."}</small><textarea maxLength={MAX_BACKGROUND} value={goal.background[lang]} onChange={(event) => setGoal((current) => ({ ...current, background: { ...current.background, [lang]: event.target.value } }))} placeholder={lang === "zh" ? "这部分可以稍后补充，也可以现在一次说清楚。" : "Add this later, or tell the fuller story now."}/><em>{goal.background[lang].length} / {MAX_BACKGROUND}</em></label></div>}
-        {onboardingStep === 2 && <div className="onboarding-panel onboarding-confirm"><h1>{lang === "zh" ? "你希望怎样被陪伴？" : "How do you want to be accompanied?"}</h1><p>{lang === "zh" ? "先选最接近你的方式。背景、触发点和更多偏好可以进入后在“我的空间”补充。" : "Choose the closest style. Add context, triggers, and more preferences later in My Space."}</p><div className="option-card-grid companion-style-grid">{companionStyles.map((style) => <button key={style.id} className={goal.companionStyle === style.id ? "selected" : ""} onClick={() => chooseCompanionStyle(style.id)}><strong>{lang === "zh" ? style.zh : style.en}</strong><small>{lang === "zh" ? style.zhDescription : style.enDescription}</small></button>)}</div>{goal.companionStyle === "custom" && <label><span>{lang === "zh" ? "我的专属陪伴方式" : "MY CUSTOM COMPANION STYLE"}</span><textarea value={goal.tone[lang]} onChange={(event) => setGoal((current) => ({ ...current, tone: { ...current.tone, [lang]: event.target.value } }))}/></label>}</div>}
-        <footer className={`onboarding-actions${otherGoals.length > 0 ? " with-cancel" : ""}`}>{otherGoals.length > 0 && <button className="outline-button" onClick={cancelAddGoal}>{lang === "zh" ? "取消添加" : "Cancel"}</button>}<button className="outline-button" onClick={() => setOnboardingStep((step) => Math.max(0, step - 1))} disabled={onboardingStep === 0}>{lang === "zh" ? "返回" : "Back"}</button><button className="primary" disabled={!onboardingCanContinue} onClick={() => onboardingStep === 2 ? finishOnboarding() : setOnboardingStep((step) => Math.min(2, step + 1))}>{onboardingStep === 2 ? (lang === "zh" ? "进入 AlreaDough" : "Enter AlreaDough") : (lang === "zh" ? "继续" : "Continue")}</button></footer>
-      </section>
+      <GuidedOnboarding
+        key={`${lang}-${adding ? "extra" : "first"}`}
+        lang={lang}
+        sessionId={sessionId}
+        mode={adding ? "extra" : "first"}
+        initialName={goal.companionName}
+        maxWishes={Math.max(1, MAX_GOALS - otherGoals.length)}
+        styleOptions={companionStyles}
+        syncSlot={<details className="onboarding-sync"><summary>{lang === "zh" ? "已经在另一台设备用过？用同步码继续" : "Already used it on another device? Continue with a sync code"}</summary><SyncPanel enterOnly lang={lang} sessionId={sessionId} syncStatus={syncStatus} hasLocalData={false} /></details>}
+        onCancel={adding ? cancelAddGoal : undefined}
+        onComplete={adding ? finishExtraWish : finishGuidedOpening}
+      />
     </main>;
   }
 
@@ -1329,7 +1403,7 @@ export default function Home() {
           <div className="setting-card report-card"><span>{lang === "zh" ? "联系与举报" : "CONTACT & REPORTS"}</span><p>{lang === "zh" ? "发现不当、违法或让你不舒服的内容，可以在这里举报。每条 AI 回复下面也有“举报”按钮。我们会尽快查看。" : "If you see anything inappropriate, unlawful, or upsetting, report it here. Every AI reply also has a Report button. We read these as soon as we can."}</p><button className="outline-button" onClick={() => setReportTarget({})}>{lang === "zh" ? "举报内容或反馈问题" : "Report content or send feedback"}</button><SiteRecord lang={lang} /></div>
           <div className="setting-card data-control-card"><span>{lang === "zh" ? "我的数据" : "MY DATA"}</span><p>{lang === "zh" ? "下载愿望卡、故事、对话、重写与打卡记录。私密照片和音频文件不会写入导出文件。" : "Download desire cards, stories, conversations, revisions, and check-ins. Private photo and audio files are excluded."}</p><button className="outline-button" onClick={exportMyData}>{lang === "zh" ? "导出我的数据" : "Export my data"}</button></div>
           <div className="legal-links"><a className="trust-link" href="/pricing">{lang === "zh" ? "会员与价格" : "Membership & pricing"}</a><a className="trust-link" href="/trust">{t.trust}</a><a className="trust-link" href="/privacy">{lang === "zh" ? "隐私说明" : "Privacy"}</a><a className="trust-link" href="/terms">{lang === "zh" ? "测试版条款" : "Beta terms"}</a><a className="trust-link" href="/copyright">{lang === "zh" ? "素材与版权" : "Content & copyright"}</a></div>
-          <button className="outline-button danger-button" onClick={() => { if (window.confirm(t.confirm)) { void fetch("/api/space", { method: "DELETE", headers: { "x-already-session-id": sessionId } }); removeStored("already-private-state-v5"); removeStored("already-practice-checkins-v1"); removeStored("already-subliminal-v1"); removeStored("already-vision-project-v1"); indexedDB.deleteDatabase("already-private-audio-v1"); indexedDB.deleteDatabase("already-private-vision-v1"); setGoal({ ...defaultGoal }); setGoalArchive([]); setConversationArchive([]); setConversationId(""); setSpNameDraft(""); setBeliefDraft(""); setStoryLibrary([]); setMessages([]); setRevisions([]); setCheckIns([]); setBoard([]); setView("home"); setOnboardingStep(0); } }}>{t.clear}</button>
+          <button className="outline-button danger-button" onClick={() => { if (window.confirm(t.confirm)) { void fetch("/api/space", { method: "DELETE", headers: { "x-already-session-id": sessionId } }); removeStored("already-private-state-v5"); removeStored("already-practice-checkins-v1"); removeStored("already-subliminal-v1"); removeStored("already-vision-project-v1"); indexedDB.deleteDatabase("already-private-audio-v1"); indexedDB.deleteDatabase("already-private-vision-v1"); removeStored("already-opening-v1"); setProfile(emptyProfile); setOtherGoals([]); setGoal({ ...defaultGoal }); setGoalArchive([]); setConversationArchive([]); setConversationId(""); setSpNameDraft(""); setBeliefDraft(""); setStoryLibrary([]); setMessages([]); setRevisions([]); setCheckIns([]); setBoard([]); setView("home"); setOnboardingStep(0); } }}>{t.clear}</button>
         </div>}
         {settingsSection !== "data" && <div className="settings-savebar"><span>{syncStatus === "saved" ? <CloudCheck size={18}/> : <FloppyDisk size={18}/>} {syncStatus === "saved" ? (lang === "zh" ? "会自动同步" : "Auto-sync is on") : (lang === "zh" ? "本机副本已保留" : "On-device copy retained")}</span><button className="primary" onClick={saveGoalSettings} disabled={Boolean(spNameError) || beliefCount > MAX_BELIEFS || !goal.companionStyle}>{goalSavedPulse ? t.savedGoal : t.saveGoal}</button></div>}
       </section>}

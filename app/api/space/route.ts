@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { headers } from "next/headers";
+import { deleteBetaRecords } from "@/lib/beta-guard";
 
 const MAX_PAYLOAD_BYTES = 750_000;
 
@@ -70,10 +71,12 @@ export async function PUT(request: Request) {
   return json({ saved: true, revision: saved?.revision || 1, updatedAt });
 }
 
-export async function DELETE() {
+export async function DELETE(request: Request) {
   const id = await userId();
   if (!id) return json({ authenticated: false }, 401);
   await ensureTable();
   await env.DB.prepare("DELETE FROM user_spaces WHERE user_id = ?").bind(id).run();
+  // The synced space is only part of what we keep: chats, profile, events and reports go too.
+  await deleteBetaRecords(request);
   return json({ deleted: true });
 }
