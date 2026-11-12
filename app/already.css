@@ -762,7 +762,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .view-heading { margin-bottom: 30px; }
   .view-heading > p:last-child { font-size: calc(14px * var(--fs, 1)); }
   .message { max-width: 88%; }
-  .composer { position: fixed; z-index: 26; left: 12px; right: 12px; bottom: calc(75px + env(safe-area-inset-bottom) + var(--kb-offset, 0px)); }
+  .composer { position: fixed; z-index: 26; left: 12px; right: 12px; bottom: calc(95px + env(safe-area-inset-bottom) + var(--kb-offset, 0px)); }
   .home-composer { width: auto; margin: 0; transform: none; }
   .home-composer.is-active::before { left: -12px; right: -12px; top: -42px; bottom: calc(-76px - env(safe-area-inset-bottom)); }
   .home-composer.is-empty { position: relative; left: auto; right: auto; bottom: auto; width: 100%; margin: 28px 0 0; }
@@ -1368,7 +1368,8 @@ html[data-font-size="large"] { --fs: 1.2; }
 .font-size-sample { font-family: var(--font-display); }
 
 /* compliance: AI label, report dialog, filing numbers, break reminder */
-.ai-label { display: block; margin: 6px 0 0; color: var(--app-muted); font-size: 12px; line-height: 17px; opacity: .8; }
+.composer-note { position: absolute; left: 0; right: 0; top: calc(100% + 5px); text-align: center; color: var(--app-muted); font-size: calc(11px * var(--fs, 1)); line-height: 16px; opacity: .85; pointer-events: none; }
+.home-composer.is-empty { margin-bottom: 28px; }
 .report-modal h2 { margin: 0 0 12px; }
 .report-excerpt { margin: 0 0 14px; padding: 8px 12px; border-left: 3px solid var(--app-line); color: var(--app-muted); font-size: 13px; line-height: 1.6; }
 .report-reasons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }

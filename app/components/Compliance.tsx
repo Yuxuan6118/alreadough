@@ -17,9 +17,9 @@ export const REPORT_REASONS: Array<{ id: string; zh: string; en: string }> = [
   { id: "other", zh: "其他问题", en: "Something else" },
 ];
 
-/** The "AI wrote this" label shown under every AI reply. */
-export function AiLabel({ lang }: { lang: Lang }) {
-  return <small className="ai-label">{lang === "zh" ? "AI 生成，仅供陪伴练习，不替代专业帮助" : "AI-generated, for companionship and practice, not professional help"}</small>;
+/** The one-line "this is AI" note under the input box, the way ChatGPT and Claude show theirs. Shown once, not per message. */
+export function AiNote({ lang }: { lang: Lang }) {
+  return <small className="composer-note">{lang === "zh" ? "内容由 AI 生成，可能出错，请仔细甄别" : "AlreaDough is AI and can make mistakes. Check important info."}</small>;
 }
 
 /** Report an AI reply (or any content). Posts to /api/report; the founder reads these in the cockpit. */
