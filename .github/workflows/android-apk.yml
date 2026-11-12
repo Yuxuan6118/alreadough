@@ -38,6 +38,9 @@ jobs:
       - name: Create the Android project
         run: npx cap add android
 
+      - name: Lock the app to portrait
+        run: sed -i 's/<activity /<activity android:screenOrientation="portrait" /' android/app/src/main/AndroidManifest.xml
+
       - name: Use the AlreaDough logo as the app icon
         run: |
           mkdir -p assets

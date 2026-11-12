@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import InstallTip from "./components/InstallTip";
+import OrientationGuard from "./components/OrientationGuard";
 import AccessGate from "./components/AccessGate";
 import NativeShell from "./components/NativeShell";
 import ViewportKeyboardFix from "./components/ViewportKeyboardFix";
@@ -78,6 +79,7 @@ export default function RootLayout({
         <NativeShell />
         <ViewportKeyboardFix />
         <NoPinchZoom />
+        <OrientationGuard />
         <ViewportDebug />
         <AccessGate>{children}<InstallTip /></AccessGate>
       </body>
