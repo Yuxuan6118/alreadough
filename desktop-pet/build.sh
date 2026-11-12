@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # Builds the AlreaDough desktop pet (a small native Mac app) and installs it.
 # Usage: bash desktop-pet/build.sh            installs to ~/Applications/AlreaDough Pet.app
+#        bash desktop-pet/build.sh --zip      also writes public/downloads/AlreaDough-Pet-mac.zip
 #        bash desktop-pet/build.sh /some/path.app
 # Needs only the Xcode command line tools (swiftc); no Node, no extra downloads.
 set -euo pipefail
 cd "$(dirname "$0")"
 
-APP="${1:-$HOME/Applications/AlreaDough Pet.app}"
+APP="$HOME/Applications/AlreaDough Pet.app"
+if [ -n "${1:-}" ] && [ "${1:-}" != "--zip" ]; then APP="$1"; fi
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
@@ -15,7 +17,10 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 echo "编译..."
-swiftc -O -o "$APP/Contents/MacOS/AlreaDoughPet" main.swift
+# one app for both kinds of Mac (Apple silicon and Intel)
+swiftc -O -target arm64-apple-macos12.0 -o "$WORK/pet-arm64" main.swift
+swiftc -O -target x86_64-apple-macos12.0 -o "$WORK/pet-x86_64" main.swift
+lipo -create "$WORK/pet-arm64" "$WORK/pet-x86_64" -output "$APP/Contents/MacOS/AlreaDoughPet"
 
 # the dough holding the heart butter; 900px wide is plenty for a desktop pet and keeps the app small
 sips -Z 900 ../public/mascot/already-dough-fold-v3.png --out "$APP/Contents/Resources/dough.png" >/dev/null
@@ -52,3 +57,11 @@ PLIST
 
 codesign --force --sign - "$APP" >/dev/null 2>&1 || echo "(没有签名也能在本机运行)"
 echo "已安装：$APP"
+
+# --zip also writes the file people download from the website
+if [ "${2:-}" = "--zip" ] || [ "${1:-}" = "--zip" ]; then
+  mkdir -p ../public/downloads
+  rm -f ../public/downloads/AlreaDough-Pet-mac.zip
+  ditto -c -k --keepParent "$APP" ../public/downloads/AlreaDough-Pet-mac.zip
+  echo "下载包：public/downloads/AlreaDough-Pet-mac.zip"
+fi

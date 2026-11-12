@@ -1560,3 +1560,9 @@ html[data-theme="dark"].landscape-blocked::after { color: #f1e8e2; background: #
   .home-composer.is-active::before { bottom: calc(-34px - env(safe-area-inset-bottom)); }
   .app-shell:has(> .bottom-nav) > .app-stage { padding-bottom: calc(42px + 82px + env(safe-area-inset-bottom)); }
 }
+
+/* desktop dough download card (My space > AI companion) */
+.pet-card > p { margin: 8px 0 14px; color: var(--app-muted); line-height: 1.7; }
+.pet-card a.pet-download { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 22px; border-radius: 999px; text-decoration: none; }
+.pet-card ol { margin: 14px 0 6px; padding-left: 20px; color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); line-height: 1.75; }
+.pet-card small { display: block; margin-top: 6px; color: var(--app-muted); }
