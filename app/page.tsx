@@ -21,6 +21,7 @@ import {
   ChatCircleDots,
   CloudCheck,
   CloudSlash,
+  ArrowDown,
   ArrowElbowDownLeft,
   Copy,
   FloppyDisk,
@@ -353,6 +354,9 @@ export default function Home() {
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const requestControllerRef = useRef<AbortController | null>(null);
   const lastLogIdRef = useRef<string | undefined>(undefined);
+  const openedChatRef = useRef("");
+  const lastMessageCountRef = useRef(0);
+  const [showJump, setShowJump] = useState(false);
 
   useEffect(() => {
     const box = chatInputRef.current;
@@ -360,6 +364,64 @@ export default function Home() {
     box.style.height = "auto";
     box.style.height = `${Math.min(box.scrollHeight, 220)}px`;
   }, [chatInput, view, hydrated]);
+
+  // Chat position, like any messenger: opening a conversation lands on the newest message, new messages follow
+  // along while she is at the bottom, and a small down arrow appears when she has scrolled up.
+  const chatScroller = () => {
+    const stage = document.querySelector<HTMLElement>(".app-stage");
+    if (stage && getComputedStyle(stage).overflowY === "auto" && stage.scrollHeight > stage.clientHeight) return stage; // phones: the stage scrolls inside the shell
+    return (document.scrollingElement || document.documentElement) as HTMLElement; // desktop: the page scrolls
+  };
+  const scrollChatToBottom = (smooth: boolean) => {
+    const scroller = chatScroller();
+    scroller.scrollTo({ top: scroller.scrollHeight, behavior: smooth ? "smooth" : "auto" });
+  };
+  const distanceFromBottom = () => {
+    const scroller = chatScroller();
+    return scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+  };
+
+  useEffect(() => {
+    if (view !== "home") { openedChatRef.current = ""; return; }
+    if (!messages.length) return;
+    const key = conversationId || "none";
+    if (openedChatRef.current === key) return;
+    openedChatRef.current = key;
+    const land = () => scrollChatToBottom(false);
+    window.requestAnimationFrame(() => window.requestAnimationFrame(land));
+    const later = window.setTimeout(land, 300); // fonts and layout may still be settling
+    return () => window.clearTimeout(later);
+  }, [view, conversationId, messages.length]);
+
+  useEffect(() => {
+    const previous = lastMessageCountRef.current;
+    lastMessageCountRef.current = messages.length;
+    if (view !== "home" || previous === 0 || messages.length <= previous) return;
+    if (distanceFromBottom() < 420 || messages[messages.length - 1]?.role === "user") window.requestAnimationFrame(() => scrollChatToBottom(true));
+  }, [messages.length, view]);
+
+  useEffect(() => {
+    if (isTyping && view === "home" && distanceFromBottom() < 420) window.requestAnimationFrame(() => scrollChatToBottom(true));
+  }, [isTyping, view]);
+
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- the arrow shows or hides from the scroll position */
+    if (view !== "home") { setShowJump(false); return; }
+    const update = () => setShowJump(messages.length > 0 && distanceFromBottom() > 240);
+    update();
+    const stage = document.querySelector(".app-stage");
+    stage?.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    const timer = window.setInterval(update, 800); // the thread grows while a reply streams in
+    return () => {
+      stage?.removeEventListener("scroll", update);
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      window.clearInterval(timer);
+    };
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [view, messages.length, isTyping]);
 
   // Theme: follow the phone's light/dark setting until she picks one, then remember her pick.
   useEffect(() => {
@@ -1295,7 +1357,7 @@ export default function Home() {
           {isTyping && <div className="message ai typing"><i/><i/><i/></div>}
         </div>
         {aiError && <div className="ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
-        <div className={`composer home-composer ${sessionMessages.length ? "is-active" : "is-empty"}`}><details className="coach-model-menu composer-plus"><summary aria-label={lang === "zh" ? "更多选项" : "More options"}><Plus size={20}/></summary><div className="coach-model-popover"><header><strong>{lang === "zh" ? "现在聊哪个愿望" : "Which desire now"}</strong><small>{lang === "zh" ? "每次对话只聊当前这一个" : "Each conversation covers one desire"}</small></header>{goalMenuItems}<header><strong>{lang === "zh" ? "选择引导方式" : "Choose a guide"}</strong><small>{lang === "zh" ? "每条消息都可以随时切换" : "Switch for any message"}</small></header>{coachMenuItems}</div></details><div className="composer-main"><textarea ref={chatInputRef} rows={1} value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={onChatKey} placeholder={t.chatPlaceholder} aria-label={t.chatPlaceholder}/></div><button className="composer-send" onClick={() => isTyping ? requestControllerRef.current?.abort() : sendChat()} aria-label={isTyping ? (lang === "zh" ? "停止生成" : "Stop generating") : t.send}>{isTyping ? <StopCircle size={20}/> : <><span className="send-up">↑</span><ArrowElbowDownLeft className="send-return" size={20}/></>}</button><AiNote lang={lang} /></div>
+        <div className={`composer home-composer ${sessionMessages.length ? "is-active" : "is-empty"}`}>{showJump && sessionMessages.length > 0 && <button type="button" className="scroll-bottom-button" onClick={() => scrollChatToBottom(true)} aria-label={lang === "zh" ? "回到最新消息" : "Jump to the latest message"}><ArrowDown size={18} weight="bold"/></button>}<details className="coach-model-menu composer-plus"><summary aria-label={lang === "zh" ? "更多选项" : "More options"}><Plus size={20}/></summary><div className="coach-model-popover"><header><strong>{lang === "zh" ? "现在聊哪个愿望" : "Which desire now"}</strong><small>{lang === "zh" ? "每次对话只聊当前这一个" : "Each conversation covers one desire"}</small></header>{goalMenuItems}<header><strong>{lang === "zh" ? "选择引导方式" : "Choose a guide"}</strong><small>{lang === "zh" ? "每条消息都可以随时切换" : "Switch for any message"}</small></header>{coachMenuItems}</div></details><div className="composer-main"><textarea ref={chatInputRef} rows={1} value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={onChatKey} placeholder={t.chatPlaceholder} aria-label={t.chatPlaceholder}/></div><button className="composer-send" onClick={() => isTyping ? requestControllerRef.current?.abort() : sendChat()} aria-label={isTyping ? (lang === "zh" ? "停止生成" : "Stop generating") : t.send}>{isTyping ? <StopCircle size={20}/> : <><span className="send-up">↑</span><ArrowElbowDownLeft className="send-return" size={20}/></>}</button><AiNote lang={lang} /></div>
       </section>}
 
       {view === "subliminal" && <SubliminalStudio lang={lang} desire={goal.desire[lang]} focusText={goal.acceptedSceneLedger[lang][0]} checkIns={checkIns} onCheckIn={recordCheckIn}/>}

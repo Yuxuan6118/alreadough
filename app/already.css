@@ -1505,3 +1505,7 @@ html[data-theme="dark"].landscape-blocked::after { color: #f1e8e2; background: #
   }
   body:not(:has(.app-shell)) { padding-top: env(safe-area-inset-top); }
 }
+
+/* small down arrow above the composer when the thread is scrolled away from the newest message */
+.composer > .scroll-bottom-button { position: absolute; left: 50%; top: -52px; transform: translateX(-50%); width: 38px; height: 38px; display: grid; place-items: center; padding: 0; border: 1px solid var(--app-line); border-radius: 50%; color: var(--app-ink); background: color-mix(in srgb,var(--app-panel) 94%,transparent); backdrop-filter: blur(14px); box-shadow: var(--app-shadow); cursor: pointer; }
+.composer > .scroll-bottom-button:active { transform: translateX(-50%) scale(.94); }
