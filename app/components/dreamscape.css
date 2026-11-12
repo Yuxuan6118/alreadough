@@ -1,0 +1,78 @@
+/* Dreamscape listening screens. Every colour and font comes from the app's own tokens (--app-*, --font-display). */
+.dream { width: 100%; max-width: 480px; margin: 0 auto; min-height: 100dvh; padding: calc(28px + env(safe-area-inset-top)) 24px calc(32px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; color: var(--app-ink); font-family: var(--font-body); }
+.dream h1 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: calc(30px * var(--fs, 1)); line-height: 1.25; letter-spacing: 0; }
+.dream header p { margin: 6px 0 0; color: var(--app-muted); font-size: calc(15px * var(--fs, 1)); line-height: 1.5; }
+
+.dream-orb { position: relative; width: min(228px, 60vw); aspect-ratio: 1; margin: 30px auto 28px; display: grid; place-items: center; }
+.dream-orb i { position: absolute; inset: 0; border-radius: 50%; background: var(--app-panel-strong); }
+.dream-orb::before { content: ""; position: absolute; inset: -14px; border-radius: 50%; border: 1px solid var(--app-line); }
+.dream-orb img { position: relative; width: 104%; height: auto; max-width: none; filter: drop-shadow(0 14px 18px color-mix(in srgb, var(--app-ink) 14%, transparent)); }
+.dream-orb.small { width: 124px; margin: 0 auto; }
+.dream-orb.playing i { animation: dream-breathe 5.4s ease-in-out infinite; }
+@keyframes dream-breathe { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.06); opacity: .82; } }
+@media (prefers-reduced-motion: reduce) { .dream-orb.playing i { animation: none; } }
+
+.dream-start { width: 100%; min-height: 54px; display: flex; align-items: center; justify-content: center; gap: 10px; border: 0; border-radius: 999px; color: var(--app-accent-ink); background: var(--app-accent); font-size: calc(16px * var(--fs, 1)); font-weight: 600; }
+.dream-start-note { margin: 10px 0 22px; text-align: center; color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); }
+.dream-list { list-style: none; margin: 0; padding: 0; }
+.dream-list li { min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--app-line); font-size: calc(16px * var(--fs, 1)); }
+.dream-list li:last-child { border-bottom: 1px solid var(--app-line); }
+.dream-list small { color: var(--app-muted); font-size: calc(14px * var(--fs, 1)); }
+.dream-switch { width: 46px; height: 28px; flex: none; display: inline-flex; align-items: center; padding: 3px; border-radius: 999px; background: var(--app-line); }
+.dream-switch i { width: 22px; height: 22px; border-radius: 50%; background: var(--app-panel); }
+.dream-switch.on { background: var(--app-accent); justify-content: flex-end; }
+.dream-record-link { margin: 18px auto 0; display: inline-flex; align-items: center; gap: 8px; border: 0; background: transparent; color: var(--app-accent); font-size: calc(14px * var(--fs, 1)); }
+
+.dream-script { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 16px; padding: 12px 4px; text-align: center; font-family: var(--font-display); }
+.dream-script span, .dream-lines span { transition: color .3s ease; }
+.dream-script .done, .dream-lines .done { color: var(--app-line); font-size: calc(16px * var(--fs, 1)); line-height: 1.7; }
+.dream-script .now, .dream-lines .now { color: var(--app-ink); font-size: calc(24px * var(--fs, 1)); line-height: 1.6; }
+.dream-script .next, .dream-lines .next { color: var(--app-muted); font-size: calc(17px * var(--fs, 1)); line-height: 1.7; }
+.dream-recorder { display: grid; justify-items: center; gap: 10px; }
+.dream-record-button { width: 76px; height: 76px; display: grid; place-items: center; border: 0; border-radius: 50%; color: var(--app-accent-ink); background: var(--app-accent); box-shadow: 0 0 0 8px var(--app-panel-strong); }
+.dream-recorder strong { font-weight: 500; font-size: calc(18px * var(--fs, 1)); font-variant-numeric: tabular-nums; }
+.dream-recorder p { margin: 0; text-align: center; color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); line-height: 1.6; }
+
+.dream-player-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.dream-player-head span { color: var(--app-accent); font-size: calc(14px * var(--fs, 1)); }
+.dream-stage { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 34px; }
+.dream-lines { display: flex; flex-direction: column; gap: 14px; text-align: center; font-family: var(--font-display); }
+.dream-progress { height: 3px; margin-top: 10px; border-radius: 2px; background: var(--app-line); overflow: hidden; }
+.dream-progress i { display: block; height: 100%; background: var(--app-accent); }
+.dream-times { display: flex; justify-content: space-between; margin-top: 8px; color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); font-variant-numeric: tabular-nums; }
+.dream-controls { display: flex; align-items: center; justify-content: center; gap: 30px; margin-top: 14px; }
+.dream-controls button { width: 48px; height: 48px; display: grid; place-items: center; border: 0; border-radius: 50%; color: var(--app-muted); background: transparent; }
+.dream-controls .dream-main { width: 68px; height: 68px; color: var(--app-accent-ink); background: var(--app-accent); }
+.dream-bg-sound { margin: 14px auto 0; border: 0; background: transparent; color: var(--app-muted); font-size: calc(14px * var(--fs, 1)); }
+
+.dream h1, .dream-script .now, .dream-lines .now { text-wrap: balance; }
+.dream header p, .dream-recorder p, .dream-start-note { text-wrap: pretty; }
+
+/* the working version: buttons that look like the design */
+.dream-orb-button { border: 0; padding: 0; background: transparent; color: inherit; -webkit-tap-highlight-color: transparent; }
+.dream-start:disabled { opacity: .6; }
+.dream-row { width: 100%; min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0; border: 0; background: transparent; color: inherit; font-size: inherit; text-align: left; }
+.dream-row:disabled { color: var(--app-muted); cursor: default; }
+.dream-list li:has(> .dream-row) { padding: 0; }
+.dream-links { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 14px; }
+.dream-record-link.muted { color: var(--app-muted); margin-top: 0; }
+.dream-message { margin: 0 0 14px; text-align: center; color: var(--app-accent); font-size: calc(14px * var(--fs, 1)); line-height: 1.6; }
+.dream-status { display: grid; justify-items: center; gap: 6px; margin: 0; text-align: center; color: var(--app-muted); font-size: calc(16px * var(--fs, 1)); }
+.dream-status small { font-size: calc(13px * var(--fs, 1)); font-variant-numeric: tabular-nums; }
+.dream-back { width: 40px; height: 40px; flex: none; display: grid; place-items: center; margin-left: -10px; border: 0; border-radius: 50%; color: var(--app-muted); background: transparent; }
+.dream-player-head { display: flex; align-items: center; gap: 8px; }
+.dream-player-head h1 { flex: 1; min-width: 0; font-size: calc(24px * var(--fs, 1)); }
+.dream-player-head span { flex: none; }
+.dream-record header > .dream-player-head { margin-bottom: 4px; }
+.dream-review { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 14px; }
+.dream-review audio { width: 100%; }
+.dream-review p { margin: 0; color: var(--app-muted); font-size: calc(14px * var(--fs, 1)); line-height: 1.6; }
+.dream-review .dream-consent { color: var(--app-ink); }
+.dream-recorder .dream-start { width: 100%; }
+.dream-controls button:disabled { opacity: .4; }
+.dream-studio-back { display: block; margin: 12px auto 0; border: 0; background: transparent; color: var(--app-accent); font-size: calc(14px * var(--fs, 1)); }
+
+/* inside the app on a phone: the top bar takes the first 70px, so the screen is the rest */
+@media (max-width: 820px) {
+  .app-stage .dream { min-height: calc(100dvh - 78px - env(safe-area-inset-top)); padding-top: 10px; padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+}

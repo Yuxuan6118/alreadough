@@ -33,6 +33,7 @@ import {
   ThumbsUp,
 } from "@phosphor-icons/react";
 import SubliminalStudio, { PracticeCheckIn, practiceStreak, todayKey } from "./components/SubliminalStudio";
+import Dreamscape from "./components/Dreamscape";
 import VisionCanvasStudio from "./components/VisionCanvasStudio";
 import DoughPet from "./components/DoughPet";
 import ReflectionPanel from "./components/ReflectionPanel";
@@ -326,6 +327,7 @@ export default function Home() {
   const [profile, setProfile] = useState<Profile>(emptyProfile);
   const [plusSection, setPlusSection] = useState<"goal" | "coach" | null>(null);
   const [petOpen, setPetOpen] = useState(false);
+  const [studioOpen, setStudioOpen] = useState(false);
   const [shellEl, setShellEl] = useState<HTMLElement | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const sidebarOpenRef = useRef(false);
@@ -1483,7 +1485,25 @@ export default function Home() {
         <div className={`composer home-composer ${sessionMessages.length ? "is-active" : "is-empty"}`}>{showJump && sessionMessages.length > 0 && <button type="button" className="scroll-bottom-button" onClick={() => scrollChatToBottom(true)} aria-label={lang === "zh" ? "回到最新消息" : "Jump to the latest message"}><ArrowDown size={18} weight="bold"/></button>}<details className="coach-model-menu composer-plus" onToggle={(event) => { if (!event.currentTarget.open) setPlusSection(null); }}><summary aria-label={lang === "zh" ? "更多选项" : "More options"}><Plus size={20}/></summary><div className="coach-model-popover plus-sections"><button type="button" className={`plus-section-head${plusSection === "goal" ? " open" : ""}`} aria-expanded={plusSection === "goal"} onClick={() => setPlusSection((current) => current === "goal" ? null : "goal")}><span><small>{lang === "zh" ? "现在聊哪个愿望" : "Which desire now"}</small><strong>{goalTitle(goal, lang)}</strong></span><CaretDown size={16}/></button>{plusSection === "goal" && goalMenuItems}<button type="button" className={`plus-section-head${plusSection === "coach" ? " open" : ""}`} aria-expanded={plusSection === "coach"} onClick={() => setPlusSection((current) => current === "coach" ? null : "coach")}><span><small>{lang === "zh" ? "引导方式" : "Guidance method"}</small><strong>{lang === "zh" ? coachModes.find((coach) => coach.id === goal.coachMode)?.zh : coachModes.find((coach) => coach.id === goal.coachMode)?.en}</strong></span><CaretDown size={16}/></button>{plusSection === "coach" && coachMenuItems}</div></details><div className="composer-main"><textarea ref={chatInputRef} rows={1} value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={onChatKey} placeholder={t.chatPlaceholder} aria-label={t.chatPlaceholder}/></div><button className="composer-send" onClick={() => isTyping ? requestControllerRef.current?.abort() : sendChat()} aria-label={isTyping ? (lang === "zh" ? "停止生成" : "Stop generating") : t.send}>{isTyping ? <StopCircle size={20}/> : <><span className="send-up">↑</span><ArrowElbowDownLeft className="send-return" size={20}/></>}</button><AiNote lang={lang} /></div>
       </section>}
 
-      {view === "subliminal" && <SubliminalStudio lang={lang} desire={goal.desire[lang]} focusText={goal.acceptedSceneLedger[lang][0]} checkIns={checkIns} onCheckIn={recordCheckIn}/>}
+      {view === "subliminal" && !studioOpen && <Dreamscape
+        lang={lang}
+        sessionId={sessionId}
+        desire={goal.desire[lang]}
+        story={(() => { const mine = storyLibrary.find((item) => !item.sample && item.text[lang].length > 0) || storyLibrary.find((item) => item.text[lang].length > 0); return mine ? { title: mine.title[lang], paragraphs: mine.text[lang] } : null; })()}
+        onCheckIn={recordCheckIn}
+        makeAffirmations={async () => {
+          const ask = lang === "zh"
+            ? "请为我写 6 句睡前肯定语。每句 20 个字以内，第一人称，现在时，当作已经成立的事。只用我愿望里已有的内容，不添加我没提过的细节。每行一句，没有序号，没有引号，没有别的话。"
+            : "Write me 6 bedtime affirmations. Each under 15 words, first person, present tense, as already true. Use only what is in my desire and add no details I never gave. One per line, no numbers, no quotes, nothing else.";
+          const reply = await callCompanion("chat", ask, undefined, []);
+          return (reply || "").split(/\r?\n/).map((line) => line.replace(/^[\s\-*\d.、)）]+/, "").trim()).filter(Boolean);
+        }}
+        onOpenStudio={() => setStudioOpen(true)}
+      />}
+      {view === "subliminal" && studioOpen && <>
+        <button type="button" className="dream-studio-back" onClick={() => setStudioOpen(false)}>{lang === "zh" ? "返回入梦声场" : "Back to Dreamscape"}</button>
+        <SubliminalStudio lang={lang} desire={goal.desire[lang]} focusText={goal.acceptedSceneLedger[lang][0]} checkIns={checkIns} onCheckIn={recordCheckIn}/>
+      </>}
 
       {view === "memory" && <section className="full-view memory-view">
         <div className="memory-heading"><div className="view-heading"><p className="eyebrow">{lang === "zh" ? "记忆库" : "ALREADOUGH MEMORY"}</p><h1>{lang === "zh" ? "被记住，也由你掌控" : "Remembered, on your terms"}</h1><p>{lang === "zh" ? "AlreaDough 会从对话中提炼长期有用的内容，每次只取回与眼前话题相关的少量记忆。你可以修改、置顶或删除任何一条。" : "AlreaDough distills durable context from conversations and retrieves only a small relevant set for each message. You can edit, pin, or delete anything."}</p></div>{currentMemoryItems.length > 0 && <button className="primary memory-add" onClick={() => openMemoryEditor()}><Plus size={18}/>{lang === "zh" ? "添加记忆" : "Add memory"}</button>}</div>
