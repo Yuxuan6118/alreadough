@@ -1344,3 +1344,8 @@ html.kb-open .composer { bottom: calc(8px + var(--kb-offset, 0px)); }
   textarea,
   select { font-size: max(16px, 1em) !important; }
 }
+
+/* Phones: no pinch zoom or double-tap zoom (see NoPinchZoom). Scrolling still works in both directions. */
+@media (hover: none) and (pointer: coarse) {
+  html, body { touch-action: pan-x pan-y; }
+}

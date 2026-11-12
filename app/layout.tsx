@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import AccessGate from "./components/AccessGate";
 import NativeShell from "./components/NativeShell";
 import ViewportKeyboardFix from "./components/ViewportKeyboardFix";
+import NoPinchZoom from "./components/NoPinchZoom";
 import ViewportDebug from "./components/ViewportDebug";
 import "./globals.css";
 import "./already.css";
@@ -48,6 +49,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f4efea" },
@@ -67,6 +70,7 @@ export default function RootLayout({
       >
         <NativeShell />
         <ViewportKeyboardFix />
+        <NoPinchZoom />
         <ViewportDebug />
         <AccessGate>{children}</AccessGate>
       </body>
