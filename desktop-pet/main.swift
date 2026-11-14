@@ -690,20 +690,35 @@ final class PetApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: hiding
 
-    // Is some app filling a whole screen (a film, a presentation, a game)? A full-screen window is as big as the screen,
-    // including the menu bar; a merely maximised window is not. Needs no permission: only sizes are read.
+    // Is some app filling a whole screen (a film, a presentation, a game)? Only sizes and the menu bar are read: no permission.
+    // - Without a notch a full-screen window is as big as the screen; a merely maximised window is shorter (the menu bar).
+    // - On a MacBook with a notch the full-screen window leaves the notch band free, which makes it exactly as big as a window
+    //   maximised with the Dock hidden. What tells them apart is the menu bar: it is hidden in full screen.
     private func isFullScreenAppActive() -> Bool {
         guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { return false }
         let me = ProcessInfo.processInfo.processIdentifier
-        let sizes = NSScreen.screens.map { $0.frame.size }
+        func number(_ value: Any?) -> Double? { (value as? NSNumber)?.doubleValue }
+        var menuBarVisible = false
         for window in list {
-            guard (window[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,
-                  (window[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value != me,
-                  ((window[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1) > 0.5,
+            let layer = Int(number(window[kCGWindowLayer as String]) ?? -1)
+            guard layer == 24 || layer == 25, let bounds = window[kCGWindowBounds as String] as? [String: Any] else { continue }
+            if (number(bounds["Y"]) ?? 1) < 1 && (number(bounds["Height"]) ?? 0) >= 15 { menuBarVisible = true; break }
+        }
+        for window in list {
+            guard Int(number(window[kCGWindowLayer as String]) ?? -1) == 0,
+                  Int32(number(window[kCGWindowOwnerPID as String]) ?? -1) != me,
+                  (number(window[kCGWindowAlpha as String]) ?? 1) > 0.5,
                   let bounds = window[kCGWindowBounds as String] as? [String: Any],
-                  let width = (bounds["Width"] as? NSNumber)?.doubleValue,
-                  let height = (bounds["Height"] as? NSNumber)?.doubleValue else { continue }
-            if sizes.contains(where: { width >= Double($0.width) - 1 && height >= Double($0.height) - 1 }) { return true }
+                  let width = number(bounds["Width"]), let height = number(bounds["Height"]) else { continue }
+            for screen in NSScreen.screens {
+                let notch = Double(screen.safeAreaInsets.top)
+                guard width >= Double(screen.frame.width) - 1 else { continue }
+                if notch == 0 {
+                    if height >= Double(screen.frame.height) - 1 { return true }
+                } else if height >= Double(screen.frame.height) - notch - 2 && !menuBarVisible {
+                    return true
+                }
+            }
         }
         return false
     }
@@ -764,7 +779,13 @@ final class PetApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // The dough also lives in the menu bar. It is always there, so hiding the pet on the desktop can never mean losing it.
     private func setupStatusItem() {
+        // On a notched MacBook the menu bar has little room right of the notch, and a new item is placed leftmost, which
+        // lands under the notch where it is hidden. Ask for a spot ~260pt from the right edge instead (first run only, so a
+        // position the user chooses with ⌘-drag is kept).
+        let positionKey = "NSStatusItem Preferred Position AlreaDoughPetMenuBar"
+        if UserDefaults.standard.object(forKey: positionKey) == nil { UserDefaults.standard.set(260.0, forKey: positionKey) }
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        item.autosaveName = "AlreaDoughPetMenuBar"
         if let path = Bundle.main.path(forResource: "dough", ofType: "png"), let picture = NSImage(contentsOfFile: path) {
             picture.size = NSSize(width: 26, height: 17)
             item.button?.image = picture
