@@ -524,7 +524,7 @@ test("opening replies: a stock or contrast line is thrown away, a plain concrete
   assert.equal(isReplyStep("scene"), true);
   assert.equal(isReplyStep("name"), false);
   assert.match(onboardingSystem("zh", "pullback"), /只改写这句话本身/);
-  assert.match(onboardingSystem("zh", "wish"), /只用她的词/);
+  assert.match(onboardingSystem("zh", "wish"), /只用 TA 的词/);
 });
 
 test("delete my data removes chats, profile, events and reports, not only the synced space", async () => {
@@ -650,4 +650,15 @@ test("the opening never carries real names or private details in examples, place
   const ids = buildFlow(["relationship"], true).map((slot) => slot.id);
   assert.ok(!ids.includes("exclude"));
   assert.equal(ids.filter((id) => id === "never").length, 1);
+});
+
+test("the opening speaks about the person as TA, never 他 or 她, and as they in English prompts", async () => {
+  for (const file of ["../lib/onboarding-flow.ts", "../lib/onboarding-ai.ts", "../app/components/GuidedOnboarding.tsx"]) {
+    const text = await readFile(new URL(file, import.meta.url), "utf8");
+    const hits = [...text.matchAll(/(?<!其)他|她/g)].length;
+    assert.equal(hits, 0, `${file} has ${hits} gendered pronouns`);
+  }
+  const ai = await readFile(new URL("../lib/onboarding-ai.ts", import.meta.url), "utf8");
+  const english = ai.slice(ai.indexOf("const enBase"), ai.indexOf("export function onboardingSystem"));
+  assert.doesNotMatch(english, /\b(she|her|hers|herself)\b/i);
 });

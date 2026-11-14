@@ -216,13 +216,13 @@ export function splitLines(value: string, max = 20): string[] {
 export function wishBackground(wish: WishAnswers, lang: OnboardingLang): string {
   const zh = lang === "zh";
   const labels: Record<string, [string, string]> = {
-    sp_name: ["TA 的称呼", "What she calls them"],
+    sp_name: ["TA 的称呼", "What they call them"],
     rel_state: ["TA 是谁，现在的状态", "Who they are and where things stand"],
-    rel_close: ["她想要的亲密", "The closeness she wants"],
+    rel_close: ["想要的亲密", "The closeness they want"],
     wealth_form: ["具体的形态", "What it looks like"],
     wealth_when: ["它出现的那一天", "The day it arrives"],
-    self_who: ["想成为的人", "Who she wants to be"],
-    self_body: ["那时的身体与别人的目光", "How her body feels and how others see her"],
+    self_who: ["想成为的人", "Who they want to be"],
+    self_body: ["那时的身体与别人的目光", "How their body feels and how others see them"],
     life_where: ["城市与住处", "City and home"],
     life_morning: ["那里的普通早晨", "An ordinary morning there"],
     other_moment: ["它已经发生的那一刻", "The moment it has happened"],
@@ -233,7 +233,7 @@ export function wishBackground(wish: WishAnswers, lang: OnboardingLang): string 
     if (text) lines.push(`${zh ? zhLabel : enLabel}：${text}`);
   }
   if (clean(wish.scene)) lines.push(`${zh ? "它已经实现的普通一天" : "An ordinary day when it is true"}：${clean(wish.scene)}`);
-  if (clean(wish.evidence)) lines.push(`${zh ? "她看到的小迹象" : "Small signs she has seen"}：${clean(wish.evidence)}`);
+  if (clean(wish.evidence)) lines.push(`${zh ? "看到的小迹象" : "Small signs they have seen"}：${clean(wish.evidence)}`);
   return lines.join("\n");
 }
 

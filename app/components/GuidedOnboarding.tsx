@@ -168,9 +168,9 @@ export default function GuidedOnboarding({ lang, sessionId, mode, styleOptions, 
 
   const replyContext = (): Array<{ label: string; value: string }> => {
     const out: Array<{ label: string; value: string }> = [];
-    if (answers.about.trim()) out.push({ label: zh ? "她自己" : "About her", value: answers.about });
+    if (answers.about.trim()) out.push({ label: zh ? "TA 自己" : "About them", value: answers.about });
     if (wish) {
-      if (slot.id !== "wish" && wish.wish.trim()) out.push({ label: zh ? "她的愿望" : "Her desire", value: wish.wish });
+      if (slot.id !== "wish" && wish.wish.trim()) out.push({ label: zh ? "TA 的愿望" : "Their desire", value: wish.wish });
       const person = wishPersonName(wish);
       if (person) out.push({ label: zh ? "TA 的称呼" : "Their name", value: person });
     }
