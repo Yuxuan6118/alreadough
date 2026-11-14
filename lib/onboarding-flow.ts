@@ -275,11 +275,54 @@ export function canAdvance(stepId: string, answers: OnboardingAnswers, wishIndex
   }
 }
 
-export type GoalSeed = { wishCategory: WishKind; desire: string; background: string; beliefs: string[]; spName: string; intensity: number };
+export type MemoryKindSeed = "person" | "place" | "event" | "preference" | "insight";
+/** One thing she told us, shaped for the memory library. Her own words, nothing added. */
+export type MemorySeed = { kind: MemoryKindSeed; title: string; detail: string; keywords: string[] };
+export type GoalSeed = { wishCategory: WishKind; desire: string; background: string; beliefs: string[]; spName: string; intensity: number; memories: MemorySeed[] };
 export type ProfileSeed = { country: string; about: string; situation: string; people: OnboardingPerson[]; neverInclude: string[] };
+
+const clip = (text: string | undefined, max: number) => (text || "").trim().slice(0, max);
+const seed = (kind: MemoryKindSeed, title: string, detail: string, keywords: string[] = []): MemorySeed | null => {
+  const t = clip(title, 80), d = clip(detail, 600);
+  return t && d ? { kind, title: t, detail: d, keywords: keywords.map((k) => clip(k, 24)).filter(Boolean).slice(0, 5) } : null;
+};
+const compact = (items: Array<MemorySeed | null>): MemorySeed[] => items.filter((item): item is MemorySeed => item !== null);
+
+/** What she said about herself and her world: the same for every desire card. */
+export function sharedMemories(answers: OnboardingAnswers, lang: OnboardingLang): MemorySeed[] {
+  const zh = lang === "zh";
+  return compact([
+    seed("insight", zh ? "我是怎样的人" : "Who I am", answers.about),
+    seed("place", zh ? "我所在的地方" : "Where I am", answers.country, [answers.country]),
+    seed("insight", zh ? "我现在的日子" : "My life right now", answers.situation),
+    ...answers.people.filter((person) => person.name.trim()).map((person) => seed("person", person.name, person.relation || (zh ? "对我很重要的人" : "Someone who matters to me"), [person.name])),
+    ...(splitLines(answers.never).length ? [seed("preference", zh ? "不想被提的话题" : "Topics to leave alone", splitLines(answers.never).join(zh ? "、" : ", "))] : []),
+  ]);
+}
+
+/** What she said about one desire. */
+export function wishMemories(wish: WishAnswers, lang: OnboardingLang): MemorySeed[] {
+  const zh = lang === "zh";
+  const sp = wishPersonName(wish);
+  const sp2 = wish.specifics;
+  return compact([
+    sp ? seed("person", sp, sp2.rel_state || (zh ? "我想要的那个人" : "The person I am manifesting"), [sp]) : null,
+    seed("preference", zh ? "我想要的亲密" : "The closeness I want", sp2.rel_close),
+    seed("insight", zh ? "它具体的样子" : "What it looks like", sp2.wealth_form),
+    seed("event", zh ? "它出现的那一天" : "The day it arrives", sp2.wealth_when),
+    seed("insight", zh ? "我想成为的人" : "Who I want to be", sp2.self_who),
+    seed("insight", zh ? "那时的身体和别人的目光" : "How my body feels and how others see me", sp2.self_body),
+    seed("place", zh ? "我想住的地方" : "Where I want to live", sp2.life_where),
+    seed("event", zh ? "那里的普通早晨" : "An ordinary morning there", sp2.life_morning),
+    seed("event", zh ? "它已经发生的那一刻" : "The moment it has happened", sp2.other_moment),
+    seed("event", zh ? "愿望实现的普通一天" : "An ordinary day when it is true", wish.scene),
+    seed("insight", zh ? "它正在靠近的小迹象" : "Small signs it is coming closer", wish.evidence),
+  ]);
+}
 
 /** Turns what she answered into the pieces the app stores: one seed per desire, and one profile for her. */
 export function answersToSeeds(answers: OnboardingAnswers, lang: OnboardingLang): { goals: GoalSeed[]; profile: ProfileSeed } {
+  const shared = sharedMemories(answers, lang);
   const goals: GoalSeed[] = answers.wishes
     .filter((wish) => wish.wish.trim())
     .map((wish) => ({
@@ -289,6 +332,7 @@ export function answersToSeeds(answers: OnboardingAnswers, lang: OnboardingLang)
       beliefs: wish.pullback.trim() ? [wish.pullback.trim()] : [],
       spName: wish.kind === "relationship" ? wishPersonName(wish) : "",
       intensity: Math.min(5, Math.max(1, Math.round(wish.intensity || 3))),
+      memories: [...wishMemories(wish, lang), ...shared].slice(0, 40),
     }));
   const never = [...splitLines(answers.never), ...answers.wishes.flatMap((wish) => splitLines(wish.exclude))];
   const profile: ProfileSeed = {

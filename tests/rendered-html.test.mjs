@@ -14,8 +14,8 @@ async function render(path = "/") {
   );
 }
 
-test("renders the AlreaDough product shell and onboarding", async () => {
-  const response = await render();
+test("renders the AlreaDough beta entry point", async () => {
+  const response = await render("/app");
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
@@ -28,7 +28,7 @@ test("renders the AlreaDough product shell and onboarding", async () => {
 });
 
 test("ships without the founder's private manifestation defaults", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/app/page.tsx", import.meta.url), "utf8");
   const privateDefaults = ["瑄瑄", "Xuanxuan", "最要好的朋友", "他会一直喜欢男人", "他只把我当朋友", "身高 180+"];
   for (const value of privateDefaults) assert.doesNotMatch(page, new RegExp(value));
   assert.match(page, /setupComplete: false/);
@@ -36,15 +36,44 @@ test("ships without the founder's private manifestation defaults", async () => {
   assert.match(page, /board.*useState<BoardItem\[]>\(\[\]\)/);
 });
 
-test("keeps public trust pages available", async () => {
-  for (const path of ["/privacy", "/trust", "/terms", "/copyright"]) {
+test("renders the public storefront and policies without the beta prompt", async () => {
+  for (const [path, content] of [
+    ["/", /进入内测/],
+    ["/pricing", /会员与价格/],
+    ["/privacy", /隐私说明/],
+    ["/trust", /AI、愿望与安全说明/],
+    ["/terms", /使用条款/],
+    ["/copyright", /素材/],
+  ]) {
     const response = await render(path);
     assert.equal(response.status, 200);
+    const html = (await response.text()).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "");
+    assert.match(html, content, path);
+    assert.match(html, /<footer class="public-site-footer">/, path);
+    assert.match(html, /href="\/terms"/, path);
+    assert.match(html, /href="\/privacy"/, path);
+    assert.doesNotMatch(html, /access-gate|Opening AlreaDough/, path);
+  }
+});
+
+test("renders the English storefront and links it to public English information", async () => {
+  for (const [path, content] of [
+    ["/en", /A daily practice/],
+    ["/en/pricing", /Let support rise with your desire/],
+    ["/en/trust", /How AI is used/],
+  ]) {
+    const response = await render(path);
+    assert.equal(response.status, 200);
+    const html = (await response.text()).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "");
+    assert.match(html, content, path);
+    for (const link of ["/en/pricing", "/terms#english", "/privacy#english", "/en/trust"]) {
+      assert.ok(html.includes(`href="${link}"`), `${path}: ${link}`);
+    }
   }
 });
 
 test("keeps onboarding limits and three guidance methods in product source", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/app/page.tsx", import.meta.url), "utf8");
   assert.match(page, /MAX_BELIEFS = 12/);
   assert.match(page, /beliefCount > MAX_BELIEFS/);
   for (const mode of ["release", "assumption", "subconscious"]) assert.match(page, new RegExp(`id: "${mode}"`));
@@ -78,7 +107,7 @@ test("keeps the founder dashboard private and aggregate-only", async () => {
 });
 
 test("shows one anonymous survey after ten minutes of active use", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/app/page.tsx", import.meta.url), "utf8");
   assert.match(page, /accumulated >= 600_000/);
   assert.match(page, /document\.visibilityState === "visible"/);
   assert.match(page, /already-beta-survey-complete-v1/);
@@ -95,7 +124,7 @@ test("keeps the chosen vision-board color connected to the live canvas", async (
 });
 
 test("shows only one primary memory action in each memory-library state", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/app/page.tsx", import.meta.url), "utf8");
   assert.match(page, /currentMemoryItems\.length > 0 && <button className="primary memory-add"/);
   assert.match(page, /currentMemoryItems\.length === 0 \? <div className="memory-empty"/);
   assert.match(page, /memory-filter-empty/);
@@ -113,7 +142,7 @@ test("keeps only fade controls in the lightweight audio editor", async () => {
 });
 
 test("does not presume that a new user's desire is romantic", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/app/page.tsx", import.meta.url), "utf8");
   const studio = await readFile(new URL("../app/components/SubliminalStudio.tsx", import.meta.url), "utf8");
   const studioDefaults = studio.slice(studio.indexOf("const defaults"), studio.indexOf("function timeLabel"));
 
@@ -539,7 +568,7 @@ test("delete my data also deletes the cloned voice, and the voice routes enforce
 });
 
 test("my space: one way in from the drawer and the rail, no avatar menu, memory and settings live in one list", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/app/page.tsx", import.meta.url), "utf8");
   // the entries that used to overlap are gone
   assert.doesNotMatch(page, /className="avatar"/);
   assert.doesNotMatch(page, /const appMenu/);
@@ -549,4 +578,31 @@ test("my space: one way in from the drawer and the rail, no avatar menu, memory 
   assert.match(page, /<SpaceNav/);
   for (const id of ["wishes", "about", "companion", "reflect", "library", "memory", "look", "sync", "help"]) assert.match(page, new RegExp(`id: "${id}"`));
   assert.match(page, /id === "library" \? setView\("memory"\)/);
+});
+
+test("opening answers also become memories: her own words, nothing added, each desire gets the shared ones", async () => {
+  const { answersToSeeds, emptyAnswers, emptyWish } = await import("../lib/onboarding-flow.ts");
+  const a = emptyAnswers();
+  a.name = "安安"; a.country = "美国俄亥俄"; a.about = "在读研究生，慢热"; a.situation = "同时在做一个小项目"; a.never = "我的体重\n我的前任";
+  a.people = [{ id: "1", name: "妈妈", relation: "最爱我的人" }];
+  a.wishes[0] = { ...emptyWish(), wish: "他回到我身边", kind: "relationship", specifics: { sp_name: "Elvin", rel_state: "以前每天聊天", rel_close: "他从身后抱住我" }, scene: "窗边喝咖啡", evidence: "他点赞了我的动态" };
+  a.wishes.push({ ...emptyWish(), wish: "拿到纽约的 offer", kind: "wealth", specifics: { wealth_form: "每月五万" } });
+  const { goals } = answersToSeeds(a, "zh");
+  const first = goals[0].memories;
+  const titles = (list) => list.map((m) => m.title);
+  assert.ok(titles(first).includes("妈妈"));
+  assert.ok(titles(first).includes("Elvin"));
+  assert.ok(titles(first).includes("我所在的地方"));
+  assert.ok(titles(first).includes("不想被提的话题"));
+  assert.equal(first.find((m) => m.title === "Elvin").kind, "person");
+  assert.equal(first.find((m) => m.title === "我想要的亲密").detail, "他从身后抱住我");
+  assert.equal(first.find((m) => m.title === "愿望实现的普通一天").kind, "event");
+  // the second desire has its own detail plus the shared ones, but not the first desire's
+  const second = goals[1].memories;
+  assert.ok(titles(second).includes("它具体的样子"));
+  assert.ok(titles(second).includes("妈妈"));
+  assert.ok(!titles(second).includes("Elvin"));
+  // empty answers make no memory
+  const empty = answersToSeeds({ ...emptyAnswers(), name: "安安", wishes: [{ ...emptyWish(), wish: "x", kind: "self" }] }, "zh").goals[0].memories;
+  assert.equal(empty.length, 0);
 });
