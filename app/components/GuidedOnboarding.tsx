@@ -303,7 +303,7 @@ export default function GuidedOnboarding({ lang, sessionId, mode, styleOptions, 
       </div>
       {def.type !== "more" && (
         <footer className="onboarding-actions guided-actions">
-          {mode === "extra" && index === 0 && onCancel ? <button type="button" className="outline-button" onClick={onCancel}>{zh ? "取消" : "Cancel"}</button> : <button type="button" className="outline-button" onClick={onBack} disabled={index === 0}>{zh ? "返回" : "Back"}</button>}
+          {index === 0 && onCancel ? <button type="button" className="outline-button" onClick={onCancel}>{zh ? "取消" : "Cancel"}</button> : <button type="button" className="outline-button" onClick={onBack} disabled={index === 0}>{zh ? "返回" : "Back"}</button>}
           {def.optional && empty && def.type !== "info" && def.type !== "people" && !replyHere ? <button type="button" className="outline-button" onClick={advance}>{zh ? "跳过" : "Skip"}</button> : null}
           <button type="button" className="primary" disabled={!canContinue} onClick={() => void onContinue()}>{thinking ? (zh ? "……" : "…") : isLast ? (zh ? "进入 AlreaDough" : "Enter AlreaDough") : def.type === "info" ? (zh ? "我明白了" : "I understand") : (zh ? "继续" : "Continue")}</button>
         </footer>
