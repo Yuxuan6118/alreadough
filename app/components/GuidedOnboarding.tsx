@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ArrowLeft, X } from "@phosphor-icons/react";
 import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
 import {
   STEPS,
@@ -9,6 +10,7 @@ import {
   canAdvance,
   emptyAnswers,
   emptyWish,
+  stepAnswer,
   wishModule,
   wishPersonName,
   type FlowSlot,
@@ -16,6 +18,8 @@ import {
   type OnboardingLang,
   type StepDef,
 } from "@/lib/onboarding-flow";
+
+import "./onboarding.css";
 
 export type StyleOption = { id: string; zh: string; en: string; zhDescription: string; enDescription: string };
 
@@ -122,23 +126,7 @@ export default function GuidedOnboarding({ lang, sessionId, mode, styleOptions, 
   };
 
   /** What she wrote on this step, as one string. */
-  const currentText = (): string => {
-    if (!wish) {
-      if (slot.id === "name") return answers.name;
-      if (slot.id === "country") return answers.country;
-      if (slot.id === "about") return answers.about;
-      if (slot.id === "never") return answers.never;
-      if (slot.id === "situation") return answers.situation;
-      if (slot.id === "people") return answers.people.map((person) => `${person.name}（${person.relation}）`).join("；");
-      return "";
-    }
-    if (slot.id === "wish") return wish.wish;
-    if (slot.id === "scene") return wish.scene;
-    if (slot.id === "pullback") return wish.pullback;
-    if (slot.id === "evidence") return wish.evidence;
-    if (slot.id === "exclude") return wish.exclude;
-    return wish.specifics[slot.id] || "";
-  };
+  const currentText = (): string => stepAnswer(slot.id, answers, wishIndex);
   const setCurrentText = (value: string) => {
     if (!wish) {
       if (slot.id === "name") setTop({ name: value });
@@ -156,13 +144,13 @@ export default function GuidedOnboarding({ lang, sessionId, mode, styleOptions, 
     else setWish({ specifics: { ...wish.specifics, [slot.id]: value } });
   };
 
-  const eyebrow = (() => {
-    if (slot.id === "more") return zh ? "愿望" : "Desires";
+  const group = (() => {
+    if (slot.id === "more") return zh ? "你的愿望" : "Your desires";
     if (wishIndex !== null && mode === "extra") return zh ? "新的愿望" : "A new desire";
     if (wishIndex !== null) return zh ? `愿望 ${wishIndex + 1}` : `Desire ${wishIndex + 1}`;
     if (["people", "never", "situation"].includes(slot.id)) return zh ? "你和你的世界" : "You and your world";
     if (slot.id === "style") return zh ? "陪伴方式" : "Companion style";
-    return zh ? "认识你" : "Meet you";
+    return zh ? "让 AlreaDough 更好地认识你" : "Help AlreaDough get to know you";
   })();
 
   const finish = () => {
@@ -249,7 +237,6 @@ export default function GuidedOnboarding({ lang, sessionId, mode, styleOptions, 
 
   const canContinue = canAdvance(slot.id, answers, wishIndex) && !thinking
     && (slot.id !== "style" || answers.style !== "custom" || answers.customTone.trim().length > 0);
-  const empty = !currentText().trim();
   const progress = Math.round(((index + 1) / flow.length) * 100);
   const placeholder = def.placeholder?.[lang];
 
@@ -291,21 +278,25 @@ export default function GuidedOnboarding({ lang, sessionId, mode, styleOptions, 
 
   return (
     <section className="onboarding-view guided-onboarding" data-step={slot.id}>
-      <div className="onboarding-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} aria-label={zh ? "进度" : "Progress"}><i style={{ width: `${progress}%` }} /></div>
-      <p className="eyebrow">{eyebrow}</p>
+      <div className="guided-top">
+        {index === 0 && onCancel
+          ? <button type="button" className="guided-back" onClick={onCancel} aria-label={zh ? "取消" : "Cancel"}><X size={22} /></button>
+          : <button type="button" className="guided-back" onClick={onBack} disabled={index === 0} aria-label={zh ? "返回上一题" : "Back"} style={index === 0 ? { visibility: "hidden" } : undefined}><ArrowLeft size={22} /></button>}
+        <div className="onboarding-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} aria-label={zh ? "进度" : "Progress"}><i style={{ width: `${progress}%` }} /></div>
+      </div>
       <div className="onboarding-panel" key={slotKey}>
+        <p className="guided-group">{group}</p>
         <h1>{def.prompt[lang]}</h1>
-        {def.hint && <p>{def.hint[lang]}</p>}
+        {def.hint && <p className="guided-hint">{def.hint[lang]}</p>}
         {body}
+        {def.optional && (def.type === "text" || def.type === "long") && <small className="guided-none">{zh ? "没有的话，写“没有”就好。" : "If there is nothing, just write “none”."}</small>}
         {slot.id === "name" && syncSlot}
         {thinking && <p className="onboard-reply onboard-thinking" aria-live="polite"><i /><i /><i /></p>}
         {replyHere && <Typed text={replyHere} />}
       </div>
       {def.type !== "more" && (
-        <footer className="onboarding-actions guided-actions">
-          {index === 0 && onCancel ? <button type="button" className="outline-button" onClick={onCancel}>{zh ? "取消" : "Cancel"}</button> : <button type="button" className="outline-button" onClick={onBack} disabled={index === 0}>{zh ? "返回" : "Back"}</button>}
-          {def.optional && empty && def.type !== "info" && def.type !== "people" && !replyHere ? <button type="button" className="outline-button" onClick={advance}>{zh ? "跳过" : "Skip"}</button> : null}
-          <button type="button" className="primary" disabled={!canContinue} onClick={() => void onContinue()}>{thinking ? (zh ? "……" : "…") : isLast ? (zh ? "进入 AlreaDough" : "Enter AlreaDough") : def.type === "info" ? (zh ? "我明白了" : "I understand") : (zh ? "继续" : "Continue")}</button>
+        <footer className="guided-footer">
+          <button type="button" className="primary" disabled={!canContinue} onClick={() => void onContinue()}>{thinking ? (zh ? "……" : "…") : isLast ? (zh ? "进入 AlreaDough" : "Enter AlreaDough") : slot.id === "welcome" ? (zh ? "开始" : "Start") : def.type === "info" ? (zh ? "我明白了" : "I understand") : (zh ? "继续" : "Continue")}</button>
         </footer>
       )}
     </section>

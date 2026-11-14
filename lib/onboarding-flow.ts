@@ -28,90 +28,73 @@ export type StepDef = {
 const step = (def: StepDef): StepDef => def;
 
 export const STEPS: Record<string, StepDef> = {
+  welcome: step({ id: "welcome", type: "info", optional: false, reply: false,
+    prompt: { zh: "欢迎来到 AlreaDough", en: "Welcome to AlreaDough" },
+    hint: { zh: "接下来我会问你一些问题，大约 5 分钟。你写得越具体，之后的陪伴就越像你。你写的内容只保存在你自己的空间里，可以随时修改或删除。", en: "I will ask you a few questions, about 5 minutes. The more specific you are, the more it will feel like it was made for you. What you write stays in your own space, and you can edit or delete it anytime." } }),
   name: step({ id: "name", type: "text", optional: false, reply: false, short: true,
     prompt: { zh: "我该怎么称呼你？", en: "What should I call you?" },
     hint: { zh: "先用一个你喜欢的称呼。之后都可以改。", en: "Start with a name that feels like you. You can change it later." },
-    placeholder: { zh: "例如：安安", en: "For example: Mia" } }),
-  country: step({ id: "country", type: "text", optional: true, reply: false, short: true,
-    prompt: { zh: "你现在在哪个国家或城市？", en: "Which country or city are you in now?" },
-    hint: { zh: "只用来让场景更贴近你的生活。写国家就够了，也可以跳过。", en: "Only to make scenes closer to your life. A country is enough, or skip." },
-    placeholder: { zh: "例如：美国俄亥俄", en: "For example: Ohio, USA" } }),
+    placeholder: { zh: "你的名字或昵称", en: "Your name or nickname" } }),
+  country: step({ id: "country", type: "text", optional: false, reply: false, short: true,
+    prompt: { zh: "你现在在哪个国家或地区、哪个城市？", en: "Which country or region, and which city, are you in now?" },
+    hint: { zh: "写得越详细越好，最好到区。", en: "The more detail the better, down to the district if you can." },
+    placeholder: { zh: "例如：美国纽约曼哈顿、中国广东深圳", en: "e.g. Manhattan, New York · Shenzhen, China" } }),
   about: step({ id: "about", type: "long", optional: true, reply: false,
     prompt: { zh: "用一句话说说，现在的你是怎样的人？", en: "In a sentence, who are you right now?" },
-    hint: { zh: "写你自己愿意说的就好，只写你觉得相关的。", en: "Only what feels relevant to you." },
-    placeholder: { zh: "例如：在读研究生、爱写东西、慢热", en: "For example: a grad student, loves writing, slow to warm up" } }),
+    hint: { zh: "写你自己愿意说的就好，只写你觉得相关的。", en: "Only what feels relevant to you." } }),
   note: step({ id: "note", type: "info", optional: false, reply: false,
     prompt: { zh: "接下来会问到感情、家人和你的状态。", en: "Next come a few questions about love, family and how you are." },
     hint: { zh: "你写的内容会保存在你的空间里，只用来让陪伴更像你。每一题都可以跳过，也可以随时在“我的空间”修改或删除。", en: "What you write is kept in your space and used only to make the companionship fit you. Every question can be skipped, and you can edit or delete it anytime in My space." } }),
 
   wish: step({ id: "wish", type: "long", optional: false, reply: true,
     prompt: { zh: "你最想先显化的是什么？", en: "What do you most want to manifest first?" },
-    hint: { zh: "不用写得完美，就用你自己的话。放开想，不用现实。", en: "No need to word it perfectly. Say it your way, and don't be realistic." },
-    placeholder: { zh: "例如：他回到我身边 / 拿到纽约的 offer", en: "For example: he is back with me / I got the offer in New York" } }),
+    hint: { zh: "不用写得完美，就用你自己的话。放开想，不用现实。", en: "No need to word it perfectly. Say it your way, and don't be realistic." } }),
   category: step({ id: "category", type: "category", optional: false, reply: false,
     prompt: { zh: "它更接近哪一类？", en: "Which kind is it closest to?" } }),
 
   // relationship
   sp_name: step({ id: "sp_name", type: "text", optional: true, reply: false, short: true,
-    prompt: { zh: "他或她的名字，或你对 TA 的称呼？", en: "Their name, or what you call them?" },
-    hint: { zh: "还没有出现的人，可以跳过。", en: "Skip if this person has not appeared yet." },
-    placeholder: { zh: "例如：Elvin", en: "For example: Elvin" } }),
+    prompt: { zh: "TA 的名字，或你对 TA 的称呼？", en: "Their name, or what you call them?" } }),
   rel_state: step({ id: "rel_state", type: "long", optional: true, reply: false,
-    prompt: { zh: "TA 是谁，你们现在是什么状态？", en: "Who are they, and where are you two now?" },
-    placeholder: { zh: "例如：以前每天聊天，现在不联系了", en: "For example: we used to talk every day, now we don't" } }),
+    prompt: { zh: "TA 是谁，你们现在是什么状态？", en: "Who are they, and where are you two now?" } }),
   rel_close: step({ id: "rel_close", type: "long", optional: true, reply: false,
     prompt: { zh: "你想要的亲密是什么样子？", en: "What does the closeness you want look like?" },
-    hint: { zh: "拥抱、牵手、TA 的声音、TA 怎样对你。", en: "A hug, holding hands, their voice, how they treat you." },
-    placeholder: { zh: "例如：他从身后抱住我，在我耳边说话", en: "For example: he holds me from behind and talks near my ear" } }),
+    hint: { zh: "拥抱、牵手、TA 的声音、TA 怎样对你。", en: "A hug, holding hands, their voice, how they treat you." } }),
 
   // wealth and work
   wealth_form: step({ id: "wealth_form", type: "long", optional: true, reply: false,
     prompt: { zh: "它具体是什么形态？", en: "What exactly does it look like?" },
-    hint: { zh: "收入数字、offer、项目、客户、一间公司。", en: "An income figure, an offer, a project, a client, a company." },
-    placeholder: { zh: "例如：每个月稳定进账五万", en: "For example: 5,000 a month, steadily" } }),
+    hint: { zh: "收入数字、offer、项目、客户、一间公司。", en: "An income figure, an offer, a project, a client, a company." } }),
   wealth_when: step({ id: "wealth_when", type: "long", optional: true, reply: false,
-    prompt: { zh: "它出现的那一天，你在哪里、谁第一个知道？", en: "The day it arrives: where are you, and who knows first?" },
-    placeholder: { zh: "例如：在图书馆，我先告诉妈妈", en: "For example: in the library, and I tell my mom first" } }),
+    prompt: { zh: "它出现的那一天，你在哪里、谁第一个知道？", en: "The day it arrives: where are you, and who knows first?" } }),
 
   // self
   self_who: step({ id: "self_who", type: "long", optional: true, reply: false,
-    prompt: { zh: "你想成为怎样的人？", en: "Who do you want to be?" },
-    placeholder: { zh: "例如：说话不再先道歉的人", en: "For example: someone who doesn't apologise first" } }),
+    prompt: { zh: "你想成为怎样的人？", en: "Who do you want to be?" } }),
   self_body: step({ id: "self_body", type: "long", optional: true, reply: false,
-    prompt: { zh: "那时候的身体是什么感觉？别人怎么看见你？", en: "What does your body feel like then, and how do others see you?" },
-    placeholder: { zh: "例如：肩膀放松，走进房间别人会看过来", en: "For example: shoulders loose, people look up when I walk in" } }),
+    prompt: { zh: "那时候的身体是什么感觉？别人怎么看见你？", en: "What does your body feel like then, and how do others see you?" } }),
 
   // lifestyle
   life_where: step({ id: "life_where", type: "long", optional: true, reply: false,
-    prompt: { zh: "在哪座城市，住在什么样的地方？", en: "Which city, and what kind of place?" },
-    placeholder: { zh: "例如：纽约，有大窗户的公寓", en: "For example: New York, an apartment with big windows" } }),
+    prompt: { zh: "在哪座城市，住在什么样的地方？", en: "Which city, and what kind of place?" } }),
   life_morning: step({ id: "life_morning", type: "long", optional: true, reply: false,
-    prompt: { zh: "那里的一个普通早晨是什么样的？", en: "What does an ordinary morning there look like?" },
-    placeholder: { zh: "例如：咖啡的味道，窗外的街", en: "For example: the smell of coffee, the street outside" } }),
+    prompt: { zh: "那里的一个普通早晨是什么样的？", en: "What does an ordinary morning there look like?" } }),
 
   // anything else
   other_moment: step({ id: "other_moment", type: "long", optional: true, reply: false,
-    prompt: { zh: "它已经发生的那一刻，你在哪里，身边有谁？", en: "The moment it has already happened: where are you, and who is with you?" },
-    placeholder: { zh: "用你自己的话", en: "In your own words" } }),
+    prompt: { zh: "它已经发生的那一刻，你在哪里，身边有谁？", en: "The moment it has already happened: where are you, and who is with you?" } }),
 
   scene: step({ id: "scene", type: "long", optional: true, reply: true,
     prompt: { zh: "它已经实现的那个普通的一天，你上午在做什么？", en: "On an ordinary day when it is already true, what are you doing this morning?" },
-    hint: { zh: "一句话就好。", en: "One sentence is enough." },
-    placeholder: { zh: "例如：在窗边喝咖啡，手机震了一下", en: "For example: coffee by the window, my phone buzzes" } }),
+    hint: { zh: "一句话就好。", en: "One sentence is enough." } }),
   intensity: step({ id: "intensity", type: "scale", optional: false, reply: false,
     prompt: { zh: "你有多想要它？", en: "How much do you want it?" },
     hint: { zh: "它会决定愿望卡的先后顺序。", en: "It sets the order of your desire cards." } }),
   pullback: step({ id: "pullback", type: "long", optional: true, reply: true,
     prompt: { zh: "有没有一句话，总在把你往回拉？", en: "Is there a sentence that keeps pulling you back?" },
-    hint: { zh: "写下来，我们之后帮你换成你已经选的那一版。", en: "Write it down. We will turn it into the version you have already chosen." },
-    placeholder: { zh: "例如：我不够好 / 来不及了", en: "For example: I'm not enough / it's too late" } }),
+    hint: { zh: "写下来，我们之后帮你换成你已经选的那一版。", en: "Write it down. We will turn it into the version you have already chosen." } }),
   evidence: step({ id: "evidence", type: "long", optional: true, reply: false,
-    prompt: { zh: "你已经看到过哪些“它正在靠近”的小迹象？", en: "What small signs have you already seen that it is coming closer?" },
-    placeholder: { zh: "例如：他昨天点赞了我的动态", en: "For example: he liked my post yesterday" } }),
-  exclude: step({ id: "exclude", type: "long", optional: true, reply: false,
-    prompt: { zh: "这个愿望里，有没有你不想被提的人或事？", en: "Anything or anyone you don't want mentioned around this desire?" },
-    placeholder: { zh: "例如：我的前任", en: "For example: my ex" } }),
-
+    prompt: { zh: "你已经看到过哪些“它正在靠近”的小迹象？", en: "What small signs have you already seen that it is coming closer?" } }),
   more: step({ id: "more", type: "more", optional: false, reply: false,
     prompt: { zh: "还有别的愿望想一起放进来吗？", en: "Any other desire you want to bring in?" },
     hint: { zh: "你可以同时显化很多件事。每个愿望都会有自己的一张卡。", en: "You can manifest many things at once. Each desire gets its own card." } }),
@@ -119,15 +102,13 @@ export const STEPS: Record<string, StepDef> = {
   // no AI line here: it kept inventing details about people she only named
   people: step({ id: "people", type: "people", optional: true, reply: false,
     prompt: { zh: "有哪些人对你很重要？", en: "Who matters most to you?" },
-    hint: { zh: "名字加一句 TA 是谁。我之后会记得。", en: "A name and a line about who they are. I will remember." } }),
+    hint: { zh: "名字加一句 TA 是谁，至少添加一位。我之后会记得。", en: "A name and a line about who they are. Add at least one. I will remember." } }),
   never: step({ id: "never", type: "long", optional: true, reply: false,
     prompt: { zh: "有哪些话题，你不希望我提？", en: "Which topics do you not want me to bring up?" },
-    hint: { zh: "每行写一个。", en: "One per line." },
-    placeholder: { zh: "例如：我的体重\n我的前任", en: "For example: my weight\nmy ex" } }),
+    hint: { zh: "每行写一个。", en: "One per line." } }),
   situation: step({ id: "situation", type: "long", optional: true, reply: false,
     prompt: { zh: "你现在过着怎样的日子？", en: "What does your life look like right now?" },
-    hint: { zh: "学习或工作，一句话就好。", en: "Study or work, one line is enough." },
-    placeholder: { zh: "例如：在读研，同时在做一个小项目", en: "For example: in grad school, building a small project" } }),
+    hint: { zh: "学习或工作，一句话就好。", en: "Study or work, one line is enough." } }),
   style: step({ id: "style", type: "style", optional: false, reply: false,
     prompt: { zh: "你希望怎样被陪伴？", en: "How do you want to be accompanied?" },
     hint: { zh: "先选最接近的。之后可以随时换。", en: "Pick the closest. You can change it anytime." } }),
@@ -141,14 +122,14 @@ const WISH_SPECIFICS: Record<WishKind, string[]> = {
   other: ["other_moment"],
 };
 
-export const HEAD_STEPS = ["name", "country", "about", "note"];
+export const HEAD_STEPS = ["welcome", "name", "country", "about", "note"];
 export const TAIL_STEPS = ["people", "never", "situation", "style"];
 
 /** Steps for one desire. The first desire gets the full set; extra desires get a shorter one. */
 export function wishModule(kind: WishKind | "", full: boolean): string[] {
   const specifics = kind ? WISH_SPECIFICS[kind] : [];
   if (!full) return ["wish", "category", ...specifics.slice(0, 1), "scene", "intensity"];
-  return ["wish", "category", ...specifics, "scene", "intensity", "pullback", "evidence", "exclude"];
+  return ["wish", "category", ...specifics, "scene", "intensity", "pullback", "evidence"];
 }
 
 export type FlowSlot = { wish: number | null; id: string };
@@ -220,7 +201,7 @@ export function splitLines(value: string, max = 20): string[] {
   for (const raw of value.split(/\r?\n|[；;]/)) {
     const line = raw.trim();
     const key = line.toLowerCase();
-    if (!line || seen.has(key)) continue;
+    if (!line || isNone(line) || seen.has(key)) continue;
     seen.add(key);
     out.push(line.slice(0, 80));
     if (out.length >= max) break;
@@ -248,32 +229,34 @@ export function wishBackground(wish: WishAnswers, lang: OnboardingLang): string 
   };
   const lines: string[] = [];
   for (const [id, [zhLabel, enLabel]] of Object.entries(labels)) {
-    const text = (wish.specifics[id] || "").trim();
+    const text = clean(wish.specifics[id]);
     if (text) lines.push(`${zh ? zhLabel : enLabel}：${text}`);
   }
-  if (wish.scene.trim()) lines.push(`${zh ? "它已经实现的普通一天" : "An ordinary day when it is true"}：${wish.scene.trim()}`);
-  if (wish.evidence.trim()) lines.push(`${zh ? "她看到的小迹象" : "Small signs she has seen"}：${wish.evidence.trim()}`);
+  if (clean(wish.scene)) lines.push(`${zh ? "它已经实现的普通一天" : "An ordinary day when it is true"}：${clean(wish.scene)}`);
+  if (clean(wish.evidence)) lines.push(`${zh ? "她看到的小迹象" : "Small signs she has seen"}：${clean(wish.evidence)}`);
   return lines.join("\n");
 }
 
 /** The name of the person a relationship desire is about, if she gave one. */
 export function wishPersonName(wish: WishAnswers): string {
-  return (wish.specifics.sp_name || "").trim();
+  return clean(wish.specifics.sp_name);
 }
 
-/** Can she press Continue on this step? */
+/** Can she press Continue on this step? Every question needs an answer; "none" is an answer. */
 export function canAdvance(stepId: string, answers: OnboardingAnswers, wishIndex: number | null): boolean {
   const def = STEPS[stepId];
   if (!def) return false;
   const wish = wishIndex === null ? null : answers.wishes[wishIndex];
-  switch (stepId) {
-    case "name": return answers.name.trim().length > 0;
-    case "wish": return Boolean(wish && wish.wish.trim());
+  switch (def.type) {
     case "category": return Boolean(wish && wish.kind);
     case "style": return Boolean(answers.style);
+    case "people": return answers.people.some((person) => person.name.trim());
+    case "text":
+    case "long": return stepAnswer(stepId, answers, wishIndex).trim().length > 0;
     default: return true;
   }
 }
+
 
 export type MemoryKindSeed = "person" | "place" | "event" | "preference" | "insight";
 /** One thing she told us, shaped for the memory library. Her own words, nothing added. */
@@ -281,7 +264,10 @@ export type MemorySeed = { kind: MemoryKindSeed; title: string; detail: string; 
 export type GoalSeed = { wishCategory: WishKind; desire: string; background: string; beliefs: string[]; spName: string; intensity: number; memories: MemorySeed[] };
 export type ProfileSeed = { country: string; about: string; situation: string; people: OnboardingPerson[]; neverInclude: string[] };
 
-const clip = (text: string | undefined, max: number) => (text || "").trim().slice(0, max);
+/** Every question has to be answered, so "none" is a real answer. It should not become a memory. */
+export const isNone = (text: string | undefined) => /^(没有|无|暂无|还没有|还没|不知道|没什么|没啥|none|no|n\/a|nothing)[\s。.!！]*$/i.test((text || "").trim());
+const clean = (text: string | undefined) => (isNone(text) ? "" : (text || "").trim());
+const clip = (text: string | undefined, max: number) => clean(text).slice(0, max);
 const seed = (kind: MemoryKindSeed, title: string, detail: string, keywords: string[] = []): MemorySeed | null => {
   const t = clip(title, 80), d = clip(detail, 600);
   return t && d ? { kind, title: t, detail: d, keywords: keywords.map((k) => clip(k, 24)).filter(Boolean).slice(0, 5) } : null;
@@ -329,18 +315,42 @@ export function answersToSeeds(answers: OnboardingAnswers, lang: OnboardingLang)
       wishCategory: wish.kind || "other",
       desire: wish.wish.trim(),
       background: wishBackground(wish, lang),
-      beliefs: wish.pullback.trim() ? [wish.pullback.trim()] : [],
+      beliefs: clean(wish.pullback) ? [clean(wish.pullback)] : [],
       spName: wish.kind === "relationship" ? wishPersonName(wish) : "",
       intensity: Math.min(5, Math.max(1, Math.round(wish.intensity || 3))),
       memories: [...wishMemories(wish, lang), ...shared].slice(0, 40),
     }));
   const never = [...splitLines(answers.never), ...answers.wishes.flatMap((wish) => splitLines(wish.exclude))];
   const profile: ProfileSeed = {
-    country: answers.country.trim().slice(0, 60),
-    about: answers.about.trim().slice(0, 400),
-    situation: answers.situation.trim().slice(0, 400),
+    country: clean(answers.country).slice(0, 80),
+    about: clean(answers.about).slice(0, 400),
+    situation: clean(answers.situation).slice(0, 400),
     people: answers.people.filter((person) => person.name.trim()).slice(0, 12),
     neverInclude: splitLines(never.join("\n")),
   };
   return { goals, profile };
+}
+
+/** What she wrote on this step, as one string (empty when nothing). Shared by the page and by canAdvance. */
+export function stepAnswer(stepId: string, answers: OnboardingAnswers, wishIndex: number | null): string {
+  const wish = wishIndex === null ? null : answers.wishes[wishIndex];
+  if (!wish) {
+    switch (stepId) {
+      case "name": return answers.name;
+      case "country": return answers.country;
+      case "about": return answers.about;
+      case "never": return answers.never;
+      case "situation": return answers.situation;
+      case "people": return answers.people.map((person) => `${person.name}（${person.relation}）`).join("；");
+      default: return "";
+    }
+  }
+  switch (stepId) {
+    case "wish": return wish.wish;
+    case "scene": return wish.scene;
+    case "pullback": return wish.pullback;
+    case "evidence": return wish.evidence;
+    case "exclude": return wish.exclude;
+    default: return wish.specifics[stepId] || "";
+  }
 }

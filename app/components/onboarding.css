@@ -1,0 +1,17 @@
+/* The opening questions: one column, one question, one button. Tokens only. */
+.onboarding-shell .guided-onboarding { width: min(560px, 100%); margin: 0 auto; min-height: calc(100dvh - 140px); display: flex; flex-direction: column; }
+.guided-top { display: flex; align-items: center; gap: 12px; margin-bottom: clamp(28px, 8vh, 72px); }
+.guided-back { width: 40px; height: 40px; flex: none; display: grid; place-items: center; margin-left: -10px; border: 0; border-radius: 50%; color: var(--app-muted); background: transparent; }
+.guided-top .onboarding-progress { flex: 1; height: 4px; margin: 0; }
+.guided-onboarding .onboarding-panel { flex: 1; min-height: 0; }
+.guided-group { margin: 0 0 14px; color: var(--app-muted); font: 500 calc(15px * var(--fs, 1))/1.4 var(--font-body); }
+.guided-onboarding .onboarding-panel h1 { max-width: none; margin: 0 0 12px; font: 400 clamp(27px, 5.4vw, 34px)/1.4 var(--font-display); letter-spacing: 0; text-wrap: balance; }
+.guided-onboarding .onboarding-panel > .guided-hint { max-width: none; margin: 0 0 26px; color: var(--app-muted); font: 400 calc(15px * var(--fs, 1))/1.75 var(--font-body); text-wrap: pretty; }
+.guided-onboarding .onboarding-panel > input { height: 58px; margin-top: 0; padding: 0 18px; border-radius: 16px; font: 400 calc(17px * var(--fs, 1))/1.4 var(--font-body); }
+.guided-onboarding .onboarding-panel > textarea { min-height: 150px; margin-top: 0; padding: 16px 18px; border-radius: 16px; font: 400 calc(17px * var(--fs, 1))/1.7 var(--font-body); }
+.guided-none { display: block; margin-top: 10px; color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); line-height: 1.5; }
+.guided-footer { position: sticky; bottom: 0; z-index: 3; padding: 16px 0 calc(16px + env(safe-area-inset-bottom)); background: var(--app-bg); }
+.guided-footer .primary { width: 100%; height: 54px; border: 0; border-radius: 999px; font: 600 calc(16px * var(--fs, 1))/1 var(--font-body); }
+.guided-footer .primary:disabled { opacity: .45; cursor: not-allowed; }
+.guided-onboarding .option-card-grid { margin-top: 0; }
+@media (max-width: 760px) { .onboarding-shell .guided-onboarding { min-height: calc(100dvh - 110px); } .guided-top { margin-bottom: 22px; } }

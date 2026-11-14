@@ -455,7 +455,7 @@ test("opening questions: the flow follows her choices, adding a desire reuses th
   const { buildFlow, wishModule, answersToSeeds, emptyAnswers, emptyWish, splitLines, canAdvance, STEPS } = await import("../lib/onboarding-flow.ts");
   const ids = (slots) => slots.map((slot) => slot.id);
   // before she has picked a kind there are no kind-specific questions
-  assert.deepEqual(wishModule("", true), ["wish", "category", "scene", "intensity", "pullback", "evidence", "exclude"]);
+  assert.deepEqual(wishModule("", true), ["wish", "category", "scene", "intensity", "pullback", "evidence"]);
   assert.deepEqual(wishModule("relationship", true).slice(0, 5), ["wish", "category", "sp_name", "rel_state", "rel_close"]);
   assert.deepEqual(wishModule("relationship", false), ["wish", "category", "sp_name", "scene", "intensity"]);
   // one "add another?" slot, after the last desire only; the tail appears once she is finished
@@ -481,24 +481,29 @@ test("opening questions: the flow follows her choices, adding a desire reuses th
   const answers = emptyAnswers();
   assert.equal(canAdvance("name", answers, null), false);
   assert.equal(canAdvance("wish", answers, 0), false);
-  assert.equal(canAdvance("scene", answers, 0), true);
+  assert.equal(canAdvance("scene", answers, 0), false, "every question needs an answer");
+  answers.wishes[0].scene = "没有";
+  assert.equal(canAdvance("scene", answers, 0), true, "none is an answer");
+  assert.equal(canAdvance("people", answers, null), false);
+  assert.equal(canAdvance("welcome", answers, null), true);
+  answers.wishes[0].scene = "";
   // answers become one card per desire and a single profile
   answers.name = "安安";
   answers.country = "美国";
-  answers.never = "我的体重\n我的前任";
+  answers.never = "加班\n天气";
   answers.people = [{ id: "1", name: "妈妈", relation: "最爱我的人" }];
-  answers.wishes[0] = { ...emptyWish(), wish: "他回到我身边", kind: "relationship", specifics: { sp_name: "Elvin", rel_close: "他从身后抱住我" }, scene: "窗边喝咖啡", intensity: 5, pullback: "来不及了", exclude: "前任\n我的体重" };
-  answers.wishes.push({ ...emptyWish(), wish: "拿到纽约的 offer", kind: "wealth", intensity: 4 });
+  answers.wishes[0] = { ...emptyWish(), wish: "我们每天都在一起", kind: "relationship", specifics: { sp_name: "Mia", rel_close: "他牵着我的手" }, scene: "窗边喝咖啡", intensity: 5, pullback: "来不及了", exclude: "八卦\n加班" };
+  answers.wishes.push({ ...emptyWish(), wish: "拿到心仪的 offer", kind: "wealth", intensity: 4 });
   answers.wishes.push({ ...emptyWish(), wish: "   " });
   const { goals, profile } = answersToSeeds(answers, "zh");
   assert.equal(goals.length, 2);
-  assert.equal(goals[0].spName, "Elvin");
+  assert.equal(goals[0].spName, "Mia");
   assert.equal(goals[1].spName, "");
   assert.deepEqual(goals[0].beliefs, ["来不及了"]);
-  assert.match(goals[0].background, /他从身后抱住我/);
+  assert.match(goals[0].background, /他牵着我的手/);
   assert.match(goals[0].background, /窗边喝咖啡/);
   assert.equal(goals[0].intensity, 5);
-  assert.deepEqual(profile.neverInclude, ["我的体重", "我的前任", "前任"]);
+  assert.deepEqual(profile.neverInclude, ["加班", "天气", "八卦"]);
   assert.equal(profile.people[0].name, "妈妈");
   assert.deepEqual(splitLines("a\n\nA\n b ；c"), ["a", "b", "c"]);
 });
@@ -583,26 +588,66 @@ test("my space: one way in from the drawer and the rail, no avatar menu, memory 
 test("opening answers also become memories: her own words, nothing added, each desire gets the shared ones", async () => {
   const { answersToSeeds, emptyAnswers, emptyWish } = await import("../lib/onboarding-flow.ts");
   const a = emptyAnswers();
-  a.name = "安安"; a.country = "美国俄亥俄"; a.about = "在读研究生，慢热"; a.situation = "同时在做一个小项目"; a.never = "我的体重\n我的前任";
+  a.name = "安安"; a.country = "日本京都"; a.about = "喜欢画画，慢热"; a.situation = "同时在学做饭"; a.never = "加班\n天气";
   a.people = [{ id: "1", name: "妈妈", relation: "最爱我的人" }];
-  a.wishes[0] = { ...emptyWish(), wish: "他回到我身边", kind: "relationship", specifics: { sp_name: "Elvin", rel_state: "以前每天聊天", rel_close: "他从身后抱住我" }, scene: "窗边喝咖啡", evidence: "他点赞了我的动态" };
-  a.wishes.push({ ...emptyWish(), wish: "拿到纽约的 offer", kind: "wealth", specifics: { wealth_form: "每月五万" } });
+  a.wishes[0] = { ...emptyWish(), wish: "我们每天都在一起", kind: "relationship", specifics: { sp_name: "Mia", rel_state: "以前每天聊天", rel_close: "他牵着我的手" }, scene: "窗边喝咖啡", evidence: "她回了我的消息" };
+  a.wishes.push({ ...emptyWish(), wish: "拿到心仪的 offer", kind: "wealth", specifics: { wealth_form: "每月稳定收入" } });
   const { goals } = answersToSeeds(a, "zh");
   const first = goals[0].memories;
   const titles = (list) => list.map((m) => m.title);
   assert.ok(titles(first).includes("妈妈"));
-  assert.ok(titles(first).includes("Elvin"));
+  assert.ok(titles(first).includes("Mia"));
   assert.ok(titles(first).includes("我所在的地方"));
   assert.ok(titles(first).includes("不想被提的话题"));
-  assert.equal(first.find((m) => m.title === "Elvin").kind, "person");
-  assert.equal(first.find((m) => m.title === "我想要的亲密").detail, "他从身后抱住我");
+  assert.equal(first.find((m) => m.title === "Mia").kind, "person");
+  assert.equal(first.find((m) => m.title === "我想要的亲密").detail, "他牵着我的手");
   assert.equal(first.find((m) => m.title === "愿望实现的普通一天").kind, "event");
   // the second desire has its own detail plus the shared ones, but not the first desire's
   const second = goals[1].memories;
   assert.ok(titles(second).includes("它具体的样子"));
   assert.ok(titles(second).includes("妈妈"));
-  assert.ok(!titles(second).includes("Elvin"));
+  assert.ok(!titles(second).includes("Mia"));
   // empty answers make no memory
   const empty = answersToSeeds({ ...emptyAnswers(), name: "安安", wishes: [{ ...emptyWish(), wish: "x", kind: "self" }] }, "zh").goals[0].memories;
   assert.equal(empty.length, 0);
+});
+
+test("opening: a plain 'none' answer is kept as an answer but never becomes a memory or a belief", async () => {
+  const { answersToSeeds, emptyAnswers, emptyWish, isNone, STEPS } = await import("../lib/onboarding-flow.ts");
+  assert.equal(isNone("没有"), true);
+  assert.equal(isNone(" 没有。"), true);
+  assert.equal(isNone("None"), true);
+  assert.equal(isNone("没有人比他更懂我"), false);
+  const a = emptyAnswers();
+  a.name = "安安"; a.about = "没有"; a.situation = "无"; a.never = "没有";
+  a.wishes[0] = { ...emptyWish(), wish: "拿到心仪的 offer", kind: "wealth", specifics: { wealth_form: "没有", wealth_when: "在图书馆" }, scene: "没有", pullback: "没有", evidence: "没有", exclude: "没有" };
+  const { goals, profile } = answersToSeeds(a, "zh");
+  assert.deepEqual(goals[0].beliefs, []);
+  assert.deepEqual(profile.neverInclude, []);
+  assert.equal(profile.about, "");
+  assert.deepEqual(goals[0].memories.map((m) => m.title), ["它出现的那一天"]);
+  // the country question asks for region and city, with examples, and says nothing about skipping
+  assert.match(STEPS.country.prompt.zh, /国家或地区/);
+  assert.match(STEPS.country.placeholder.zh, /美国纽约曼哈顿/);
+  assert.match(STEPS.country.placeholder.zh, /中国广东深圳/);
+  assert.doesNotMatch(JSON.stringify(STEPS.country), /跳过|skip/i);
+  assert.equal(Object.values(STEPS).filter((step) => step.type === "text" || step.type === "long").every((step) => step.id), true);
+});
+
+test("the opening never carries real names or private details in examples, placeholders or prompts", async () => {
+  const files = ["../lib/onboarding-flow.ts", "../lib/onboarding-ai.ts", "../app/components/GuidedOnboarding.tsx"];
+  const privateTokens = ["Elvin", "瑄瑄", "Xuanxuan", "Yuxuan", "Ohio", "俄亥俄", "前任", "my ex", "他回到我身边", "Charlotte"];
+  for (const file of files) {
+    const text = await readFile(new URL(file, import.meta.url), "utf8");
+    for (const token of privateTokens) assert.ok(!text.includes(token), `${file} contains ${token}`);
+  }
+  // the only open question that carries examples is the place she lives, and those examples are the generic ones she chose
+  const { STEPS } = await import("../lib/onboarding-flow.ts");
+  const withExamples = Object.values(STEPS).filter((step) => step.placeholder && /例如|e\.g\.|For example/.test(step.placeholder.zh + step.placeholder.en)).map((step) => step.id);
+  assert.deepEqual(withExamples, ["country"]);
+  // the same question is not asked twice
+  const { buildFlow } = await import("../lib/onboarding-flow.ts");
+  const ids = buildFlow(["relationship"], true).map((slot) => slot.id);
+  assert.ok(!ids.includes("exclude"));
+  assert.equal(ids.filter((id) => id === "never").length, 1);
 });
