@@ -1,13 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import InstallTip from "./components/InstallTip";
-import OrientationGuard from "./components/OrientationGuard";
 import ThemeColorSync from "./components/ThemeColorSync";
-import AccessGate from "./components/AccessGate";
-import NativeShell from "./components/NativeShell";
-import ViewportKeyboardFix from "./components/ViewportKeyboardFix";
-import NoPinchZoom from "./components/NoPinchZoom";
-import ViewportDebug from "./components/ViewportDebug";
 import "./globals.css";
 import "./already.css";
 
@@ -31,6 +24,17 @@ export const metadata: Metadata = {
     title: "AlreaDough",
   },
   manifest: "/manifest.webmanifest",
+  // Domestic Android browsers (UC, QQ/Tencent X5 kernel, Baidu, ...) predate the Web App
+  // Manifest spec and ignore `display: "standalone"` from it. "Add to home screen" on them
+  // just makes a bookmark shortcut that reopens with the full browser chrome, unless these
+  // legacy vendor meta tags tell the browser itself to launch in app/fullscreen mode.
+  other: {
+    "full-screen": "yes", // UC Browser
+    browsermode: "application", // UC Browser
+    "x5-fullscreen": "true", // Tencent X5 kernel: QQ Browser, in-WeChat browser
+    "x5-page-mode": "app", // Tencent X5 kernel app mode
+    "mobile-web-app-capable": "yes", // generic / older Chromium-based browsers
+  },
   icons: {
     // Small files on purpose: a 1.4MB favicon often times out on phones, and the system then draws a letter instead of the logo.
     icon: [
@@ -56,8 +60,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: "cover",
   colorScheme: "light dark", // the app draws both themes itself; stops phone browsers force-darkening it
   themeColor: [
@@ -77,13 +79,8 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <script dangerouslySetInnerHTML={{ __html: "try{var s=localStorage.getItem('already-font-size-v1');if(s==='small'||s==='large')document.documentElement.dataset.fontSize=s}catch(e){}try{var t=localStorage.getItem('already-theme-v1');var d=t?t==='dark':matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.dataset.theme=d?'dark':'light'}catch(e){}" }} />
-        <NativeShell />
-        <ViewportKeyboardFix />
-        <NoPinchZoom />
-        <OrientationGuard />
         <ThemeColorSync />
-        <ViewportDebug />
-        <AccessGate>{children}<InstallTip /></AccessGate>
+        {children}
       </body>
     </html>
   );

@@ -64,7 +64,6 @@ export default function InstallTip({ lang: forcedLang }: { lang?: "zh" | "en" })
   const tipRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    if (window.location.pathname !== "/") return; // the app itself, including its first-run screens
     if (!forcedLang) setLang(pageLang()); // eslint-disable-line react-hooks/set-state-in-effect -- one-time read of the saved language
     const secure = window.location.protocol === "https:" || window.location.hostname === "localhost";
     if (secure && "serviceWorker" in navigator && !Capacitor.isNativePlatform()) {
@@ -72,7 +71,7 @@ export default function InstallTip({ lang: forcedLang }: { lang?: "zh" | "en" })
     }
     const standalone = window.matchMedia?.("(display-mode: standalone)").matches
       || (navigator as Navigator & { standalone?: boolean }).standalone === true;
-    const forced = new URLSearchParams(window.location.search).get("install") === "1"; // test link: /?install=1 always shows the tip
+    const forced = new URLSearchParams(window.location.search).get("install") === "1"; // /app?install=1 always shows the tip
     if (!forced && (standalone || Capacitor.isNativePlatform())) return;
     if (!forced && readStored(INSTALLED_KEY) === "yes") return;
     const detected = detectInstallMode(navigator.userAgent, navigator.maxTouchPoints) || (forced ? "android" : null);
@@ -140,7 +139,7 @@ export default function InstallTip({ lang: forcedLang }: { lang?: "zh" | "en" })
     dismiss();
   };
   const copyLink = async () => {
-    try { await navigator.clipboard.writeText(window.location.origin); setCopied(true); }
+    try { await navigator.clipboard.writeText(new URL("/app", window.location.origin).href); setCopied(true); }
     catch { /* clipboard blocked: the text above already names the address */ }
   };
 

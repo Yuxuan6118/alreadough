@@ -3,8 +3,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { readStored, writeStored } from "@/lib/safe-storage";
 
-// Front-door gate for the whole site (web + the wrapped mobile shell share this
-// same page). Purely a soft "not open to everyone yet" gate, not a security
+// Invitation prompt for the beta app. Purely a soft gate, not a security
 // boundary: it only hides the UI, it does not stop a direct API call. There is
 // no per-person usage cap behind it — the only cost/abuse backstop left is the
 // site-wide global daily limit in beta-guard.
@@ -51,8 +50,9 @@ export default function AccessGate({ children }: { children: ReactNode }) {
           placeholder="通行码 · Access code"
           aria-label="Access code"
         />
-        {error && <small>通行码不对，再试一次。· That code didn&apos;t work.</small>}
+        {error && <small role="alert">通行码不对，再试一次。· That code didn&apos;t work.</small>}
         <button type="submit">进入 · Enter</button>
+        <a href="/">返回官网 · Back to website</a>
       </form>
     </div>
   );

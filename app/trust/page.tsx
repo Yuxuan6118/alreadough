@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import SiteFooter from "../components/SiteFooter";
 import styles from "./trust.module.css";
 
 export const metadata: Metadata = {
@@ -66,10 +66,10 @@ const sections = [
 
 export default function TrustPage() {
   return (
-    <main className={styles.page}>
+    <><main className={styles.page}>
       <header className={styles.header}>
-        <Link href="/" className={styles.back}>← Back to AlreaDough</Link>
-        <span className={styles.draft}>PRIVATE BETA · PRODUCT DRAFT</span>
+        <a href="/" className={styles.back}>← Back to AlreaDough</a>
+        <a href="/en/trust" className={styles.back} lang="en" hrefLang="en">English</a>
       </header>
       <section className={styles.hero}>
         <p>ALREADOUGH · TRUST CENTER</p>
@@ -93,11 +93,6 @@ export default function TrustPage() {
           </section>
         ))}
       </div>
-      <footer className={styles.footer}>
-        <strong>AlreaDough</strong>
-        <span>One desire. Deep belief. A steady return.</span>
-        <Link href="/">Return to your space →</Link>
-      </footer>
-    </main>
+    </main><SiteFooter /></>
   );
 }

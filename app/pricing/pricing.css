@@ -5,3 +5,48 @@
 @media(prefers-reduced-motion:reduce){.pricing-plans>button{transition:none}}
 .pay-notice{grid-column:1/-1;margin:0 0 12px;padding:10px 14px;border:1px solid var(--price-line);border-radius:12px;background:var(--price-panel);color:var(--price-ink);font-size:14px}
 .pay-link{margin-left:12px;padding:0;border:0;background:none;color:var(--price-accent);font:inherit;text-decoration:underline;cursor:pointer}
+
+.pending-payment-methods {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0 0 20px;
+  padding: 0;
+  border: 0;
+}
+.pending-payment-methods legend {
+  margin-bottom: 8px;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+.pending-payment-methods button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--price-line);
+  border-radius: 10px;
+  background: var(--price-panel);
+  color: inherit;
+  text-align: left;
+  opacity: 1;
+}
+.pending-payment-methods button > svg {
+  width: 18px;
+  height: 18px;
+  color: var(--price-accent);
+}
+.pending-payment-methods strong {
+  font-size: 13px;
+}
+.payment-review-status {
+  padding: 3px 6px;
+  border-radius: 8px;
+  background: var(--price-soft);
+  color: var(--price-ink);
+  font-size: 10px;
+  text-align: center;
+}

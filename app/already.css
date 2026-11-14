@@ -825,6 +825,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .native-app body { overscroll-behavior: none; }
 .native-app .app-stage { padding-bottom: max(42px,env(safe-area-inset-bottom)); }
 .legal-page { min-height: 100dvh; padding: 42px clamp(20px,6vw,84px) 80px; color: var(--app-ink); background: var(--app-bg); }
+.public-site-footer { display: flex; flex-wrap: wrap; gap: 14px 32px; justify-content: space-between; width: min(100% - clamp(40px,9vw,112px),1140px); margin-inline: auto; padding-block: 24px max(28px,env(safe-area-inset-bottom)); border-top: 1px solid var(--app-line); color: var(--app-muted); font-size: .875rem; }
+.public-site-footer nav { display: flex; flex-wrap: wrap; gap: 10px 22px; }
+.public-site-footer a:hover { text-decoration: underline; text-underline-offset: 4px; }
 .legal-brand { color: var(--app-ink); font: 500 calc(24px * var(--fs, 1))/1 var(--font-display); text-decoration: none; }
 .legal-page article { width: min(760px,100%); margin: 84px auto 0; }
 .legal-page h1 { margin: 0 0 30px; font: 500 clamp(44px,7vw,72px)/1.04 var(--font-display); letter-spacing: -.045em; }
@@ -1182,6 +1185,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .access-gate input:focus { border-color: var(--app-accent); }
 .access-gate button { height: 50px; border: 0; border-radius: var(--app-radius-control); background: var(--app-accent); color: var(--app-accent-ink); font-weight: 700; font-size: calc(15px * var(--fs, 1)); }
 .access-gate small { color: #c0392b; font-size: calc(12px * var(--fs, 1)); line-height: 1.5; }
+.access-gate a { color: var(--app-muted); font-size: .875rem; text-decoration: underline; text-underline-offset: 4px; }
 
 /* several desire cards: switcher in the composer and the list in settings */
 .goal-switch-menu > summary span { max-width: 9em; overflow: hidden; text-overflow: ellipsis; }
@@ -1349,7 +1353,7 @@ html.kb-open .composer { bottom: calc(8px + var(--kb-offset, 0px)); }
 
 /* Phones: no pinch zoom or double-tap zoom (see NoPinchZoom). Scrolling still works in both directions. */
 @media (hover: none) and (pointer: coarse) {
-  html, body { touch-action: pan-x pan-y; }
+  html:has(.access-gate, .app-shell, .opening-dough) { touch-action: pan-x pan-y; }
 }
 
 /* Text size: every font size and line height above is "size * var(--fs)". Medium is 1 and leaves the design untouched. */

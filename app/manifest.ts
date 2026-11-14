@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "AlreaDough",
     description: "Your living desire space.",
     id: "/",
-    start_url: "/",
+    start_url: "/app",
     scope: "/",
     lang: "zh-CN",
     display: "standalone",

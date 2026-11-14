@@ -2,7 +2,7 @@
 # Run it by hand: GitHub repo -> Actions -> "Android APK" -> Run workflow. When it finishes, open the run
 # and download the "alreadough-android" file at the bottom; unzip it to get the .apk.
 #
-# The app is a thin native shell (Capacitor) that opens https://alreadough.com, the same design as the
+# The app is a thin native shell (Capacitor) that opens https://alreadough.com/app, the same design as the
 # iPhone shell, so a website update shows up in the app without making a new APK.
 name: Android APK
 
@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
-      CAPACITOR_SERVER_URL: https://alreadough.com
+      CAPACITOR_SERVER_URL: https://alreadough.com/app
     steps:
       - uses: actions/checkout@v4
 

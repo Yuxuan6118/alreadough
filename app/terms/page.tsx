@@ -1,10 +1,11 @@
-import Link from "next/link";
+import SiteFooter from "../components/SiteFooter";
 
 export default function TermsPage() {
   return (
-    <main className="legal-page">
-      <Link href="/" className="legal-brand">AlreaDough</Link>
+    <><main className="legal-page">
+      <a href="/" className="legal-brand">AlreaDough</a>
       <article>
+        <p><a href="#english" lang="en">Read in English</a></p>
         <p className="eyebrow">PRIVATE BETA · TERMS DRAFT</p>
         <h1>测试版使用条款</h1>
         <p>AlreaDough 当前为私人测试产品。本页用于让测试者在使用前理解产品边界，不构成正式公开发行版本的最终法律条款。正式开放注册或收费前，将补充运营主体、联系地址、适用地区、退款及争议处理信息。</p>
@@ -17,8 +18,12 @@ export default function TermsPage() {
         <h2>终止与删除</h2>
         <p>你可以随时在“我的空间”导出或清除设备上的练习数据。正式账户系统上线后，将另行提供账户删除和云端数据处理机制。</p>
         <hr />
-        <p className="legal-en">AlreaDough is currently a private beta for adults 18 and over. It offers AI conversation, imaginative practice, stories, Revision, audio practice, and vision-board tools. It is not a medical, therapy, legal, financial, or crisis service, and it does not guarantee any outcome or timing. Users must have the right to use uploaded content and may not use the product for unlawful, infringing, coercive, harassing, privacy-invasive, or harmful conduct. Final operator, billing, refund, jurisdiction, and contact terms will be added before public release.</p>
+        <section id="english" lang="en" aria-labelledby="english-title">
+          <h2 id="english-title">Terms of Service</h2>
+          <p className="legal-en">AlreaDough is currently a private beta for adults 18 and over. It offers AI conversation, imaginative practice, stories, Revision, audio practice, and vision-board tools. It is not a medical, therapy, legal, financial, or crisis service, and it does not guarantee any outcome or timing. Users must have the right to use uploaded content and may not use the product for unlawful, infringing, coercive, harassing, privacy-invasive, or harmful conduct. Final operator, billing, refund, jurisdiction, and contact terms will be added before public release.</p>
+          <p><a href="/en">Back to the English homepage</a></p>
+        </section>
       </article>
-    </main>
+    </main><SiteFooter /></>
   );
 }

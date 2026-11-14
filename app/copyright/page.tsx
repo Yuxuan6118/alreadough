@@ -1,9 +1,9 @@
-import Link from "next/link";
+import SiteFooter from "../components/SiteFooter";
 
 export default function CopyrightPage() {
   return (
-    <main className="legal-page">
-      <Link href="/" className="legal-brand">AlreaDough</Link>
+    <><main className="legal-page">
+      <a href="/" className="legal-brand">AlreaDough</a>
       <article>
         <p className="eyebrow">CONTENT &amp; COPYRIGHT</p>
         <h1>素材与版权说明</h1>
@@ -17,6 +17,6 @@ export default function CopyrightPage() {
         <hr />
         <p className="legal-en">AlreaDough uses real imagery for vision boards. Licensed search should display the creator, source page, and license, but copyright remains with the creator and licenses may vary by asset. Uploading, arranging, saving, or privately mixing a third-party work does not make it commercially reusable. Re-check the original license before publishing, advertising, reselling, or using an asset commercially.</p>
       </article>
-    </main>
+    </main><SiteFooter /></>
   );
 }

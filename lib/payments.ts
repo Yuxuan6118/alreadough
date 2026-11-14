@@ -10,7 +10,7 @@ export type PlanId = "soft" | "deep" | "atelier";
 export type Billing = "monthly" | "annual";
 export type PaymentMethod = "card" | "wallet";
 
-/** Monthly list prices, kept in step with app/pricing/page.tsx. USD in cents, CNY in fen. Annual = 10 months. */
+/** Monthly list prices, kept in step with app/pricing/Pricing.tsx. USD in cents, CNY in fen. Annual = 10 months. */
 export const PLAN_PRICES: Record<PlanId, { usd: number; cny: number }> = {
   soft: { usd: 599, cny: 3900 },
   deep: { usd: 1299, cny: 8800 },
