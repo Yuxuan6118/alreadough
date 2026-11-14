@@ -14,9 +14,13 @@ import AppKit
 //   3 quick taps a proofing party: it puffs up and bursts into confetti             (new)
 //   nap          untouched for 90 s it dozes, slower breathing and drifting z; point at it to wake it (new)
 //   double-click opens AlreaDough in the browser
-//   right-click  size, open AlreaDough, quit
+//   right-click  hide for a while, size, open AlreaDough, quit
+//   full screen  when an app fills the whole screen (a film, a presentation) the dough fades out by itself and fades back
+//                in when the screen is free again; "hide for a while" does the same for 30 min .. until you call it back,
+//   menu bar     a small dough lives in the menu bar: one click to hide it, call it back, resize it or quit. It dims while the
+//                dough is hiding, so there is always a way to bring it back
 
-let siteURL = URL(string: "https://alreadough.com")!
+let siteURL = URL(string: "https://alreadough.com/app")!
 let defaults = UserDefaults.standard
 // Room around the dough for stretching, ripples and confetti. It scales with the dough: a pulled dough grows past its own
 // size, and anything beyond the window is cut off (that showed up as an invisible wall when pulling upwards).
@@ -69,6 +73,9 @@ final class PetView: NSView {
     var onCarryEnd: (() -> Void)?
     var onSizeChoice: ((CGFloat) -> Void)?
     var onResetPosition: (() -> Void)?
+    var onHideFor: ((Double) -> Void)?          // seconds; -1 = until tomorrow morning, 0 = until called back
+    var onToggleAutoHide: (() -> Void)?
+    var autoHideIsOn: () -> Bool = { true }
 
     init(image: CGImage, imageSize: CGSize) {
         self.image = image
@@ -546,6 +553,21 @@ final class PetView: NSView {
         let open = NSMenuItem(title: "打开 AlreaDough", action: #selector(openSite), keyEquivalent: "")
         open.target = self
         menu.addItem(open)
+        let hideMenu = NSMenu()
+        for (title, seconds) in [("30 分钟", 1800.0), ("1 小时", 3600.0), ("2 小时", 7200.0), ("到明天早上", -1.0), ("直到我叫它回来", 0.0)] {
+            let item = NSMenuItem(title: title, action: #selector(hideChoice(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = seconds
+            hideMenu.addItem(item)
+        }
+        let hideItem = NSMenuItem(title: "躲一会儿", action: nil, keyEquivalent: "")
+        hideItem.submenu = hideMenu
+        menu.addItem(hideItem)
+        let auto = NSMenuItem(title: "全屏时自动躲起来", action: #selector(toggleAutoHide), keyEquivalent: "")
+        auto.target = self
+        auto.state = autoHideIsOn() ? .on : .off
+        menu.addItem(auto)
+        menu.addItem(.separator())
         let home = NSMenuItem(title: "放回屏幕右下角", action: #selector(goHome), keyEquivalent: "")
         home.target = self
         menu.addItem(home)
@@ -570,23 +592,42 @@ final class PetView: NSView {
 
     @objc private func openSite() { NSWorkspace.shared.open(siteURL) }
     @objc private func goHome() { onResetPosition?() }
+    @objc private func hideChoice(_ sender: NSMenuItem) { if let seconds = sender.representedObject as? Double { onHideFor?(seconds) } }
+    @objc private func toggleAutoHide() { onToggleAutoHide?() }
+
+    // coming back from hiding: a little hello
+    func welcomeBack() {
+        lastTouched = Date()
+        squish(strength: 1.1)
+        ripple()
+    }
     @objc private func chooseSize(_ sender: NSMenuItem) {
         if let width = sender.representedObject as? Double { onSizeChoice?(CGFloat(width)) }
     }
     @objc private func quitPet() { NSApp.terminate(nil) }
 
     var isBusy: Bool { mode != .idle }
+    var currentWidth: CGFloat { imageSize.width }
 }
 
 // MARK: app
 
-final class PetApp: NSObject, NSApplicationDelegate {
+final class PetApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var panel: NSPanel!
     private var petView: PetView!
     private var image: CGImage!
     private let aspect: CGFloat = 1024.0 / 1536.0
     private var watcher: Timer?
     private var magnifyMonitor: Any?
+    private var hideUntil: Date?                 // chosen by the user from the menu (nil = not hiding)
+    private var fullScreenNow = false
+    private var visibleNow = true
+    private var lastFullScreenCheck = Date.distantPast
+    private var statusItem: NSStatusItem?
+    private var autoHideFullScreen: Bool {
+        get { defaults.object(forKey: "autoHideFullScreen") == nil ? true : defaults.bool(forKey: "autoHideFullScreen") }
+        set { defaults.set(newValue, forKey: "autoHideFullScreen") }
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard let path = Bundle.main.path(forResource: "dough", ofType: "png"),
@@ -601,10 +642,16 @@ final class PetApp: NSObject, NSApplicationDelegate {
         showPet(width: saved > 0 ? CGFloat(saved) : 190, origin: nil)
         // Only the dough takes the mouse; the transparent margin lets clicks through to whatever is underneath.
         watcher = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in self?.watchMouse() }
+        // A hide chosen earlier survives a restart, so quitting and reopening does not undo it (and it still ends on time).
+        let savedHide = defaults.double(forKey: "hideUntil")
+        if savedHide > Date().timeIntervalSince1970 { hideUntil = Date(timeIntervalSince1970: savedHide) }
+        setupStatusItem()
+        Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.tickVisibility() }
+        tickVisibility()
         // A floating, non-activating window does not always get trackpad gestures from the system. If the pinch is sent
         // elsewhere while the pointer rests on the dough, take it from the global stream (read-only; apps are unaffected).
         magnifyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .magnify) { [weak self] event in
-            guard let view = self?.petView, view.doughScreenRect().contains(NSEvent.mouseLocation) else { return }
+            guard let self = self, self.visibleNow, let view = self.petView, view.doughScreenRect().contains(NSEvent.mouseLocation) else { return }
             view.magnify(with: event)
         }
     }
@@ -626,16 +673,174 @@ final class PetApp: NSObject, NSApplicationDelegate {
         petView.onCarryEnd = { [weak self] in self?.keepReachable() }
         petView.onResetPosition = { [weak self] in self?.goHome() }
         petView.onSizeChoice = { [weak self] newWidth in self?.resize(toWidth: newWidth) }
+        petView.onHideFor = { [weak self] seconds in self?.hide(for: seconds) }
+        petView.onToggleAutoHide = { [weak self] in self?.autoHideFullScreen.toggle(); self?.tickVisibility(force: true) }
+        petView.autoHideIsOn = { [weak self] in self?.autoHideFullScreen ?? true }
         panel.contentView = petView
         panel.orderFrontRegardless()
     }
 
     private func watchMouse() {
         guard let panel = panel, let petView = petView else { return }
+        guard visibleNow else { panel.ignoresMouseEvents = true; return }
         let inside = petView.doughScreenRect().contains(NSEvent.mouseLocation)
         panel.ignoresMouseEvents = !(inside || petView.isBusy)
         if inside { petView.noteHover() }
     }
+
+    // MARK: hiding
+
+    // Is some app filling a whole screen (a film, a presentation, a game)? A full-screen window is as big as the screen,
+    // including the menu bar; a merely maximised window is not. Needs no permission: only sizes are read.
+    private func isFullScreenAppActive() -> Bool {
+        guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { return false }
+        let me = ProcessInfo.processInfo.processIdentifier
+        let sizes = NSScreen.screens.map { $0.frame.size }
+        for window in list {
+            guard (window[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,
+                  (window[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value != me,
+                  ((window[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1) > 0.5,
+                  let bounds = window[kCGWindowBounds as String] as? [String: Any],
+                  let width = (bounds["Width"] as? NSNumber)?.doubleValue,
+                  let height = (bounds["Height"] as? NSNumber)?.doubleValue else { continue }
+            if sizes.contains(where: { width >= Double($0.width) - 1 && height >= Double($0.height) - 1 }) { return true }
+        }
+        return false
+    }
+
+    private func tickVisibility(force: Bool = false) {
+        if let until = hideUntil, until <= Date() {
+            hideUntil = nil
+            defaults.removeObject(forKey: "hideUntil")
+        }
+        if force || Date().timeIntervalSince(lastFullScreenCheck) > 1.4 {
+            fullScreenNow = autoHideFullScreen && isFullScreenAppActive()
+            lastFullScreenCheck = Date()
+        }
+        applyVisibility()
+    }
+
+    private func applyVisibility() {
+        let shouldShow = hideUntil == nil && !fullScreenNow
+        updateStatusItem()
+        guard shouldShow != visibleNow, let panel = panel else { return }
+        visibleNow = shouldShow
+        if shouldShow {
+            panel.alphaValue = 0
+            panel.orderFrontRegardless()
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.5
+                panel.animator().alphaValue = 1
+            }
+            petView.welcomeBack()
+        } else {
+            panel.ignoresMouseEvents = true
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = 0.45
+                panel.animator().alphaValue = 0
+            }, completionHandler: { [weak self] in
+                if self?.visibleNow == false { panel.orderOut(nil) }
+            })
+        }
+    }
+
+    private func hide(for seconds: Double) {
+        let until: Date
+        if seconds > 0 { until = Date().addingTimeInterval(seconds) }
+        else if seconds < 0 { until = Calendar.current.nextDate(after: Date(), matching: DateComponents(hour: 8), matchingPolicy: .nextTime) ?? Date().addingTimeInterval(8 * 3600) }
+        else { until = Date(timeIntervalSince1970: 4_102_444_800) }   // "until I call it back"
+        hideUntil = until
+        defaults.set(until.timeIntervalSince1970, forKey: "hideUntil")
+        tickVisibility(force: true)
+    }
+
+    @objc private func comeBack() {
+        hideUntil = nil
+        defaults.removeObject(forKey: "hideUntil")
+        tickVisibility(force: true)
+    }
+
+    @objc private func quitFromMenuBar() { NSApp.terminate(nil) }
+
+    // The dough also lives in the menu bar. It is always there, so hiding the pet on the desktop can never mean losing it.
+    private func setupStatusItem() {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        if let path = Bundle.main.path(forResource: "dough", ofType: "png"), let picture = NSImage(contentsOfFile: path) {
+            picture.size = NSSize(width: 26, height: 17)
+            item.button?.image = picture
+        } else {
+            item.button?.title = "面团"
+        }
+        let menu = NSMenu()
+        menu.delegate = self      // rebuilt every time it opens, so it always shows the current state
+        item.menu = menu
+        statusItem = item
+        updateStatusItem()
+    }
+
+    // dim while the dough is out of sight
+    private func updateStatusItem() {
+        statusItem?.button?.alphaValue = (hideUntil != nil || fullScreenNow) ? 0.45 : 1
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        func add(_ title: String, _ action: Selector?, enabled: Bool = true, state: NSControl.StateValue = .off) -> NSMenuItem {
+            let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            item.target = self
+            item.isEnabled = enabled
+            item.state = state
+            menu.addItem(item)
+            return item
+        }
+        if let until = hideUntil {
+            let when: String
+            if until.timeIntervalSince1970 > 4_000_000_000 { when = "面团躲起来了，等你叫它回来" }
+            else {
+                let formatter = DateFormatter()
+                formatter.dateFormat = Calendar.current.isDateInToday(until) ? "HH:mm" : "M月d日 HH:mm"
+                when = "面团躲起来了，\(formatter.string(from: until)) 回来"
+            }
+            _ = add(when, nil, enabled: false)
+            _ = add("叫它回来", #selector(comeBack))
+        } else {
+            _ = add(fullScreenNow ? "面团在躲全屏，一会儿就回来" : "面团在桌面上", nil, enabled: false)
+            let hideItem = NSMenuItem(title: "躲一会儿", action: nil, keyEquivalent: "")
+            let hideMenu = NSMenu()
+            for (title, seconds) in [("30 分钟", 1800.0), ("1 小时", 3600.0), ("2 小时", 7200.0), ("到明天早上", -1.0), ("直到我叫它回来", 0.0)] {
+                let entry = NSMenuItem(title: title, action: #selector(hideFromMenuBar(_:)), keyEquivalent: "")
+                entry.target = self
+                entry.representedObject = seconds
+                hideMenu.addItem(entry)
+            }
+            hideItem.submenu = hideMenu
+            menu.addItem(hideItem)
+        }
+        _ = add("全屏时自动躲起来", #selector(toggleAutoHideFromMenuBar), state: autoHideFullScreen ? .on : .off)
+        menu.addItem(.separator())
+        _ = add("放回屏幕右下角", #selector(goHomeFromMenuBar))
+        let sizeItem = NSMenuItem(title: "大小", action: nil, keyEquivalent: "")
+        let sizeMenu = NSMenu()
+        let current = petView?.currentWidth ?? 190
+        for (title, width) in [("特小", 130.0), ("小", 160.0), ("中", 190.0), ("大", 270.0), ("特大", 520.0)] {
+            let entry = NSMenuItem(title: title, action: #selector(sizeFromMenuBar(_:)), keyEquivalent: "")
+            entry.target = self
+            entry.representedObject = width
+            entry.state = abs(CGFloat(width) - current) < 2 ? .on : .off
+            sizeMenu.addItem(entry)
+        }
+        sizeItem.submenu = sizeMenu
+        menu.addItem(sizeItem)
+        _ = add("打开 AlreaDough", #selector(openSiteFromMenuBar))
+        menu.addItem(.separator())
+        _ = add("退出桌宠", #selector(quitFromMenuBar))
+    }
+
+    @objc private func hideFromMenuBar(_ sender: NSMenuItem) { if let seconds = sender.representedObject as? Double { hide(for: seconds) } }
+    @objc private func toggleAutoHideFromMenuBar() { autoHideFullScreen.toggle(); tickVisibility(force: true) }
+    @objc private func goHomeFromMenuBar() { goHome() }
+    @objc private func sizeFromMenuBar(_ sender: NSMenuItem) { if let width = sender.representedObject as? Double { resize(toWidth: CGFloat(width)) } }
+    @objc private func openSiteFromMenuBar() { NSWorkspace.shared.open(siteURL) }
 
     private func startOrigin(for size: NSSize) -> NSPoint {
         if defaults.object(forKey: "x") != nil {
