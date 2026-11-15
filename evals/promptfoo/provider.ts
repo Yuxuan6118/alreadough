@@ -62,7 +62,7 @@ export default class AlreaDoughCoachProvider {
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model,
-        instructions: buildInstructions(test.lang, "chat", coach),
+        instructions: buildInstructions(test.lang, "chat", coach, test.input),
         input: buildInput(payloadFor(test, coach)),
         store: false,
         reasoning: { effort: "none" },

@@ -36,7 +36,7 @@ async function generate(test:EvalCase,coach:CoachMode,model:string) {
   const payload=payloadFor(test,coach);
   const local=desirePreservingSafetyReply(test.input,test.lang,payload.goal.companionName);
   if(local) return {reply:local,usage:null};
-  const result=await callOpenAI({model,instructions:buildInstructions(test.lang,"chat",coach),input:buildInput(payload),store:false,reasoning:{effort:"none"},max_output_tokens:500,text:{verbosity:"low",format:{type:"json_schema",name:"coach_eval_response",strict:true,schema:companionResponseSchema}}});
+  const result=await callOpenAI({model,instructions:buildInstructions(test.lang,"chat",coach,test.input),input:buildInput(payload),store:false,reasoning:{effort:"none"},max_output_tokens:500,text:{verbosity:"low",format:{type:"json_schema",name:"coach_eval_response",strict:true,schema:companionResponseSchema}}});
   return {reply:JSON.parse(result.text).reply as string,usage:result.usage};
 }
 

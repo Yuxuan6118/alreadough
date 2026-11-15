@@ -51,6 +51,16 @@ export function hasContrastFrame(text: string) {
   return zh.test(text) || en.test(text);
 }
 
+export function hasStockCoachLine(text: string) {
+  return /这一秒|3\s*d[里裡的中\s]{0,4}(?:只[是有])?(?:一|这|那)[帧幀]|(?:你|她)(?:已经)?选(?:择|定)?的(?:那一?(?:个)?|这个)?(?:版本|一版|故事|画面)|那个版本里|(?:别|不要|无视)\s*(?:去)?(?:管|看)?\s*3\s*d|(?:one|just a|that) frame (?:of|in) (?:the )?3d|(?:version|reality) you (?:chose|picked)|ignore (?:the )?3d/i.test(text);
+}
+
+export function coachSpecificityRetryNote(lang: "zh" | "en") {
+  return lang === "zh"
+    ? "把 reply 里套用的抽象话改成直接可用的内容。只保留本轮事实，写出一句与用户想要的结果直接有关的台词，或给一个对应所选流派、当下能做的小练习。用具体句子答，删去所有版本、3D 话术和对别人行动的预言。其他 JSON 字段仍按原要求输出。"
+    : "Rewrite reply with an actual line, scene, or small step that fits the selected coach, this exact situation, and the user's goal. Remove stock language about versions and 3D, and predictions of another person's behavior. Preserve the original JSON shape and requirements.";
+}
+
 export function contrastRetryNote(lang: "zh" | "en") {
   return lang === "zh"
     ? "上一版回复用了“不是……，是……”或“不是……而是……”这类先否定再转折的句式。保持同样的意思，输出同样的 JSON 结构，重写 reply：直接把意思说出来。其他字段保持不变。"

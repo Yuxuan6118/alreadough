@@ -4,7 +4,7 @@ import {
   type CompanionRequest,
 } from "@/lib/already-ai";
 import { beginBetaRequest, recordConversation, settleBetaRequest } from "@/lib/beta-guard";
-import { cleanReply, contrastRetryNote, exitReply, hasContrastFrame, isErrorEcho, isExitIntent } from "@/lib/reply-guards";
+import { cleanReply, coachSpecificityRetryNote, contrastRetryNote, exitReply, hasContrastFrame, hasStockCoachLine, isErrorEcho, isExitIntent } from "@/lib/reply-guards";
 import { readClientInfo } from "@/lib/client-info";
 import { OPENAI_BASE_URL, chatContent, chatUsage, type ChatCompletion } from "@/lib/openai-base";
 
@@ -81,6 +81,7 @@ export async function POST(request: Request) {
 
   const name = payload.goal.companionName.trim() || (payload.lang === "zh" ? "你" : "you");
   const country = readClientInfo(request.headers, (request as Request & { cf?: Record<string, unknown> }).cf).country;
+  payload.country = country; // server-side only: lets crisis replies name her local line
   const safetyReply = desirePreservingSafetyReply(payload.userInput, payload.lang, name, country);
   if (safetyReply) {
     return json({
@@ -110,8 +111,8 @@ export async function POST(request: Request) {
     return json({
       error: "AI_NOT_CONFIGURED",
       message: payload.lang === "zh"
-        ? "真实 AI 后端已经准备好，但还没有配置 API 密钥。"
-        : "The live AI backend is ready, but an API key has not been configured yet.",
+        ? "AI 暂时不可用，请稍后再试。"
+        : "AI is temporarily unavailable. Please try again shortly.",
     }, 503);
   }
 
@@ -122,7 +123,7 @@ export async function POST(request: Request) {
   if (!gate.ok) {
     const messages: Record<string, Record<"zh" | "en", string>> = {
       SIGN_IN_REQUIRED: { zh: "无法识别这台设备，请刷新页面后再试。", en: "This device could not be identified. Please refresh and try again." },
-      AI_PAUSED: { zh: "AI 服务正在由创始人暂时维护，请稍后再来。", en: "AI is temporarily paused by the founder. Please return shortly." },
+      AI_PAUSED: { zh: "AI 暂时不可用，请稍后再试。", en: "AI is temporarily unavailable. Please try again shortly." },
       // No per-person cap codes here on purpose — nobody is ever told "you're out for today."
       // BETA_BUDGET_PAUSED is a site-wide cost circuit breaker, not a personal limit.
       BETA_BUDGET_PAUSED: { zh: "AI 现在请求有点多，请稍后再试一次。", en: "AI is getting a lot of requests right now. Please try again shortly." },
@@ -161,7 +162,7 @@ export async function POST(request: Request) {
   await settleBetaRequest(gate.ticket, chatUsage(data), { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: upstream.ok, latencyMs: Date.now() - startedAt });
   const outputText = chatContent(data).trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
   if (!upstream.ok || !outputText) {
-    return json({ error: "AI_REQUEST_FAILED", message: data.error?.message || data.message || "The AI request failed." }, 502);
+    return json({ error: "AI_REQUEST_FAILED", message: payload.lang === "zh" ? "AI 暂时没有连接成功，请稍后再试。" : "AI could not connect. Please try again shortly." }, 502);
   }
 
   try {
@@ -176,9 +177,12 @@ export async function POST(request: Request) {
         keywords: string[];
       }>;
     };
-    // Guard: if the reply uses the "not X, it is Y" frame, ask once for a version that says the point directly.
-    // Any failure here keeps the first reply; the user is never blocked by this.
-    if (payload.mode === "chat" && hasContrastFrame(result.reply)) {
+    const retryNotes = [
+      hasContrastFrame(result.reply) ? contrastRetryNote(payload.lang) : "",
+      hasStockCoachLine(result.reply) ? coachSpecificityRetryNote(payload.lang) : "",
+    ].filter(Boolean);
+    // Keep the first reply if the rewrite fails.
+    if (payload.mode === "chat" && retryNotes.length) {
       try {
         const retryStartedAt = Date.now();
         const retry = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
@@ -186,10 +190,10 @@ export async function POST(request: Request) {
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             model,
-            messages: [...buildMessages(payload), { role: "assistant" as const, content: outputText }, { role: "user" as const, content: contrastRetryNote(payload.lang) }],
+            messages: [...buildMessages(payload), { role: "assistant" as const, content: outputText }, { role: "user" as const, content: retryNotes.join("\n\n") }],
             response_format: { type: "json_object" },
             max_tokens: 900,
-            temperature: 0.85,
+            temperature: 0.5,
             enable_thinking: false,
           }),
         });
@@ -197,12 +201,12 @@ export async function POST(request: Request) {
         if (retry.ok) {
           await settleBetaRequest(gate.ticket, chatUsage(retryData), { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: true, latencyMs: Date.now() - retryStartedAt });
           const retried = JSON.parse(chatContent(retryData).trim().replace(/^```(?:json)?\s*|\s*```$/g, "")) as typeof result;
-          const fixed = typeof retried.reply === "string" && retried.reply.trim().length > 0 && !hasContrastFrame(retried.reply);
-          console.log("contrast-frame retry", { fixed });
+          const fixed = typeof retried.reply === "string" && retried.reply.trim().length > 0 && !hasContrastFrame(retried.reply) && !hasStockCoachLine(retried.reply);
+          console.log("coach reply rewrite", { fixed });
           if (fixed) result = retried;
         }
       } catch (error) {
-        console.error("contrast-frame retry failed", String(error));
+        console.error("coach reply rewrite failed", String(error));
       }
     }
     const reply = cleanReply(result.reply, { mode: payload.mode, name: payload.goal.companionName });
