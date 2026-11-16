@@ -1,5 +1,5 @@
 import type { CoachMode, CompanionLang } from "./already-ai";
-import { playbook, type PlaybookSituation } from "./coach-playbook-data";
+import { playbook, type PlaybookSituation } from "./coach-playbook-data.ts";
 
 // Situation playbook: when her message matches a common situation (he is not replying, 3D contradicts the
 // assumption, she has stopped believing, money or exams, a crisis...), the companion gets the concrete moves
@@ -56,8 +56,8 @@ export function matchSituations(request: string, previousUser: string) {
 }
 
 const rules: Record<CompanionLang, string> = {
-  zh: "回复要具体：本轮至少给出一样实在的东西（一个新读法、一个比喻、一个生活画面、一句她现在能念或想的话、一个马上能做的小动作），贴着她这一句和她的愿望。不要用“你选的版本”“这一秒”“3D里的一帧”“回到终点”这类套话撑起回复。不替她补写她没提过的动作和物件，不预言现实里别人会怎么做。示范只示范做法和具体程度，换成她的人、她的事、她的话，不照抄句子，也不提任何博主或导师的名字。",
-  en: "Be concrete: every reply carries at least one real thing (a fresh reading, a metaphor, an everyday picture, a line she can say or think now, or one small action), fitted to her exact message and desire. Do not lean on stock lines about her chosen 'version', 'this second', 'one frame of 3D', or 'returning to the end'. Do not invent actions or objects she never mentioned, and do not predict what another real person will do. Examples show the move and the level of detail only; use her people, events, and words, never copy their sentences, and never name a teacher.",
+  zh: "把处境参考当作知识库：选与你当前流派和这轮意图相符的一条洞见，讲清背后的理由，再连到用户说过的具体细节。示例中的动作、场景和练习无需跟做；其他流派的观点不混入本轮。不照抄句子，不替用户补写事实，不预测他人的行为，不冒充或点名导师。没有匹配时，用当前流派的基本概念回答。",
+  en: "Treat situation references as a knowledge base. Select an insight that fits the active school and the user's current intent, explain the reasoning, and connect it to a detail the user supplied. Actions, scenes, and exercises in examples are optional; do not mix schools. Do not copy wording, invent facts, predict others' actions, or impersonate or name teachers. If nothing matches, draw on the active school's fundamental concepts.",
 };
 
 export function coachCorpusInstructions(lang: CompanionLang, coach: CoachMode, request: string, previousUser: string, localCrisisLine = "") {

@@ -38,11 +38,11 @@ test("ships without the founder's private manifestation defaults", async () => {
 
 test("renders the public storefront and policies without the beta prompt", async () => {
   for (const [path, content] of [
-    ["/", /进入内测/],
+    ["/", /开始练习/],
     ["/pricing", /会员与价格/],
     ["/privacy", /隐私说明/],
     ["/trust", /AI、愿望与安全说明/],
-    ["/terms", /使用条款/],
+    ["/terms", /服务条款/],
     ["/copyright", /素材/],
   ]) {
     const response = await render(path);
@@ -52,6 +52,7 @@ test("renders the public storefront and policies without the beta prompt", async
     assert.match(html, /<footer class="public-site-footer">/, path);
     assert.match(html, /href="\/terms"/, path);
     assert.match(html, /href="\/privacy"/, path);
+    if (path === "/") assert.match(html, /href="\/app\?lang=zh"/);
     assert.doesNotMatch(html, /access-gate|Opening AlreaDough/, path);
   }
 });
@@ -59,13 +60,14 @@ test("renders the public storefront and policies without the beta prompt", async
 test("renders the English storefront and links it to public English information", async () => {
   for (const [path, content] of [
     ["/en", /A daily practice/],
-    ["/en/pricing", /Let support rise with your desire/],
+    ["/en/pricing", /Membership and pricing/],
     ["/en/trust", /How AI is used/],
   ]) {
     const response = await render(path);
     assert.equal(response.status, 200);
     const html = (await response.text()).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "");
     assert.match(html, content, path);
+    if (path === "/en") assert.match(html, /href="\/app\?lang=en"/);
     for (const link of ["/en/pricing", "/terms#english", "/privacy#english", "/en/trust"]) {
       assert.ok(html.includes(`href="${link}"`), `${path}: ${link}`);
     }
@@ -206,8 +208,8 @@ test("client info keeps coarse facts only and never the IP", async () => {
   assert.equal(readClientInfo(new Headers({ "cf-ipcountry": "XX" })).country, null);
 });
 
-test("reply guards: error bubbles are not AI speech, AI tells are removed, length follows the user", async () => {
-  const { cleanReply, isErrorEcho, replyLengthGuidance } = await import("../lib/reply-guards.ts");
+test("reply guards: error bubbles are not AI speech and AI tells are removed", async () => {
+  const { cleanReply, isErrorEcho } = await import("../lib/reply-guards.ts");
   // A: the client's connection-error bubble must never be fed back to the model
   assert.equal(isErrorEcho({ role: "ai", text: "小明，AI 当前没有连接成功：x。你的这句话已经留在本机" }), true);
   assert.equal(isErrorEcho({ role: "user", text: "AI 当前没有连接成功" }), false);
@@ -217,11 +219,6 @@ test("reply guards: error bubbles are not AI speech, AI tells are removed, lengt
   assert.equal(cleanReply("Luke，", { mode: "chat", name: "Luke" }), "Luke，"); // never reduce a reply to nothing
   assert.equal(cleanReply("他说“a”和“b”还有“c”以及“d”", { mode: "chat" }), "他说“a”和“b”还有c以及d");
   assert.equal(cleanReply("Luke，他说“a”“b”“c”——好。", { mode: "story", name: "Luke" }), "Luke，他说“a”“b”“c”，好。"); // stories keep dialogue and a leading name
-  // C: shorter input, shorter reply; English gets proportionally more room
-  assert.equal(replyLengthGuidance("你好", "zh").max_chars, 60);
-  assert.equal(replyLengthGuidance("x".repeat(20), "zh").max_chars, 110);
-  assert.equal(replyLengthGuidance("x".repeat(500), "zh").max_chars, 260);
-  assert.ok(replyLengthGuidance("hi", "en").max_chars > 60);
 });
 
 test("contrast-frame detector catches 不是X，是Y and its variants without flagging ordinary sentences", async () => {
@@ -457,12 +454,12 @@ test("opening questions: the flow follows her choices, adding a desire reuses th
   // before she has picked a kind there are no kind-specific questions
   assert.deepEqual(wishModule("", true), ["wish", "category", "scene", "intensity", "pullback", "evidence"]);
   assert.deepEqual(wishModule("relationship", true).slice(0, 5), ["wish", "category", "sp_name", "rel_state", "rel_close"]);
-  assert.deepEqual(wishModule("relationship", false), ["wish", "category", "sp_name", "scene", "intensity"]);
+  assert.deepEqual(wishModule("relationship", false), ["wish", "category", "sp_name", "rel_state", "scene", "intensity"]);
   // one "add another?" slot, after the last desire only; the tail appears once she is finished
   const one = ids(buildFlow(["wealth"], false));
   assert.equal(one.filter((id) => id === "more").length, 1);
   assert.equal(one.at(-1), "more");
-  assert.deepEqual(ids(buildFlow(["wealth"], true)).slice(-4), ["people", "never", "situation", "style"]);
+  assert.deepEqual(ids(buildFlow(["wealth"], true)).slice(-3), ["people", "never", "situation"]);
   const two = buildFlow(["wealth", "self"], false);
   assert.equal(two.filter((slot) => slot.id === "more").length, 1);
   assert.equal(two.at(-1).wish, 1);
@@ -486,6 +483,12 @@ test("opening questions: the flow follows her choices, adding a desire reuses th
   assert.equal(canAdvance("scene", answers, 0), true, "none is an answer");
   assert.equal(canAdvance("people", answers, null), false);
   assert.equal(canAdvance("welcome", answers, null), true);
+  answers.wishes[0] = { ...emptyWish(), wish: "建立稳定的关系", kind: "relationship", specifics: { relationship_target: "new", sp_name: "旧称呼", rel_state: "旧关系", new_rel_state: "想遇见一个愿意坦诚沟通的人" } };
+  assert.equal(canAdvance("sp_name", answers, 0), true);
+  const newRelationship = answersToSeeds(answers, "zh").goals[0];
+  assert.equal(newRelationship.spName, "");
+  assert.match(newRelationship.background, /想遇见一个愿意坦诚沟通的人/);
+  assert.doesNotMatch(newRelationship.background, /旧称呼|旧关系/);
   answers.wishes[0].scene = "";
   // answers become one card per desire and a single profile
   answers.name = "安安";
@@ -505,7 +508,7 @@ test("opening questions: the flow follows her choices, adding a desire reuses th
   assert.equal(goals[0].intensity, 5);
   assert.deepEqual(profile.neverInclude, ["加班", "天气", "八卦"]);
   assert.equal(profile.people[0].name, "妈妈");
-  assert.deepEqual(splitLines("a\n\nA\n b ；c"), ["a", "b", "c"]);
+  assert.deepEqual(splitLines("a\n\nA\n b ；c、d，e,f"), ["a", "b", "c", "d", "e", "f"]);
 });
 
 test("opening replies: a stock or contrast line is thrown away, a plain concrete line is kept", async () => {
@@ -628,7 +631,7 @@ test("opening: a plain 'none' answer is kept as an answer but never becomes a me
   assert.deepEqual(goals[0].memories.map((m) => m.title), ["它出现的那一天"]);
   // the country question asks for region and city, with examples, and says nothing about skipping
   assert.match(STEPS.country.prompt.zh, /国家或地区/);
-  assert.match(STEPS.country.placeholder.zh, /美国纽约曼哈顿/);
+  assert.match(STEPS.country.placeholder.zh, /美国纽约/);
   assert.match(STEPS.country.placeholder.zh, /中国广东深圳/);
   assert.doesNotMatch(JSON.stringify(STEPS.country), /跳过|skip/i);
   assert.equal(Object.values(STEPS).filter((step) => step.type === "text" || step.type === "long").every((step) => step.id), true);
@@ -641,10 +644,10 @@ test("the opening never carries real names or private details in examples, place
     const text = await readFile(new URL(file, import.meta.url), "utf8");
     for (const token of privateTokens) assert.ok(!text.includes(token), `${file} contains ${token}`);
   }
-  // the only open question that carries examples is the place she lives, and those examples are the generic ones she chose
+  // Example placeholders use generic situations and contain no private details.
   const { STEPS } = await import("../lib/onboarding-flow.ts");
-  const withExamples = Object.values(STEPS).filter((step) => step.placeholder && /例如|e\.g\.|For example/.test(step.placeholder.zh + step.placeholder.en)).map((step) => step.id);
-  assert.deepEqual(withExamples, ["country"]);
+  const withExamples = Object.values(STEPS).filter((step) => step.placeholder && /例如|比如|e\.g\.|For example/.test(step.placeholder.zh + step.placeholder.en)).map((step) => step.id);
+  assert.deepEqual(withExamples, ["country", "about", "wish", "rel_state", "rel_close"]);
   // the same question is not asked twice
   const { buildFlow } = await import("../lib/onboarding-flow.ts");
   const ids = buildFlow(["relationship"], true).map((slot) => slot.id);
@@ -661,4 +664,49 @@ test("the opening speaks about the person as TA, never 他 or 她, and as they i
   const ai = await readFile(new URL("../lib/onboarding-ai.ts", import.meta.url), "utf8");
   const english = ai.slice(ai.indexOf("const enBase"), ai.indexOf("export function onboardingSystem"));
   assert.doesNotMatch(english, /\b(she|her|hers|herself)\b/i);
+});
+
+test("one way of speaking: the companion tone is fixed on the server and there is no style choice anywhere", async () => {
+  const ai = await readFile(new URL("../lib/already-ai.ts", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/app/page.tsx", import.meta.url), "utf8");
+  const flow = await readFile(new URL("../lib/onboarding-flow.ts", import.meta.url), "utf8");
+  assert.match(ai, /preferred_tone: DEFAULT_TONE\[payload\.lang\]/);
+  assert.match(ai, /用我能想、能说、能做的具体话回应/);
+  assert.doesNotMatch(ai, /先准确接住我的感受/);
+  assert.doesNotMatch(page, /companionStyles|chooseCompanionStyle|companion-style-grid/);
+  assert.doesNotMatch(flow, /id: "style"/);
+  const { STEPS, TAIL_STEPS } = await import("../lib/onboarding-flow.ts");
+  assert.equal(STEPS.style, undefined);
+  assert.ok(!TAIL_STEPS.includes("style"));
+});
+
+test("coach playbook sends the matching situation with concrete moves and examples", async () => {
+  const { coachCorpusInstructions, matchSituations } = await import("../lib/coach-corpus.ts");
+  const ids = (text, previous = "") => matchSituations(text, previous).map((item) => item.id);
+  assert.deepEqual(ids("他已读不回两天了"), ["sp_no_reply"]);
+  assert.deepEqual(ids("他把我拉黑了"), ["sp_blocked_no_contact"]);
+  assert.ok(ids("我完全不相信显化了，为什么我显化了这么久他还是gay").includes("sp_seems_impossible"));
+  assert.deepEqual(ids("那怎么办", "他已读不回两天了"), ["sp_no_reply"]);
+  // A new topic never inherits the previous turn's situation (a weight wish after a crisis message is not a crisis).
+  assert.ok(!ids("我想显化瘦十斤", "我真的不想活了").includes("crisis_suicidal"));
+  assert.deepEqual(ids("今天天气不错"), []);
+  const block = coachCorpusInstructions("zh", "assumption", "他已读不回两天了", "");
+  assert.match(block, /situation_playbook/);
+  assert.match(block, /陪伴者：/);
+  const crisis = coachCorpusInstructions("zh", "assumption", "我真的不想活了", "", "你也可以拨打全国心理援助热线 12356");
+  assert.match(crisis, /12356/);
+  assert.doesNotMatch(crisis, /988|911/);
+  // Example replies never carry the stock lines the rewrite guard catches.
+  const { playbook } = await import("../lib/coach-playbook-data.ts");
+  for (const situation of playbook) for (const mode of ["assumption", "release", "subconscious"]) for (const example of situation.examples[mode]) {
+    assert.doesNotMatch(example.reply, /这一秒|你选的版本|3D里的一帧/, situation.id);
+  }
+});
+
+test("chat rewrite catches repeat manifestation slogans", async () => {
+  const { hasStockCoachLine } = await import("../lib/reply-guards.ts");
+  for (const reply of ["那只是 3D 里的一帧。", "回到你选的那个版本里。", "无视3D。", "That is one frame of 3D.", "那个版本里，你只管去忙。", "回到你选的那个画面里。"]) {
+    assert.ok(hasStockCoachLine(reply), reply);
+  }
+  assert.ok(!hasStockCoachLine("你们平时有话会直接跟彼此说。"));
 });

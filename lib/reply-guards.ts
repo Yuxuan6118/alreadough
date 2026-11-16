@@ -6,18 +6,6 @@ export function isErrorEcho(message: { role?: string; text?: string }) {
   return message.role === "ai" && /AI 当前没有连接成功|the AI could not connect|AI could not connect/i.test(message.text || "");
 }
 
-/** Shorter user message, shorter reply. Chat only; stories and revisions keep their own length rules. */
-export function replyLengthGuidance(userInput: string, lang: "zh" | "en") {
-  const length = [...userInput.trim()].length;
-  const zh = lang === "zh";
-  // English runs roughly 2.2x longer than Chinese for the same content.
-  const scale = zh ? 1 : 2.2;
-  if (length <= 8) return { max_chars: Math.round(60 * scale), note: zh ? "她只发了几个字：一两句话就够，别展开，别提问以外的任何新话题。" : "She sent only a few words: one or two short sentences, no expansion." };
-  if (length <= 30) return { max_chars: Math.round(110 * scale), note: zh ? "她说得不长：两三句就够。" : "She wrote little: two or three sentences." };
-  if (length <= 120) return { max_chars: Math.round(180 * scale), note: zh ? "中等长度，接住重点即可。" : "Medium length: meet the main point." };
-  return { max_chars: Math.round(260 * scale), note: zh ? "她写得比较多，可以多回一些，但别写成长文。" : "She wrote a lot; you may answer more fully, but not at essay length." };
-}
-
 /**
  * Remove the most visible AI tells from a reply.
  * - em-dashes become ordinary punctuation (every mode)
@@ -57,8 +45,8 @@ export function hasStockCoachLine(text: string) {
 
 export function coachSpecificityRetryNote(lang: "zh" | "en") {
   return lang === "zh"
-    ? "把 reply 里套用的抽象话改成直接可用的内容。只保留本轮事实，写出一句与用户想要的结果直接有关的台词，或给一个对应所选流派、当下能做的小练习。用具体句子答，删去所有版本、3D 话术和对别人行动的预言。其他 JSON 字段仍按原要求输出。"
-    : "Rewrite reply with an actual line, scene, or small step that fits the selected coach, this exact situation, and the user's goal. Remove stock language about versions and 3D, and predictions of another person's behavior. Preserve the original JSON shape and requirements.";
+    ? "重写 reply 中的套话，直接表达它原本想说明的意思。保留首句对用户的具体承接和本轮适用的理论解释。对照最近对话，删去重复的修饰词、比喻和建议，不用换词继续同一个比喻。不新加台词、场景或练习，不预言他人的行为。其他 JSON 字段保持不变。"
+    : "Rewrite the stock phrasing in reply directly. Preserve the specific acknowledgment and relevant theory explanation. Remove repeated descriptors, metaphors, and advice from recent turns instead of rephrasing the same metaphor. Add no script, scene, exercise, or prediction of someone else's behavior. Keep the other JSON fields unchanged.";
 }
 
 export function contrastRetryNote(lang: "zh" | "en") {

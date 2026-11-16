@@ -3,7 +3,7 @@ import {
   desirePreservingSafetyReply,
   type CompanionRequest,
 } from "@/lib/already-ai";
-import { beginBetaRequest, recordConversation, settleBetaRequest } from "@/lib/beta-guard";
+import { beginBetaRequest, combineTokenUsage, finishMemberRequest, recordConversation, settleBetaRequest } from "@/lib/beta-guard";
 import { cleanReply, coachSpecificityRetryNote, contrastRetryNote, exitReply, hasContrastFrame, hasStockCoachLine, isErrorEcho, isExitIntent } from "@/lib/reply-guards";
 import { readClientInfo } from "@/lib/client-info";
 import { OPENAI_BASE_URL, chatContent, chatUsage, type ChatCompletion } from "@/lib/openai-base";
@@ -123,12 +123,14 @@ export async function POST(request: Request) {
   if (!gate.ok) {
     const messages: Record<string, Record<"zh" | "en", string>> = {
       SIGN_IN_REQUIRED: { zh: "无法识别这台设备，请刷新页面后再试。", en: "This device could not be identified. Please refresh and try again." },
+      MEMBERSHIP_SIGN_IN_REQUIRED: { zh: "请先到会员页用邮箱登录，然后继续对话。", en: "Sign in with email on the membership page, then continue chatting." },
+      MEMBERSHIP_LIMIT: { zh: "当前会员用量已经用完，可到会员页查看恢复时间或升级。", en: "Your current allowance is used up. Check the membership page for its reset time or upgrade." },
       AI_PAUSED: { zh: "AI 暂时不可用，请稍后再试。", en: "AI is temporarily unavailable. Please try again shortly." },
       // No per-person cap codes here on purpose — nobody is ever told "you're out for today."
       // BETA_BUDGET_PAUSED is a site-wide cost circuit breaker, not a personal limit.
       BETA_BUDGET_PAUSED: { zh: "AI 现在请求有点多，请稍后再试一次。", en: "AI is getting a lot of requests right now. Please try again shortly." },
     };
-    return json({ error: gate.code, message: messages[gate.code]?.[payload.lang] || gate.code }, gate.code === "SIGN_IN_REQUIRED" ? 401 : 429);
+    return json({ error: gate.code, message: messages[gate.code]?.[payload.lang] || gate.code }, gate.code === "SIGN_IN_REQUIRED" || gate.code === "MEMBERSHIP_SIGN_IN_REQUIRED" ? 401 : 429);
   }
 
   const startedAt = Date.now();
@@ -145,7 +147,6 @@ export async function POST(request: Request) {
         model,
         messages: buildMessages(payload),
         response_format: { type: "json_object" },
-        max_tokens: payload.mode === "story" ? 1800 : payload.mode === "revision" ? 1100 : 900,
         temperature: 0.85,
         // DeepSeek/Qwen on DashScope: skip the reasoning pass — it triples latency
         // and this is a warm conversational turn, not a hard reasoning problem.
@@ -155,13 +156,18 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error("companion upstream fetch threw", { base: OPENAI_BASE_URL, model, err: String(err), stack: (err as Error)?.stack });
     await settleBetaRequest(gate.ticket, null, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: false, latencyMs: Date.now() - startedAt });
+    await finishMemberRequest(gate.ticket, null, false);
     return json({ error: "AI_REQUEST_FAILED", message: payload.lang === "zh" ? "AI 暂时没有连接成功，请稍后再试。" : "AI could not connect. Please try again shortly." }, 502);
   }
 
-  const data = await upstream.json() as ChatCompletion;
+  let data: ChatCompletion;
+  try { data = await upstream.json() as ChatCompletion; }
+  catch { await finishMemberRequest(gate.ticket, null, false); return json({ error: "AI_REQUEST_FAILED" }, 502); }
+  let billedUsage = chatUsage(data);
   await settleBetaRequest(gate.ticket, chatUsage(data), { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: upstream.ok, latencyMs: Date.now() - startedAt });
   const outputText = chatContent(data).trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
   if (!upstream.ok || !outputText) {
+    await finishMemberRequest(gate.ticket, null, false);
     return json({ error: "AI_REQUEST_FAILED", message: payload.lang === "zh" ? "AI 暂时没有连接成功，请稍后再试。" : "AI could not connect. Please try again shortly." }, 502);
   }
 
@@ -192,12 +198,12 @@ export async function POST(request: Request) {
             model,
             messages: [...buildMessages(payload), { role: "assistant" as const, content: outputText }, { role: "user" as const, content: retryNotes.join("\n\n") }],
             response_format: { type: "json_object" },
-            max_tokens: 900,
             temperature: 0.5,
             enable_thinking: false,
           }),
         });
         const retryData = await retry.json() as ChatCompletion;
+        billedUsage = combineTokenUsage(billedUsage, chatUsage(retryData));
         if (retry.ok) {
           await settleBetaRequest(gate.ticket, chatUsage(retryData), { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: true, latencyMs: Date.now() - retryStartedAt });
           const retried = JSON.parse(chatContent(retryData).trim().replace(/^```(?:json)?\s*|\s*```$/g, "")) as typeof result;
@@ -220,6 +226,7 @@ export async function POST(request: Request) {
       aiReply: reply,
       model,
     });
+    await finishMemberRequest(gate.ticket, billedUsage, true);
     return json({
       reply,
       logId,
@@ -227,9 +234,10 @@ export async function POST(request: Request) {
       beliefObserved: result.belief_observed,
       memoryCandidates: result.memory_candidates || [],
       model,
-      usage: chatUsage(data),
+      usage: billedUsage,
     });
   } catch {
+    await finishMemberRequest(gate.ticket, null, false);
     return json({ error: "AI_RESPONSE_INVALID" }, 502);
   }
 }
