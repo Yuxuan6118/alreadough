@@ -127,9 +127,10 @@ test("keeps the chosen vision-board color connected to the live canvas", async (
 
 test("shows only one primary memory action in each memory-library state", async () => {
   const page = await readFile(new URL("../app/app/page.tsx", import.meta.url), "utf8");
-  assert.match(page, /currentMemoryItems\.length > 0 && <button className="primary memory-add"/);
-  assert.match(page, /currentMemoryItems\.length === 0 \? <div className="memory-empty"/);
-  assert.match(page, /memory-filter-empty/);
+  // one "add" button at the top of 记忆库; the empty states only explain, the filtered-empty one leads back to all
+  assert.equal((page.match(/className="outline-button library-add" onClick=\{\(\) => openMemoryEditor\(\)\}/g) || []).length, 1);
+  assert.doesNotMatch(page, /添加第一条记忆/);
+  assert.match(page, /currentMemoryItems\.length === 0 \? <div className="library-empty"/);
   assert.match(page, /setMemoryFilter\("all"\)/);
 });
 
@@ -584,8 +585,42 @@ test("my space: one way in from the drawer and the rail, no avatar menu, memory 
   assert.equal((page.match(/setView\("settings"\)/g) || []).length, 1, "only openSpace may open settings");
   // the list has three groups and a single memory library entry
   assert.match(page, /<SpaceNav/);
-  for (const id of ["wishes", "about", "companion", "reflect", "library", "memory", "look", "sync", "help"]) assert.match(page, new RegExp(`id: "${id}"`));
-  assert.match(page, /id === "library" \? setView\("memory"\)/);
+  for (const id of ["wishes", "about", "companion", "library", "memory", "membership", "pet", "look", "sync", "help"]) assert.match(page, new RegExp(`id: "${id}"`));
+  // every row opens inside the same two-column layout, with the same back arrow; nothing jumps to another page
+  assert.match(page, /onSelect=\{\(id\) => \{ setSettingsSection\(id as SpaceSection\);/);
+  assert.doesNotMatch(page, /view === "memory"/);
+  assert.doesNotMatch(page, /id: "reflect"|ReflectionPanel/);
+  // nothing is shown twice: the journey summary and the memory list live only in 记忆库
+  assert.equal((page.match(/\{goal\.journeySummary\[lang\] \|\| \(/g) || []).length, 1);
+  assert.doesNotMatch(page, /打开完整记忆库|不限制对话、重写与故事的次数|每次对话只加载当前选中的这一张愿望卡/);
+});
+
+test("membership and usage live in the app: a ring by the chat box, a notice when she is out, and the panel in My space", async () => {
+  const page = await readFile(new URL("../app/app/page.tsx", import.meta.url), "utf8");
+  const panel = await readFile(new URL("../app/components/MembershipPanel.tsx", import.meta.url), "utf8");
+  assert.match(page, /<UsageMeter /);
+  assert.match(page, /<UsageBanner /);
+  assert.match(page, /shown === "membership" && <MembershipPanel/);
+  assert.match(panel, /\/api\/member\/auth\/otp/);
+  assert.match(panel, /\/api\/pay\/zpay\/checkout/);
+  // the iPhone app never shows a way to pay outside the App Store
+  assert.match(panel, /!native && member\.checkoutAvailable/);
+  const { usagePercent, exhaustedWindow } = await import("../lib/member-client.ts");
+  assert.equal(usagePercent(30, 60), 50);
+  assert.equal(usagePercent(90, 60), 100);
+  const base = { plan: "soft", trial: false, referral: false, referralUsed: false, referralEndMs: null, periodEndMs: null, limits: { fiveHours: 15, week: 60 } };
+  assert.equal(exhaustedWindow({ ...base, usage: { fiveUnits: 15, weekUnits: 20, fiveResetMs: 0, weekResetMs: 0 } }), "five");
+  assert.equal(exhaustedWindow({ ...base, usage: { fiveUnits: 3, weekUnits: 60, fiveResetMs: 0, weekResetMs: 0 } }), "week");
+  assert.equal(exhaustedWindow({ ...base, unlimited: true, usage: { fiveUnits: 99, weekUnits: 99, fiveResetMs: 0, weekResetMs: 0 } }), null);
+});
+
+test("the site shows the hello@ address, never a personal one", async () => {
+  const { SITE_RECORD } = await import("../lib/site-info.ts");
+  assert.equal(SITE_RECORD.contactEmail, "hello@alreadough.com");
+  for (const path of ["/privacy", "/terms", "/pricing", "/trust"]) {
+    const html = await (await render(path)).text();
+    assert.doesNotMatch(html, /gmail\.com/i, path);
+  }
 });
 
 test("opening answers also become memories: her own words, nothing added, each desire gets the shared ones", async () => {
@@ -719,4 +754,54 @@ test("chat rewrite catches repeat manifestation slogans", async () => {
   for (const reply of ["你们平时有话会直接跟彼此说。", "他在你身边，你们周末一起去海边。", "这次考试结果出来以后，你去做自己的事。", "算出来的是一个版本，签不签字由你。"]) {
     assert.ok(!hasStockCoachLine(reply), reply);
   }
+});
+
+test("the desktop pet panel only offers downloads that exist", async () => {
+  const { access } = await import("node:fs/promises");
+  const panel = await readFile(new URL("../app/components/DesktopPetPanel.tsx", import.meta.url), "utf8");
+  await access(new URL("../public/downloads/AlreaDough-Pet-mac.zip", import.meta.url));
+  if (/const WINDOWS_PET_READY = true;/.test(panel)) await access(new URL("../public/downloads/AlreaDough-Pet-windows.zip", import.meta.url));
+  // the pet sits in its own row of My space, not inside the guidance settings
+  const page = await readFile(new URL("../app/app/page.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(page, /pet-card/);
+  assert.match(page, /shown === "pet" && <DesktopPetPanel/);
+});
+
+test("export my data is a zip like ChatGPT's: index.html to read in a browser, plus the raw data as JSON", async () => {
+  const { buildExportZip, crc32 } = await import("../lib/export-archive.ts");
+  const goal = { id: "g1", setupComplete: true, desire: { zh: "我在纽约工作", en: "" }, memoryItems: { zh: [{ id: "m", kind: "place", title: "纽约", detail: "x" }], en: [] } };
+  const zip = buildExportZip({
+    lang: "zh", exportedAt: new Date("2026-11-17T10:00:00Z"), current: goal, others: [], archived: [],
+    profile: { country: "", about: "", situation: "", people: [], neverInclude: [] },
+    stories: [{ id: "sample", sample: true }], revisions: [], checkIns: [], board: [{ id: 1, title: "家", source: "s", image: "data:image/png;base64,AAAA" }],
+    conversations: [{ id: "c", title: "t", createdAt: "", messages: [{ role: "user", text: "</script><img src=x onerror=alert(1)>" }, { role: "ai", text: "嗯" }, { role: "ai", text: "失败", error: true }] }],
+    labels: { category: () => "", coachMode: () => "", memoryKind: () => "", intensity: () => "" },
+  });
+  // read the zip back from its central directory
+  const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+  const endAt = zip.length - 22;
+  assert.equal(view.getUint32(endAt, true), 0x06054b50);
+  const count = view.getUint16(endAt + 10, true);
+  let at = view.getUint32(endAt + 16, true);
+  const files = {};
+  for (let i = 0; i < count; i++) {
+    assert.equal(view.getUint32(at, true), 0x02014b50);
+    assert.ok(view.getUint16(at + 8, true) & 0x800, "names are flagged UTF-8");
+    const crc = view.getUint32(at + 16, true), size = view.getUint32(at + 20, true), nameLength = view.getUint16(at + 28, true), offset = view.getUint32(at + 42, true);
+    const name = new TextDecoder().decode(zip.subarray(at + 46, at + 46 + nameLength));
+    const start = offset + 30 + view.getUint16(offset + 26, true);
+    const data = zip.subarray(start, start + size);
+    assert.equal(crc32(data), crc, name);
+    files[name] = new TextDecoder().decode(data);
+    at += 46 + nameLength;
+  }
+  assert.deepEqual(Object.keys(files), ["index.html", "desires.json", "conversations.json", "profile.json", "stories.json", "revisions.json", "check_ins.json", "vision_board.json", "export_info.json"]);
+  const conversations = JSON.parse(files["conversations.json"]);
+  assert.deepEqual(conversations[0].messages.map((m) => m.role), ["user", "assistant"], "failed-reply notices are left out");
+  assert.deepEqual(JSON.parse(files["stories.json"]), [], "built-in sample stories are left out");
+  assert.equal(JSON.parse(files["vision_board.json"])[0].image, undefined, "pictures stay on the device");
+  // her words reach the page only as escaped JSON, so nothing in a chat can run as code
+  assert.doesNotMatch(files["index.html"], /<\/script><img/);
+  assert.match(files["index.html"], /node\.textContent = String\(text\)/);
+  assert.doesNotMatch(files["index.html"], /innerHTML/);
 });

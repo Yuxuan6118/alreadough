@@ -15,6 +15,7 @@ import {
   Waveform,
   ArrowsClockwise,
   Brain,
+  PushPin,
   CaretDown,
   List,
   UserCircle,
@@ -39,21 +40,23 @@ import SubliminalStudio, { PracticeCheckIn, practiceStreak, todayKey } from "../
 import Dreamscape from "../components/Dreamscape";
 import VisionCanvasStudio from "../components/VisionCanvasStudio";
 import DoughPet from "../components/DoughPet";
-import ReflectionPanel from "../components/ReflectionPanel";
 import { AiNote, BreakReminder, ReportButton, ReportDialog, SiteRecord } from "../components/Compliance";
+import MembershipPanel, { memberPlanLabel, UsageBanner, UsageMeter, useMemberStatus } from "../components/MembershipPanel";
+import DesktopPetPanel from "../components/DesktopPetPanel";
 import SyncPanel from "../components/SyncPanel";
 import GuidedOnboarding from "../components/GuidedOnboarding";
 import ProfilePanel from "../components/ProfilePanel";
 import SpaceNav from "../components/SpaceNav";
 import FontSizePanel from "../components/FontSizePanel";
-import type { ReflectionAnswers, ReflectionQuestionId } from "@/lib/reflection";
+import type { ReflectionAnswers } from "@/lib/reflection";
 import { validateSpName } from "@/lib/name-policy";
 import { answersToSeeds, sharedMemories, splitLines, type GoalSeed, type MemorySeed, type OnboardingAnswers, type ProfileSeed } from "@/lib/onboarding-flow";
 import { readStored, writeStored, removeStored } from "@/lib/safe-storage";
+import { buildExportZip, exportFileName } from "@/lib/export-archive";
 import { getDeviceSessionId } from "@/lib/device-session";
 
-type SpaceSection = "wishes" | "about" | "companion" | "reflect" | "memory" | "look" | "sync" | "help";
-type View = "home" | "subliminal" | "story" | "revision" | "board" | "memory" | "settings";
+type SpaceSection = "wishes" | "about" | "companion" | "library" | "memory" | "membership" | "pet" | "look" | "sync" | "help";
+type View = "home" | "subliminal" | "story" | "revision" | "board" | "settings";
 type Lang = "zh" | "en";
 type Message = { id: string; role: "ai" | "user"; text: string; feedback?: "helpful" | "missed"; saved?: boolean; logId?: string; error?: boolean };
 type Conversation = { id: string; title: string; createdAt: string; messages: Message[]; goalId?: string };
@@ -298,6 +301,7 @@ export default function Home() {
   const [hydrated, setHydrated] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [beliefDraft, setBeliefDraft] = useState("");
+  const [beliefInput, setBeliefInput] = useState("");
   const [storyIndex, setStoryIndex] = useState(0);
   const [storyLibrary, setStoryLibrary] = useState<Story[]>([]);
   const [storyReading, setStoryReading] = useState(false);
@@ -352,7 +356,10 @@ export default function Home() {
   const [acknowledged, setAcknowledged] = useState<boolean | null>(null);
   const [reportTarget, setReportTarget] = useState<{ excerpt?: string } | null>(null);
   const [declined, setDeclined] = useState(false);
-  const [betaStatus, setBetaStatus] = useState<BetaStatus | null>(null);
+  // the reply only matters for its side effect (the server notes the device); nothing on screen reads it
+  const [, setBetaStatus] = useState<BetaStatus | null>(null);
+  // membership and usage: one fetch shared by the meter by the chat box, the out-of-usage notice, and My space
+  const { member, refresh: refreshMember, gate: memberGate, setGate: setMemberGate } = useMemberStatus();
   const [surveyOpen, setSurveyOpen] = useState(false);
   const [surveyBefore, setSurveyBefore] = useState(0);
   const [surveyNow, setSurveyNow] = useState(0);
@@ -804,7 +811,7 @@ export default function Home() {
       });
     });
     setReplaying(false);
-    setView("memory");
+    openSpace("library");
   };
 
   /** One more desire added from inside the app: it keeps her name and way of being accompanied. */
@@ -947,6 +954,8 @@ export default function Home() {
     });
     const data = await response.json() as AIResponse;
     void refreshBetaStatus();
+    void refreshMember();
+    if (data.error === "MEMBERSHIP_LIMIT" || data.error === "MEMBERSHIP_SIGN_IN_REQUIRED") setMemberGate(data.error);
     if (!response.ok || !data.reply) throw new Error(data.message || data.error || "AI_REQUEST_FAILED");
     setAiConnected(data.model !== "desire-preserving-safety-route" ? true : aiConnected);
     if (data.journeySummary) {
@@ -1086,6 +1095,18 @@ export default function Home() {
   const removeBelief = (text: string) => {
     setGoal((current) => ({ ...current, beliefs: { ...current.beliefs, [lang]: (current.beliefs[lang] || []).filter((item) => item !== text) } }));
     setBeliefDraft((current) => parseBeliefs(current).filter((item) => item !== text).join("\n"));
+  };
+
+  /** A thought added in 背景与念头 is kept right away, like turning or deleting one. */
+  const addBelief = () => {
+    const text = beliefInput.trim();
+    if (!text) return;
+    const current = parseBeliefs(beliefDraft);
+    setBeliefInput("");
+    if (current.length >= MAX_BELIEFS || current.some((item) => sameBelief(item, text))) return;
+    const next = [...current, text];
+    setBeliefDraft(next.join("\n"));
+    setGoal((value) => ({ ...value, beliefs: { ...value.beliefs, [lang]: next } }));
   };
 
   /** Send a recorded thought into the rewrite studio; accepting the new version retires the old thought. */
@@ -1255,28 +1276,34 @@ export default function Home() {
     setLang(next);
   };
 
+  /** Same shape as ChatGPT's export: a .zip with index.html (read and search it in a browser) and the raw data as JSON. */
   const exportMyData = () => {
-    const exportData = {
-      exportedAt: new Date().toISOString(),
-      version: 1,
-      language: lang,
-      activeGoal: goal,
-      otherGoals,
+    const exportedAt = new Date();
+    const zip = buildExportZip({
+      lang,
+      exportedAt,
+      current: goal,
+      others: otherGoals,
+      archived: goalArchive,
       profile,
-      archivedGoals: goalArchive,
       stories: storyLibrary,
-      acceptedRevisions: revisions,
-      visionItems: board.map(({ image, ...item }) => ({ ...item, imageStored: Boolean(image) })),
+      revisions,
       checkIns,
-      conversations: [{ id: conversationId, title: conversationTitle(messages, lang), createdAt: new Date().toISOString(), messages }, ...conversationArchive],
-    };
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
-    const href = URL.createObjectURL(blob);
+      board,
+      conversations: [{ id: conversationId, title: conversationTitle(messages, lang), createdAt: exportedAt.toISOString(), goalId: goal.id, messages }, ...conversationArchive],
+      labels: {
+        category: (id) => { const item = wishCategories.find((entry) => entry.id === id); return item ? item[lang] : ""; },
+        coachMode: (id) => { const item = coachModes.find((entry) => entry.id === id); return item ? item[lang] : ""; },
+        memoryKind: (id) => { const item = memoryKinds.find((entry) => entry.id === id); return item ? item[lang] : ""; },
+        intensity: (value) => intensityLabels[lang][Math.min(5, Math.max(1, Math.round(value))) - 1] || "",
+      },
+    });
+    const href = URL.createObjectURL(new Blob([zip], { type: "application/zip" }));
     const anchor = document.createElement("a");
     anchor.href = href;
-    anchor.download = `already-my-space-${new Date().toISOString().slice(0, 10)}.json`;
+    anchor.download = exportFileName(exportedAt);
     anchor.click();
-    URL.revokeObjectURL(href);
+    window.setTimeout(() => URL.revokeObjectURL(href), 10_000);
   };
 
   const archiveAndBeginAgain = () => {
@@ -1408,11 +1435,6 @@ export default function Home() {
     else setOtherGoals((items) => items.map((item) => item.id === id ? { ...item, intensity: value } : item));
   };
 
-  const setReflectionAnswer = (id: string, question: ReflectionQuestionId, text: string) => {
-    const apply = (item: GoalProfile): GoalProfile => ({ ...item, reflection: { ...(item.reflection || {}), [question]: text } });
-    if (id === goal.id) setGoal(apply);
-    else setOtherGoals((items) => items.map((item) => item.id === id ? apply(item) : item));
-  };
 
   const sortedGoals = [goal, ...otherGoals].filter((item) => item.setupComplete).sort((a, b) => b.intensity - a.intensity);
 
@@ -1470,7 +1492,13 @@ export default function Home() {
   const openSpace = (section?: SpaceSection) => {
     setSettingsSection(section ?? (typeof window !== "undefined" && window.matchMedia("(min-width: 1000px)").matches ? "wishes" : null));
     setView("settings");
+    scrollSpaceToTop();
   };
+  /** A newly opened section starts at its title (and its back arrow on a phone), not wherever the list was scrolled to. */
+  const scrollSpaceToTop = () => window.requestAnimationFrame(() => {
+    window.scrollTo({ top: 0 });
+    document.querySelector(".app-stage")?.scrollTo({ top: 0 });
+  });
 
   return (
     <>
@@ -1502,7 +1530,7 @@ export default function Home() {
           })}
         </nav>
         <div className="rail-footer">
-          <button className={`rail-menu-button${view === "settings" || view === "memory" ? " active" : ""}`} onClick={() => openSpace()}><span className="rail-avatar"><UserCircle size={18}/></span><span>{goal.companionName || (lang === "zh" ? "我的空间" : "My space")}</span></button>
+          <button className={`rail-menu-button${view === "settings" ? " active" : ""}`} onClick={() => openSpace()}><span className="rail-avatar"><UserCircle size={18}/></span><span>{goal.companionName || (lang === "zh" ? "我的空间" : "My space")}</span></button>
         </div>
       </aside>
 
@@ -1529,7 +1557,7 @@ export default function Home() {
           {isTyping && <div className="message ai typing"><i/><i/><i/></div>}
         </div>
         {aiError && <div className="ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
-        <div className={`composer home-composer ${sessionMessages.length ? "is-active" : "is-empty"}`}>{showJump && sessionMessages.length > 0 && <button type="button" className="scroll-bottom-button" onClick={() => scrollChatToBottom(true)} aria-label={lang === "zh" ? "回到最新消息" : "Jump to the latest message"}><ArrowDown size={18} weight="bold"/></button>}<details className="coach-model-menu composer-plus" onToggle={(event) => { if (!event.currentTarget.open) setPlusSection(null); }}><summary aria-label={lang === "zh" ? "更多选项" : "More options"}><Plus size={20}/></summary><div className="coach-model-popover plus-sections"><button type="button" className={`plus-section-head${plusSection === "goal" ? " open" : ""}`} aria-expanded={plusSection === "goal"} onClick={() => setPlusSection((current) => current === "goal" ? null : "goal")}><span><small>{lang === "zh" ? "现在聊哪个愿望" : "Which desire now"}</small><strong>{goalTitle(goal, lang)}</strong></span><CaretDown size={16}/></button>{plusSection === "goal" && goalMenuItems}<button type="button" className={`plus-section-head${plusSection === "coach" ? " open" : ""}`} aria-expanded={plusSection === "coach"} onClick={() => setPlusSection((current) => current === "coach" ? null : "coach")}><span><small>{lang === "zh" ? "引导方式" : "Guidance method"}</small><strong>{lang === "zh" ? coachModes.find((coach) => coach.id === goal.coachMode)?.zh : coachModes.find((coach) => coach.id === goal.coachMode)?.en}</strong></span><CaretDown size={16}/></button>{plusSection === "coach" && coachMenuItems}</div></details><div className="composer-main"><textarea ref={chatInputRef} rows={1} value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={onChatKey} placeholder={t.chatPlaceholder} aria-label={t.chatPlaceholder}/></div><button className="composer-send" onClick={() => isTyping ? requestControllerRef.current?.abort() : sendChat()} aria-label={isTyping ? (lang === "zh" ? "停止生成" : "Stop generating") : t.send}>{isTyping ? <StopCircle size={20}/> : <><span className="send-up">↑</span><ArrowElbowDownLeft className="send-return" size={20}/></>}</button><AiNote lang={lang} /></div>
+        <div className={`composer home-composer ${sessionMessages.length ? "is-active" : "is-empty"}`}><UsageBanner lang={lang} member={member} gate={memberGate} onOpen={() => openSpace("membership")} />{showJump && sessionMessages.length > 0 && <button type="button" className="scroll-bottom-button" onClick={() => scrollChatToBottom(true)} aria-label={lang === "zh" ? "回到最新消息" : "Jump to the latest message"}><ArrowDown size={18} weight="bold"/></button>}<details className="coach-model-menu composer-plus" onToggle={(event) => { if (!event.currentTarget.open) setPlusSection(null); }}><summary aria-label={lang === "zh" ? "更多选项" : "More options"}><Plus size={20}/></summary><div className="coach-model-popover plus-sections"><button type="button" className={`plus-section-head${plusSection === "goal" ? " open" : ""}`} aria-expanded={plusSection === "goal"} onClick={() => setPlusSection((current) => current === "goal" ? null : "goal")}><span><small>{lang === "zh" ? "现在聊哪个愿望" : "Which desire now"}</small><strong>{goalTitle(goal, lang)}</strong></span><CaretDown size={16}/></button>{plusSection === "goal" && goalMenuItems}<button type="button" className={`plus-section-head${plusSection === "coach" ? " open" : ""}`} aria-expanded={plusSection === "coach"} onClick={() => setPlusSection((current) => current === "coach" ? null : "coach")}><span><small>{lang === "zh" ? "引导方式" : "Guidance method"}</small><strong>{lang === "zh" ? coachModes.find((coach) => coach.id === goal.coachMode)?.zh : coachModes.find((coach) => coach.id === goal.coachMode)?.en}</strong></span><CaretDown size={16}/></button>{plusSection === "coach" && coachMenuItems}</div></details><div className="composer-main"><textarea ref={chatInputRef} rows={1} value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={onChatKey} placeholder={t.chatPlaceholder} aria-label={t.chatPlaceholder}/></div><UsageMeter lang={lang} member={member} onOpen={() => openSpace("membership")} /><button className="composer-send" onClick={() => isTyping ? requestControllerRef.current?.abort() : sendChat()} aria-label={isTyping ? (lang === "zh" ? "停止生成" : "Stop generating") : t.send}>{isTyping ? <StopCircle size={20}/> : <><span className="send-up">↑</span><ArrowElbowDownLeft className="send-return" size={20}/></>}</button><AiNote lang={lang} /></div>
       </section>}
 
       {view === "subliminal" && !studioOpen && <Dreamscape
@@ -1552,22 +1580,7 @@ export default function Home() {
         <SubliminalStudio lang={lang} desire={goal.desire[lang]} focusText={goal.acceptedSceneLedger[lang][0]} checkIns={checkIns} onCheckIn={recordCheckIn}/>
       </>}
 
-      {view === "memory" && <section className="full-view memory-view">
-        <div className="memory-heading"><div className="view-heading"><p className="eyebrow">{lang === "zh" ? "记忆库" : "ALREADOUGH MEMORY"}</p><h1>{lang === "zh" ? "被记住，也由你掌控" : "Remembered, on your terms"}</h1><p>{lang === "zh" ? "AlreaDough 会从对话中提炼长期有用的内容，每次只取回与眼前话题相关的少量记忆。你可以修改、置顶或删除任何一条。" : "AlreaDough distills durable context from conversations and retrieves only a small relevant set for each message. You can edit, pin, or delete anything."}</p></div>{currentMemoryItems.length > 0 && <button className="primary memory-add" onClick={() => openMemoryEditor()}><Plus size={18}/>{lang === "zh" ? "添加记忆" : "Add memory"}</button>}</div>
-        <div className="memory-overview"><article><span>{lang === "zh" ? "当前愿望卡" : "ACTIVE DESIRE CARD"}</span><p>{goal.desire[lang]}</p><small>{lang === "zh" ? "每次对话都会携带" : "Included in every conversation"}</small></article><article><span>{goal.wishCategory === "relationship" ? (lang === "zh" ? "显化对象" : "MANIFESTATION PERSON") : (lang === "zh" ? "愿望焦点" : "DESIRE FOCUS")}</span><p>{goal.spName || (lang === "zh" ? "未设置" : "Not set")}</p><small>{lang === "zh" ? `${goal.memoryItems[lang].length} 条长期记忆` : `${goal.memoryItems[lang].length} durable memories`}</small></article></div>
-        <div className="memory-filter" role="group" aria-label={lang === "zh" ? "筛选记忆" : "Filter memories"}><button className={memoryFilter === "all" ? "active" : ""} onClick={() => setMemoryFilter("all")}>{lang === "zh" ? "全部" : "All"}<small>{goal.memoryItems[lang].length}</small></button>{memoryKinds.map((kind) => <button key={kind.id} className={memoryFilter === kind.id ? "active" : ""} onClick={() => setMemoryFilter(kind.id)}>{lang === "zh" ? kind.zh : kind.en}<small>{goal.memoryItems[lang].filter((item) => item.kind === kind.id).length}</small></button>)}</div>
-        <div className="memory-items">
-          {filteredMemoryItems.length ? filteredMemoryItems.map((item) => <article key={item.id} className={item.pinned ? "pinned" : ""}><header><span>{lang === "zh" ? memoryKinds.find((kind) => kind.id === item.kind)?.zh : memoryKinds.find((kind) => kind.id === item.kind)?.en}</span><div><button onClick={() => toggleMemoryPin(item.id)} aria-label={item.pinned ? (lang === "zh" ? "取消置顶" : "Unpin") : (lang === "zh" ? "置顶" : "Pin")}>{item.pinned ? "●" : "○"}</button><button onClick={() => openMemoryEditor(item)} aria-label={lang === "zh" ? "编辑记忆" : "Edit memory"}><PencilSimple size={16}/></button><button onClick={() => deleteMemoryItem(item.id)} aria-label={lang === "zh" ? "删除记忆" : "Delete memory"}><Trash size={16}/></button></div></header><h3>{item.title}</h3><p>{item.detail}</p>{item.keywords.length > 0 && <footer>{item.keywords.map((keyword) => <small key={keyword}>{keyword}</small>)}</footer>}</article>) : currentMemoryItems.length === 0 ? <div className="memory-empty"><Brain size={28}/><h3>{lang === "zh" ? "这里会慢慢长出你的上下文" : "Your context will grow here"}</h3><p>{lang === "zh" ? "继续聊天，AlreaDough 会建议值得记住的内容；你也可以亲手添加第一条。" : "Keep talking and AlreaDough will suggest durable memories, or add the first one yourself."}</p><button className="outline-button" onClick={() => openMemoryEditor()}>{lang === "zh" ? "添加第一条记忆" : "Add the first memory"}</button></div> : <div className="memory-empty memory-filter-empty"><Brain size={28}/><h3>{lang === "zh" ? "这一类还没有记忆" : "No memories in this category yet"}</h3><p>{lang === "zh" ? "换一个分类，或回到全部记忆。" : "Choose another category or return to all memories."}</p><button className="outline-button" onClick={() => setMemoryFilter("all")}>{lang === "zh" ? "查看全部记忆" : "View all memories"}</button></div>}
-        </div>
-        <div className="memory-library-grid">
-          <article className="belief-card"><header><strong>{lang === "zh" ? "想换掉的念头" : "THOUGHTS TO TURN AROUND"}</strong><small>{goal.beliefs[lang].length}</small></header>{goal.beliefs[lang].length ? <details className="belief-turn-list"><summary>{lang === "zh" ? "展开，选一句来转念" : "Open and pick one to turn around"}</summary><ul>{goal.beliefs[lang].map((item, index) => <li key={`${index}-${item}`}><span>{item}</span><span className="belief-actions"><button type="button" onClick={() => turnBelief(item)}>{lang === "zh" ? "转念" : "Turn it"}</button><button type="button" aria-label={lang === "zh" ? "删除这一条" : "Delete this one"} onClick={() => removeBelief(item)}>{lang === "zh" ? "删除" : "Delete"}</button></span></li>)}</ul></details> : <p>{lang === "zh" ? "还没有想换掉的念头" : "Nothing to turn around yet"}</p>}</article>
-          <article><header><strong>{lang === "zh" ? "回应偏好" : "RESPONSE PREFERENCES"}</strong><small>{goal.responsePreferences[lang].length}</small></header><ul>{goal.responsePreferences[lang].map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul></article>
-          <article><header><strong>{lang === "zh" ? "已接纳的新场景" : "ACCEPTED SCENES"}</strong><small>{goal.acceptedSceneLedger[lang].length}</small></header>{goal.acceptedSceneLedger[lang].length ? <ul>{goal.acceptedSceneLedger[lang].map((item, index) => <li key={`${index}-${item.slice(0, 24)}`}>{item}</li>)}</ul> : <p>{lang === "zh" ? "在故事或重写中接纳的场景会出现在这里。" : "Scenes accepted from Stories or Revision will appear here."}</p>}</article>
-          <article className="journey-memory"><header><strong>{lang === "zh" ? "旅程摘要" : "JOURNEY SUMMARY"}</strong><small>{lang === "zh" ? "自动压缩" : "AUTO-COMPRESSED"}</small></header><p>{goal.journeySummary[lang] || (lang === "zh" ? "对话开始后，这里会形成一段简短摘要。" : "A short summary will form here after conversations begin.")}</p></article>
-        </div>
-        <div className="memory-actions"><button className="outline-button" onClick={() => openSpace("wishes")}>{lang === "zh" ? "编辑愿望与偏好" : "Edit desire and preferences"}</button><button className="primary" onClick={() => setView("home")}>{lang === "zh" ? "回到对话" : "Back to chat"}</button></div>
-        {memoryEditorOpen && <div className="memory-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setMemoryEditorOpen(false); }}><section className="memory-modal" role="dialog" aria-modal="true" aria-labelledby="memory-editor-title"><header><div><p className="eyebrow">{lang === "zh" ? "由你决定保留什么" : "YOU CHOOSE WHAT STAYS"}</p><h2 id="memory-editor-title">{memoryEditingId ? (lang === "zh" ? "编辑这条记忆" : "Edit this memory") : (lang === "zh" ? "添加一条记忆" : "Add a memory")}</h2></div><button onClick={() => setMemoryEditorOpen(false)} aria-label={lang === "zh" ? "关闭" : "Close"}>×</button></header><label><span>{lang === "zh" ? "类型" : "TYPE"}</span><select value={memoryDraft.kind} onChange={(event) => setMemoryDraft((current) => ({ ...current, kind: event.target.value as MemoryKind }))}>{memoryKinds.map((kind) => <option key={kind.id} value={kind.id}>{lang === "zh" ? kind.zh : kind.en}</option>)}</select></label><label><span>{lang === "zh" ? "标题" : "TITLE"}</span><input maxLength={80} value={memoryDraft.title} onChange={(event) => setMemoryDraft((current) => ({ ...current, title: event.target.value }))} placeholder={lang === "zh" ? "例如：我喜欢先被理解" : "For example: Meet the feeling first"}/></label><label><span>{lang === "zh" ? "具体内容" : "DETAIL"}</span><textarea maxLength={600} value={memoryDraft.detail} onChange={(event) => setMemoryDraft((current) => ({ ...current, detail: event.target.value }))} placeholder={lang === "zh" ? "写下以后对话中仍然有用的语境。" : "Write the context that will still matter later."}/></label><label><span>{lang === "zh" ? "检索词" : "KEYWORDS"}</span><input value={memoryDraft.keywords} onChange={(event) => setMemoryDraft((current) => ({ ...current, keywords: event.target.value }))} placeholder={lang === "zh" ? "用逗号分隔，最多 5 个" : "Comma-separated, up to 5"}/></label><footer><button className="outline-button" onClick={() => setMemoryEditorOpen(false)}>{lang === "zh" ? "取消" : "Cancel"}</button><button className="primary" disabled={!memoryDraft.title.trim() || !memoryDraft.detail.trim()} onClick={saveMemoryItem}>{lang === "zh" ? "保存到记忆库" : "Save to memory"}</button></footer></section></div>}
-      </section>}
+      {memoryEditorOpen && <div className="memory-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setMemoryEditorOpen(false); }}><section className="memory-modal" role="dialog" aria-modal="true" aria-labelledby="memory-editor-title"><header><div><p className="eyebrow">{lang === "zh" ? "由你决定保留什么" : "YOU CHOOSE WHAT STAYS"}</p><h2 id="memory-editor-title">{memoryEditingId ? (lang === "zh" ? "编辑这条记忆" : "Edit this memory") : (lang === "zh" ? "添加一条记忆" : "Add a memory")}</h2></div><button onClick={() => setMemoryEditorOpen(false)} aria-label={lang === "zh" ? "关闭" : "Close"}>×</button></header><label><span>{lang === "zh" ? "类型" : "TYPE"}</span><select value={memoryDraft.kind} onChange={(event) => setMemoryDraft((current) => ({ ...current, kind: event.target.value as MemoryKind }))}>{memoryKinds.map((kind) => <option key={kind.id} value={kind.id}>{lang === "zh" ? kind.zh : kind.en}</option>)}</select></label><label><span>{lang === "zh" ? "标题" : "TITLE"}</span><input maxLength={80} value={memoryDraft.title} onChange={(event) => setMemoryDraft((current) => ({ ...current, title: event.target.value }))} placeholder={lang === "zh" ? "例如：我喜欢先被理解" : "For example: Meet the feeling first"}/></label><label><span>{lang === "zh" ? "具体内容" : "DETAIL"}</span><textarea maxLength={600} value={memoryDraft.detail} onChange={(event) => setMemoryDraft((current) => ({ ...current, detail: event.target.value }))} placeholder={lang === "zh" ? "写下以后对话中仍然有用的语境。" : "Write the context that will still matter later."}/></label><label><span>{lang === "zh" ? "检索词" : "KEYWORDS"}</span><input value={memoryDraft.keywords} onChange={(event) => setMemoryDraft((current) => ({ ...current, keywords: event.target.value }))} placeholder={lang === "zh" ? "用逗号分隔，最多 5 个" : "Comma-separated, up to 5"}/></label><footer><button className="outline-button" onClick={() => setMemoryEditorOpen(false)}>{lang === "zh" ? "取消" : "Cancel"}</button><button className="primary" disabled={!memoryDraft.title.trim() || !memoryDraft.detail.trim()} onClick={saveMemoryItem}>{lang === "zh" ? "保存到记忆库" : "Save to memory"}</button></footer></section></div>}
 
 
       {view === "story" && !storyReading && <section className="full-view story-library-view">
@@ -1620,28 +1633,29 @@ export default function Home() {
       {view === "settings" && (() => {
         const shown: SpaceSection = settingsSection ?? "wishes";
         const zhText = lang === "zh";
-        const titles: Record<SpaceSection, string> = { wishes: zhText ? "我的愿望" : "My desires", about: zhText ? "关于我" : "About me", companion: zhText ? "引导方式" : "Guidance method", reflect: zhText ? "自我觉察" : "Self-reflection", memory: zhText ? "背景与念头" : "Background and thoughts", look: zhText ? "外观与语言" : "Look and language", sync: zhText ? "同步与数据" : "Sync and data", help: zhText ? "帮助与条款" : "Help and terms" };
+        const titles: Record<SpaceSection, string> = { wishes: zhText ? "我的愿望" : "My desires", about: zhText ? "关于我" : "About me", companion: zhText ? "引导方式" : "Guidance method", library: zhText ? "记忆库" : "Memory library", memory: zhText ? "背景与念头" : "Background and thoughts", membership: zhText ? "会员与用量" : "Membership and usage", pet: zhText ? "下载桌宠" : "Desktop pet", look: zhText ? "外观与语言" : "Look and language", sync: zhText ? "同步与数据" : "Sync and data", help: zhText ? "帮助与条款" : "Help and terms" };
         return <section className="full-view settings-view space">
           <div className={`space-layout${settingsSection ? " has-detail" : ""}`}>
             <SpaceNav
               title={zhText ? "我的空间" : "My space"}
               intro={zhText ? "愿望、记忆和设置都在这里。" : "Your desires, memory and settings live here."}
               active={settingsSection}
-              onSelect={(id) => id === "library" ? setView("memory") : id === "membership" ? window.location.assign(zhText ? "/pricing" : "/en/pricing") : setSettingsSection(id as SpaceSection)}
+              onSelect={(id) => { setSettingsSection(id as SpaceSection); scrollSpaceToTop(); }}
               groups={[
                 { title: zhText ? "我" : "Me", rows: [
                   { id: "wishes", label: titles.wishes, value: String(sortedGoals.length) },
                   { id: "about", label: titles.about },
                   { id: "companion", label: titles.companion },
-                  { id: "reflect", label: titles.reflect },
                 ] },
                 { title: zhText ? "记忆" : "Memory", rows: [
-                  { id: "library", label: zhText ? "记忆库" : "Memory library", value: String(currentMemoryItems.length) },
+                  { id: "library", label: titles.library, value: String(currentMemoryItems.length) },
                   { id: "memory", label: titles.memory },
                 ] },
                 { title: zhText ? "应用" : "App", rows: [
                   // The iPhone app must not link to web checkout (App Store rules).
-                  ...(Capacitor.isNativePlatform() ? [] : [{ id: "membership", label: zhText ? "会员与用量" : "Membership and usage" }]),
+                  ...(Capacitor.isNativePlatform() ? [] : [{ id: "membership", label: titles.membership, value: memberPlanLabel(member, lang) }]),
+                  // a desktop pet is for computers; the phone app already has the dough on its home screen
+                  ...(Capacitor.isNativePlatform() ? [] : [{ id: "pet", label: titles.pet }]),
                   { id: "look", label: titles.look, value: dark ? (zhText ? "深色" : "Dark") : (zhText ? "浅色" : "Light") },
                   { id: "sync", label: titles.sync },
                   { id: "help", label: titles.help },
@@ -1651,7 +1665,6 @@ export default function Home() {
             <div className="space-detail">
               <header className="space-detail-head"><button type="button" className="space-back" onClick={() => setSettingsSection(null)} aria-label={zhText ? "返回我的空间" : "Back to My space"}><ArrowLeft size={22}/></button><h2>{titles[shown]}</h2></header>
               {shown === "wishes" && <div className="settings-section">
-                <div className="goal-status"><label><span>{t.activeGoal}</span><select value={goal.status} onChange={(event) => setGoal((current) => ({ ...current, status: event.target.value as GoalStatus }))}><option value="active">{lang === "zh" ? "正在练习" : "Active"}</option><option value="embodiment">{lang === "zh" ? "稳定进入" : "Embodying"}</option><option value="fulfilled">{lang === "zh" ? "已经发生" : "Already happened"}</option><option value="paused">{lang === "zh" ? "暂时休息" : "Paused"}</option></select></label><small>{lang === "zh" ? "每次对话只加载当前选中的这一张愿望卡" : "Only the selected desire card is loaded into each conversation"}</small></div>
                 <div className="setting-card goal-list-card"><label>{lang === "zh" ? "我的愿望" : "MY DESIRES"}</label><p>{lang === "zh" ? "按想要的程度排序。每个愿望有自己的记忆和对话。" : "Sorted by how much you want each one. Each desire has its own memory and conversations."}</p>{sortedGoals.map((item) => <div key={item.id} className={`goal-row ${item.id === goal.id ? "current" : ""}`}><div><strong>{goalTitle(item, lang)}</strong><small>{lang === "zh" ? wishCategories.find((entry) => entry.id === item.wishCategory)?.zh : wishCategories.find((entry) => entry.id === item.wishCategory)?.en}{item.id === goal.id ? (lang === "zh" ? " · 当前" : " · Current") : ""}</small></div><select aria-label={lang === "zh" ? "想要的程度" : "How much you want it"} value={item.intensity} onChange={(event) => setGoalIntensity(item.id, Number(event.target.value))}>{intensityLabels[lang].map((label, index) => <option key={label} value={index + 1}>{label}</option>)}</select>{item.id !== goal.id && <><button className="outline-button" onClick={() => switchGoal(item.id)}>{lang === "zh" ? "切换" : "Open"}</button><button className="outline-button" aria-label={lang === "zh" ? "删除愿望" : "Delete desire"} onClick={() => deleteOtherGoal(item.id)}><Trash size={16}/></button></>}</div>)}<button className="outline-button" onClick={addGoal}><Plus size={16}/> {lang === "zh" ? "添加愿望" : "Add a desire"}</button></div>
                 <div className="setting-card editable-card"><label>{lang === "zh" ? "我喜欢的称呼" : "WHAT ALREADOUGH CALLS ME"}</label><input value={goal.companionName} onChange={(event) => setGoal((current) => ({ ...current, companionName: event.target.value }))}/></div>
                 <div className="setting-card editable-card"><label>{lang === "zh" ? "愿望方向" : "DESIRE CATEGORY"}</label><div className="option-card-grid category-grid">{wishCategories.map((category) => <button key={category.id} className={goal.wishCategory === category.id ? "selected" : ""} onClick={() => setGoal((current) => ({ ...current, wishCategory: category.id }))}><strong>{lang === "zh" ? category.zh : category.en}</strong><small>{lang === "zh" ? category.zhDescription : category.enDescription}</small></button>)}</div></div>
@@ -1663,15 +1676,23 @@ export default function Home() {
               {shown === "about" && <ProfilePanel lang={lang} profile={profile} onChange={(next) => setProfile(normalizeProfile(next))} />}
               {shown === "companion" && <div className="settings-section">
                 <div className="setting-card editable-card"><label>{lang === "zh" ? "引导方式" : "GUIDANCE METHOD"}</label><div className="option-card-grid coach-settings-grid">{coachModes.map((coach) => <button key={coach.id} className={goal.coachMode === coach.id ? "selected" : ""} onClick={() => setGoal((current) => ({ ...current, coachMode: coach.id }))}><strong>{lang === "zh" ? coach.zh : coach.en}</strong><small>{lang === "zh" ? coach.zhDescription : coach.enDescription}</small></button>)}</div></div>
-                <div className="setting-card pet-card"><span>{lang === "zh" ? "桌面小面团（Mac）" : "DESKTOP DOUGH (MAC)"}</span><p>{lang === "zh" ? "让面团住在你的电脑桌面上：它会呼吸，轻点会弹一下，拉一拉会拉长再弹回去，连点三下会开一场醒发派对。没有打卡，也不打扰你。" : "Let the dough live on your Mac desktop. It breathes, bounces when you tap it, stretches when you pull it, and throws a proofing party on three quick taps. No check-ins, no interruptions."}</p><a className="primary pet-download" href="/downloads/AlreaDough-Pet-mac.zip" download>{lang === "zh" ? "下载 Mac 桌宠" : "Download for Mac"}</a><ol><li>{lang === "zh" ? "解压后，把「AlreaDough Pet」拖进「应用程序」文件夹。" : "Unzip it and drag “AlreaDough Pet” into your Applications folder."}</li><li>{lang === "zh" ? "第一次打开如果提示无法验证开发者：到「系统设置 → 隐私与安全性」，点「仍要打开」。" : "If macOS says it cannot verify the developer: System Settings → Privacy & Security → Open Anyway."}</li><li>{lang === "zh" ? "拉一拉面团会拉长；拉得够远它就会挣脱，跟着你走，放在屏幕任何地方都行。右键可以换大小、放回右下角或退出。" : "Pull the dough and it stretches; pull far enough and it breaks free and follows you, so you can leave it anywhere on screen. Right-click for size, to send it back to the corner, or to quit."}</li></ol><small>{lang === "zh" ? "仅限 Mac 电脑，手机上请直接使用 AlreaDough。" : "Mac only. On a phone, just use AlreaDough."}</small></div>
               </div>}
-              {shown === "reflect" && <ReflectionPanel lang={lang} currentGoalId={goal.id} goals={sortedGoals.map((item) => ({ id: item.id, title: goalTitle(item, lang), reflection: item.reflection || {} }))} onChange={setReflectionAnswer} />}
               {shown === "memory" && <div className="settings-section">
                 <div className="setting-card editable-card"><label>{lang === "zh" ? "我的背景与处境" : "MY CONTEXT"}</label><textarea maxLength={MAX_BACKGROUND} value={goal.background[lang]} onChange={(event) => setGoal((current) => ({ ...current, background: { ...current.background, [lang]: event.target.value } }))}/><div className="field-counter"><span>{goal.background[lang].length} / {MAX_BACKGROUND}</span></div></div>
-                <div className="setting-card editable-card"><label>{lang === "zh" ? "想换掉的念头" : "THOUGHTS TO TURN AROUND"}</label><textarea aria-invalid={beliefCount > MAX_BELIEFS} value={beliefDraft} onChange={(event) => setBeliefDraft(event.target.value)} placeholder={lang === "zh" ? `最多 ${MAX_BELIEFS} 条` : `Up to ${MAX_BELIEFS}`}/><div className={`field-counter ${beliefCount > MAX_BELIEFS ? "over" : ""}`}><span>{beliefCount} / {MAX_BELIEFS}</span></div></div>
-                <div className="setting-card memory-card"><span>{t.memory}</span><p>{goal.journeySummary[lang] || (lang === "zh" ? "对话开始后，这里会形成简短摘要。" : "A short summary will form after conversations begin.")}</p><small>{lang === "zh" ? "每次回复后自动压缩更新，不重复发送全部历史。" : "Compressed after each response, so the full history is never resent."}</small></div>
-                <button className="outline-button" onClick={() => setView("memory")}>{lang === "zh" ? "打开完整记忆库" : "Open full memory library"}</button>
+                <div className="setting-card belief-editor"><label>{lang === "zh" ? "想换掉的念头" : "THOUGHTS TO TURN AROUND"}</label><p className="setting-hint">{lang === "zh" ? "反复冒出来、想换掉的旧念头。点「转念」会带去重写，写好新版本后，这一句就从这里拿掉。" : "Old thoughts that keep coming back. Tap Turn it to take one into Revision; once you accept the new version, it leaves this list."}</p>{parseBeliefs(beliefDraft).length ? <ul className="belief-rows">{parseBeliefs(beliefDraft).map((item, index) => <li key={`${index}-${item}`}><span>{item}</span><button type="button" className="belief-turn" onClick={() => turnBelief(item)}>{lang === "zh" ? "转念" : "Turn it"}</button><button type="button" className="belief-remove" aria-label={lang === "zh" ? `删除：${item}` : `Delete: ${item}`} onClick={() => removeBelief(item)}><Trash size={16}/></button></li>)}</ul> : <p className="setting-empty">{lang === "zh" ? "还没有写下想换掉的念头。" : "Nothing written here yet."}</p>}{beliefCount < MAX_BELIEFS && <div className="belief-add"><input value={beliefInput} maxLength={200} onChange={(event) => setBeliefInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); addBelief(); } }} placeholder={lang === "zh" ? "再写一句" : "Add one more"} aria-label={lang === "zh" ? "添加一个想换掉的念头" : "Add a thought to turn around"}/><button type="button" className="outline-button" disabled={!beliefInput.trim()} onClick={addBelief}><Plus size={16}/>{lang === "zh" ? "添加" : "Add"}</button></div>}<div className={`field-counter ${beliefCount > MAX_BELIEFS ? "over" : ""}`}><span>{beliefCount} / {MAX_BELIEFS}</span></div></div>
               </div>}
+              {shown === "library" && <div className="settings-section library-section">
+                <div className="setting-card library-intro"><p>{lang === "zh" ? "AlreaDough 会从对话里记下以后还用得上的事，每次只取回和眼前话题有关的几条。每一条都可以改、置顶或删掉。" : "AlreaDough keeps what will still matter from your conversations and brings back only the few that fit what you are talking about. You can edit, pin, or delete any of them."}</p><button type="button" className="outline-button library-add" onClick={() => openMemoryEditor()}><Plus size={16}/>{lang === "zh" ? "添加记忆" : "Add memory"}</button></div>
+                <div className="setting-card library-memories"><label>{lang === "zh" ? `记住的事 · ${currentMemoryItems.length}` : `REMEMBERED · ${currentMemoryItems.length}`}</label>
+                  {currentMemoryItems.length > 0 && <div className="memory-filter" role="group" aria-label={lang === "zh" ? "筛选记忆" : "Filter memories"}><button type="button" className={memoryFilter === "all" ? "active" : ""} onClick={() => setMemoryFilter("all")}>{lang === "zh" ? "全部" : "All"}<small>{currentMemoryItems.length}</small></button>{memoryKinds.map((kind) => <button type="button" key={kind.id} className={memoryFilter === kind.id ? "active" : ""} onClick={() => setMemoryFilter(kind.id)}>{lang === "zh" ? kind.zh : kind.en}<small>{currentMemoryItems.filter((item) => item.kind === kind.id).length}</small></button>)}</div>}
+                  {filteredMemoryItems.length ? <ul className="library-items">{filteredMemoryItems.map((item) => <li key={item.id} className={item.pinned ? "pinned" : ""}><div className="library-item-head"><span>{lang === "zh" ? memoryKinds.find((kind) => kind.id === item.kind)?.zh : memoryKinds.find((kind) => kind.id === item.kind)?.en}{item.pinned ? (lang === "zh" ? " · 已置顶" : " · Pinned") : ""}</span><div><button type="button" onClick={() => toggleMemoryPin(item.id)} aria-pressed={item.pinned} aria-label={item.pinned ? (lang === "zh" ? "取消置顶" : "Unpin") : (lang === "zh" ? "置顶" : "Pin")}><PushPin size={16} weight={item.pinned ? "fill" : "regular"}/></button><button type="button" onClick={() => openMemoryEditor(item)} aria-label={lang === "zh" ? "编辑记忆" : "Edit memory"}><PencilSimple size={16}/></button><button type="button" onClick={() => deleteMemoryItem(item.id)} aria-label={lang === "zh" ? "删除记忆" : "Delete memory"}><Trash size={16}/></button></div></div><strong>{item.title}</strong><p>{item.detail}</p>{item.keywords.length > 0 && <footer>{item.keywords.map((keyword) => <small key={keyword}>{keyword}</small>)}</footer>}</li>)}</ul> : currentMemoryItems.length === 0 ? <div className="library-empty"><Brain size={24}/><p>{lang === "zh" ? "继续聊天，值得记住的事会慢慢出现在这里；也可以亲手写下第一条。" : "Keep talking and what is worth keeping will appear here, or write the first one yourself."}</p></div> : <div className="library-empty"><p>{lang === "zh" ? "这一类还没有记忆。" : "Nothing in this category yet."}</p><button type="button" className="outline-button" onClick={() => setMemoryFilter("all")}>{lang === "zh" ? "查看全部" : "View all"}</button></div>}
+                </div>
+                <div className="setting-card"><label>{lang === "zh" ? `已接纳的新场景 · ${goal.acceptedSceneLedger[lang].length}` : `ACCEPTED SCENES · ${goal.acceptedSceneLedger[lang].length}`}</label>{goal.acceptedSceneLedger[lang].length ? <ul className="library-plain-list">{goal.acceptedSceneLedger[lang].map((item, index) => <li key={`${index}-${item.slice(0, 24)}`}>{item}</li>)}</ul> : <p className="setting-empty">{lang === "zh" ? "在故事或重写里接纳的场景会出现在这里。" : "Scenes you accept in Stories or Revision will appear here."}</p>}</div>
+                <div className="setting-card"><label>{lang === "zh" ? "回应偏好" : "RESPONSE PREFERENCES"}</label><ul className="library-plain-list">{goal.responsePreferences[lang].map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul></div>
+                <div className="setting-card memory-card"><label>{t.memory}</label><p>{goal.journeySummary[lang] || (lang === "zh" ? "对话开始后，这里会形成简短摘要。" : "A short summary will form after conversations begin.")}</p><small>{lang === "zh" ? "每次回复后自动压缩更新，不重复发送全部历史。" : "Compressed after each response, so the full history is never resent."}</small></div>
+              </div>}
+              {shown === "membership" && <MembershipPanel lang={lang} member={member} onRefresh={refreshMember} />}
+              {shown === "pet" && <DesktopPetPanel lang={lang} />}
               {shown === "look" && <div className="settings-section">
                 <div className="language-card"><div><span>{lang === "zh" ? "外观" : "APPEARANCE"}</span><strong>{dark ? (lang === "zh" ? "深色" : "Dark") : (lang === "zh" ? "浅色" : "Light")}</strong></div><button onClick={toggleDark}>{dark ? (lang === "zh" ? "切换浅色" : "Use light") : (lang === "zh" ? "切换深色" : "Use dark")}</button></div>
                 <div className="language-card"><div><span>{lang === "zh" ? "界面语言" : "LANGUAGE"}</span><strong>{lang === "zh" ? "简体中文" : "English"}</strong></div><button onClick={switchLanguage}>{lang === "zh" ? "Switch to English" : "切换到中文"}</button></div>
@@ -1681,15 +1702,14 @@ export default function Home() {
                 <div className="setting-card"><span>{lang === "zh" ? "重新走一遍开场" : "RUN THE OPENING AGAIN"}</span><p>{lang === "zh" ? "把开场的问题再填一遍。你填的内容会加进现在的账号，已有的愿望、记忆和对话都不会被删除。" : "Answer the opening questions again. What you write is added to this account; nothing you already have is deleted."}</p><button className="outline-button" onClick={() => setReplaying(true)}>{lang === "zh" ? "开始" : "Start"}</button></div>
                 <div className="setting-card sync-card"><span>{lang === "zh" ? "跨设备同步" : "CROSS-DEVICE SYNC"}</span><p>{syncStatus === "saved" ? (lang === "zh" ? "愿望、记忆、对话、故事和练习记录已安全同步。" : "Your desire, memory, conversations, stories, and practice history are synced.") : (lang === "zh" ? "当前使用本机副本；恢复连接后会自动继续同步。" : "Using the on-device copy. Sync resumes automatically when available.")}</p></div>
                 <SyncPanel lang={lang} sessionId={sessionId} syncStatus={syncStatus} hasLocalData={goal.setupComplete} />
-                <div className="setting-card data-control-card"><span>{lang === "zh" ? "我的数据" : "MY DATA"}</span><p>{lang === "zh" ? "下载愿望卡、故事、对话、重写与打卡记录。私密照片和音频文件不会写入导出文件。" : "Download desire cards, stories, conversations, revisions, and check-ins. Private photo and audio files are excluded."}</p><button className="outline-button" onClick={exportMyData}>{lang === "zh" ? "导出我的数据" : "Export my data"}</button></div>
+                <div className="setting-card data-control-card"><span>{lang === "zh" ? "我的数据" : "MY DATA"}</span><p>{lang === "zh" ? "下载一个压缩包：解压后双击里面的 index.html，就能在浏览器里查看、搜索你的愿望、对话、记忆和故事；原始数据也一起附上（JSON 格式）。私密照片和录音不在里面。" : "Download a .zip: unzip it and open index.html to read and search your desires, conversations, memories and stories in a browser. The raw data comes along as JSON. Private photos and audio are not included."}</p><button className="outline-button" onClick={exportMyData}>{lang === "zh" ? "导出我的数据" : "Export my data"}</button></div>
                 <button className="outline-button danger-button" onClick={() => { if (window.confirm(t.confirm)) { void fetch("/api/space", { method: "DELETE", headers: { "x-already-session-id": sessionId } }); removeStored("already-private-state-v5"); removeStored("already-practice-checkins-v1"); removeStored("already-subliminal-v1"); removeStored("already-vision-project-v1"); indexedDB.deleteDatabase("already-private-audio-v1"); indexedDB.deleteDatabase("already-private-vision-v1"); removeStored("already-opening-v1"); setProfile(emptyProfile); setOtherGoals([]); setGoal({ ...defaultGoal }); setGoalArchive([]); setConversationArchive([]); setConversationId(""); setSpNameDraft(""); setBeliefDraft(""); setStoryLibrary([]); setMessages([]); setRevisions([]); setCheckIns([]); setBoard([]); setView("home"); setOnboardingStep(0); } }}>{t.clear}</button>
               </div>}
               {shown === "help" && <div className="settings-section">
-                <div className="setting-card beta-quota-card"><span>{lang === "zh" ? "AI 对话" : "AI CONVERSATIONS"}</span><p>{betaStatus?.authenticated === false ? (lang === "zh" ? "正在连接这台设备…" : "Connecting this device…") : betaStatus?.enabled === false ? (lang === "zh" ? "AI 暂时不可用，请稍后再试。" : "AI is temporarily unavailable. Please try again shortly.") : (lang === "zh" ? "不限制对话、重写与故事的次数。" : "No limit on chats, revisions, or stories.")}</p></div>
                 <div className="setting-card report-card"><span>{lang === "zh" ? "联系与举报" : "CONTACT & REPORTS"}</span><p>{lang === "zh" ? "发现不当、违法或让你不舒服的内容，可以在这里举报。每条 AI 回复下面也有“举报”按钮。我们会尽快查看。" : "If you see anything inappropriate, unlawful, or upsetting, report it here. Every AI reply also has a Report button. We read these as soon as we can."}</p><button className="outline-button" onClick={() => setReportTarget({})}>{lang === "zh" ? "举报内容或反馈问题" : "Report content or send feedback"}</button><SiteRecord lang={lang} /></div>
                 <div className="legal-links"><a className="trust-link" href="/pricing">{lang === "zh" ? "会员与价格" : "Membership & pricing"}</a><a className="trust-link" href="/trust">{t.trust}</a><a className="trust-link" href="/privacy">{lang === "zh" ? "隐私说明" : "Privacy"}</a><a className="trust-link" href="/terms">{lang === "zh" ? "测试版条款" : "Beta terms"}</a><a className="trust-link" href="/copyright">{lang === "zh" ? "素材与版权" : "Content & copyright"}</a></div>
               </div>}
-              {shown !== "sync" && shown !== "help" && shown !== "look" && <div className="settings-savebar"><span>{syncStatus === "saved" ? <CloudCheck size={18}/> : <FloppyDisk size={18}/>} {syncStatus === "saved" ? (lang === "zh" ? "会自动同步" : "Auto-sync is on") : (lang === "zh" ? "本机副本已保留" : "On-device copy retained")}</span><button className="primary" onClick={saveGoalSettings} disabled={Boolean(spNameError) || beliefCount > MAX_BELIEFS || !goal.companionStyle}>{goalSavedPulse ? t.savedGoal : t.saveGoal}</button></div>}
+              {(shown === "wishes" || shown === "about" || shown === "companion" || shown === "memory") && <div className="settings-savebar"><span>{syncStatus === "saved" ? <CloudCheck size={18}/> : <FloppyDisk size={18}/>} {syncStatus === "saved" ? (lang === "zh" ? "会自动同步" : "Auto-sync is on") : (lang === "zh" ? "本机副本已保留" : "On-device copy retained")}</span><button className="primary" onClick={saveGoalSettings} disabled={Boolean(spNameError) || beliefCount > MAX_BELIEFS || !goal.companionStyle}>{goalSavedPulse ? t.savedGoal : t.saveGoal}</button></div>}
             </div>
           </div>
         </section>;

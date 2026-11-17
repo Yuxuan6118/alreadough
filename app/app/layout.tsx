@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import InstallTip from "../components/InstallTip";
+import LoginGate from "../components/LoginGate";
 import NativeShell from "../components/NativeShell";
 import NoPinchZoom from "../components/NoPinchZoom";
 import OrientationGuard from "../components/OrientationGuard";
@@ -29,7 +30,7 @@ export default function BetaAppLayout({ children }: { children: React.ReactNode 
       <NoPinchZoom />
       <OrientationGuard />
       {process.env.NODE_ENV === "development" && <ViewportDebug />}
-      {children}<InstallTip />
+      <LoginGate>{children}</LoginGate><InstallTip />
     </>
   );
 }

@@ -1,0 +1,73 @@
+/* Membership and usage: bars like other AI apps' plan limits. Tokens only, no new colours. */
+.usage-bars { display: grid; gap: 18px; margin-top: 4px; }
+.usage-bars.compact { gap: 14px; }
+.usage-row-text { display: flex; align-items: baseline; gap: 10px; }
+.usage-row-text span { flex: 1; color: var(--app-ink); font-size: calc(15px * var(--fs, 1)); font-weight: 500; }
+.usage-row-text small { color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); white-space: nowrap; }
+.usage-row-text strong { min-width: 3.2em; color: var(--app-ink); font-size: calc(13px * var(--fs, 1)); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.usage-track { height: 6px; margin-top: 8px; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--app-line) 70%, transparent); }
+.usage-track i { display: block; height: 100%; min-width: 0; border-radius: inherit; background: var(--app-accent); transition: width .4s ease; }
+.usage-row.high .usage-track i { background: color-mix(in srgb, var(--app-accent) 72%, var(--app-ink)); }
+.usage-row.full .usage-row-text strong { color: var(--app-accent); }
+.usage-count { display: block; margin-top: 6px; color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); }
+.usage-bars.compact .usage-row-text span { font-size: calc(14px * var(--fs, 1)); }
+.usage-note { margin: 0 0 14px !important; color: var(--app-muted); font-family: var(--font-body) !important; font-size: calc(13px * var(--fs, 1)); line-height: 1.6 !important; }
+
+/* the ring by the send button */
+.usage-meter { position: relative; flex: none; align-self: flex-end; }
+.usage-meter > summary { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; color: var(--app-muted); cursor: pointer; list-style: none; }
+.usage-meter > summary::-webkit-details-marker { display: none; }
+.usage-meter > summary:hover, .usage-meter[open] > summary { background: color-mix(in srgb, var(--app-accent) 8%, transparent); }
+.usage-ring circle { fill: none; stroke-width: 2.6; }
+.usage-ring circle:first-child { stroke: color-mix(in srgb, var(--app-line) 90%, transparent); }
+.usage-ring circle:last-child { stroke: var(--app-accent); stroke-linecap: round; transition: stroke-dashoffset .4s ease; }
+.usage-meter.high .usage-ring circle:last-child { stroke: color-mix(in srgb, var(--app-accent) 72%, var(--app-ink)); }
+.usage-popover { position: absolute; z-index: 40; right: -48px; bottom: calc(100% + 12px); width: min(340px, calc(100vw - 32px)); padding: 16px 18px 18px; border: 1px solid var(--app-line); border-radius: 16px; background: var(--app-panel); box-shadow: var(--app-shadow), 0 8px 24px rgba(0, 0, 0, .08); }
+.usage-popover header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.usage-popover header span { color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); }
+.usage-popover header button { display: inline-flex; align-items: center; gap: 4px; padding: 4px 0; border: 0; background: transparent; color: var(--app-ink); font-size: calc(13px * var(--fs, 1)); font-weight: 600; }
+
+/* the card above the chat box when she cannot send */
+.usage-banner { position: absolute; left: 0; right: 0; bottom: calc(100% + 12px); z-index: 2; display: flex; align-items: center; gap: 12px; padding: 14px 14px 14px 16px; border: 1px solid var(--app-line); border-radius: 16px; background: var(--app-panel); box-shadow: var(--app-shadow); }
+.usage-banner > svg { flex: none; color: var(--app-accent); }
+.usage-banner > div { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.usage-banner strong { color: var(--app-ink); font-size: calc(15px * var(--fs, 1)); font-weight: 600; }
+.usage-banner span { color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); line-height: 1.5; }
+.composer > .usage-banner .usage-banner-action { flex: none; width: auto; height: auto; min-height: 38px; padding: 0 16px; border: 0; border-radius: 999px; color: var(--app-accent-ink); background: var(--app-accent); font-weight: 600; }
+.composer > .usage-banner .usage-banner-close { flex: none; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; color: var(--app-muted); background: transparent; }
+
+/* the panel in My space */
+.membership-section .member-plan-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
+.membership-section .member-plan-name strong { font-family: var(--font-display); font-size: calc(28px * var(--fs, 1)); font-weight: 400; }
+.membership-section .member-plan-name small { padding: 3px 9px; border-radius: 999px; color: var(--app-accent); background: color-mix(in srgb, var(--app-accent) 10%, transparent); font-size: calc(12px * var(--fs, 1)); }
+.membership-section .member-plan-meta { margin: 8px 0 0; color: var(--app-muted); font-family: var(--font-body) !important; font-size: calc(14px * var(--fs, 1)); }
+.member-upgrade ul { margin: 0; padding: 0; list-style: none; }
+.member-upgrade li { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-top: 1px solid color-mix(in srgb, var(--app-line) 60%, transparent); }
+.member-upgrade li:first-child { border-top: 0; padding-top: 4px; }
+.member-upgrade li > div { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.member-upgrade li strong { display: flex; align-items: baseline; gap: 10px; font-family: var(--font-display); font-size: calc(18px * var(--fs, 1)); font-weight: 500; }
+.member-upgrade li strong span { color: var(--app-muted); font-family: var(--font-body); font-size: calc(13px * var(--fs, 1)); font-weight: 400; }
+.member-upgrade li small { color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); }
+.member-upgrade li.current strong { color: var(--app-accent); }
+.member-upgrade li button { flex: none; width: auto; min-height: 40px; padding: 0 18px; border-radius: 999px; }
+.membership-section .setting-hint a, .usage-link { color: var(--app-accent); }
+.usage-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 10px; font-weight: 600; text-decoration: none; }
+.member-signin input, .member-referral input { max-width: 420px; }
+.member-signin input + input { margin-top: 10px; }
+.member-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 16px; }
+.member-actions .primary { width: auto; min-width: 150px; min-height: 44px; padding: 0 22px; border-radius: 999px; }
+.member-inline { display: flex; align-items: flex-end; gap: 12px; max-width: 460px; }
+.member-inline .outline-button { flex: none; width: auto; min-height: 38px; padding: 0 18px; }
+.member-error { margin: 12px 0 0; color: #a74343; font-size: calc(13px * var(--fs, 1)); }
+.member-notice { margin: 12px 0 0; color: var(--app-accent); font-size: calc(13px * var(--fs, 1)); }
+.settings-view .settings-section > .member-account { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.member-account > span { color: var(--app-muted) !important; font-size: calc(14px * var(--fs, 1)) !important; font-weight: 400 !important; letter-spacing: 0 !important; }
+.text-button { width: auto; padding: 6px 0; border: 0; background: transparent; color: var(--app-accent); font-weight: 600; }
+.text-button:disabled { opacity: .5; }
+@media (max-width: 560px) {
+  .usage-popover { right: -52px; }
+  .member-upgrade li { flex-wrap: wrap; }
+  .member-upgrade li button { width: 100%; }
+}
+/* before the first message the chat box sits under the greeting: put the card below it so the greeting stays readable */
+.home-composer.is-empty > .usage-banner { top: calc(100% + 34px); bottom: auto; }

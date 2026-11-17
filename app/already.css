@@ -1181,15 +1181,37 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .opening-dough>strong{font:500 clamp(28px,5vw,44px)/1 var(--font-display);letter-spacing:-.04em}.opening-dough>strong span{color:var(--app-accent,#a65f6b)}
 @media(prefers-reduced-motion:reduce){.opening-dough-stage canvas{display:none}.opening-dough-stage[data-deforming] img{visibility:visible}.opening-dough-stage{height:150px}}
 
-.access-gate { position: fixed; inset: 0; z-index: 500; display: grid; place-items: center; padding: 24px; background: var(--app-bg); color: var(--app-ink); }
-.access-gate form { width: min(360px,100%); display: flex; flex-direction: column; gap: 14px; padding: 36px 30px; border: 1px solid var(--app-line); border-radius: var(--app-radius); background: var(--app-panel-strong); text-align: center; box-shadow: var(--app-shadow); }
-.access-gate h1 { margin: 0; font: 500 calc(26px * var(--fs, 1))/1.2 var(--font-display); }
-.access-gate p { margin: 0; color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); line-height: 1.6; }
-.access-gate input { height: 50px; border: 1px solid var(--app-line); border-radius: var(--app-radius-control); padding: 0 16px; text-align: center; font-size: calc(17px * var(--fs, 1)); letter-spacing: 2px; background: var(--app-bg); color: var(--app-ink); outline: 0; }
-.access-gate input:focus { border-color: var(--app-accent); }
-.access-gate button { height: 50px; border: 0; border-radius: var(--app-radius-control); background: var(--app-accent); color: var(--app-accent-ink); font-weight: 700; font-size: calc(15px * var(--fs, 1)); }
-.access-gate small { color: #c0392b; font-size: calc(12px * var(--fs, 1)); line-height: 1.5; }
-.access-gate a { color: var(--app-muted); font-size: .875rem; text-decoration: underline; text-underline-offset: 4px; }
+/* sign-in comes first (LoginGate) */
+.login-gate { position: fixed; inset: 0; z-index: 500; overflow-y: auto; background: var(--app-bg); color: var(--app-ink); }
+.login-gate.checking { pointer-events: none; }
+.login-gate-inner { min-height: 100%; width: min(1040px, 100%); margin: 0 auto; padding: 24px 24px 40px; display: grid; grid-template-columns: 1fr minmax(0, 400px); grid-template-rows: auto 1fr; column-gap: 64px; align-items: center; }
+.login-gate-inner > header { grid-column: 1 / -1; align-self: start; display: flex; justify-content: space-between; align-items: center; }
+.login-gate-brand { font: 500 calc(22px * var(--fs, 1))/1 var(--font-display); }
+.login-gate-lang { border: 1px solid var(--app-line); border-radius: 999px; padding: 6px 14px; background: transparent; color: var(--app-ink); font-size: calc(13px * var(--fs, 1)); }
+.login-gate-copy h1 { margin: 0 0 16px; font: 500 calc(46px * var(--fs, 1))/1.15 var(--font-display); letter-spacing: -0.01em; }
+.login-gate-copy p { margin: 0; max-width: 26em; color: var(--app-muted); font-size: calc(15px * var(--fs, 1)); line-height: 1.7; }
+.login-gate-card { display: flex; flex-direction: column; gap: 16px; padding: 28px; border: 1px solid var(--app-line); border-radius: var(--app-radius); background: var(--app-panel-strong); box-shadow: var(--app-shadow); }
+.login-gate-google { display: flex; align-items: center; justify-content: center; gap: 10px; height: 50px; border-radius: var(--app-radius-control); background: var(--app-accent); color: var(--app-accent-ink); font-weight: 700; font-size: calc(15px * var(--fs, 1)); text-decoration: none; }
+.login-gate-google svg { width: 20px; height: 20px; padding: 2px; border-radius: 50%; background: #fff; }
+.login-gate-or { display: flex; align-items: center; gap: 12px; color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); }
+.login-gate-or::before, .login-gate-or::after { content: ""; flex: 1; height: 1px; background: var(--app-line); }
+.login-gate form { display: flex; flex-direction: column; gap: 12px; }
+.login-gate label { display: flex; flex-direction: column; gap: 6px; font-size: calc(12px * var(--fs, 1)); font-weight: 600; }
+.login-gate input { height: 48px; border: 1px solid var(--app-line); border-radius: var(--app-radius-control); padding: 0 14px; background: var(--app-bg); color: var(--app-ink); font-size: calc(16px * var(--fs, 1)); outline: 0; }
+.login-gate input:focus { border-color: var(--app-accent); }
+.login-gate input:disabled { opacity: .7; }
+.login-gate form > button[type="submit"] { height: 48px; border: 1px solid var(--app-line); border-radius: var(--app-radius-control); background: var(--app-panel); color: var(--app-ink); font-weight: 600; font-size: calc(15px * var(--fs, 1)); }
+.login-gate form > button:disabled { opacity: .55; }
+.login-gate-link { border: 0; background: none; color: var(--app-accent); font-size: calc(13px * var(--fs, 1)); text-decoration: underline; text-underline-offset: 4px; }
+.login-gate-note { margin: 0; color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); line-height: 1.5; }
+.login-gate-error { margin: 0; color: #c0392b; font-size: calc(13px * var(--fs, 1)); line-height: 1.5; }
+.login-gate small { color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); line-height: 1.6; }
+.login-gate small a { color: var(--app-accent); }
+@media (max-width: 760px) {
+  .login-gate-inner { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; row-gap: 28px; padding: 16px 16px 32px; align-items: start; }
+  .login-gate-copy { padding-top: 24px; }
+  .login-gate-copy h1 { font-size: calc(34px * var(--fs, 1)); }
+}
 
 /* several desire cards: switcher in the composer and the list in settings */
 .goal-switch-menu > summary span { max-width: 9em; overflow: hidden; text-overflow: ellipsis; }
@@ -1278,27 +1300,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .settings-view .goal-row > div { flex: 1 1 100%; }
 }
 
-/* Self-reflection tab: a quiet form, one desire per collapsible row. */
-.reflect-panel .reflect-intro p { margin: 8px 0 10px; }
-.reflect-panel .reflect-intro small, .reflect-panel .reflect-words p { color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); line-height: 1.6; }
-.reflect-panel .reflect-care { border-left: 3px solid var(--app-accent); padding-left: 16px; }
-.reflect-goal > summary { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; cursor: pointer; list-style: none; }
-.reflect-goal > summary::-webkit-details-marker { display: none; }
-.reflect-goal > summary strong { font-family: var(--font-display); font-size: calc(17px * var(--fs, 1)); font-weight: 500; }
-.reflect-goal > summary small { flex: none; color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); }
-.reflect-question { display: block; margin-top: 18px; }
-.reflect-question > span { display: block; color: var(--app-ink); font-size: calc(15px * var(--fs, 1)); font-weight: 600; }
-.reflect-question > small { display: block; margin: 3px 0 8px; color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); }
-.reflect-question textarea { width: 100%; min-height: 72px; resize: vertical; border: 0; border-bottom: 1px solid var(--app-line); border-radius: 0; padding: 8px 0; color: var(--app-ink); background: transparent; font: inherit; line-height: 1.7; }
-.reflect-question textarea:focus { outline: 0; border-bottom-color: var(--app-accent); }
-.reflect-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.reflect-chips button { display: inline-flex; align-items: baseline; gap: 6px; border: 1px solid var(--app-line); border-radius: 999px; padding: 7px 14px; color: var(--app-ink); background: transparent; font-size: calc(15px * var(--fs, 1)); }
-.reflect-chips button small { color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); }
-.reflect-chips button.selected { color: var(--app-accent); border-color: var(--app-accent); }
-.reflect-where { margin: 14px 0 0; padding: 0; list-style: none; }
-.reflect-where li { display: flex; flex-direction: column; gap: 2px; padding: 9px 0; border-top: 1px solid color-mix(in srgb,var(--app-line) 60%,transparent); }
-.reflect-where strong { font-size: calc(14px * var(--fs, 1)); font-weight: 600; }
-.reflect-where span, .reflect-empty { color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); }
 .settings-tabs { grid-template-columns: repeat(5,1fr); }
 .settings-tabs button { padding: 0 6px; }
 

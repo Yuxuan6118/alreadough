@@ -96,6 +96,28 @@ export async function claimAuthLimit(request: Request, email: string, action: "s
   return true;
 }
 
+/** Google sign-in goes through the same Supabase project; it is offered only once the provider is set up there. */
+export function googleAuthReady() {
+  return memberAuthReady() && process.env.AUTH_GOOGLE_ENABLED === "1";
+}
+
+export function supabaseAuthOrigin() {
+  const base = new URL(process.env.SUPABASE_AUTH_URL || "");
+  if (base.protocol !== "https:" || base.username || base.password || base.search || base.hash) throw new Error("AUTH_CONFIG_INVALID");
+  return base.origin;
+}
+
+export function readCookie(request: Request, name: string) {
+  const cookie = request.headers.get("cookie")?.split(";").map(x => x.trim()).find(x => x.startsWith(`${name}=`));
+  return cookie ? cookie.slice(name.length + 1) : null;
+}
+
+export function base64Url(bytes: Uint8Array) {
+  let text = "";
+  for (const byte of bytes) text += String.fromCharCode(byte);
+  return btoa(text).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
 export async function supabaseOtp(path: "otp" | "verify", body: Record<string, unknown>) {
   const base = new URL(process.env.SUPABASE_AUTH_URL || "");
   if (base.protocol !== "https:" || base.username || base.password || base.search || base.hash) throw new Error("AUTH_CONFIG_INVALID");

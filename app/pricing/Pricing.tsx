@@ -3,22 +3,11 @@
 import { Check, LockKey, Sparkle } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { getDeviceSessionId } from "@/lib/device-session";
+import { MEMBER_PLANS, type MemberStatus } from "@/lib/member-client";
 import SiteFooter from "../components/SiteFooter";
 import "./pricing.css";
 
-const plans = [
-  { id: "soft", name: { zh: "轻揉", en: "Soft Start" }, price: 0, session: 15, week: 60 },
-  { id: "deep", name: { zh: "醒发", en: "Deep Practice" }, price: 39, session: 60, week: 400 },
-  { id: "atelier", name: { zh: "丰盛工坊", en: "Dough Atelier" }, price: 149, session: 200, week: 1500 },
-] as const;
-
-type MemberStatus = {
-  enabled: boolean;
-  emailAvailable: boolean;
-  authenticated: boolean;
-  checkoutAvailable: boolean;
-  membership: null | { plan: "soft" | "deep" | "atelier"; trial: boolean; referral: boolean; referralUsed: boolean; referralEndMs: number | null; periodEndMs: number | null; usage: { fiveUnits: number; weekUnits: number; fiveResetMs: number; weekResetMs: number }; limits: { fiveHours: number; week: number }; unlimited?: boolean };
-};
+const plans = MEMBER_PLANS;
 
 export default function Pricing({ initialLang }: { initialLang: "zh" | "en" }) {
   const [lang, setLang] = useState(initialLang);

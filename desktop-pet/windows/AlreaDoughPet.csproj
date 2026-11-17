@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    AlreaDough desktop pet for Windows. Targets .NET Framework 4.7.2, which every Windows 10 (1803+) and Windows 11
+    already has, so the people who download it install nothing. Built on a Mac by build.sh with the .NET SDK.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>AlreaDoughPet</AssemblyName>
+    <RootNamespace>AlreaDoughPet</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>build/AppIcon.ico</ApplicationIcon>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+    <Version>1.0.0</Version>
+    <Company>AlreaDough</Company>
+    <Product>AlreaDough Pet</Product>
+    <AssemblyTitle>AlreaDough Pet</AssemblyTitle>
+    <Description>AlreaDough desktop pet</Description>
+    <Copyright>AlreaDough</Copyright>
+    <DebugType>none</DebugType>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+    <EmbeddedResource Include="build/dough.png" LogicalName="dough.png" />
+    <EmbeddedResource Include="build/mark.png" LogicalName="mark.png" />
+  </ItemGroup>
+</Project>
