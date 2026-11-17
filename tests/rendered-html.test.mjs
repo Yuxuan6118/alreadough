@@ -805,3 +805,14 @@ test("export my data is a zip like ChatGPT's: index.html to read in a browser, p
   assert.match(files["index.html"], /node\.textContent = String\(text\)/);
   assert.doesNotMatch(files["index.html"], /innerHTML/);
 });
+
+test("Google sign-in can run on our own domain, and falls back to Supabase's redirect until its secrets are set", async () => {
+  const start = await readFile(new URL("../app/api/member/auth/google/start/route.ts", import.meta.url), "utf8");
+  const callback = await readFile(new URL("../app/api/member/auth/google/callback/route.ts", import.meta.url), "utf8");
+  assert.match(start, /accounts\.google\.com\/o\/oauth2\/v2\/auth/);
+  assert.match(start, /\/auth\/v1\/authorize/, "the Supabase redirect stays as the fallback");
+  assert.match(callback, /state !== url\.searchParams\.get\("state"\)/, "the state is checked");
+  assert.match(callback, /supabase\("id_token", \{ provider: "google", id_token: tokens\.id_token, nonce \}\)/);
+  const { sha256Hex } = await import("../lib/google-direct.ts");
+  assert.equal(await sha256Hex("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+});

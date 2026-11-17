@@ -2,6 +2,9 @@
 
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Capacitor } from "@capacitor/core";
+import { homeCopy } from "./PublicHome";
+import SiteFooter from "./SiteFooter";
+import home from "../home.module.css";
 
 // Sign-in comes first: with membership on, nobody reaches the app without an account.
 // The app itself still renders underneath (and in the server HTML); this layer covers it until sign-in.
@@ -13,7 +16,10 @@ type Lang = "zh" | "en";
 const copy = {
   zh: {
     title: "登录后继续。",
-    intro: "你的愿望、对话和会员用量都跟着账户走，换设备也在。",
+    intro: "AlreaDough 是一个中英文 AI 陪练空间。登录后，你的愿望、对话和会员用量都跟着账户走。",
+    featuresLink: "功能",
+    pricing: "会员与价格",
+    navigation: "官网导航",
     google: "使用 Google 登录",
     or: "或用邮箱登录",
     email: "邮箱",
@@ -37,7 +43,10 @@ const copy = {
   },
   en: {
     title: "Sign in to continue.",
-    intro: "Your desires, conversations and allowance stay with your account, on any device.",
+    intro: "AlreaDough is an AI practice space in English and Chinese. Sign in so your desires, conversations and allowance follow your account.",
+    featuresLink: "Features",
+    pricing: "Pricing",
+    navigation: "Website navigation",
     google: "Continue with Google",
     or: "or sign in with email",
     email: "Email",
@@ -127,34 +136,57 @@ export default function LoginGate({ children }: { children: ReactNode }) {
     <>
       {children}
       <div className={`login-gate${state === "checking" ? " checking" : ""}`} role={state === "login" ? "dialog" : undefined} aria-modal={state === "login" ? true : undefined} aria-labelledby="login-gate-title">
-        {state === "login" && <div className="login-gate-inner">
-          <header>
-            <span className="login-gate-brand">AlreaDough</span>
-            <button type="button" className="login-gate-lang" onClick={() => setLang(lang === "zh" ? "en" : "zh")}>{lang === "zh" ? "English" : "中文"}</button>
+        {state === "login" && <>
+          <header className={home.header}>
+            <a href={lang === "en" ? "/en" : "/"} className="login-gate-brand" aria-label="AlreaDough">
+              <img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" />
+              <span className={home.wordmark}>Alrea<span>Dough</span></span>
+            </a>
+            <nav aria-label={t.navigation}>
+              <a href="#login-gate-features">{t.featuresLink}</a>
+              <a href={lang === "en" ? "/en/pricing" : "/pricing"}>{t.pricing}</a>
+              <button type="button" className={home.language} lang={lang === "zh" ? "en" : "zh-CN"} onClick={() => setLang(lang === "zh" ? "en" : "zh")}>{lang === "zh" ? "English" : "中文"}</button>
+            </nav>
           </header>
-          <section className="login-gate-copy">
-            <h1 id="login-gate-title">{t.title}</h1>
-            <p>{t.intro}</p>
-          </section>
-          <section className="login-gate-card">
-            {google && <>
-              <a className="login-gate-google" href="/api/member/auth/google/start">
-                <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
-                {t.google}
-              </a>
-              <div className="login-gate-or"><span>{t.or}</span></div>
-            </>}
-            <form onSubmit={submit}>
-              <label><span>{t.email}</span><input type="email" autoComplete="email" value={email} disabled={codeSent || busy} onChange={(event) => { setEmail(event.target.value); setError(null); }} placeholder="you@example.com" /></label>
-              {codeSent && <label><span>{t.code}</span><input type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={code} disabled={busy} autoFocus onChange={(event) => { setCode(event.target.value.replace(/\D/g, "")); setError(null); }} /></label>}
-              <button type="submit" disabled={busy || !email.trim() || (codeSent && code.length < 6)}>{busy ? t.wait : codeSent ? t.verify : t.send}</button>
-              {codeSent && !error && <p className="login-gate-note">{t.sent}</p>}
-              {codeSent && <button type="button" className="login-gate-link" disabled={busy} onClick={() => { setCodeSent(false); setCode(""); setError(null); }}>{t.change}</button>}
-              {error && <p className="login-gate-error" role="alert">{t.errors[error]}</p>}
-            </form>
-            <small>{t.agree} <a href={lang === "zh" ? "/terms" : "/terms#english"}>{t.terms}</a> {t.and} <a href={lang === "zh" ? "/privacy" : "/privacy#english"}>{t.privacy}</a>{lang === "zh" ? "。" : "."}</small>
-          </section>
-        </div>}
+          <main className={home.main}>
+            <section className={`${home.hero} login-gate-hero`}>
+              <div>
+                <h1 id="login-gate-title">{t.title}</h1>
+                <p>{t.intro}</p>
+                <div className="login-gate-form">
+                  {google && <>
+                    <a className="login-gate-google" href="/api/member/auth/google/start">
+                      <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
+                      {t.google}
+                    </a>
+                    <div className="login-gate-or"><span>{t.or}</span></div>
+                  </>}
+                  <form onSubmit={submit}>
+                    <label><span>{t.email}</span><input type="email" autoComplete="email" value={email} disabled={codeSent || busy} onChange={(event) => { setEmail(event.target.value); setError(null); }} placeholder="you@example.com" /></label>
+                    {codeSent && <label><span>{t.code}</span><input type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={code} disabled={busy} autoFocus onChange={(event) => { setCode(event.target.value.replace(/\D/g, "")); setError(null); }} /></label>}
+                    <button type="submit" disabled={busy || !email.trim() || (codeSent && code.length < 6)}>{busy ? t.wait : codeSent ? t.verify : t.send}</button>
+                    {codeSent && !error && <p className="login-gate-note">{t.sent}</p>}
+                    {codeSent && <button type="button" className="login-gate-link" disabled={busy} onClick={() => { setCodeSent(false); setCode(""); setError(null); }}>{t.change}</button>}
+                    {error && <p className="login-gate-error" role="alert">{t.errors[error]}</p>}
+                  </form>
+                  <small>{t.agree} <a href={lang === "zh" ? "/terms" : "/terms#english"}>{t.terms}</a> {t.and} <a href={lang === "zh" ? "/privacy" : "/privacy#english"}>{t.privacy}</a>{lang === "zh" ? "。" : "."}</small>
+                </div>
+              </div>
+              <div className={`${home.art} login-gate-art`}>
+                <img src="/brand/already-dough-mark.png" width={420} height={420} alt="" />
+              </div>
+            </section>
+            <section id="login-gate-features" className={home.features} aria-labelledby="login-gate-features-title">
+              <h2 id="login-gate-features-title">{homeCopy[lang].featuresTitle}</h2>
+              <dl>
+                {homeCopy[lang].features.map(([name, description]) => (
+                  <div key={name}><dt>{name}</dt><dd>{description}</dd></div>
+                ))}
+              </dl>
+            </section>
+          </main>
+          <SiteFooter lang={lang} />
+        </>}
       </div>
     </>
   );

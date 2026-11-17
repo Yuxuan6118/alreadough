@@ -2,7 +2,8 @@ import Image from "next/image";
 import SiteFooter from "./SiteFooter";
 import styles from "../home.module.css";
 
-const copy = {
+/** Shared with the sign-in page, so the product introduction reads the same in both places. */
+export const homeCopy = {
   zh: {
     navigation: "官网导航",
     featuresLink: "功能",
@@ -38,7 +39,7 @@ const copy = {
 export default function PublicHome({ lang }: { lang: "zh" | "en" }) {
   const english = lang === "en";
   const base = english ? "/en" : "";
-  const t = copy[lang];
+  const t = homeCopy[lang];
   return (
     <div lang={english ? "en" : "zh-CN"}>
       <header className={styles.header}>

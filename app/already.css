@@ -1181,36 +1181,45 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .opening-dough>strong{font:500 clamp(28px,5vw,44px)/1 var(--font-display);letter-spacing:-.04em}.opening-dough>strong span{color:var(--app-accent,#a65f6b)}
 @media(prefers-reduced-motion:reduce){.opening-dough-stage canvas{display:none}.opening-dough-stage[data-deforming] img{visibility:visible}.opening-dough-stage{height:150px}}
 
-/* sign-in comes first (LoginGate) */
+/* sign-in comes first (LoginGate): same header, hero and footer as the public home */
 .login-gate { position: fixed; inset: 0; z-index: 500; overflow-y: auto; background: var(--app-bg); color: var(--app-ink); }
 .login-gate.checking { pointer-events: none; }
-.login-gate-inner { min-height: 100%; width: min(1040px, 100%); margin: 0 auto; padding: 24px 24px 40px; display: grid; grid-template-columns: 1fr minmax(0, 400px); grid-template-rows: auto 1fr; column-gap: 64px; align-items: center; }
-.login-gate-inner > header { grid-column: 1 / -1; align-self: start; display: flex; justify-content: space-between; align-items: center; }
-.login-gate-brand { font: 500 calc(22px * var(--fs, 1))/1 var(--font-display); }
-.login-gate-lang { border: 1px solid var(--app-line); border-radius: 999px; padding: 6px 14px; background: transparent; color: var(--app-ink); font-size: calc(13px * var(--fs, 1)); }
-.login-gate-copy h1 { margin: 0 0 16px; font: 500 calc(46px * var(--fs, 1))/1.15 var(--font-display); letter-spacing: -0.01em; }
-.login-gate-copy p { margin: 0; max-width: 26em; color: var(--app-muted); font-size: calc(15px * var(--fs, 1)); line-height: 1.7; }
-.login-gate-card { display: flex; flex-direction: column; gap: 16px; padding: 28px; border: 1px solid var(--app-line); border-radius: var(--app-radius); background: var(--app-panel-strong); box-shadow: var(--app-shadow); }
-.login-gate-google { display: flex; align-items: center; justify-content: center; gap: 10px; height: 50px; border-radius: var(--app-radius-control); background: var(--app-accent); color: var(--app-accent-ink); font-weight: 700; font-size: calc(15px * var(--fs, 1)); text-decoration: none; }
-.login-gate-google svg { width: 20px; height: 20px; padding: 2px; border-radius: 50%; background: #fff; }
-.login-gate-or { display: flex; align-items: center; gap: 12px; color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); }
+.login-gate-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--app-ink); text-decoration: none; }
+.login-gate-brand img { width: 34px; height: 34px; object-fit: contain; }
+.login-gate-brand:hover { text-decoration: none; }
+.login-gate header button { font: inherit; font-size: 14px; background: transparent; cursor: pointer; }
+.login-gate-hero h1 { margin: 0; }
+.login-gate-form { display: flex; flex-direction: column; gap: 14px; width: min(400px, 100%); }
+.login-gate-google { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 50px; border-radius: var(--app-radius-control); background: color-mix(in srgb, var(--app-accent) 76%, var(--app-ink)); color: var(--app-accent-ink); font-weight: 650; text-decoration: none; transition: transform .15s ease; }
+.login-gate-google:active { transform: translateY(1px); }
+.login-gate-google svg { width: 22px; height: 22px; padding: 3px; border-radius: 50%; background: #fff; }
+html[data-theme="dark"] .login-gate-google { background: var(--app-accent); }
+.login-gate-or { display: flex; align-items: center; gap: 12px; color: var(--app-muted); font-size: 13px; }
 .login-gate-or::before, .login-gate-or::after { content: ""; flex: 1; height: 1px; background: var(--app-line); }
 .login-gate form { display: flex; flex-direction: column; gap: 12px; }
-.login-gate label { display: flex; flex-direction: column; gap: 6px; font-size: calc(12px * var(--fs, 1)); font-weight: 600; }
-.login-gate input { height: 48px; border: 1px solid var(--app-line); border-radius: var(--app-radius-control); padding: 0 14px; background: var(--app-bg); color: var(--app-ink); font-size: calc(16px * var(--fs, 1)); outline: 0; }
-.login-gate input:focus { border-color: var(--app-accent); }
+.login-gate label { display: flex; flex-direction: column; gap: 6px; color: var(--app-ink); font-size: 13px; font-weight: 600; }
+.login-gate input { height: 48px; border: 1px solid var(--app-line); border-radius: var(--app-radius-control); padding: 0 14px; background: var(--app-panel-strong); color: var(--app-ink); font-size: 16px; outline: 0; }
+.login-gate input::placeholder { color: var(--app-muted); }
+.login-gate input:focus { border-color: var(--app-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-accent) 18%, transparent); }
 .login-gate input:disabled { opacity: .7; }
-.login-gate form > button[type="submit"] { height: 48px; border: 1px solid var(--app-line); border-radius: var(--app-radius-control); background: var(--app-panel); color: var(--app-ink); font-weight: 600; font-size: calc(15px * var(--fs, 1)); }
-.login-gate form > button:disabled { opacity: .55; }
-.login-gate-link { border: 0; background: none; color: var(--app-accent); font-size: calc(13px * var(--fs, 1)); text-decoration: underline; text-underline-offset: 4px; }
-.login-gate-note { margin: 0; color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); line-height: 1.5; }
-.login-gate-error { margin: 0; color: #c0392b; font-size: calc(13px * var(--fs, 1)); line-height: 1.5; }
-.login-gate small { color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); line-height: 1.6; }
-.login-gate small a { color: var(--app-accent); }
+.login-gate form > button[type="submit"] { min-height: 48px; border: 1px solid var(--app-ink); border-radius: var(--app-radius-control); background: transparent; color: var(--app-ink); font-weight: 600; font-size: 15px; cursor: pointer; }
+.login-gate form > button[type="submit"]:disabled { border-color: var(--app-line); color: var(--app-muted); cursor: default; }
+.login-gate-link { align-self: flex-start; border: 0; padding: 0; background: none; color: var(--app-muted); font-size: 13px; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+.login-gate-note { margin: 0; color: var(--app-muted); font-size: 13px; line-height: 1.6; }
+.login-gate-error { margin: 0; color: #b42318; font-size: 13px; line-height: 1.6; }
+html[data-theme="dark"] .login-gate-error { color: #f4a3a3; }
+/* the hero's own paragraph style must not reach the small notes inside the form */
+.login-gate-hero .login-gate-form p { max-width: none; margin: 0; font-size: 13px; line-height: 1.6; }
+.login-gate-form small { color: var(--app-muted); font-size: 12px; line-height: 1.6; }
+.login-gate-form small a { color: var(--app-ink); text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 760px) {
-  .login-gate-inner { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; row-gap: 28px; padding: 16px 16px 32px; align-items: start; }
-  .login-gate-copy { padding-top: 24px; }
-  .login-gate-copy h1 { font-size: calc(34px * var(--fs, 1)); }
+  .login-gate .login-gate-art { display: none; }
+  .login-gate-form { width: 100%; }
+}
+@media (max-width: 520px) {
+  /* on a phone the header keeps the logo, pricing and language; the features link is one scroll away anyway */
+  .login-gate header nav a[href^="#"] { display: none; }
+  .login-gate-brand img { width: 28px; height: 28px; }
 }
 
 /* several desire cards: switcher in the composer and the list in settings */
