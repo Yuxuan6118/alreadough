@@ -40,7 +40,14 @@ export function hasContrastFrame(text: string) {
 }
 
 export function hasStockCoachLine(text: string) {
-  return /这一秒|3\s*d[里裡的中\s]{0,4}(?:只[是有])?(?:一|这|那)[帧幀]|(?:你|她)(?:已经)?选(?:择|定)?的(?:那一?(?:个)?|这个)?(?:版本|一版|故事|画面)|那个版本里|(?:别|不要|无视)\s*(?:去)?(?:管|看)?\s*3\s*d|(?:one|just a|that) frame (?:of|in) (?:the )?3d|(?:version|reality) you (?:chose|picked)|ignore (?:the )?3d/i.test(text);
+  return /这一秒|3\s*d[里裡的中\s]{0,4}(?:只[是有])?(?:一|这|那)[帧幀]|(?:你|她)(?:已经|想)?选(?:择|定)?的(?:那一?(?:个)?|这个)?(?:版本|一版|故事|画面|结果|终点)|(?:已经)?选定的(?:那一?个|这个)?(?:结果|终点|版本)|[这那哪]一?个版本|(?:别|不要|无视)\s*(?:去)?(?:管|看)?\s*3\s*d|(?:one|just a|that) frame (?:of|in) (?:the )?3d|(?:version|reality|outcome|ending) you(?:'ve| have)? (?:chose|chosen|picked)|which version|ignore (?:the )?3d/i.test(text);
+}
+
+/** Last resort when the rewrite still carries a stock line: drop the sentences that carry it, keep the rest. */
+export function dropStockSentences(text: string) {
+  const parts = text.match(/[^。！？!?\n]+[。！？!?]*|\n+/g) || [text];
+  const kept = parts.filter((part) => !hasStockCoachLine(part)).join("").replace(/\n{3,}/g, "\n\n").trim();
+  return kept || text;
 }
 
 export function coachSpecificityRetryNote(lang: "zh" | "en") {

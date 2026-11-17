@@ -10,7 +10,7 @@ type SyncStatus = "loading" | "saved" | "saving" | "offline";
 const text = {
   zh: {
     title: "用同步码换设备",
-    intro: "同步码就是打开你这份资料的钥匙。谁拿到谁就能看到你的愿望和对话，请只发给你自己，不要发到群里或任何公开的地方。",
+    intro: "同步码可用来访问你的空间。请妥善保管，仅在自己的设备上使用。",
     show: "显示我的同步码",
     hide: "隐藏",
     copy: "复制",
@@ -30,7 +30,7 @@ const text = {
   },
   en: {
     title: "Move between devices with a sync code",
-    intro: "The sync code is the key to your space. Anyone who has it can read your desires and conversations, so send it only to yourself and never post it in a group or anywhere public.",
+    intro: "Keep your sync code private. Use it only on your own devices to access your space.",
     show: "Show my sync code",
     hide: "Hide",
     copy: "Copy",

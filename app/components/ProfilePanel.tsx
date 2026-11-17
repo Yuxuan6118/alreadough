@@ -35,11 +35,11 @@ export default function ProfilePanel({ lang, profile, onChange }: Props) {
       </div>
       <div className="setting-card editable-card">
         <label>{zh ? "现在的我" : "WHO I AM RIGHT NOW"}</label>
-        <textarea maxLength={400} value={profile.about} onChange={(event) => patch({ about: event.target.value })} placeholder={zh ? "一两句话，写你愿意说的" : "A sentence or two, whatever you want to say"} />
+        <textarea maxLength={1200} value={profile.about} onChange={(event) => patch({ about: event.target.value })} placeholder={zh ? "可以写你的性格、在意的事和最近的变化" : "Your personality, what matters to you, or what has changed lately"} />
       </div>
       <div className="setting-card editable-card">
         <label>{zh ? "我现在的日子" : "MY LIFE RIGHT NOW"}</label>
-        <textarea maxLength={400} value={profile.situation} onChange={(event) => patch({ situation: event.target.value })} placeholder={zh ? "学习或工作，一句话就好" : "Study or work, one line is enough"} />
+        <textarea maxLength={1200} value={profile.situation} onChange={(event) => patch({ situation: event.target.value })} placeholder={zh ? "可以写最近的学习、工作和生活节奏。细节越具体，回复越贴合你的情况。" : "Share your studies, work, or daily routine. Details help AlreaDough respond to your situation."} />
       </div>
       <div className="setting-card editable-card">
         <label>{zh ? "对我重要的人" : "PEOPLE WHO MATTER TO ME"}</label>
@@ -57,7 +57,7 @@ export default function ProfilePanel({ lang, profile, onChange }: Props) {
       </div>
       <div className="setting-card editable-card">
         <label>{zh ? "不想被提的话题" : "TOPICS TO LEAVE ALONE"}</label>
-        <p className="profile-note">{zh ? "每行写一个。AlreaDough 不会主动提起，也不会写进场景和故事。" : "One per line. AlreaDough will not bring them up or write them into scenes and stories."}</p>
+        <p className="profile-note">{zh ? "AlreaDough 不会主动提起，也不会写进场景和故事。" : "AlreaDough will not bring them up or write them into scenes and stories."}</p>
         <textarea value={neverDraft} onChange={(event) => { setNeverDraft(event.target.value); patch({ neverInclude: splitLines(event.target.value, 30) }); }} placeholder={zh ? "例如：我的体重" : "For example: my weight"} />
       </div>
     </div>

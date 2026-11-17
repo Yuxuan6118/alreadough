@@ -41,7 +41,7 @@ export default function FounderChatsPage() {
     if (!token) return;
     try {
       const response = await fetch(`/api/beta/admin?view=${view}`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
-      if (!response.ok) throw new Error("访问密钥无效，请先回到测试驾驶舱用 /beta?key=你的密钥 打开一次。");
+      if (!response.ok) throw new Error("无法验证访问权限。");
       const data = await response.json() as { users?: ChatUser[]; samples?: Sample[]; profiles?: Profile[]; reports?: Report[] };
       setError("");
       if (view === "chats") { setUsers(data.users || []); setSelected((current) => current || data.users?.[0]?.label || ""); }
@@ -66,8 +66,8 @@ export default function FounderChatsPage() {
   const shownSamples = (samples || []).filter((sample) => filter === "all" || sample.feedback === filter);
 
   return <main className="chat-viewer">
-    <header><div><p>ALREADOUGH · FOUNDER</p><h1>对话记录</h1><span>仅创始人可见。用户用 8 位编号区分，不显示昵称、愿望卡或原始设备 ID。</span></div><a href="/beta">返回驾驶舱</a></header>
-    {token === null ? <p>正在验证访问权限…</p> : !token ? <section className="viewer-error"><h2>还没有访问密钥</h2><p>先用 /beta?key=你的密钥 打开一次测试驾驶舱，再回到这里。</p></section> : <>
+    <header><div><p>ALREADOUGH · FOUNDER</p><h1>对话记录</h1></div><a href="/beta">返回驾驶舱</a></header>
+    {token === null ? <p>正在验证访问权限…</p> : !token ? <section className="viewer-error"><h2>还没有访问密钥</h2><p>此页面限授权访问。</p></section> : <>
       <nav className="viewer-tabs"><button className={tab === "threads" ? "active" : ""} onClick={() => setTab("threads")}>完整对话（按用户）</button><button className={tab === "samples" ? "active" : ""} onClick={() => setTab("samples")}>回复评价（👍/👎）</button><button className={tab === "profiles" ? "active" : ""} onClick={() => setTab("profiles")}>用户画像</button><button className={tab === "reports" ? "active" : ""} onClick={() => setTab("reports")}>举报与反馈{reports ? `（${reports.filter((item) => item.status === "new").length} 待处理）` : ""}</button></nav>
       {error && <p className="viewer-error-line">{error}</p>}
       {tab === "threads" && (users === null ? <p>正在读取…</p> : !users.length ? <p>还没有同步的对话。</p> : <div className="viewer-split">

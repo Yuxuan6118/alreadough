@@ -465,7 +465,7 @@ function RecordScreen({ lang, headers, onBack, onDone }: RecordProps) {
         <div className="dream-review">
           {recorded && <audio controls src={recorded.url} aria-label={t("你刚录的声音", "Your recording")} />}
           <p>{t(`这段录音约 ${Math.round(recorded?.seconds || 0)} 秒。`, `This recording is about ${Math.round(recorded?.seconds || 0)} seconds.`)}</p>
-          <p className="dream-consent">{t("我同意把这段录音发送给语音服务商（阿里云），用来生成只属于我的声音。录音本身不会被我们保存，生成的声音可以随时在这里删除。", "I agree to send this recording to the voice provider (Alibaba Cloud) to create a voice that is only mine. We do not keep the recording itself, and I can delete the voice here at any time.")}</p>
+          <p className="dream-consent">{t("我同意将这段录音发送给语音服务商，用于生成自定义声音。我可以在声音设置中删除该声音。", "I agree to send this recording to a voice provider to create my custom voice. I can delete the voice in its settings.")}</p>
           {error && <p className="dream-message" role="alert">{error}</p>}
         </div>
         <div className="dream-recorder">

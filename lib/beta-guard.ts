@@ -1,9 +1,21 @@
 import { env } from "cloudflare:workers";
 import { extractConversations, type ViewUser } from "./chat-view";
 import { readClientInfo } from "./client-info";
+import { memberAccount } from "./member-auth";
+import { finishMemberUnit, membershipEnabled, reserveMemberUnit, usageUnits } from "./membership";
 
 export type BetaMode = "chat" | "revision" | "story";
 export type TokenUsage = { input_tokens?: number; output_tokens?: number; total_tokens?: number } | null;
+
+export function combineTokenUsage(first: TokenUsage, second: TokenUsage): TokenUsage {
+  if (!second) return first;
+  if (!first) return second;
+  return {
+    input_tokens: (first.input_tokens || 0) + (second.input_tokens || 0),
+    output_tokens: (first.output_tokens || 0) + (second.output_tokens || 0),
+    total_tokens: (first.total_tokens || 0) + (second.total_tokens || 0),
+  };
+}
 
 // No per-person limit: nobody using AlreaDough is ever told "you only get N
 // conversations today" or "your trial has ended." The only thing left here is a
@@ -21,7 +33,7 @@ const DEVICE_ROW_RETENTION_DAYS = 3650;
 type UserRow = { total_requests: number; total_tokens: number };
 type GlobalRow = { request_count: number; total_tokens: number };
 
-export type BetaTicket = { userId: string; userHash: string; day: string; mode: BetaMode };
+export type BetaTicket = { userId: string; userHash: string; day: string; mode: BetaMode; memberAccountId?: string; memberSettled?: boolean };
 
 let betaTablesReady: Promise<void> | null = null;
 
@@ -96,6 +108,8 @@ export async function betaStatus(request: Request, sessionId?: string) {
 }
 
 export async function beginBetaRequest(request: Request, sessionId: string, mode: BetaMode) {
+  const memberAccountId = membershipEnabled() ? await memberAccount(request) : null;
+  if (membershipEnabled() && !memberAccountId) return { ok: false as const, code: "MEMBERSHIP_SIGN_IN_REQUIRED" };
   const status = await betaStatus(request, sessionId);
   if (!status.authenticated) return { ok: false as const, code: "SIGN_IN_REQUIRED" };
   if (!status.enabled) return { ok: false as const, code: "AI_PAUSED" };
@@ -103,11 +117,15 @@ export async function beginBetaRequest(request: Request, sessionId: string, mode
   const day = dayKey();
   const global = await env.DB.prepare("SELECT request_count, total_tokens FROM beta_global_daily WHERE usage_date = ?").bind(day).first<GlobalRow>();
   if ((global?.request_count || 0) >= LIMITS.globalRequests || (global?.total_tokens || 0) >= LIMITS.globalTokens) return { ok: false as const, code: "BETA_BUDGET_PAUSED" };
+  if (memberAccountId) {
+    const reservation = await reserveMemberUnit(memberAccountId);
+    if (!reservation.ok) return { ok: false as const, code: "MEMBERSHIP_LIMIT" };
+  }
   const now = new Date().toISOString();
   await env.DB.prepare(`INSERT INTO beta_usage_daily (user_id, usage_date, request_count, ${modeColumn(mode)}, updated_at) VALUES (?, ?, 1, 1, ?) ON CONFLICT(user_id, usage_date) DO UPDATE SET request_count = request_count + 1, ${modeColumn(mode)} = ${modeColumn(mode)} + 1, updated_at = excluded.updated_at`).bind(userId, day, now).run();
   await env.DB.prepare("UPDATE beta_users SET total_requests = total_requests + 1, last_seen_at = ? WHERE user_id = ?").bind(now, userId).run();
   await env.DB.prepare("INSERT INTO beta_global_daily (usage_date, request_count, updated_at) VALUES (?, 1, ?) ON CONFLICT(usage_date) DO UPDATE SET request_count = request_count + 1, updated_at = excluded.updated_at").bind(day, now).run();
-  return { ok: true as const, ticket: { userId, userHash: await sha256(userId), day, mode } satisfies BetaTicket };
+  return { ok: true as const, ticket: { userId, userHash: await sha256(userId), day, mode, memberAccountId: memberAccountId || undefined } satisfies BetaTicket };
 }
 
 export async function settleBetaRequest(ticket: BetaTicket, usage: TokenUsage, metadata: { wishCategory?: string; coachMode?: string; success: boolean; latencyMs: number }) {
@@ -124,6 +142,13 @@ export async function settleBetaRequest(ticket: BetaTicket, usage: TokenUsage, m
     await env.DB.prepare("UPDATE beta_global_daily SET request_count = MAX(request_count - 1, 0), updated_at = ? WHERE usage_date = ?").bind(now, ticket.day).run();
   }
   await env.DB.prepare("INSERT INTO beta_events (id, user_hash, event_type, mode, wish_category, coach_mode, prompt_version, input_tokens, output_tokens, total_tokens, latency_ms, created_at) VALUES (?, ?, 'ai_response', ?, ?, ?, 'v1', ?, ?, ?, ?, ?)").bind(crypto.randomUUID(), ticket.userHash, ticket.mode, metadata.wishCategory || null, metadata.coachMode || null, input, output, total, metadata.latencyMs, now).run();
+}
+
+/** Called once per user-visible answer, not once per upstream model call or internal rewrite. */
+export async function finishMemberRequest(ticket: BetaTicket, usage: TokenUsage, succeeded: boolean) {
+  if (!ticket.memberAccountId || ticket.memberSettled) return;
+  await finishMemberUnit(ticket.memberAccountId, usageUnits(usage), succeeded);
+  ticket.memberSettled = true;
 }
 
 export async function recordAnonymousEvent(request: Request, sessionId: string, event: { eventType: string; mode?: string; wishCategory?: string; coachMode?: string; feedback?: string; ratingBefore?: number; ratingAfter?: number }) {

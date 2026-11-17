@@ -1,131 +1,178 @@
 "use client";
 
-import { Check, CreditCard, LockKey, Sparkle, Wallet } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState } from "react";
-import { Capacitor } from "@capacitor/core";
-import { getDeviceSessionId, readDeviceSessionId } from "@/lib/device-session";
+import { Check, LockKey, Sparkle } from "@phosphor-icons/react";
+import { useEffect, useState } from "react";
+import { getDeviceSessionId } from "@/lib/device-session";
 import SiteFooter from "../components/SiteFooter";
 import "./pricing.css";
 
-type Plan = "soft" | "deep" | "atelier";
-
-// Feature differentiation here is by depth and breadth, never by a usage count —
-// AlreaDough does not put a "times per day" cap on anyone, paid or not.
 const plans = [
-  { id: "soft" as const, zh: "轻揉", en: "Soft Start", monthly: { zh: 39, en: 5.99 }, zhCopy: "把一个愿望稳定地练进日常", enCopy: "A steady daily space for one desire", features: { zh: ["AI 陪伴对话、重写与故事", "基础愿景板", "声音练习工作台"], en: ["AI chat, Revision, and Stories", "Basic vision board", "Sound practice studio"] } },
-  { id: "deep" as const, zh: "醒发", en: "Deep Practice", monthly: { zh: 88, en: 12.99 }, zhCopy: "给限制性信念更深的陪伴", enCopy: "Deeper support for persistent doubt", features: { zh: ["全部三种 Coach 方法与完整记忆", "多轨 Sub 导出", "高级愿景板"], en: ["All three Coach methods and full memory", "Multitrack Sub export", "Advanced vision board"] } },
-  { id: "atelier" as const, zh: "丰盛工坊", en: "Dough Atelier", monthly: { zh: 168, en: 24.99 }, zhCopy: "高频使用与长篇沉浸创作", enCopy: "High-frequency use and immersive creation", features: { zh: ["长篇故事与优先生成速度", "工作室级 Sub 混音与愿景工具", "新功能优先体验"], en: ["Long-form stories and priority generation", "Studio-grade Sub mixing and vision tools", "Early access to new tools"] } },
-];
+  { id: "soft", name: { zh: "轻揉", en: "Soft Start" }, price: 0, session: 15, week: 60 },
+  { id: "deep", name: { zh: "醒发", en: "Deep Practice" }, price: 39, session: 60, week: 400 },
+  { id: "atelier", name: { zh: "丰盛工坊", en: "Dough Atelier" }, price: 149, session: 200, week: 1500 },
+] as const;
+
+type MemberStatus = {
+  enabled: boolean;
+  emailAvailable: boolean;
+  authenticated: boolean;
+  checkoutAvailable: boolean;
+  membership: null | { plan: "soft" | "deep" | "atelier"; trial: boolean; referral: boolean; referralUsed: boolean; referralEndMs: number | null; periodEndMs: number | null; usage: { fiveUnits: number; weekUnits: number; fiveResetMs: number; weekResetMs: number }; limits: { fiveHours: number; week: number }; unlimited?: boolean };
+};
 
 export default function Pricing({ initialLang }: { initialLang: "zh" | "en" }) {
   const [lang, setLang] = useState(initialLang);
-  const [annual, setAnnual] = useState(false);
-  const [selected, setSelected] = useState<Plan>("deep");
+  const [selected, setSelected] = useState<(typeof plans)[1 | 2]>(plans[1]);
   const [contact, setContact] = useState("");
-  const [saved, setSaved] = useState(false);
-  const [channel, setChannel] = useState<"reserve" | "stripe">("reserve");
-  const [activePlan, setActivePlan] = useState<string | null>(null);
-  const [canManage, setCanManage] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState("");
-  const plan = useMemo(() => plans.find((item) => item.id === selected) || plans[1], [selected]);
-  const amount = annual ? Math.round(plan.monthly[lang] * 10 * 100) / 100 : plan.monthly[lang];
-  const currency = lang === "zh" ? "¥" : "$";
-  const deviceHeaders = (sessionId = readDeviceSessionId()): Record<string, string> => ({
-    "Content-Type": "application/json",
-    "x-already-session-id": sessionId,
-  });
-  const billing = annual ? "annual" : "monthly";
+  const [status, setStatus] = useState<"idle" | "busy" | "saved" | "error">("idle");
+  const [member, setMember] = useState<MemberStatus | null>(null);
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [referral, setReferral] = useState("");
+  const [referralDone, setReferralDone] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [memberBusy, setMemberBusy] = useState(false);
+  const [memberError, setMemberError] = useState("");
+  const zh = lang === "zh";
 
-  useEffect(() => {
-    // The iPhone app must not link out to a web checkout (App Store rules), so it only ever shows the reservation form.
-    if (Capacitor.isNativePlatform()) return;
-    const query = new URLSearchParams(window.location.search);
-    if (query.get("paid")) setNotice("paid");
-    fetch("/api/pay/status", { cache: "no-store", headers: deviceHeaders() })
-      .then((response) => response.ok ? response.json() : null)
-      .then((data: { channel?: "reserve" | "stripe"; plan?: string | null; canManage?: boolean } | null) => {
-        if (!data) return;
-        if (data.channel === "stripe") setChannel("stripe");
-        setActivePlan(data.plan || null);
-        setCanManage(!!data.canManage);
-      })
-      .catch(() => {});
-  }, []);
+  async function refreshMember() {
+    const response = await fetch("/api/member/status", { cache: "no-store" });
+    if (response.ok) setMember(await response.json() as MemberStatus);
+  }
+  useEffect(() => { void refreshMember().catch(() => undefined); }, []);
 
-  const reserve = async () => {
-    if (!contact.trim()) return;
-    setNotice("");
+  async function memberAction(path: string, body: Record<string, string> = {}) {
+    setMemberBusy(true); setMemberError("");
     try {
-      const response = await fetch("/api/pay/interest", { method: "POST", headers: deviceHeaders(getDeviceSessionId()), body: JSON.stringify({ plan: selected, billing, contact: contact.trim(), lang }) });
-      if (!response.ok) throw new Error("save failed");
-      setSaved(true);
-    } catch {
-      setNotice("error");
-    }
-  };
+      const response = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "REQUEST_FAILED");
+      if (path.endsWith("/otp")) setCodeSent(true);
+      else if (path.endsWith("/checkout")) {
+        const form = document.createElement("form");
+        form.method = "POST"; form.action = data.action;
+        for (const [name, value] of Object.entries(data.fields as Record<string, string>)) {
+          const input = document.createElement("input"); input.type = "hidden"; input.name = name; input.value = value; form.appendChild(input);
+        }
+        document.body.appendChild(form); form.submit();
+      } else {
+        if (path.endsWith("/referral")) { setReferral(""); setReferralDone(true); }
+        await refreshMember();
+      }
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "REQUEST_FAILED";
+      setMemberError(reason === "TOO_MANY_REQUESTS" ? (zh ? "操作太频繁，请稍后重试。" : "Too many attempts. Please try later.")
+        : reason === "INVALID_CODE" ? (zh ? "验证码不正确或已过期。" : "The code is incorrect or expired.")
+        : reason === "INVALID_REFERRAL" ? (zh ? "邀请码不对，再检查一下。" : "That invitation code did not work.")
+        : reason === "REFERRAL_USED" ? (zh ? "这个账户已经用过邀请码了。" : "This account has already used an invitation code.")
+        : (zh ? "暂时没成功，请稍后再试。" : "That did not work. Please try again."));
+    } finally { setMemberBusy(false); }
+  }
 
-  const goTo = async (path: string, body: Record<string, unknown>) => {
-    setBusy(true);
-    setNotice("");
+  async function reserve() {
+    if (!contact.trim() || status === "busy" || status === "saved") return;
+    setStatus("busy");
     try {
-      const response = await fetch(path, { method: "POST", headers: deviceHeaders(), body: JSON.stringify(body) });
-      const data = await response.json().catch(() => null) as { url?: string } | null;
-      if (!response.ok || !data?.url) throw new Error("no url");
-      window.location.assign(data.url);
+      const response = await fetch("/api/pay/interest", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-already-session-id": getDeviceSessionId(),
+        },
+        body: JSON.stringify({ plan: selected.id, billing: "monthly", contact: contact.trim(), lang }),
+      });
+      setStatus(response.ok ? "saved" : "error");
     } catch {
-      setNotice("error");
-      setBusy(false);
+      setStatus("error");
     }
-  };
-  const checkout = (method: "card" | "wallet") => goTo("/api/pay/checkout", { plan: selected, billing, method, lang });
-  const manage = () => goTo("/api/pay/portal", {});
+  }
 
   function switchLanguage() {
-    const next = lang === "zh" ? "en" : "zh";
+    const next = zh ? "en" : "zh";
     const { search, hash } = window.location;
     window.history.replaceState(window.history.state, "", `${next === "en" ? "/en/pricing" : "/pricing"}${search}${hash}`);
     setLang(next);
   }
 
-  return <div lang={lang === "en" ? "en" : "zh-CN"}><main className="pricing-page">
-    <nav><a href={lang === "en" ? "/en" : "/"}>Alrea<span>Dough</span></a><button type="button" lang={lang === "zh" ? "en" : "zh-CN"} onClick={switchLanguage}>{lang === "zh" ? "English" : "中文"}</button></nav>
-    <header><p>{lang === "zh" ? "选择你的练习深度" : "Choose your practice depth"}</p><h1>{lang === "zh" ? "让陪伴跟着愿望一起醒发" : "Let support rise with your desire"}</h1><span>{lang === "zh" ? "以下是创始测试期的价格草案，今天不会扣款。" : "Founding-price preview. You will not be charged today."}</span><div className="billing-switch"><button className={!annual ? "active" : ""} onClick={() => setAnnual(false)}>{lang === "zh" ? "按月" : "Monthly"}</button><button className={annual ? "active" : ""} onClick={() => setAnnual(true)}>{lang === "zh" ? "按年，赠送两个月" : "Yearly, two months included"}</button></div></header>
-    <section className="pricing-plans">{plans.map((item) => <button key={item.id} className={`${selected === item.id ? "selected" : ""} ${item.id === "deep" ? "recommended" : ""}`} onClick={() => setSelected(item.id)}>
-      {item.id === "deep" && <small>{lang === "zh" ? "最适合深度练习" : "Best for deep practice"}</small>}
-      <h2>{lang === "zh" ? item.zh : item.en}</h2><p>{lang === "zh" ? item.zhCopy : item.enCopy}</p>
-      <strong>{currency}{annual ? Math.round(item.monthly[lang] * 10 * 100) / 100 : item.monthly[lang]}<i>/{annual ? (lang === "zh" ? "年" : "year") : (lang === "zh" ? "月" : "month")}</i></strong>
-      <ul>{item.features[lang].map((feature) => <li key={feature}><Check weight="bold"/>{feature}</li>)}</ul>
-    </button>)}</section>
-    <section className="checkout-preview">
-      {notice === "paid" && <p className="pay-notice" role="status">{lang === "zh" ? "付款成功，谢谢你。套餐会在几秒内生效，稍后回到应用就能看到。" : "Payment received, thank you. Your plan activates within seconds."}</p>}
-      {activePlan && <p className="pay-notice" role="status">{lang === "zh" ? `你当前的套餐：${plans.find((item) => item.id === activePlan)?.zh || ""}` : `Your current plan: ${plans.find((item) => item.id === activePlan)?.en || ""}`}{canManage && <button className="pay-link" onClick={manage} disabled={busy}>{lang === "zh" ? "管理订阅 / 取消" : "Manage or cancel"}</button>}</p>}
-      <div><Sparkle/><h2>{channel === "stripe" ? (lang === "zh" ? `选择「${plan.zh}」` : `Choose ${plan.en}`) : (lang === "zh" ? `预留「${plan.zh}」` : `Reserve ${plan.en}`)}</h2><p>{channel === "stripe" ? (lang === "zh" ? "付款页由 Stripe 提供，我们不会接触你的银行卡号。" : "Checkout is hosted by Stripe. We never see your card number.") : (lang === "zh" ? "正式收费前会再次显示价格、额度、续费与退款信息，由你确认后才会付款。" : "Before launch, you will review price, allowances, renewal, and refunds before any payment.")}</p></div>
-      <aside><dl><div><dt>{lang === "zh" ? "套餐" : "Plan"}</dt><dd>{lang === "zh" ? plan.zh : plan.en}</dd></div><div><dt>{lang === "zh" ? "周期" : "Billing"}</dt><dd>{annual ? (lang === "zh" ? "每年" : "Yearly") : (lang === "zh" ? "每月" : "Monthly")}</dd></div><div><dt>{lang === "zh" ? "预计合计" : "Estimated total"}</dt><dd>{currency}{amount}</dd></div></dl>
-        {channel === "stripe" ? <>
-          <button onClick={() => checkout("card")} disabled={busy}>{lang === "zh" ? "银行卡订阅（Visa 等，自动续费）" : "Subscribe with card (auto-renews)"}</button>
-          {lang === "zh" && <button onClick={() => checkout("wallet")} disabled={busy}>支付宝 / 微信支付（一次性，¥{amount}）</button>}
-          <small><LockKey/>{lang === "zh" ? "银行卡按月或按年自动扣款，可随时在“管理订阅”里取消。支付宝和微信是一次性购买，到期前需要你再购买一次。" : "Cards renew automatically and can be canceled any time under Manage. Alipay and WeChat Pay are one-time purchases."}</small>
-        </> : <>
-          <fieldset className="pending-payment-methods">
-            <legend>{lang === "zh" ? "付款方式" : "Payment methods"}</legend>
-            <button type="button" disabled>
-              <Wallet aria-hidden="true" />
-              <strong>{lang === "zh" ? "支付宝" : "Alipay"}</strong>
-              <span className="payment-review-status">{lang === "zh" ? "审核中" : "Under review"}</span>
+  return (
+    <div lang={zh ? "zh-CN" : "en"}>
+      <main className="pricing-page">
+        <nav>
+          <a href={zh ? "/" : "/en"}>Alrea<span>Dough</span></a>
+          <button type="button" lang={zh ? "en" : "zh-CN"} onClick={switchLanguage}>{zh ? "English" : "中文"}</button>
+        </nav>
+        <header>
+          <h1>{zh ? "会员与价格" : "Membership and pricing"}</h1>
+          <span>{member?.enabled ? (zh ? "按用量使用；支付宝购买为 30 天，到期不会自动扣款。" : "Usage-based allowances. Alipay purchases last 30 days and do not renew automatically.") : (zh ? "新会员方案预览。试用和付款尚未开放。" : "Preview of the new membership plans. Trials and payments are not open yet.")}</span>
+        </header>
+        <section className="pricing-plans">
+          {plans.map((plan) => {
+            const isSelected = selected.id === plan.id;
+            return (
+              <article key={plan.id} className={isSelected ? "selected" : undefined}>
+                <h2>{plan.name[lang]}</h2>
+                <strong>{plan.price ? <>¥{plan.price}<i> / {member?.enabled ? (zh ? "30 天" : "30 days") : (zh ? "月" : "month")}</i></> : (zh ? "免费" : "Free")}</strong>
+                <ul>
+                  <li><Check weight="bold" />{zh ? `每 5 小时约 ${plan.session} 次普通聊天的用量` : `About ${plan.session} standard chat turns per 5 hours`}</li>
+                  <li><Check weight="bold" />{zh ? `每周约 ${plan.week} 次普通聊天的用量` : `About ${plan.week} standard chat turns per week`}</li>
+                  {plan.id === "atelier" && <li><Check weight="bold" />{zh ? "填邀请码可免费体验 7 天" : "Try it free for 7 days with an invitation code"}</li>}
+                  {plan.id === "atelier" && <li><Check weight="bold" />{zh ? "醒发用量的 3 倍以上" : "More than three times the Deep Practice allowance"}</li>}
+                </ul>
+                {plan.id !== "soft" && (
+                  <button type="button" aria-pressed={isSelected} disabled={status === "busy"} onClick={() => { setSelected(plan); setStatus("idle"); }}>
+                    {member?.enabled ? (zh ? "选择套餐" : "Select plan") : (zh ? "选择预约套餐" : "Select for launch notice")}
+                  </button>
+                )}
+              </article>
+            );
+          })}
+        </section>
+        {member?.enabled ? <section className="checkout-preview member-checkout">
+          <div><Sparkle /><h2>{zh ? "我的会员" : "My membership"}</h2>
+            {member.authenticated && member.membership?.unlimited ? <p>{zh ? "创始人账户 · 不限用量" : "Founder account · no usage limit"}</p> : member.authenticated && member.membership ? <p>{zh ? "当前方案" : "Current plan"}：{plans.find(p => p.id === member.membership?.plan)?.name[lang]} · {zh ? "本 5 小时已用" : "Used this 5-hour window"} {member.membership.usage.fiveUnits}/{member.membership.limits.fiveHours} · {zh ? "本周已用" : "Used this week"} {member.membership.usage.weekUnits}/{member.membership.limits.week}</p> : <p>{zh ? "先用邮箱登录，会员和用量会跟着你的账户走。" : "Sign in with email to keep your membership and allowance with your account."}</p>}
+            {member.membership?.referralEndMs && <p>{zh ? "丰盛工坊体验到期" : "Atelier trial ends"}：{new Date(member.membership.referralEndMs).toLocaleString(zh ? "zh-CN" : "en-US")}{zh ? "，之后回到你原来的方案" : ", then back to your own plan"}</p>}
+            {member.membership?.periodEndMs && <p>{zh ? "当前方案到期" : "Current plan ends"}：{new Date(member.membership.periodEndMs).toLocaleDateString(zh ? "zh-CN" : "en-US")}</p>}
+            {member.membership && <p>{zh ? "5 小时用量恢复" : "5-hour allowance resets"}：{new Date(member.membership.usage.fiveResetMs).toLocaleString(zh ? "zh-CN" : "en-US")}<br />{zh ? "周用量恢复" : "Weekly allowance resets"}：{new Date(member.membership.usage.weekResetMs).toLocaleString(zh ? "zh-CN" : "en-US")}</p>}
+          </div>
+          <aside>
+            {!member.authenticated ? <>
+              <label><span>{zh ? "邮箱" : "Email"}</span><input type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" /></label>
+              {codeSent && <label><span>{zh ? "邮件验证码" : "Email code"}</span><input type="text" inputMode="numeric" value={code} maxLength={8} onChange={e => setCode(e.target.value.replace(/\D/g, ""))} /></label>}
+              <button type="button" disabled={memberBusy || !email.trim()} onClick={() => void memberAction(codeSent ? "/api/member/auth/verify" : "/api/member/auth/otp", codeSent ? { email, code } : { email })}>{memberBusy ? (zh ? "请稍候…" : "Please wait…") : codeSent ? (zh ? "验证并登录" : "Verify and sign in") : (zh ? "发送验证码" : "Send code")}</button>
+              {codeSent && <button type="button" className="member-link" disabled={memberBusy} onClick={() => { setCodeSent(false); setCode(""); }}>{zh ? "重新输入邮箱" : "Change email"}</button>}
+            </> : <>
+              {!member.membership?.referralUsed && <>
+              <label><span>{zh ? "邀请码（免费体验 7 天丰盛工坊）" : "Invitation code (7 days of Dough Atelier)"}</span><input type="text" inputMode="numeric" value={referral} maxLength={32} onChange={e => { setReferral(e.target.value); setReferralDone(false); }} /></label>
+              <button type="button" disabled={memberBusy || !referral.trim()} onClick={() => void memberAction("/api/member/referral", { code: referral.trim() })}>{zh ? "使用邀请码" : "Use invitation code"}</button>
+              </>}
+              {referralDone && <p role="status">{zh ? "已开通 7 天丰盛工坊。" : "7 days of Dough Atelier added."}</p>}
+              {member.checkoutAvailable && <button type="button" disabled={memberBusy} onClick={() => void memberAction("/api/pay/zpay/checkout", { plan: selected.id })}>{zh ? `支付宝购买${selected.name.zh} · ¥${selected.price} / 30 天` : `Buy ${selected.name.en} · ¥${selected.price} / 30 days`}</button>}
+              {!member.checkoutAvailable && <p>{zh ? "支付入口正在开通。" : "Checkout is being set up."}</p>}
+              <button type="button" className="member-link" disabled={memberBusy} onClick={() => void memberAction("/api/member/auth/logout")}>{zh ? "退出登录" : "Sign out"}</button>
+            </>}
+            {memberError && <p role="alert">{memberError}</p>}
+            <small><LockKey />{zh ? "支付结果以服务器核实为准。" : "Payment status is verified by the server."}</small>
+          </aside>
+        </section> : <section className="checkout-preview">
+          <div>
+            <Sparkle />
+            <h2>{zh ? `等「${selected.name.zh}」开放时通知我` : `Notify me when ${selected.name.en} opens`}</h2>
+            <p>{zh ? "聊天次数是估算，长对话和生成内容会消耗更多用量。会员开放后，计划提供额外用量包。" : "Turn counts are estimates. Longer chats and generation tasks use more of the allowance. Extra usage packs are planned."}</p>
+          </div>
+          <aside>
+            <label>
+              <span>{zh ? "邮箱或微信号" : "Email or WeChat ID"}</span>
+              <input type="text" maxLength={120} value={contact} disabled={status === "busy"} onChange={(event) => { setContact(event.target.value); setStatus("idle"); }} />
+            </label>
+            <button type="button" onClick={reserve} disabled={!contact.trim() || status === "busy" || status === "saved"}>
+              {status === "busy" ? (zh ? "正在保存…" : "Saving…") : status === "saved" ? (zh ? "已登记" : "Saved") : (zh ? "通知我" : "Notify me")}
             </button>
-            <button type="button" disabled>
-              <CreditCard aria-hidden="true" />
-              <strong>{lang === "zh" ? "国际银行卡" : "International cards"}</strong>
-              <span className="payment-review-status">{lang === "zh" ? "审核中" : "Under review"}</span>
-            </button>
-          </fieldset>
-          <label><span>{lang === "zh" ? "接收开放通知的邮箱或微信号" : "Email or WeChat for the launch notice"}</span><input type="text" value={contact} onChange={(event) => { setContact(event.target.value); setSaved(false); }} placeholder={lang === "zh" ? "you@example.com 或 微信号" : "you@example.com"}/></label>
-          <button onClick={reserve} disabled={!contact.trim()}>{saved ? (lang === "zh" ? "已为你保留" : "Reserved") : (lang === "zh" ? "保留创始价格" : "Reserve founding price")}</button>
-          <small><LockKey/>{lang === "zh" ? "当前不收款，也不收集银行卡。我们只记录你想要的套餐和你留下的联系方式。" : "No payment is taken and no card details are collected. We only keep the plan you chose and the contact you leave."}</small>
-        </>}
-        {notice === "error" && <small role="alert">{lang === "zh" ? "没有成功，请稍后再试。" : "That did not work. Please try again shortly."}</small>}
-      </aside>
-    </section>
-  </main><SiteFooter lang={lang} /></div>;
+            {status === "error" && <p role="alert">{zh ? "没有保存成功，请稍后重试。" : "Could not save. Please try again."}</p>}
+            <small><LockKey />{zh ? "登记不扣款。" : "No payment is required."} <a href={zh ? "/privacy" : "/privacy#english"}>{zh ? "隐私说明" : "Privacy Notice"}</a></small>
+          </aside>
+        </section>}
+      </main>
+      <SiteFooter lang={lang} />
+    </div>
+  );
 }

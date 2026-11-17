@@ -9,13 +9,13 @@ const copy = {
     pricing: "会员与价格",
     headline: ["给一个愿望，", "留出每天练习的空间。"],
     introduction: "AlreaDough 是一个中英文 AI 陪练空间。用对话、写作和声音练习，探索你想过的生活。",
-    enter: "进入内测",
+    enter: "开始练习",
     featuresTitle: "你可以在这里做什么",
     features: [
-      ["AI 陪练", "围绕一个愿望记录当下的想法，在后续对话里接着聊。"],
-      ["故事与重写", "把愿望写成具体的生活场景，也可以把在意的一段经历重新写一遍。"],
-      ["声音练习", "写下肯定语，录制自己的声音，并搭配环境音制作练习音轨。"],
-      ["愿景板", "用图片和文字，把想象中的生活整理成一张随时能回看的拼贴。"],
+      ["显化陪练", "围绕你的显化目标展开对话。遇到动摇时，从当下的处境里找到具体的练习。"],
+      ["转念重写", "把在意的 3D 片段，写成目标落地时你想看到的样子。"],
+      ["自制 Sub", "自由搭配场景音效和肯定语，DIY 你的专属 subliminal。"],
+      ["愿景板", "用图片和文字自制愿景板，把目标落地后的生活变成看得见的画面。"],
     ],
   },
   en: {
@@ -24,13 +24,13 @@ const copy = {
     pricing: "Pricing",
     headline: ["One desire.", "A daily practice."],
     introduction: "Explore the life you want through AI conversations, writing, and audio practices in English or Chinese.",
-    enter: "Enter the beta",
+    enter: "Start practicing",
     featuresTitle: "What you can do in AlreaDough",
     features: [
-      ["AI companion", "Explore a desire in conversation and pick up where you left off."],
-      ["Stories and revision", "Write an everyday scene from the life you want, or revisit and rewrite a moment that stayed with you."],
-      ["Audio practice", "Write affirmations, record your own voice, and mix it with ambient sounds."],
-      ["Vision board", "Bring images and words together in a collage you can return to anytime."],
+      ["Manifestation coaching", "Practice toward your goal in conversation and find a concrete exercise for what you are facing today."],
+      ["Revision", "Rewrite a moment you keep replaying as a scene from the life you want to experience."],
+      ["DIY subliminals", "Mix your own affirmations with ambient sounds to make a subliminal that fits your practice."],
+      ["Vision board", "Build a vision board with images and words that show what life looks like when your goal is realized."],
     ],
   },
 };
@@ -54,7 +54,7 @@ export default function PublicHome({ lang }: { lang: "zh" | "en" }) {
           <div>
             <h1>{t.headline[0]}<br />{t.headline[1]}</h1>
             <p>{t.introduction}</p>
-            <a href="/app" className={styles.action}>{t.enter} <span aria-hidden="true">→</span></a>
+            <a href={`/app?lang=${lang}`} className={styles.action}>{t.enter} <span aria-hidden="true">→</span></a>
           </div>
           <div className={styles.art}>
             <Image src="/brand/already-dough-mark.png" width={420} height={420} alt="" priority />

@@ -703,10 +703,20 @@ test("coach playbook sends the matching situation with concrete moves and exampl
   }
 });
 
+test("a reply whose rewrite still has a slogan loses only that sentence", async () => {
+  const { dropStockSentences, hasStockCoachLine } = await import("../lib/reply-guards.ts");
+  const reply = "两天没回，你在数时间。但你选的版本里，那部手机根本没有机会安静两天。他正想着怎么开口。\n\n把手机翻过去，屏幕朝下。";
+  const kept = dropStockSentences(reply);
+  assert.ok(!hasStockCoachLine(kept), kept);
+  assert.equal(kept, "两天没回，你在数时间。他正想着怎么开口。\n\n把手机翻过去，屏幕朝下。");
+});
+
 test("chat rewrite catches repeat manifestation slogans", async () => {
   const { hasStockCoachLine } = await import("../lib/reply-guards.ts");
-  for (const reply of ["那只是 3D 里的一帧。", "回到你选的那个版本里。", "无视3D。", "That is one frame of 3D.", "那个版本里，你只管去忙。", "回到你选的那个画面里。"]) {
+  for (const reply of ["那只是 3D 里的一帧。", "回到你选的那个版本里。", "无视3D。", "That is one frame of 3D.", "那个版本里，你只管去忙。", "回到你选的那个画面里。", "你想选哪个版本，主动权在你手上。", "在这个版本里，TA是那个会主动找你的人。", "你已经选定的结果是你们在一起了。", "把注意力放到你已经选定的那个结果上。", "Stay with the outcome you chose."]) {
     assert.ok(hasStockCoachLine(reply), reply);
   }
-  assert.ok(!hasStockCoachLine("你们平时有话会直接跟彼此说。"));
+  for (const reply of ["你们平时有话会直接跟彼此说。", "他在你身边，你们周末一起去海边。", "这次考试结果出来以后，你去做自己的事。", "算出来的是一个版本，签不签字由你。"]) {
+    assert.ok(!hasStockCoachLine(reply), reply);
+  }
 });

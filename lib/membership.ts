@@ -1,0 +1,163 @@
+import { env } from "cloudflare:workers";
+import { memberAccount, memberAuthReady } from "./member-auth";
+
+export type PaidPlan = "deep" | "atelier";
+export type MemberPlan = "soft" | PaidPlan;
+export const MEMBER_PRICE_FEN: Record<PaidPlan, number> = { deep: 3900, atelier: 14900 };
+export const MEMBER_LIMITS: Record<MemberPlan, { fiveHours: number; week: number }> = {
+  soft: { fiveHours: 15, week: 60 },
+  deep: { fiveHours: 60, week: 400 },
+  atelier: { fiveHours: 200, week: 1500 },
+};
+const fiveHoursMs = 5 * 60 * 60 * 1000;
+const monthMs = 30 * 24 * 60 * 60 * 1000;
+const referralMs = 7 * 24 * 60 * 60 * 1000;
+/** Invitation code: 7 days of Dough Atelier, once per account. */
+const REFERRAL_CODES = new Set(["20260910"]);
+/** Accounts with no allowance at all (the founder's own account, for testing). */
+const UNLIMITED_ACCOUNTS = new Set(["app:d4b537ab-a8d5-4feb-936d-e1596d083750"]);
+export function isUnlimitedAccount(accountId: string) { return UNLIMITED_ACCOUNTS.has(accountId); }
+let membershipTablesReady: Promise<void> | null = null;
+
+export function membershipEnabled() {
+  return process.env.MEMBERSHIP_ENABLED === "1" && memberAuthReady();
+}
+
+export function isPaidPlan(value: unknown): value is PaidPlan { return value === "deep" || value === "atelier"; }
+export function weekWindow(now: number) {
+  const day = new Date(now).getUTCDay();
+  const midnight = Date.UTC(new Date(now).getUTCFullYear(), new Date(now).getUTCMonth(), new Date(now).getUTCDate());
+  return midnight - ((day + 6) % 7) * 86_400_000;
+}
+export function fiveHourWindow(now: number) { return Math.floor(now / fiveHoursMs) * fiveHoursMs; }
+
+export async function ensureMembershipTables() {
+  if (membershipTablesReady) return membershipTablesReady;
+  membershipTablesReady = env.DB.batch([
+    env.DB.prepare("CREATE TABLE IF NOT EXISTS member_state (account_id TEXT PRIMARY KEY NOT NULL, plan TEXT NOT NULL DEFAULT 'soft', period_end_ms INTEGER, trial_end_ms INTEGER, updated_at_ms INTEGER NOT NULL)"),
+    env.DB.prepare("CREATE TABLE IF NOT EXISTS member_orders (order_id TEXT PRIMARY KEY NOT NULL, account_id TEXT NOT NULL, plan TEXT NOT NULL, amount_fen INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'pending', provider_trade_no TEXT, created_at_ms INTEGER NOT NULL, paid_at_ms INTEGER)"),
+    env.DB.prepare("CREATE INDEX IF NOT EXISTS member_orders_account ON member_orders (account_id, created_at_ms)"),
+    env.DB.prepare("CREATE TABLE IF NOT EXISTS member_usage (account_id TEXT PRIMARY KEY NOT NULL, five_start_ms INTEGER NOT NULL, five_units INTEGER NOT NULL DEFAULT 0, week_start_ms INTEGER NOT NULL, week_units INTEGER NOT NULL DEFAULT 0)"),
+    env.DB.prepare("CREATE TABLE IF NOT EXISTS member_referrals (account_id TEXT PRIMARY KEY NOT NULL, code TEXT NOT NULL, redeemed_at_ms INTEGER NOT NULL)"),
+  ]).then(() => undefined).catch((error: unknown) => { membershipTablesReady = null; throw error; });
+  return membershipTablesReady;
+}
+
+type StateRow = { plan: MemberPlan; periodEndMs: number | null; trialEndMs: number | null };
+export async function memberState(accountId: string, now = Date.now()) {
+  await ensureMembershipTables();
+  const [row, referralRow] = await Promise.all([
+    env.DB.prepare("SELECT plan, period_end_ms AS periodEndMs, trial_end_ms AS trialEndMs FROM member_state WHERE account_id = ?").bind(accountId).first() as Promise<StateRow | null>,
+    env.DB.prepare("SELECT redeemed_at_ms AS redeemedAtMs FROM member_referrals WHERE account_id = ?").bind(accountId).first<{ redeemedAtMs: number }>(),
+  ]);
+  const paid = !!row?.periodEndMs && row.periodEndMs > now && (row.plan === "deep" || row.plan === "atelier");
+  const trial = !paid && !!row?.trialEndMs && row.trialEndMs > now;
+  // The invitation is a temporary overlay: Atelier while it lasts, then the account's own plan again.
+  const referralEndMs = referralRow ? referralRow.redeemedAtMs + referralMs : null;
+  const referral = !!referralEndMs && referralEndMs > now;
+  const ownPlan: MemberPlan = paid ? row!.plan : trial ? "deep" : "soft";
+  const plan: MemberPlan = referral ? "atelier" : ownPlan;
+  return { plan, trial, referral, referralUsed: !!referralRow, referralEndMs: referral ? referralEndMs : null,
+    periodEndMs: paid ? row!.periodEndMs : trial ? row!.trialEndMs : null };
+}
+
+export async function createMemberOrder(accountId: string, plan: PaidPlan) {
+  await ensureMembershipTables();
+  const orderId = Array.from(crypto.getRandomValues(new Uint8Array(16)), x => x.toString(16).padStart(2, "0")).join("");
+  const amountFen = MEMBER_PRICE_FEN[plan];
+  await env.DB.prepare("INSERT INTO member_orders (order_id, account_id, plan, amount_fen, created_at_ms) VALUES (?, ?, ?, ?, ?)")
+    .bind(orderId, accountId, plan, amountFen, Date.now()).run();
+  return { orderId, amountFen, plan };
+}
+
+export type MemberOrder = { orderId: string; accountId: string; plan: PaidPlan; amountFen: number; status: string };
+export async function readMemberOrder(orderId: string) {
+  await ensureMembershipTables();
+  return env.DB.prepare("SELECT order_id AS orderId, account_id AS accountId, plan, amount_fen AS amountFen, status FROM member_orders WHERE order_id = ?")
+    .bind(orderId).first<MemberOrder>();
+}
+
+/** D1 batches are one transaction. The entitlement SELECT only sees pending orders, so repeated or concurrent callbacks cannot extend twice. */
+export async function grantPaidOrder(order: MemberOrder, providerTradeNo: string) {
+  await ensureMembershipTables();
+  const now = Date.now();
+  await env.DB.batch([
+    env.DB.prepare(`INSERT INTO member_state (account_id, plan, period_end_ms, updated_at_ms)
+      SELECT account_id, plan, ?, ? FROM member_orders WHERE order_id = ? AND status = 'pending'
+      ON CONFLICT(account_id) DO UPDATE SET plan = excluded.plan,
+      period_end_ms = MAX(?, COALESCE(member_state.period_end_ms, 0), COALESCE(member_state.trial_end_ms, 0)) + ?,
+      updated_at_ms = excluded.updated_at_ms`)
+      .bind(now + monthMs, now, order.orderId, now, monthMs),
+    env.DB.prepare("UPDATE member_orders SET status = 'paid', provider_trade_no = ?, paid_at_ms = ? WHERE order_id = ? AND status = 'pending'")
+      .bind(providerTradeNo, now, order.orderId),
+  ]);
+}
+
+export async function memberUsage(accountId: string, now = Date.now()) {
+  await ensureMembershipTables();
+  const row = await env.DB.prepare("SELECT five_start_ms AS fiveStart, five_units AS fiveUnits, week_start_ms AS weekStart, week_units AS weekUnits FROM member_usage WHERE account_id = ?")
+    .bind(accountId).first<{ fiveStart: number; fiveUnits: number; weekStart: number; weekUnits: number }>();
+  return { fiveUnits: row?.fiveStart === fiveHourWindow(now) ? row.fiveUnits : 0, weekUnits: row?.weekStart === weekWindow(now) ? row.weekUnits : 0,
+    fiveResetMs: fiveHourWindow(now) + fiveHoursMs, weekResetMs: weekWindow(now) + 7 * 86_400_000 };
+}
+
+export async function reserveMemberUnit(accountId: string, now = Date.now()) {
+  const state = await memberState(accountId, now);
+  const limits = isUnlimitedAccount(accountId) ? { fiveHours: 1_000_000_000, week: 1_000_000_000 } : MEMBER_LIMITS[state.plan];
+  const five = fiveHourWindow(now), week = weekWindow(now);
+  await env.DB.prepare("INSERT OR IGNORE INTO member_usage (account_id, five_start_ms, week_start_ms) VALUES (?, ?, ?)").bind(accountId, five, week).run();
+  const result = await env.DB.prepare(`UPDATE member_usage SET
+    five_units = CASE WHEN five_start_ms = ? THEN five_units + 1 ELSE 1 END,
+    week_units = CASE WHEN week_start_ms = ? THEN week_units + 1 ELSE 1 END,
+    five_start_ms = ?, week_start_ms = ?
+    WHERE account_id = ? AND (five_start_ms != ? OR five_units < ?) AND (week_start_ms != ? OR week_units < ?)`)
+    .bind(five, week, five, week, accountId, five, limits.fiveHours, week, limits.week).run();
+  return { ok: !!result.meta.changes, state, limits };
+}
+
+/**
+ * One reply the user sees is one unit. A normal turn, including the internal rewrite pass, is about
+ * 4,000-8,000 weighted tokens (measured 2026-11-16: ~3,300 input + ~250 output per model call), so only
+ * unusually long conversations count as more than one.
+ */
+export function usageUnits(usage: { input_tokens?: number; output_tokens?: number } | null) {
+  return Math.max(1, Math.ceil(((usage?.input_tokens || 0) + 3 * (usage?.output_tokens || 0)) / 8000));
+}
+
+export async function finishMemberUnit(accountId: string, units: number, succeeded: boolean, now = Date.now()) {
+  const five = fiveHourWindow(now), week = weekWindow(now);
+  const delta = succeeded ? Math.max(0, units - 1) : -1;
+  if (!delta) return;
+  await env.DB.prepare(`UPDATE member_usage SET
+    five_units = CASE WHEN five_start_ms = ? THEN MAX(0, five_units + ?) ELSE five_units END,
+    week_units = CASE WHEN week_start_ms = ? THEN MAX(0, week_units + ?) ELSE week_units END
+    WHERE account_id = ?`).bind(five, delta, week, delta, accountId).run();
+}
+
+export async function membershipForRequest(request: Request) {
+  const accountId = await memberAccount(request);
+  if (!accountId) return null;
+  const [state, usage] = await Promise.all([memberState(accountId), memberUsage(accountId)]);
+  return { ...state, usage, limits: MEMBER_LIMITS[state.plan], unlimited: isUnlimitedAccount(accountId) };
+}
+
+export function isReferralCode(value: unknown) {
+  return typeof value === "string" && REFERRAL_CODES.has(value.trim());
+}
+
+/**
+ * Seven days of Dough Atelier from the moment of redemption, once per account. Nothing in member_state
+ * changes, so when the seven days end the account is back on its own plan (free, or its paid period).
+ */
+export async function redeemReferral(accountId: string, code: string) {
+  await ensureMembershipTables();
+  const now = Date.now();
+  try {
+    await env.DB.prepare("INSERT INTO member_referrals (account_id, code, redeemed_at_ms) VALUES (?, ?, ?)").bind(accountId, code.trim(), now).run();
+  } catch {
+    const used = await env.DB.prepare("SELECT 1 AS used FROM member_referrals WHERE account_id = ?").bind(accountId).first();
+    if (used) return { ok: false as const, error: "REFERRAL_USED" };
+    throw new Error("REFERRAL_FAILED");
+  }
+  return { ok: true as const, membership: await memberState(accountId) };
+}

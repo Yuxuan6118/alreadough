@@ -87,16 +87,23 @@
   min-height: 270px;
   aspect-ratio: 1.12;
   place-items: center;
-  overflow: hidden;
-  border: 1px solid var(--app-line);
-  border-radius: var(--app-radius);
-  background: radial-gradient(ellipse at 48% 35%, var(--app-panel), var(--app-panel-strong));
 }
 
 .art img {
   display: block;
-  width: 78%;
+  width: 84%;
   height: auto;
+  transform-origin: 50% 81%;
+  animation: dough-breathe 4.8s ease-in-out infinite;
+}
+
+@keyframes dough-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.025, 1.045); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .art img { animation: none; }
 }
 
 .features {

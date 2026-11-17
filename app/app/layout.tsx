@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import AccessGate from "../components/AccessGate";
 import InstallTip from "../components/InstallTip";
 import NativeShell from "../components/NativeShell";
 import NoPinchZoom from "../components/NoPinchZoom";
@@ -29,8 +28,8 @@ export default function BetaAppLayout({ children }: { children: React.ReactNode 
       <ViewportKeyboardFix />
       <NoPinchZoom />
       <OrientationGuard />
-      <ViewportDebug />
-      <AccessGate>{children}<InstallTip /></AccessGate>
+      {process.env.NODE_ENV === "development" && <ViewportDebug />}
+      {children}<InstallTip />
     </>
   );
 }

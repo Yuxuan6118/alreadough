@@ -10,5 +10,5 @@ export const SITE_RECORD = {
   policeCode: "",
   model: "",
   modelFiling: "",
-  contactEmail: "",
+  contactEmail: "charlottehyuxuan@gmail.com",
 };

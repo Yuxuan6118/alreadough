@@ -18,7 +18,7 @@ export default function ReflectionPanel({ lang, goals, currentGoalId, onChange }
     <div className="setting-card reflect-intro">
       <span>{zh ? "自我觉察" : "SELF-REFLECTION"}</span>
       <p>{zh ? "想要的东西，背后常常连着更深的东西。这里不替你下结论，只给你几个问题，写不写、写多少都由你。" : "What we want is often tied to something deeper. Nothing here draws a conclusion for you. These are only a few questions, and whether and how much you write is up to you."}</p>
-      <small>{zh ? "你写的内容和愿望卡一样保存在你的空间里。它不会发给 AI，也不会出现在创始人查看的对话页里。任何问题都可以空着，哪个让你难受就跳过。" : "What you write is kept in your space like your desire cards. It is not sent to the AI and does not appear in the founder's conversation viewer. Any question can stay empty; skip whatever feels hard."}</small>
+      <small>{zh ? "回答会保存到你的空间，不会发送给 AI。任何问题都可以跳过。" : "Your answers are saved in your space and are not sent to the AI. You can skip any question."}</small>
     </div>
 
     {needsCare && <div className="setting-card reflect-care" role="note">

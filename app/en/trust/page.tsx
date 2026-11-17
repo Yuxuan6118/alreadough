@@ -25,6 +25,14 @@ const sections = [
     ],
   },
   {
+    id: "content-standards",
+    title: "Prohibited content and reports",
+    paragraphs: [
+      "You may not submit, record, or upload (including recordings used to create a custom voice), or ask the AI to generate, sexual or NSFW content, violent or graphic content, hateful or discriminatory content, or any content that sexualizes or endangers minors. We have zero tolerance for child sexual abuse material (CSAM): it is removed immediately, the account is permanently banned, and it is reported to the relevant authorities as required by law. The Terms of Service section on prohibited content gives the full definitions.",
+      "Every AI reply has a Report button, and every report is reviewed by a person. Reports involving minors, child sexual exploitation, or an imminent threat to someone's safety are handled within 24 hours; all others are reviewed within 3 business days. Actions include removing content, restricting features, suspending or terminating accounts, and reporting to authorities where the law requires. The Terms of Service section on reporting and enforcement gives the full process.",
+    ],
+  },
+  {
     id: "outcomes",
     title: "Outcomes and responsibility",
     paragraphs: [
@@ -44,16 +52,15 @@ const sections = [
     id: "memory",
     title: "Memory and privacy",
     paragraphs: [
-      "AlreaDough stores your practice data on your device and backs up your space for syncing. During the beta, the founder can review a separate copy of AI conversations to improve the product. We also log approximate location, device type, and usage. Our database does not record IP addresses.",
-      "AI requests may include the current desire card, limiting beliefs, practice summary, a few recent messages, and the current prompt. Vision board images are not sent automatically. Requests go through the AlreaDough server. We disable storage for model responses in the API request, and the provider’s security processing, logs, and data policies may still apply. Please avoid entering passwords, card details, identity documents, medical records, or private information you are not authorized to share.",
+      "AI providers process the information needed to generate a reply. Avoid entering passwords, card numbers, identity numbers, or information you are not authorized to share.",
     ],
   },
   {
     id: "subscription",
     title: "Subscription and beta",
     paragraphs: [
-      "The application is currently in private beta. Before public subscriptions open, AlreaDough will explain pricing, usage, cancellation, refunds, data deletion, and how to get support before you pay.",
-      "AlreaDough is intended for adults aged 18 and older. This safety notice is a draft for the beta.",
+      "Pricing, renewal, and cancellation terms are shown before payment.",
+      "AlreaDough is intended for adults aged 18 and older.",
     ],
   },
 ];
@@ -76,7 +83,7 @@ export default function EnglishTrustPage() {
           {sections.map((section, index) => (
             <section id={section.id} key={section.id} className={styles.section}>
               <span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
-              <div><h2>{section.title}</h2>{section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>
+              <div><h2>{section.title}</h2>{section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}{section.id === "memory" && <p><a href="/privacy#english">Privacy Notice</a></p>}{section.id === "content-standards" && <p><a href="/terms#prohibited-content-en">Prohibited content</a> · <a href="/terms#reporting-en">Reporting and enforcement</a></p>}</div>
             </section>
           ))}
         </div>

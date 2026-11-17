@@ -4,7 +4,7 @@ import {
   type CompanionRequest,
 } from "@/lib/already-ai";
 import { beginBetaRequest, combineTokenUsage, finishMemberRequest, recordConversation, settleBetaRequest } from "@/lib/beta-guard";
-import { cleanReply, coachSpecificityRetryNote, contrastRetryNote, exitReply, hasContrastFrame, hasStockCoachLine, isErrorEcho, isExitIntent } from "@/lib/reply-guards";
+import { cleanReply, coachSpecificityRetryNote, contrastRetryNote, dropStockSentences, exitReply, hasContrastFrame, hasStockCoachLine, isErrorEcho, isExitIntent } from "@/lib/reply-guards";
 import { readClientInfo } from "@/lib/client-info";
 import { OPENAI_BASE_URL, chatContent, chatUsage, type ChatCompletion } from "@/lib/openai-base";
 
@@ -215,6 +215,7 @@ export async function POST(request: Request) {
         console.error("coach reply rewrite failed", String(error));
       }
     }
+    if (payload.mode === "chat" && hasStockCoachLine(result.reply)) result.reply = dropStockSentences(result.reply);
     const reply = cleanReply(result.reply, { mode: payload.mode, name: payload.goal.companionName });
     // Beta: keep the conversation turn (not the desire card) so replies can be reviewed and improved.
     const logId = await recordConversation(gate.ticket, {

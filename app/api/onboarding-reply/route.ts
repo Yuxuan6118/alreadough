@@ -1,5 +1,5 @@
 import { desirePreservingSafetyReply } from "@/lib/already-ai";
-import { beginBetaRequest, settleBetaRequest } from "@/lib/beta-guard";
+import { beginBetaRequest, finishMemberRequest, settleBetaRequest } from "@/lib/beta-guard";
 import { readClientInfo } from "@/lib/client-info";
 import { OPENAI_BASE_URL, chatContent, chatUsage, type ChatCompletion } from "@/lib/openai-base";
 import { isReplyStep, onboardingSystem, onboardingUser, sanitizeOnboardingReply } from "@/lib/onboarding-ai";
@@ -63,11 +63,14 @@ export async function POST(request: Request) {
     });
     const data = await upstream.json() as ChatCompletion;
     await settleBetaRequest(gate.ticket, chatUsage(data), { success: upstream.ok, latencyMs: Date.now() - startedAt });
-    if (!upstream.ok) return json({ reply: "" });
+    if (!upstream.ok) { await finishMemberRequest(gate.ticket, null, false); return json({ reply: "" }); }
     const reply = sanitizeOnboardingReply(chatContent(data), lang, name);
-    return json({ reply: reply && !hasContrastFrame(reply) ? reply : "" });
+    const accepted = reply && !hasContrastFrame(reply) ? reply : "";
+    await finishMemberRequest(gate.ticket, chatUsage(data), !!accepted);
+    return json({ reply: accepted });
   } catch {
     await settleBetaRequest(gate.ticket, null, { success: false, latencyMs: Date.now() - startedAt }).catch(() => undefined);
+    await finishMemberRequest(gate.ticket, null, false).catch(() => undefined);
     return json({ reply: "" });
   }
 }

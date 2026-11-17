@@ -21,14 +21,11 @@ import {
 
 import "./onboarding.css";
 
-export type StyleOption = { id: string; zh: string; en: string; zhDescription: string; enDescription: string };
-
 type Props = {
   lang: OnboardingLang;
   sessionId: string;
   /** "first": the whole opening. "extra": one more desire, short. */
   mode: "first" | "extra";
-  styleOptions: StyleOption[];
   /** shown under the name question, for continuing on another device */
   syncSlot?: ReactNode;
   initialName?: string;
@@ -71,7 +68,7 @@ function Typed({ text }: { text: string }) {
   return <p className="onboard-reply" aria-live="polite">{text.slice(0, shown)}</p>;
 }
 
-export default function GuidedOnboarding({ lang, sessionId, mode, styleOptions, syncSlot, initialName = "", maxWishes = 8, onCancel, onComplete }: Props) {
+export default function GuidedOnboarding({ lang, sessionId, mode, syncSlot, initialName = "", maxWishes = 8, onCancel, onComplete }: Props) {
   const zh = lang === "zh";
   const [answers, setAnswers] = useState<OnboardingAnswers>(() => ({ ...emptyAnswers(), name: initialName }));
   const [pos, setPos] = useState(0);
@@ -111,6 +108,7 @@ export default function GuidedOnboarding({ lang, sessionId, mode, styleOptions, 
   const def: StepDef = STEPS[slot.id];
   const wishIndex = slot.wish;
   const wish = wishIndex === null ? null : answers.wishes[wishIndex];
+  const meetingSomeoneNew = wish?.specifics.relationship_target === "new";
   const isLast = index === flow.length - 1 && slot.id !== "more";
   const slotKey = `${slot.wish ?? "g"}:${slot.id}`;
   const replyHere = reply?.key === slotKey ? reply.text : "";
@@ -141,7 +139,10 @@ export default function GuidedOnboarding({ lang, sessionId, mode, styleOptions, 
     else if (slot.id === "pullback") setWish({ pullback: value });
     else if (slot.id === "evidence") setWish({ evidence: value });
     else if (slot.id === "exclude") setWish({ exclude: value });
-    else setWish({ specifics: { ...wish.specifics, [slot.id]: value } });
+    else {
+      const field = slot.id === "rel_state" && meetingSomeoneNew ? "new_rel_state" : slot.id;
+      setWish({ specifics: { ...wish.specifics, [field]: value } });
+    }
   };
 
   const group = (() => {
@@ -149,7 +150,6 @@ export default function GuidedOnboarding({ lang, sessionId, mode, styleOptions, 
     if (wishIndex !== null && mode === "extra") return zh ? "新的愿望" : "A new desire";
     if (wishIndex !== null) return zh ? `愿望 ${wishIndex + 1}` : `Desire ${wishIndex + 1}`;
     if (["people", "never", "situation"].includes(slot.id)) return zh ? "你和你的世界" : "You and your world";
-    if (slot.id === "style") return zh ? "陪伴方式" : "Companion style";
     return zh ? "让 AlreaDough 更好地认识你" : "Help AlreaDough get to know you";
   })();
 
@@ -235,15 +235,25 @@ export default function GuidedOnboarding({ lang, sessionId, mode, styleOptions, 
     }
   };
 
-  const canContinue = canAdvance(slot.id, answers, wishIndex) && !thinking
-    && (slot.id !== "style" || answers.style !== "custom" || answers.customTone.trim().length > 0);
+  const canContinue = canAdvance(slot.id, answers, wishIndex) && !thinking;
   const progress = Math.round(((index + 1) / flow.length) * 100);
-  const placeholder = def.placeholder?.[lang];
+  const placeholder = slot.id === "rel_state" && meetingSomeoneNew
+    ? (zh ? "比如：温柔坦诚、说到做到、尊重边界。希望我们彼此信任，有话直说，也给彼此留一点自己的空间。" : "For example: Kind, honest, dependable, and respectful of boundaries. I’d like us to trust each other, speak openly, and make room for our own lives.")
+    : def.placeholder?.[lang];
 
   const body = (() => {
     switch (def.type) {
       case "text":
-        return <input autoFocus maxLength={60} value={currentText()} onChange={(event) => setCurrentText(event.target.value)} placeholder={placeholder} onKeyDown={(event) => { if (event.key === "Enter" && canContinue) void onContinue(); }} />;
+        if (slot.id === "sp_name" && wish) {
+          return <>
+            <div className="option-card-grid category-grid">
+              <button type="button" aria-pressed={!meetingSomeoneNew} className={!meetingSomeoneNew ? "selected" : ""} onClick={() => setWish({ specifics: { ...wish.specifics, relationship_target: "specific" } })}>{zh ? "我有特定对象" : "I have a specific person in mind"}</button>
+              <button type="button" aria-pressed={!!meetingSomeoneNew} className={meetingSomeoneNew ? "selected" : ""} onClick={() => setWish({ specifics: { ...wish.specifics, relationship_target: "new" } })}>{zh ? "我想遇见新的人" : "I want to meet someone new"}</button>
+            </div>
+            {!meetingSomeoneNew && <input aria-label={zh ? "TA 的名字或称呼" : "Their name or what you call them"} maxLength={24} value={currentText()} onChange={(event) => setCurrentText(event.target.value)} placeholder={zh ? "TA 的名字或称呼" : "Their name or what you call them"} />}
+          </>;
+        }
+        return <input autoFocus maxLength={60} value={currentText()} onChange={(event) => setCurrentText(event.target.value)} placeholder={placeholder} onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing && canContinue) void onContinue(); }} />;
       case "long":
         return <textarea autoFocus rows={slot.id === "never" ? 4 : 5} maxLength={1200} value={currentText()} onChange={(event) => setCurrentText(event.target.value)} placeholder={placeholder} />;
       case "category":
@@ -259,11 +269,6 @@ export default function GuidedOnboarding({ lang, sessionId, mode, styleOptions, 
             <button type="button" className="outline-button" disabled={!personDraft.name.trim()} onClick={addPerson}>{zh ? "添加" : "Add"}</button>
           </div>
         </div>;
-      case "style":
-        return <>
-          <div className="option-card-grid companion-style-grid">{styleOptions.map((option) => <button key={option.id} type="button" className={answers.style === option.id ? "selected" : ""} onClick={() => setTop({ style: option.id })}><strong>{zh ? option.zh : option.en}</strong><small>{zh ? option.zhDescription : option.enDescription}</small></button>)}</div>
-          {answers.style === "custom" && <label><span>{zh ? "我的专属陪伴方式" : "MY CUSTOM STYLE"}</span><textarea rows={3} value={answers.customTone} onChange={(event) => setTop({ customTone: event.target.value })} /></label>}
-        </>;
       case "more":
         return <div className="onboard-more">
           <button type="button" className="primary" disabled={answers.wishes.length >= maxWishes} onClick={() => chooseMore(true)}>{zh ? "再加一个愿望" : "Add another desire"}</button>
@@ -286,10 +291,12 @@ export default function GuidedOnboarding({ lang, sessionId, mode, styleOptions, 
       </div>
       <div className="onboarding-panel" key={slotKey}>
         <p className="guided-group">{group}</p>
-        <h1>{def.prompt[lang]}</h1>
+        <h1>{slot.id === "rel_state" && meetingSomeoneNew
+          ? (zh ? "你想遇见怎样的人，和 TA 建立怎样的关系？" : "Who would you like to meet, and what relationship would you like to build?")
+          : def.prompt[lang]}</h1>
+        {slot.id === "rel_state" && <p className="guided-hint">{zh ? "写下你愿意分享的细节，AlreaDough 的回复会更贴合你的情况。" : "Share the details you are comfortable with so AlreaDough can respond to your situation."}</p>}
         {def.hint && <p className="guided-hint">{def.hint[lang]}</p>}
         {body}
-        {def.optional && (def.type === "text" || def.type === "long") && <small className="guided-none">{zh ? "没有的话，写“没有”就好。" : "If there is nothing, just write “none”."}</small>}
         {slot.id === "name" && syncSlot}
         {thinking && <p className="onboard-reply onboard-thinking" aria-live="polite"><i /><i /><i /></p>}
         {replyHere && <Typed text={replyHere} />}
