@@ -61,11 +61,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  colorScheme: "light dark", // the app draws both themes itself; stops phone browsers force-darkening it
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f4efea" },
-    { media: "(prefers-color-scheme: dark)", color: "#211d1d" },
-  ],
+  colorScheme: "light", // light only; stops phone browsers force-darkening it
+  themeColor: "#f4efea",
 };
 
 export default function RootLayout({
@@ -78,7 +75,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <script dangerouslySetInnerHTML={{ __html: "try{var s=localStorage.getItem('already-font-size-v1');if(s==='small'||s==='large')document.documentElement.dataset.fontSize=s}catch(e){}try{var t=localStorage.getItem('already-theme-v1');var d=t?t==='dark':matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.dataset.theme=d?'dark':'light'}catch(e){}" }} />
+        <script dangerouslySetInnerHTML={{ __html: "try{var s=localStorage.getItem('already-font-size-v1');if(s==='small'||s==='large')document.documentElement.dataset.fontSize=s}catch(e){}document.documentElement.dataset.theme='light';" }} />
         <ThemeColorSync />
         {children}
       </body>

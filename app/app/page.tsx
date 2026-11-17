@@ -6,11 +6,9 @@ import {
   BookOpenText,
   House,
   ImagesSquare,
-  Moon,
   PencilSimple,
   Plus,
   SlidersHorizontal,
-  Sun,
   Trash,
   Waveform,
   ArrowsClockwise,
@@ -297,7 +295,8 @@ export default function Home() {
   const [lang, setLang] = useState<Lang>("zh");
   const explicitLanguage = useRef<Lang | null>(null);
   const [view, setView] = useState<View>("home");
-  const [dark, setDark] = useState(false);
+  // The site is light only.
+  const dark = false;
   const [hydrated, setHydrated] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [beliefDraft, setBeliefDraft] = useState("");
@@ -549,20 +548,6 @@ export default function Home() {
     };
   }, [shellEl]);
 
-  // Theme: follow the phone's light/dark setting until she picks one, then remember her pick.
-  useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect -- one-time read of the system and saved theme */
-    const media = window.matchMedia?.("(prefers-color-scheme: dark)");
-    const saved = readStored("already-theme-v1");
-    if (saved === "dark" || saved === "light") { setDark(saved === "dark"); return; }
-    if (!media) return;
-    setDark(media.matches);
-    /* eslint-enable react-hooks/set-state-in-effect */
-    const follow = (event: MediaQueryListEvent) => { if (!readStored("already-theme-v1")) setDark(event.matches); };
-    media.addEventListener("change", follow);
-    return () => media.removeEventListener("change", follow);
-  }, []);
-
   // The page edge (status bar strip, overscroll area) and the browser's bar colour follow the theme in use,
   // not only the phone's system setting.
   useEffect(() => {
@@ -579,11 +564,6 @@ export default function Home() {
     meta.content = dark ? "#211d1d" : "#f4efea";
   }, [dark]);
 
-  const toggleDark = () => {
-    const next = !dark;
-    writeStored("already-theme-v1", next ? "dark" : "light");
-    setDark(next);
-  };
 
   /* eslint-disable react-hooks/set-state-in-effect -- one-time restoration from device storage */
   useEffect(() => {
@@ -1473,7 +1453,7 @@ export default function Home() {
     const adding = !replaying && otherGoals.length > 0;
     return <main className="app-shell onboarding-shell" data-theme={dark ? "dark" : "light"} data-lang={lang}>
       <div className="app-grain" aria-hidden="true" />
-      <header className="onboarding-topbar"><span className="brand"><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></span><div className="top-actions"><button className="language-toggle" onClick={switchLanguage}>{lang === "zh" ? "EN" : "中"}</button><button className="theme-toggle" onClick={toggleDark} aria-label={dark ? "Light" : "Dark"}>{dark ? <Sun size={17}/> : <Moon size={17}/>}</button></div></header>
+      <header className="onboarding-topbar"><span className="brand"><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></span><div className="top-actions"><button className="language-toggle" onClick={switchLanguage}>{lang === "zh" ? "EN" : "中"}</button></div></header>
       <GuidedOnboarding
         key={`${lang}-${replaying ? "replay" : adding ? "extra" : "first"}`}
         lang={lang}
@@ -1656,7 +1636,7 @@ export default function Home() {
                   ...(Capacitor.isNativePlatform() ? [] : [{ id: "membership", label: titles.membership, value: memberPlanLabel(member, lang) }]),
                   // a desktop pet is for computers; the phone app already has the dough on its home screen
                   ...(Capacitor.isNativePlatform() ? [] : [{ id: "pet", label: titles.pet }]),
-                  { id: "look", label: titles.look, value: dark ? (zhText ? "深色" : "Dark") : (zhText ? "浅色" : "Light") },
+                  { id: "look", label: titles.look },
                   { id: "sync", label: titles.sync },
                   { id: "help", label: titles.help },
                 ] },
@@ -1694,7 +1674,6 @@ export default function Home() {
               {shown === "membership" && <MembershipPanel lang={lang} member={member} onRefresh={refreshMember} />}
               {shown === "pet" && <DesktopPetPanel lang={lang} />}
               {shown === "look" && <div className="settings-section">
-                <div className="language-card"><div><span>{lang === "zh" ? "外观" : "APPEARANCE"}</span><strong>{dark ? (lang === "zh" ? "深色" : "Dark") : (lang === "zh" ? "浅色" : "Light")}</strong></div><button onClick={toggleDark}>{dark ? (lang === "zh" ? "切换浅色" : "Use light") : (lang === "zh" ? "切换深色" : "Use dark")}</button></div>
                 <div className="language-card"><div><span>{lang === "zh" ? "界面语言" : "LANGUAGE"}</span><strong>{lang === "zh" ? "简体中文" : "English"}</strong></div><button onClick={switchLanguage}>{lang === "zh" ? "Switch to English" : "切换到中文"}</button></div>
                 <FontSizePanel lang={lang} />
               </div>}

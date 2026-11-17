@@ -683,7 +683,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .app-shell .vision-preview .vision-frame.selected,
 .app-shell .vision-preview figure.selected { box-shadow: inset 0 0 0 3px var(--app-panel-strong),0 0 0 2px var(--app-accent); }
 
-@media (prefers-color-scheme: dark) { .app-shell:not([data-theme="light"]) { color-scheme: dark; } }
 .app-shell[data-theme="dark"] { color-scheme: dark; }
 .app-shell[data-theme="light"] { color-scheme: light; }
 @media (prefers-reduced-motion: no-preference) {

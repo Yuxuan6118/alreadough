@@ -1,5 +1,4 @@
 .chat-viewer { --bg: #f6f1ec; --card: #fffdf9; --line: #e2d6cc; --ink: #2f2724; --muted: #7b6a62; --user: #efe3d9; --ai: #ffffff; --accent: #8a5a4a; min-height: 100vh; background: var(--bg); color: var(--ink); padding: 28px clamp(16px, 4vw, 48px) 64px; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif; }
-@media (prefers-color-scheme: dark) { .chat-viewer { --bg: #1d1918; --card: #262120; --line: #3a3230; --ink: #f1e8e2; --muted: #a89a92; --user: #3a2f2b; --ai: #2c2625; --accent: #d4a392; } }
 .chat-viewer > header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 20px; }
 .chat-viewer > header p { margin: 0 0 4px; font-size: 11px; letter-spacing: 2px; color: var(--muted); }
 .chat-viewer h1 { margin: 0 0 6px; font-size: 26px; }
