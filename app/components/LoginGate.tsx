@@ -2,7 +2,6 @@
 
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Capacitor } from "@capacitor/core";
-import { homeCopy } from "./PublicHome";
 import SiteFooter from "./SiteFooter";
 import home from "../home.module.css";
 
@@ -17,9 +16,6 @@ const copy = {
   zh: {
     title: "登录后继续。",
     intro: "AlreaDough 是一个中英文 AI 陪练空间。登录后，你的愿望、对话和会员用量都跟着账户走。",
-    featuresLink: "功能",
-    pricing: "会员与价格",
-    navigation: "官网导航",
     google: "使用 Google 登录",
     or: "或用邮箱登录",
     email: "邮箱",
@@ -44,9 +40,6 @@ const copy = {
   en: {
     title: "Sign in to continue.",
     intro: "AlreaDough is an AI practice space in English and Chinese. Sign in so your desires, conversations and allowance follow your account.",
-    featuresLink: "Features",
-    pricing: "Pricing",
-    navigation: "Website navigation",
     google: "Continue with Google",
     or: "or sign in with email",
     email: "Email",
@@ -142,11 +135,7 @@ export default function LoginGate({ children }: { children: ReactNode }) {
               <img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" />
               <span className={home.wordmark}>Alrea<span>Dough</span></span>
             </a>
-            <nav aria-label={t.navigation}>
-              <a href="#login-gate-features">{t.featuresLink}</a>
-              <a href={lang === "en" ? "/en/pricing" : "/pricing"}>{t.pricing}</a>
-              <button type="button" className={home.language} lang={lang === "zh" ? "en" : "zh-CN"} onClick={() => setLang(lang === "zh" ? "en" : "zh")}>{lang === "zh" ? "English" : "中文"}</button>
-            </nav>
+            <button type="button" className={home.language} lang={lang === "zh" ? "en" : "zh-CN"} onClick={() => setLang(lang === "zh" ? "en" : "zh")}>{lang === "zh" ? "English" : "中文"}</button>
           </header>
           <main className={home.main}>
             <section className={`${home.hero} login-gate-hero`}>
@@ -175,14 +164,6 @@ export default function LoginGate({ children }: { children: ReactNode }) {
               <div className={`${home.art} login-gate-art`}>
                 <img src="/brand/already-dough-mark.png" width={420} height={420} alt="" />
               </div>
-            </section>
-            <section id="login-gate-features" className={home.features} aria-labelledby="login-gate-features-title">
-              <h2 id="login-gate-features-title">{homeCopy[lang].featuresTitle}</h2>
-              <dl>
-                {homeCopy[lang].features.map(([name, description]) => (
-                  <div key={name}><dt>{name}</dt><dd>{description}</dd></div>
-                ))}
-              </dl>
             </section>
           </main>
           <SiteFooter lang={lang} />

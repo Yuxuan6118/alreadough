@@ -68,7 +68,7 @@ export default function DesktopPetPanel({ lang }: { lang: Lang }) {
             <div className="pet-build-head">
               <Icon size={26} weight="fill" aria-hidden="true" />
               <div><strong>{build.name[lang]}{mine && <small>{zh ? "你正在用的电脑" : "This computer"}</small>}</strong><span>{build.needs[lang]}{build.ready ? ` · ${build.size}` : ""}</span></div>
-              {build.ready && <a className={mine ? "primary pet-download" : "outline-button pet-download"} href={build.file} download><DownloadSimple size={18} />{zh ? "下载" : "Download"}</a>}
+              {build.ready && <a className="primary pet-download" href={build.file} download><DownloadSimple size={18} />{zh ? "下载" : "Download"}</a>}
             </div>
             {build.ready ? <ol>{build.steps[lang].map((step) => <li key={step}>{step}</li>)}</ol> : <p className="pet-soon">{zh ? "正在打包，很快就能下载。" : "Being packaged; available soon."}</p>}
           </div>

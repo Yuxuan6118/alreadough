@@ -1,6 +1,6 @@
-import PublicHome from "./components/PublicHome";
-import InstalledAppRedirect from "./components/InstalledAppRedirect";
+import { redirect } from "next/navigation";
 
+// The site opens on sign-in (/app shows it until the visitor has an account). The product introduction lives at /about.
 export default function HomePage() {
-  return <><InstalledAppRedirect /><PublicHome lang="zh" /></>;
+  redirect("/app?lang=zh");
 }

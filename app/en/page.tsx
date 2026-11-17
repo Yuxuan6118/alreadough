@@ -1,10 +1,6 @@
-import type { Metadata } from "next";
-import PublicHome from "../components/PublicHome";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  description: "Explore the life you want through AI conversations, writing, and audio practices in English or Chinese.",
-};
-
+// English visitors open on the English sign-in page. The product introduction lives at /en/about.
 export default function EnglishHomePage() {
-  return <PublicHome lang="en" />;
+  redirect("/app?lang=en");
 }

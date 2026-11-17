@@ -38,7 +38,7 @@ test("ships without the founder's private manifestation defaults", async () => {
 
 test("renders the public storefront and policies without the beta prompt", async () => {
   for (const [path, content] of [
-    ["/", /开始练习/],
+    ["/about", /一个愿望，几种练习方式/],
     ["/pricing", /会员与价格/],
     ["/privacy", /隐私说明/],
     ["/trust", /AI、愿望与安全说明/],
@@ -52,14 +52,22 @@ test("renders the public storefront and policies without the beta prompt", async
     assert.match(html, /<footer class="public-site-footer">/, path);
     assert.match(html, /href="\/terms"/, path);
     assert.match(html, /href="\/privacy"/, path);
-    if (path === "/") assert.match(html, /href="\/app\?lang=zh"/);
+    if (path === "/about") assert.match(html, /href="\/app\?lang=zh"/);
     assert.doesNotMatch(html, /access-gate|Opening AlreaDough/, path);
+  }
+});
+
+test("the site opens on sign-in: / and /en send visitors to the app in their language", async () => {
+  for (const [path, target] of [["/", "/app?lang=zh"], ["/en", "/app?lang=en"]]) {
+    const response = await render(path);
+    assert.ok(response.status >= 300 && response.status < 400, `${path}: ${response.status}`);
+    assert.ok((response.headers.get("location") || "").endsWith(target), `${path}: ${response.headers.get("location")}`);
   }
 });
 
 test("renders the English storefront and links it to public English information", async () => {
   for (const [path, content] of [
-    ["/en", /A daily practice/],
+    ["/en/about", /One wish, several ways to practice/],
     ["/en/pricing", /Membership and pricing/],
     ["/en/trust", /How AI is used/],
   ]) {
@@ -67,7 +75,7 @@ test("renders the English storefront and links it to public English information"
     assert.equal(response.status, 200);
     const html = (await response.text()).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "");
     assert.match(html, content, path);
-    if (path === "/en") assert.match(html, /href="\/app\?lang=en"/);
+    if (path === "/en/about") assert.match(html, /href="\/app\?lang=en"/);
     for (const link of ["/en/pricing", "/terms#english", "/privacy#english", "/en/trust"]) {
       assert.ok(html.includes(`href="${link}"`), `${path}: ${link}`);
     }

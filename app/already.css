@@ -1217,8 +1217,6 @@ html[data-theme="dark"] .login-gate-error { color: #f4a3a3; }
   .login-gate-form { width: 100%; }
 }
 @media (max-width: 520px) {
-  /* on a phone the header keeps the logo, pricing and language; the features link is one scroll away anyway */
-  .login-gate header nav a[href^="#"] { display: none; }
   .login-gate-brand img { width: 28px; height: 28px; }
 }
 
