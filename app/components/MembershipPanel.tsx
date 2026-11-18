@@ -224,13 +224,10 @@ export default function MembershipPanel({ lang, member, onRefresh }: { lang: Lan
         <ul>
           {paidPlans.map((plan) => <li key={plan.id} className={plan.id === membership.plan ? "current" : ""}>
             <div><strong>{plan.name[lang]}<span>¥{plan.price} / {zh ? "30 天" : "30 days"}</span></strong><small>{zh ? `每 5 小时约 ${plan.session} 次 · 每周约 ${plan.week} 次` : `About ${plan.session} per 5 hours · ${plan.week} per week`}</small></div>
-            <div className="member-buy">
-              {member.checkoutAvailable && <button type="button" className={plan.id === "deep" && membership.plan === "soft" ? "primary" : "outline-button"} disabled={busy} onClick={() => void act("/api/pay/zpay/checkout", { plan: plan.id })}>{plan.id === membership.plan && membership.periodEndMs ? (zh ? "支付宝续 30 天" : "Add 30 days · Alipay") : (zh ? "支付宝购买" : "Buy with Alipay")}</button>}
-              {member.cardCheckoutAvailable && <button type="button" className={!member.checkoutAvailable && plan.id === "deep" && membership.plan === "soft" ? "primary" : "outline-button"} disabled={busy} onClick={() => void act("/api/pay/waffo/checkout", { plan: plan.id, lang })}>{zh ? `银行卡 / Apple Pay · ${plan.id === "atelier" ? "US$22.99" : "US$6.49"}` : `Card / Apple Pay · ${plan.id === "atelier" ? "US$22.99" : "US$6.49"}`}</button>}
-            </div>
+            <a className={plan.id === "deep" && membership.plan === "soft" ? "primary member-buy-link" : "outline-button member-buy-link"} href={`${zh ? "/checkout" : "/en/checkout"}?plan=${plan.id}`}>{plan.id === membership.plan && membership.periodEndMs && !membership.referral ? (zh ? "续 30 天" : "Add 30 days") : (zh ? "购买" : "Buy")}</a>
           </li>)}
         </ul>
-        <small className="setting-hint">{zh ? "一次购买 30 天，到期不会自动扣款。" : "Each purchase covers 30 days and never renews automatically."} <a href={zh ? "/pricing" : "/en/pricing"}>{zh ? "完整价格说明" : "Full pricing"}</a></small>
+        <small className="setting-hint">{zh ? "支付宝或银行卡付款。一次购买 30 天，到期不会自动扣款。" : "Pay with Alipay or card. Each purchase covers 30 days and never renews on its own."}</small>
       </div>}
       {!membership.referralUsed && <div className="setting-card member-referral">
         <label>{zh ? "邀请码" : "INVITATION CODE"}</label>

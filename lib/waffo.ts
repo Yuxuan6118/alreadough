@@ -94,7 +94,7 @@ export async function createWaffoCheckout(args: { plan: PaidPlan; orderId: strin
     productId: config.products[args.plan],
     productType: "onetime",
     currency: WAFFO_CURRENCY,
-    successUrl: `${args.origin}${args.lang === "en" ? "/en/pricing" : "/pricing"}?paid=card`,
+    successUrl: `${args.origin}${args.lang === "en" ? "/en/checkout" : "/checkout"}?paid=card&plan=${args.plan}`,
     expiresInSeconds: 3600,
     metadata: { orderId: args.orderId, plan: args.plan },
     orderMerchantExternalId: args.orderId,

@@ -32,7 +32,7 @@ export function zpayFields(args: { pid: string; key: string; cid: string; orderI
     name: args.plan === "deep" ? "AlreaDough 醒发会员 30天" : "AlreaDough 丰盛工坊会员 30天",
     money: (args.amountFen / 100).toFixed(2),
     notify_url: `${args.origin}/api/pay/zpay/notify`,
-    return_url: `${args.origin}/pricing`,
+    return_url: `${args.origin}/checkout?paid=alipay`,
   };
   if (args.cid) fields.cid = args.cid;
   return { ...fields, sign: signZpay(fields, args.key), sign_type: "MD5" };

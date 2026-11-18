@@ -50,7 +50,7 @@
 .member-upgrade li small { color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); }
 .member-upgrade li.current strong { color: var(--app-accent); }
 .member-upgrade li button { flex: none; width: auto; min-height: 40px; padding: 0 18px; border-radius: 999px; }
-.member-upgrade li > .member-buy { flex: none; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.member-upgrade li .member-buy-link { flex: none; width: auto; display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 96px; padding: 0 20px; border-radius: 999px; text-decoration: none; white-space: nowrap; }
 .membership-section .setting-hint a, .usage-link { color: var(--app-accent); }
 .usage-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 10px; font-weight: 600; text-decoration: none; }
 .member-signin input, .member-referral input { max-width: 420px; }

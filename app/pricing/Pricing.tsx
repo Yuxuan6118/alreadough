@@ -1,7 +1,6 @@
 "use client";
 
-import { Check, LockKey } from "@phosphor-icons/react";
-import DoughLineMark from "../components/DoughLineMark";
+import { ArrowRight, Check, LockKey } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { getDeviceSessionId } from "@/lib/device-session";
 import { MEMBER_PLANS, type MemberStatus } from "@/lib/member-client";
@@ -9,8 +8,6 @@ import SiteFooter from "../components/SiteFooter";
 import "./pricing.css";
 
 const plans = MEMBER_PLANS;
-/** Card checkout (Waffo) is charged in USD; keep in step with WAFFO_PRICE_CENTS in lib/waffo.ts. */
-const CARD_PRICE: Record<string, string> = { deep: "US$6.49", atelier: "US$22.99" };
 
 export default function Pricing({ initialLang }: { initialLang: "zh" | "en" }) {
   const [lang, setLang] = useState(initialLang);
@@ -18,57 +15,13 @@ export default function Pricing({ initialLang }: { initialLang: "zh" | "en" }) {
   const [contact, setContact] = useState("");
   const [status, setStatus] = useState<"idle" | "busy" | "saved" | "error">("idle");
   const [member, setMember] = useState<MemberStatus | null>(null);
-  const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
-  const [referral, setReferral] = useState("");
-  const [referralDone, setReferralDone] = useState(false);
-  const [codeSent, setCodeSent] = useState(false);
-  const [memberBusy, setMemberBusy] = useState(false);
-  const [memberError, setMemberError] = useState("");
   const zh = lang === "zh";
 
-  async function refreshMember() {
-    const response = await fetch("/api/member/status", { cache: "no-store" });
-    if (response.ok) setMember(await response.json() as MemberStatus);
-  }
-  const [cardReturn, setCardReturn] = useState(false);
   useEffect(() => {
-    void refreshMember().catch(() => undefined);
-    // Back from the card checkout: the payment notice can land a few seconds after the buyer does.
-    if (new URLSearchParams(window.location.search).get("paid") !== "card") return;
-    setCardReturn(true);
-    const timers = [3000, 8000, 20000].map(ms => window.setTimeout(() => void refreshMember().catch(() => undefined), ms));
-    return () => timers.forEach(clearTimeout);
+    void fetch("/api/member/status", { cache: "no-store" })
+      .then(async (response) => { if (response.ok) setMember(await response.json() as MemberStatus); })
+      .catch(() => undefined);
   }, []);
-
-  async function memberAction(path: string, body: Record<string, string> = {}) {
-    setMemberBusy(true); setMemberError("");
-    try {
-      const response = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "REQUEST_FAILED");
-      if (path.endsWith("/otp")) setCodeSent(true);
-      else if (path.endsWith("/checkout") && data.url) { window.location.href = data.url; return; }
-      else if (path.endsWith("/checkout")) {
-        const form = document.createElement("form");
-        form.method = "POST"; form.action = data.action;
-        for (const [name, value] of Object.entries(data.fields as Record<string, string>)) {
-          const input = document.createElement("input"); input.type = "hidden"; input.name = name; input.value = value; form.appendChild(input);
-        }
-        document.body.appendChild(form); form.submit();
-      } else {
-        if (path.endsWith("/referral")) { setReferral(""); setReferralDone(true); }
-        await refreshMember();
-      }
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : "REQUEST_FAILED";
-      setMemberError(reason === "TOO_MANY_REQUESTS" ? (zh ? "操作太频繁，请稍后重试。" : "Too many attempts. Please try later.")
-        : reason === "INVALID_CODE" ? (zh ? "验证码不正确或已过期。" : "The code is incorrect or expired.")
-        : reason === "INVALID_REFERRAL" ? (zh ? "邀请码不对，再检查一下。" : "That invitation code did not work.")
-        : reason === "REFERRAL_USED" ? (zh ? "这个账户已经用过邀请码了。" : "This account has already used an invitation code.")
-        : (zh ? "暂时没成功，请稍后再试。" : "That did not work. Please try again."));
-    } finally { setMemberBusy(false); }
-  }
 
   async function reserve() {
     if (!contact.trim() || status === "busy" || status === "saved") return;
@@ -104,7 +57,7 @@ export default function Pricing({ initialLang }: { initialLang: "zh" | "en" }) {
         </nav>
         <header>
           <h1>{zh ? "会员与价格" : "Membership and pricing"}</h1>
-          <span>{member?.enabled ? (zh ? "按用量使用；支付宝购买为 30 天，到期不会自动扣款。" : "Usage-based allowances. Alipay purchases last 30 days and do not renew automatically.") : (zh ? "新会员方案预览。试用和付款尚未开放。" : "Preview of the new membership plans. Trials and payments are not open yet.")}</span>
+          <span>{member?.enabled ? (zh ? "按用量使用。一次购买 30 天，到期不会自动扣款。" : "Usage-based allowances. Each purchase lasts 30 days and never renews on its own.") : (zh ? "新会员方案预览。试用和付款尚未开放。" : "Preview of the new membership plans. Trials and payments are not open yet.")}</span>
         </header>
         <section className="pricing-plans" role="radiogroup" aria-label={zh ? "会员方案" : "Membership plans"}>
           {plans.map((plan) => {
@@ -131,37 +84,16 @@ export default function Pricing({ initialLang }: { initialLang: "zh" | "en" }) {
             );
           })}
         </section>
-        {member?.enabled ? <section className="checkout-preview member-checkout">
-          <div><DoughLineMark /><h2>{zh ? "我的会员" : "My membership"}</h2>
-            {member.authenticated && member.membership?.unlimited ? <p>{zh ? "创始人账户 · 不限用量" : "Founder account · no usage limit"}</p> : member.authenticated && member.membership ? <p>{zh ? "当前方案" : "Current plan"}：{plans.find(p => p.id === member.membership?.plan)?.name[lang]} · {zh ? "本 5 小时已用" : "Used this 5-hour window"} {member.membership.usage.fiveUnits}/{member.membership.limits.fiveHours} · {zh ? "本周已用" : "Used this week"} {member.membership.usage.weekUnits}/{member.membership.limits.week}</p> : <p>{zh ? "先用邮箱登录，会员和用量会跟着你的账户走。" : "Sign in with email to keep your membership and allowance with your account."}</p>}
-            {member.membership?.referralEndMs && <p>{zh ? "丰盛工坊体验到期" : "Atelier trial ends"}：{new Date(member.membership.referralEndMs).toLocaleString(zh ? "zh-CN" : "en-US")}{zh ? "，之后回到你原来的方案" : ", then back to your own plan"}</p>}
-            {member.membership?.periodEndMs && <p>{zh ? "当前方案到期" : "Current plan ends"}：{new Date(member.membership.periodEndMs).toLocaleDateString(zh ? "zh-CN" : "en-US")}</p>}
-            {member.membership && <p>{zh ? "5 小时用量恢复" : "5-hour allowance resets"}：{new Date(member.membership.usage.fiveResetMs).toLocaleString(zh ? "zh-CN" : "en-US")}<br />{zh ? "周用量恢复" : "Weekly allowance resets"}：{new Date(member.membership.usage.weekResetMs).toLocaleString(zh ? "zh-CN" : "en-US")}</p>}
-          </div>
-          <aside>
-            {!member.authenticated ? <>
-              <label><span>{zh ? "邮箱" : "Email"}</span><input type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" /></label>
-              {codeSent && <label><span>{zh ? "邮件验证码" : "Email code"}</span><input type="text" inputMode="numeric" value={code} maxLength={8} onChange={e => setCode(e.target.value.replace(/\D/g, ""))} /></label>}
-              <button type="button" disabled={memberBusy || !email.trim()} onClick={() => void memberAction(codeSent ? "/api/member/auth/verify" : "/api/member/auth/otp", codeSent ? { email, code } : { email })}>{memberBusy ? (zh ? "请稍候…" : "Please wait…") : codeSent ? (zh ? "验证并登录" : "Verify and sign in") : (zh ? "发送验证码" : "Send code")}</button>
-              {codeSent && <button type="button" className="member-link" disabled={memberBusy} onClick={() => { setCodeSent(false); setCode(""); }}>{zh ? "重新输入邮箱" : "Change email"}</button>}
-            </> : <>
-              {!member.membership?.referralUsed && <>
-              <label><span>{zh ? "邀请码（免费体验 7 天丰盛工坊）" : "Invitation code (7 days of Dough Atelier)"}</span><input type="text" inputMode="numeric" value={referral} maxLength={32} onChange={e => { setReferral(e.target.value); setReferralDone(false); }} /></label>
-              <button type="button" disabled={memberBusy || !referral.trim()} onClick={() => void memberAction("/api/member/referral", { code: referral.trim() })}>{zh ? "使用邀请码" : "Use invitation code"}</button>
-              </>}
-              {referralDone && <p role="status">{zh ? "已开通 7 天丰盛工坊。" : "7 days of Dough Atelier added."}</p>}
-              {member.checkoutAvailable && selected.price > 0 && <button type="button" disabled={memberBusy} onClick={() => void memberAction("/api/pay/zpay/checkout", { plan: selected.id })}>{zh ? `支付宝购买${selected.name.zh} · ¥${selected.price} / 30 天` : `Buy ${selected.name.en} · ¥${selected.price} / 30 days`}</button>}
-              {member.cardCheckoutAvailable && selected.price > 0 && <button type="button" disabled={memberBusy} onClick={() => void memberAction("/api/pay/waffo/checkout", { plan: selected.id, lang })}>{zh ? `银行卡 / Apple Pay 购买${selected.name.zh} · ${CARD_PRICE[selected.id]} / 30 天` : `Pay by card / Apple Pay · ${selected.name.en} · ${CARD_PRICE[selected.id]} / 30 days`}</button>}
-              {!member.checkoutAvailable && !member.cardCheckoutAvailable && <p>{zh ? "支付入口正在开通。" : "Checkout is being set up."}</p>}
-              <button type="button" className="member-link" disabled={memberBusy} onClick={() => void memberAction("/api/member/auth/logout")}>{zh ? "退出登录" : "Sign out"}</button>
-            </>}
-            {cardReturn && <p role="status">{zh ? "付款完成后，会员会在几秒内生效。" : "After payment, your membership updates within a few seconds."}</p>}
-            {memberError && <p role="alert">{memberError}</p>}
-            <small><LockKey />{zh ? "支付结果以服务器核实为准。" : "Payment status is verified by the server."}</small>
-          </aside>
+        {member?.enabled ? <section className="pricing-action">
+          {selected.price > 0
+            ? <a className="pricing-cta" href={`${zh ? "/checkout" : "/en/checkout"}?plan=${selected.id}`}>{zh ? `购买${selected.name.zh}` : `Get ${selected.name.en}`}<ArrowRight size={16} weight="bold" /></a>
+            : <a className="pricing-cta" href="/app">{zh ? "免费开始" : "Start free"}<ArrowRight size={16} weight="bold" /></a>}
+          <p>{selected.price > 0
+            ? (zh ? "支付宝或银行卡付款，下一步选择。" : "Pay with Alipay or card on the next step.")
+            : (zh ? "不用付款，登录后就能用。" : "No payment needed. Sign in and start.")}</p>
+          {member.authenticated && member.membership && <p className="pricing-current">{zh ? "你现在是" : "You are on "}{plans.find((p) => p.id === member.membership?.plan)?.name[lang]}{member.membership.periodEndMs ? (zh ? `，有效期到 ${new Date(member.membership.periodEndMs).toLocaleDateString("zh-CN")}` : ` until ${new Date(member.membership.periodEndMs).toLocaleDateString("en-US")}`) : ""}{zh ? "。" : "."}</p>}
         </section> : <section className="checkout-preview">
           <div>
-            <DoughLineMark />
             <h2>{zh ? `等「${selected.name.zh}」开放时通知我` : `Notify me when ${selected.name.en} opens`}</h2>
             <p>{zh ? "聊天次数是估算，长对话和生成内容会消耗更多用量。会员开放后，计划提供额外用量包。" : "Turn counts are estimates. Longer chats and generation tasks use more of the allowance. Extra usage packs are planned."}</p>
           </div>
