@@ -2,6 +2,8 @@ import { ArrowsClockwise, BookOpenText, ChatCircleDots, Desktop, ImagesSquare, U
 import type { ComponentType } from "react";
 import { MEMBER_PLANS } from "@/lib/member-client";
 import SiteFooter from "./SiteFooter";
+import ModuleIndex from "./ModuleIndex";
+import PetPreview from "./PetPreview";
 import styles from "./product.module.css";
 
 type Lang = "zh" | "en";
@@ -11,11 +13,11 @@ type Module = { id: string; icon: ComponentType<{ size?: number; weight?: "light
 const copy = {
   zh: {
     nav: { features: "功能", philosophy: "理念", pricing: "会员", start: "开始练习", language: "English", navigation: "产品页导航" },
+    download: { mac: "下载 Mac 版", win: "下载 Windows 版" },
     tag: "中英文 AI 显化陪练",
     headline: "愿望已经成立，",
     headlineAccent: "每天回来练习。",
     intro: "AlreaDough 用对话、故事、重写、愿景板和声音，陪你每天回到愿望已经实现的样子。",
-    seePricing: "看看会员",
     modulesTitle: "一个愿望，几种练习方式。",
     modulesIntro: "每个功能都围绕你当前的愿望卡展开，练习记录会彼此连起来。",
     modules: [
@@ -44,15 +46,14 @@ const copy = {
     planNotes: { soft: "登录即可使用", deep: "适合每天练习", atelier: "用量是醒发的 3 倍以上；填邀请码可免费体验 7 天" },
     estimate: "次数是估算，较长的对话会多算一些。",
     pricingCta: "查看会员详情",
-    closingTitle: "从一个愿望开始。",
   },
   en: {
     nav: { features: "Features", philosophy: "Philosophy", pricing: "Pricing", start: "Start practicing", language: "中文", navigation: "Product page navigation" },
+    download: { mac: "Download for Mac", win: "Download for Windows" },
     tag: "AI manifestation practice in English and Chinese",
     headline: "Your wish is already real.",
     headlineAccent: "Practice it every day.",
     intro: "AlreaDough uses conversation, stories, revision, vision boards and sound to bring you back, every day, to the life where your wish has come true.",
-    seePricing: "See membership",
     modulesTitle: "One wish, several ways to practice.",
     modulesIntro: "Every feature works from your current wish card, and your practice connects across them.",
     modules: [
@@ -81,7 +82,6 @@ const copy = {
     planNotes: { soft: "Available as soon as you sign in", deep: "Made for daily practice", atelier: "More than three times Deep Practice; try it free for 7 days with an invitation code" },
     estimate: "Counts are estimates; longer conversations count a little more.",
     pricingCta: "Membership details",
-    closingTitle: "Start with one wish.",
   },
 };
 
@@ -104,7 +104,6 @@ export default function ProductPage({ lang }: { lang: Lang }) {
           </div>
           <div className={styles.actions}>
             <a href={zh ? "/en/about" : "/about"} className={styles.language} hrefLang={zh ? "en" : "zh-CN"} lang={zh ? "en" : "zh-CN"}>{t.nav.language}</a>
-            <a href={appHref} className={styles.primary}>{t.nav.start}</a>
           </div>
         </nav>
       </header>
@@ -114,10 +113,7 @@ export default function ProductPage({ lang }: { lang: Lang }) {
           <span className={styles.tag}>{t.tag}</span>
           <h1>{t.headline}<br /><span>{t.headlineAccent}</span></h1>
           <p>{t.intro}</p>
-          <div className={styles.heroCtas}>
-            <a href={appHref} className={styles.primary}>{t.nav.start}</a>
-            <a href="#pricing" className={styles.secondary}>{t.seePricing}</a>
-          </div>
+          <a href={appHref} className={styles.heroCta} data-magnetic>{t.nav.start}</a>
           <img className={styles.dough} src="/brand/already-dough-mark.png" width={360} height={360} alt="" />
         </section>
 
@@ -127,20 +123,24 @@ export default function ProductPage({ lang }: { lang: Lang }) {
             <p>{t.modulesIntro}</p>
           </div>
           <div className={styles.moduleGrid}>
-            <aside className={styles.index} aria-label={t.nav.features}>
-              {t.modules.map((item) => <a key={item.id} href={`#${item.id}`}>{item.name}</a>)}
-            </aside>
+            <ModuleIndex items={t.modules.map(({ id, name }) => ({ id, name }))} label={t.nav.features} />
             <div className={styles.moduleList}>
               {t.modules.map((item, index) => {
                 const Icon = item.icon;
                 return (
-                  <article key={item.id} id={item.id} className={styles.module} data-tone={index % 3}>
-                    <div className={styles.visual} aria-hidden="true"><Icon size={88} weight="light" /></div>
+                  <article key={item.id} id={item.id} className={styles.module} data-pet={item.id === "pet" ? "true" : undefined}>
+                    {item.id === "pet"
+                      ? <div className={styles.visual}><PetPreview lang={lang} /></div>
+                      : <div className={styles.visual} aria-hidden="true"><span className={styles.iconBadge}><Icon size={56} weight="light" /></span><span className={styles.visualIndex}>{String(index + 1).padStart(2, "0")}</span></div>}
                     <div className={styles.text}>
                       <span className={styles.moduleName}>{item.name}</span>
                       <h3>{item.title}</h3>
                       <p>{item.body}</p>
                       <ul>{item.details.map((detail) => <li key={detail}>{detail}</li>)}</ul>
+                      {item.id === "pet" && <div className={styles.downloads}>
+                        <a href="/downloads/AlreaDough-Pet-mac.zip" download className={styles.primary} data-magnetic>{t.download.mac}</a>
+                        <a href="/downloads/AlreaDough-Pet-windows.zip" download className={styles.primary} data-magnetic>{t.download.win}</a>
+                      </div>}
                     </div>
                   </article>
                 );
@@ -182,10 +182,6 @@ export default function ProductPage({ lang }: { lang: Lang }) {
           <a href={zh ? "/pricing" : "/en/pricing"} className={styles.secondary}>{t.pricingCta}</a>
         </section>
 
-        <section className={styles.closing}>
-          <h2>{t.closingTitle}</h2>
-          <a href={appHref} className={styles.primary}>{t.nav.start}</a>
-        </section>
       </main>
       <SiteFooter lang={lang} />
     </div>

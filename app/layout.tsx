@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import ThemeColorSync from "./components/ThemeColorSync";
+import ButtonFx from "./components/ButtonFx";
 import "./globals.css";
 import "./already.css";
 
@@ -77,6 +78,7 @@ export default function RootLayout({
       >
         <script dangerouslySetInnerHTML={{ __html: "try{var s=localStorage.getItem('already-font-size-v1');if(s==='small'||s==='large')document.documentElement.dataset.fontSize=s}catch(e){}document.documentElement.dataset.theme='light';" }} />
         <ThemeColorSync />
+        <ButtonFx />
         {children}
       </body>
     </html>
