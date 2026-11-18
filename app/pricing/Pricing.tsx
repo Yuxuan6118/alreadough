@@ -9,6 +9,8 @@ import SiteFooter from "../components/SiteFooter";
 import "./pricing.css";
 
 const plans = MEMBER_PLANS;
+/** Card checkout (Waffo) is charged in USD; keep in step with WAFFO_PRICE_CENTS in lib/waffo.ts. */
+const CARD_PRICE: Record<string, string> = { deep: "US$6.49", atelier: "US$22.99" };
 
 export default function Pricing({ initialLang }: { initialLang: "zh" | "en" }) {
   const [lang, setLang] = useState(initialLang);
@@ -29,7 +31,15 @@ export default function Pricing({ initialLang }: { initialLang: "zh" | "en" }) {
     const response = await fetch("/api/member/status", { cache: "no-store" });
     if (response.ok) setMember(await response.json() as MemberStatus);
   }
-  useEffect(() => { void refreshMember().catch(() => undefined); }, []);
+  const [cardReturn, setCardReturn] = useState(false);
+  useEffect(() => {
+    void refreshMember().catch(() => undefined);
+    // Back from the card checkout: the payment notice can land a few seconds after the buyer does.
+    if (new URLSearchParams(window.location.search).get("paid") !== "card") return;
+    setCardReturn(true);
+    const timers = [3000, 8000, 20000].map(ms => window.setTimeout(() => void refreshMember().catch(() => undefined), ms));
+    return () => timers.forEach(clearTimeout);
+  }, []);
 
   async function memberAction(path: string, body: Record<string, string> = {}) {
     setMemberBusy(true); setMemberError("");
@@ -38,6 +48,7 @@ export default function Pricing({ initialLang }: { initialLang: "zh" | "en" }) {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "REQUEST_FAILED");
       if (path.endsWith("/otp")) setCodeSent(true);
+      else if (path.endsWith("/checkout") && data.url) { window.location.href = data.url; return; }
       else if (path.endsWith("/checkout")) {
         const form = document.createElement("form");
         form.method = "POST"; form.action = data.action;
@@ -140,9 +151,11 @@ export default function Pricing({ initialLang }: { initialLang: "zh" | "en" }) {
               </>}
               {referralDone && <p role="status">{zh ? "已开通 7 天丰盛工坊。" : "7 days of Dough Atelier added."}</p>}
               {member.checkoutAvailable && selected.price > 0 && <button type="button" disabled={memberBusy} onClick={() => void memberAction("/api/pay/zpay/checkout", { plan: selected.id })}>{zh ? `支付宝购买${selected.name.zh} · ¥${selected.price} / 30 天` : `Buy ${selected.name.en} · ¥${selected.price} / 30 days`}</button>}
-              {!member.checkoutAvailable && <p>{zh ? "支付入口正在开通。" : "Checkout is being set up."}</p>}
+              {member.cardCheckoutAvailable && selected.price > 0 && <button type="button" disabled={memberBusy} onClick={() => void memberAction("/api/pay/waffo/checkout", { plan: selected.id, lang })}>{zh ? `银行卡 / Apple Pay 购买${selected.name.zh} · ${CARD_PRICE[selected.id]} / 30 天` : `Pay by card / Apple Pay · ${selected.name.en} · ${CARD_PRICE[selected.id]} / 30 days`}</button>}
+              {!member.checkoutAvailable && !member.cardCheckoutAvailable && <p>{zh ? "支付入口正在开通。" : "Checkout is being set up."}</p>}
               <button type="button" className="member-link" disabled={memberBusy} onClick={() => void memberAction("/api/member/auth/logout")}>{zh ? "退出登录" : "Sign out"}</button>
             </>}
+            {cardReturn && <p role="status">{zh ? "付款完成后，会员会在几秒内生效。" : "After payment, your membership updates within a few seconds."}</p>}
             {memberError && <p role="alert">{memberError}</p>}
             <small><LockKey />{zh ? "支付结果以服务器核实为准。" : "Payment status is verified by the server."}</small>
           </aside>

@@ -156,8 +156,9 @@ export default function MembershipPanel({ lang, member, onRefresh }: { lang: Lan
   async function act(path: string, body: Record<string, string> = {}) {
     setBusy(true); setError(""); setNotice("");
     try {
-      const data = await memberPost<{ action?: string; fields?: Record<string, string> }>(path, body);
+      const data = await memberPost<{ action?: string; fields?: Record<string, string>; url?: string }>(path, body);
       if (path.endsWith("/otp")) setCodeSent(true);
+      else if (path.endsWith("/checkout") && data.url) { window.location.href = data.url; return; }
       else if (path.endsWith("/checkout") && data.action && data.fields) { submitCheckoutForm(data.action, data.fields); return; }
       else {
         if (path.endsWith("/referral")) { setReferral(""); setNotice(zh ? "已开通 7 天丰盛工坊。" : "7 days of Dough Atelier added."); }
@@ -218,12 +219,15 @@ export default function MembershipPanel({ lang, member, onRefresh }: { lang: Lan
         <UsageBars membership={membership} lang={lang} />
         <small className="setting-hint">{zh ? "一条普通回复算 1 次，特别长的对话会多算一些。用量会按时间自动恢复。" : "One normal reply counts once; very long conversations count a little more. Allowances refill on their own."}</small>
       </div>
-      {!native && member.checkoutAvailable && <div className="setting-card member-upgrade">
+      {!native && (member.checkoutAvailable || member.cardCheckoutAvailable) && <div className="setting-card member-upgrade">
         <label>{zh ? "升级或续费" : "UPGRADE OR EXTEND"}</label>
         <ul>
           {paidPlans.map((plan) => <li key={plan.id} className={plan.id === membership.plan ? "current" : ""}>
             <div><strong>{plan.name[lang]}<span>¥{plan.price} / {zh ? "30 天" : "30 days"}</span></strong><small>{zh ? `每 5 小时约 ${plan.session} 次 · 每周约 ${plan.week} 次` : `About ${plan.session} per 5 hours · ${plan.week} per week`}</small></div>
-            <button type="button" className={plan.id === "deep" && membership.plan === "soft" ? "primary" : "outline-button"} disabled={busy} onClick={() => void act("/api/pay/zpay/checkout", { plan: plan.id })}>{plan.id === membership.plan && membership.periodEndMs ? (zh ? "续 30 天" : "Add 30 days") : (zh ? "支付宝购买" : "Buy with Alipay")}</button>
+            <div className="member-buy">
+              {member.checkoutAvailable && <button type="button" className={plan.id === "deep" && membership.plan === "soft" ? "primary" : "outline-button"} disabled={busy} onClick={() => void act("/api/pay/zpay/checkout", { plan: plan.id })}>{plan.id === membership.plan && membership.periodEndMs ? (zh ? "支付宝续 30 天" : "Add 30 days · Alipay") : (zh ? "支付宝购买" : "Buy with Alipay")}</button>}
+              {member.cardCheckoutAvailable && <button type="button" className={!member.checkoutAvailable && plan.id === "deep" && membership.plan === "soft" ? "primary" : "outline-button"} disabled={busy} onClick={() => void act("/api/pay/waffo/checkout", { plan: plan.id, lang })}>{zh ? `银行卡 / Apple Pay · ${plan.id === "atelier" ? "US$22.99" : "US$6.49"}` : `Card / Apple Pay · ${plan.id === "atelier" ? "US$22.99" : "US$6.49"}`}</button>}
+            </div>
           </li>)}
         </ul>
         <small className="setting-hint">{zh ? "一次购买 30 天，到期不会自动扣款。" : "Each purchase covers 30 days and never renews automatically."} <a href={zh ? "/pricing" : "/en/pricing"}>{zh ? "完整价格说明" : "Full pricing"}</a></small>

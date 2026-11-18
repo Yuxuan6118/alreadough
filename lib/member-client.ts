@@ -28,6 +28,8 @@ export type MemberStatus = {
   googleAvailable?: boolean;
   authenticated: boolean;
   checkoutAvailable: boolean;
+  /** Card / Apple Pay / Google Pay through Waffo Pancake. */
+  cardCheckoutAvailable?: boolean;
   membership: Membership | null;
 };
 
