@@ -301,6 +301,7 @@ export default function Home() {
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [beliefDraft, setBeliefDraft] = useState("");
   const [beliefInput, setBeliefInput] = useState("");
+  const [openScene, setOpenScene] = useState<number | null>(null);
   const [storyIndex, setStoryIndex] = useState(0);
   const [storyLibrary, setStoryLibrary] = useState<Story[]>([]);
   const [storyReading, setStoryReading] = useState(false);
@@ -323,6 +324,9 @@ export default function Home() {
   const [memoryDraft, setMemoryDraft] = useState<MemoryDraft>(emptyMemoryDraft);
   const [syncStatus, setSyncStatus] = useState<"loading" | "saved" | "saving" | "offline">("loading");
   const [cloudReady, setCloudReady] = useState(false);
+  // Version of the cloud copy this device last loaded or saved. Saves are sent on top of it, so a stale device can't overwrite newer work.
+  const cloudRevisionRef = useRef<number | null>(null);
+  const restoreSpaceRef = useRef<((data: Record<string, unknown>) => void) | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [aiConnected, setAiConnected] = useState<boolean | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -605,6 +609,7 @@ export default function Home() {
       if (Array.isArray(data.board)) setBoard(data.board as BoardItem[]);
       if (Array.isArray(data.checkIns)) setCheckIns(data.checkIns as PracticeCheckIn[]);
     };
+    restoreSpaceRef.current = restore;
     const activeSession = getDeviceSessionId();
     setSessionId(activeSession);
     try {
@@ -617,8 +622,9 @@ export default function Home() {
       setAcknowledged(readStored("already-acknowledged-v3") === "yes");
       setHydrated(true);
       fetch("/api/space", { cache: "no-store", headers: { "x-already-session-id": activeSession } })
-        .then(async (response) => ({ response, data: await response.json() as { space?: Record<string, unknown> | null } }))
+        .then(async (response) => ({ response, data: await response.json() as { space?: Record<string, unknown> | null; revision?: number } }))
         .then(({ response, data }) => {
+          if (response.ok) cloudRevisionRef.current = data.space ? data.revision ?? 0 : 0;
           if (response.ok && data.space) restore(data.space);
           setSyncStatus(response.ok ? "saved" : "offline");
         })
@@ -661,6 +667,29 @@ export default function Home() {
     return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", resetTick); };
   }, [hydrated]);
 
+  /** Load the newest cloud copy when another device saved after this one (on returning to the app, or when a save was refused as stale). */
+  const pullCloudSpace = (force = false) => {
+    if (!sessionId || sessionId === "local-beta") return;
+    fetch("/api/space", { cache: "no-store", headers: { "x-already-session-id": sessionId } })
+      .then((response) => response.ok ? response.json() as Promise<{ space?: Record<string, unknown> | null; revision?: number }> : null)
+      .then((data) => {
+        if (!data?.space || typeof data.revision !== "number") return;
+        if (!force && cloudRevisionRef.current !== null && data.revision <= cloudRevisionRef.current) return;
+        cloudRevisionRef.current = data.revision;
+        restoreSpaceRef.current?.(data.space);
+        setSyncStatus("saved");
+      })
+      .catch(() => setSyncStatus("offline"));
+  };
+
+  useEffect(() => {
+    if (!cloudReady) return;
+    const onShow = () => { if (document.visibilityState === "visible") pullCloudSpace(); };
+    document.addEventListener("visibilitychange", onShow);
+    window.addEventListener("pageshow", onShow);
+    return () => { document.removeEventListener("visibilitychange", onShow); window.removeEventListener("pageshow", onShow); };
+  }, [cloudReady, sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!hydrated) return;
     const space = { lang, goal, goalArchive: goalArchive.slice(0, 20), otherGoals: otherGoals.slice(0, MAX_GOALS), conversationId, conversationArchive: conversationArchive.slice(0, 30), messages: messages.slice(-80), revisions: revisions.slice(0, 20), board, storyLibrary, checkIns, profile };
@@ -669,8 +698,14 @@ export default function Home() {
     if (!cloudReady) return;
     const timeout = window.setTimeout(() => {
       setSyncStatus("saving");
-      fetch("/api/space", { method: "PUT", headers: { "Content-Type": "application/json", "x-already-session-id": sessionId }, body: JSON.stringify({ space }) })
-        .then((response) => setSyncStatus(response.ok ? "saved" : "offline"))
+      const baseRevision = cloudRevisionRef.current;
+      fetch("/api/space", { method: "PUT", headers: { "Content-Type": "application/json", "x-already-session-id": sessionId }, body: JSON.stringify(baseRevision === null ? { space } : { space, baseRevision }) })
+        .then(async (response) => {
+          if (response.status === 409) { pullCloudSpace(true); return; }
+          const data = await response.json().catch(() => ({})) as { revision?: number };
+          if (response.ok && typeof data.revision === "number") cloudRevisionRef.current = data.revision;
+          setSyncStatus(response.ok ? "saved" : "offline");
+        })
         .catch(() => setSyncStatus("offline"));
     }, 900);
     return () => window.clearTimeout(timeout);
@@ -687,6 +722,7 @@ export default function Home() {
   const spNameError = spNameDraft.trim() ? validateSpName(spNameDraft, lang) : "";
   const beliefCount = parseBeliefs(beliefDraft).length;
   const currentMemoryItems = goal.memoryItems[lang] || [];
+  const otherGoalMemoryCount = otherGoals.reduce((sum, item) => sum + (item.memoryItems?.[lang]?.length || 0) + (item.acceptedSceneLedger?.[lang]?.length || 0), 0);
   const filteredMemoryItems = currentMemoryItems
     .filter((item) => memoryFilter === "all" || item.kind === memoryFilter)
     .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.createdAt.localeCompare(a.createdAt));
@@ -1663,15 +1699,27 @@ export default function Home() {
                   </section>
                 </div>
               </div>}
-              {shown === "library" && <div className="settings-section library-section">
-                <div className="setting-card library-intro"><p>{lang === "zh" ? "AlreaDough 会从对话里记下以后还用得上的事，每次只取回和眼前话题有关的几条。每一条都可以改、置顶或删掉。" : "AlreaDough keeps what will still matter from your conversations and brings back only the few that fit what you are talking about. You can edit, pin, or delete any of them."}</p><button type="button" className="outline-button library-add" onClick={() => openMemoryEditor()}><Plus size={16}/>{lang === "zh" ? "添加记忆" : "Add memory"}</button></div>
-                <div className="setting-card library-memories"><label>{lang === "zh" ? `记住的事 · ${currentMemoryItems.length}` : `REMEMBERED · ${currentMemoryItems.length}`}</label>
-                  {currentMemoryItems.length > 0 && <div className="memory-filter" role="group" aria-label={lang === "zh" ? "筛选记忆" : "Filter memories"}><button type="button" className={memoryFilter === "all" ? "active" : ""} onClick={() => setMemoryFilter("all")}>{lang === "zh" ? "全部" : "All"}<small>{currentMemoryItems.length}</small></button>{memoryKinds.map((kind) => <button type="button" key={kind.id} className={memoryFilter === kind.id ? "active" : ""} onClick={() => setMemoryFilter(kind.id)}>{lang === "zh" ? kind.zh : kind.en}<small>{currentMemoryItems.filter((item) => item.kind === kind.id).length}</small></button>)}</div>}
-                  {filteredMemoryItems.length ? <ul className="library-items">{filteredMemoryItems.map((item) => <li key={item.id} className={item.pinned ? "pinned" : ""}><div className="library-item-head"><span>{lang === "zh" ? memoryKinds.find((kind) => kind.id === item.kind)?.zh : memoryKinds.find((kind) => kind.id === item.kind)?.en}{item.pinned ? (lang === "zh" ? " · 已置顶" : " · Pinned") : ""}</span><div><button type="button" onClick={() => toggleMemoryPin(item.id)} aria-pressed={item.pinned} aria-label={item.pinned ? (lang === "zh" ? "取消置顶" : "Unpin") : (lang === "zh" ? "置顶" : "Pin")}><PushPin size={16} weight={item.pinned ? "fill" : "regular"}/></button><button type="button" onClick={() => openMemoryEditor(item)} aria-label={lang === "zh" ? "编辑记忆" : "Edit memory"}><PencilSimple size={16}/></button><button type="button" onClick={() => deleteMemoryItem(item.id)} aria-label={lang === "zh" ? "删除记忆" : "Delete memory"}><Trash size={16}/></button></div></div><strong>{item.title}</strong><p>{item.detail}</p>{item.keywords.length > 0 && <footer>{item.keywords.map((keyword) => <small key={keyword}>{keyword}</small>)}</footer>}</li>)}</ul> : currentMemoryItems.length === 0 ? <div className="library-empty"><Brain size={24}/><p>{lang === "zh" ? "继续聊天，值得记住的事会慢慢出现在这里；也可以亲手写下第一条。" : "Keep talking and what is worth keeping will appear here, or write the first one yourself."}</p></div> : <div className="library-empty"><p>{lang === "zh" ? "这一类还没有记忆。" : "Nothing in this category yet."}</p><button type="button" className="outline-button" onClick={() => setMemoryFilter("all")}>{lang === "zh" ? "查看全部" : "View all"}</button></div>}
+              {shown === "library" && <div className="settings-section profile-panel library-section">
+                <p className="setting-hint">{lang === "zh" ? "AlreaDough 从对话里记下的、以后还用得上的事。每个愿望各有一份，每次只取回和眼前话题有关的几条。" : "What AlreaDough keeps from your conversations. Each desire has its own set, and only the few that fit the moment are brought back."}</p>
+                <div className="profile-cards">
+                  <div className="memory-for"><span className="wish-chip is-current">{lang === "zh" ? "当前愿望" : "Current desire"}</span><span>{goalTitle(goal, lang)}</span></div>
+                  {otherGoalMemoryCount > 0 && <div className="library-elsewhere"><p>{lang === "zh" ? `其他愿望里还有 ${otherGoalMemoryCount} 条记忆和场景，切换到那个愿望后会显示在这里。` : `${otherGoalMemoryCount} more memories and scenes belong to your other desires. Switch to one to see them here.`}</p><button type="button" className="profile-topic-plus" onClick={() => { setSettingsSection("wishes"); scrollSpaceToTop(); }}>{lang === "zh" ? "去切换" : "Switch"}</button></div>}
+                  <section className="profile-card">
+                    <h3>{lang === "zh" ? "AlreaDough 对这个愿望的理解" : "What AlreaDough understands so far"}</h3>
+                    <p className="library-summary">{goal.journeySummary[lang] || (lang === "zh" ? "对话开始后，这里会形成简短摘要。" : "A short summary will form after conversations begin.")}</p>
+                    <small className="profile-sub">{lang === "zh" ? "每次回复后自动更新，不会把全部历史重发一遍。" : "Updated after each reply, so the full history is never resent."}</small>
+                  </section>
+                  <section className="profile-card">
+                    <div className="library-card-head"><h3>{lang === "zh" ? `记住的事 · ${currentMemoryItems.length}` : `Remembered · ${currentMemoryItems.length}`}</h3><button type="button" className="profile-topic-plus" onClick={() => openMemoryEditor()}><Plus size={15}/> {lang === "zh" ? "添加" : "Add"}</button></div>
+                    {currentMemoryItems.length > 0 && <div className="wish-pills library-filter" role="group" aria-label={lang === "zh" ? "筛选记忆" : "Filter memories"}><button type="button" className={memoryFilter === "all" ? "selected" : ""} onClick={() => setMemoryFilter("all")}>{lang === "zh" ? "全部" : "All"} <small>{currentMemoryItems.length}</small></button>{memoryKinds.map((kind) => { const count = currentMemoryItems.filter((item) => item.kind === kind.id).length; return count ? <button type="button" key={kind.id} className={memoryFilter === kind.id ? "selected" : ""} onClick={() => setMemoryFilter(kind.id)}>{lang === "zh" ? kind.zh : kind.en} <small>{count}</small></button> : null; })}</div>}
+                    {filteredMemoryItems.length ? <ul className="memory-rows">{filteredMemoryItems.map((item) => <li key={item.id} className={item.pinned ? "pinned" : ""}><div className="memory-row-head"><span className="wish-chip">{lang === "zh" ? memoryKinds.find((kind) => kind.id === item.kind)?.zh : memoryKinds.find((kind) => kind.id === item.kind)?.en}</span>{item.pinned && <span className="wish-chip is-current">{lang === "zh" ? "已置顶" : "Pinned"}</span>}<div className="memory-row-actions"><button type="button" onClick={() => toggleMemoryPin(item.id)} aria-pressed={item.pinned} aria-label={item.pinned ? (lang === "zh" ? "取消置顶" : "Unpin") : (lang === "zh" ? "置顶" : "Pin")}><PushPin size={16} weight={item.pinned ? "fill" : "regular"}/></button><button type="button" onClick={() => openMemoryEditor(item)} aria-label={lang === "zh" ? "编辑记忆" : "Edit memory"}><PencilSimple size={16}/></button><button type="button" className="memory-row-delete" onClick={() => deleteMemoryItem(item.id)} aria-label={lang === "zh" ? "删除记忆" : "Delete memory"}><Trash size={16}/></button></div></div><strong>{item.title}</strong><p>{item.detail}</p>{item.keywords.length > 0 && <footer>{item.keywords.map((keyword) => <small key={keyword}>{keyword}</small>)}</footer>}</li>)}</ul> : currentMemoryItems.length === 0 ? <div className="library-empty"><Brain size={22}/><p>{lang === "zh" ? "继续聊天，值得记住的事会慢慢出现在这里；也可以亲手写下第一条。" : "Keep talking and what is worth keeping will appear here, or write the first one yourself."}</p></div> : <p className="setting-empty">{lang === "zh" ? "这一类还没有记忆。" : "Nothing in this category yet."}</p>}
+                  </section>
+                  <section className="profile-card">
+                    <h3>{lang === "zh" ? `已接纳的新场景 · ${goal.acceptedSceneLedger[lang].length}` : `Accepted scenes · ${goal.acceptedSceneLedger[lang].length}`}</h3>
+                    <p className="profile-sub">{lang === "zh" ? "在故事或重写里接纳的版本。AlreaDough 会把它们当作已经发生的事，保留最近 8 条。点开看全文。" : "Versions you accepted in Stories or Revision. AlreaDough treats them as already done and keeps the latest 8. Tap to read in full."}</p>
+                    {goal.acceptedSceneLedger[lang].length ? <ul className="scene-rows">{goal.acceptedSceneLedger[lang].map((item, index) => <li key={`${index}-${item.slice(0, 24)}`}><button type="button" className={openScene === index ? "open" : ""} aria-expanded={openScene === index} onClick={() => setOpenScene(openScene === index ? null : index)}><span>{item}</span><CaretDown size={15}/></button></li>)}</ul> : <p className="setting-empty">{lang === "zh" ? "在故事或重写里接纳的场景会出现在这里。" : "Scenes you accept in Stories or Revision will appear here."}</p>}
+                  </section>
                 </div>
-                <div className="setting-card"><label>{lang === "zh" ? `已接纳的新场景 · ${goal.acceptedSceneLedger[lang].length}` : `ACCEPTED SCENES · ${goal.acceptedSceneLedger[lang].length}`}</label>{goal.acceptedSceneLedger[lang].length ? <ul className="library-plain-list">{goal.acceptedSceneLedger[lang].map((item, index) => <li key={`${index}-${item.slice(0, 24)}`}>{item}</li>)}</ul> : <p className="setting-empty">{lang === "zh" ? "在故事或重写里接纳的场景会出现在这里。" : "Scenes you accept in Stories or Revision will appear here."}</p>}</div>
-                <div className="setting-card"><label>{lang === "zh" ? "回应偏好" : "RESPONSE PREFERENCES"}</label><ul className="library-plain-list">{goal.responsePreferences[lang].map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul></div>
-                <div className="setting-card memory-card"><label>{t.memory}</label><p>{goal.journeySummary[lang] || (lang === "zh" ? "对话开始后，这里会形成简短摘要。" : "A short summary will form after conversations begin.")}</p><small>{lang === "zh" ? "每次回复后自动压缩更新，不重复发送全部历史。" : "Compressed after each response, so the full history is never resent."}</small></div>
               </div>}
               {shown === "membership" && <MembershipPanel lang={lang} member={member} onRefresh={refreshMember} />}
               {shown === "pet" && <DesktopPetPanel lang={lang} />}

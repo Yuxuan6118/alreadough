@@ -215,3 +215,32 @@
 @keyframes confirm-rise { from { opacity: 0; transform: translateY(8px); } }
 .undo-toast { animation-name: undo-rise; }
 @keyframes undo-rise { from { opacity: 0; transform: translate(-50%, 8px); } }
+
+/* 记忆库: same soft cards */
+.library-elsewhere { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--app-accent) 7%, transparent); }
+.library-elsewhere p { flex: 1; margin: 0; color: var(--app-ink); font-family: var(--font-body) !important; font-size: calc(13px * var(--fs, 1)); line-height: 1.6; }
+.library-summary { margin: 0; font: 400 calc(16px * var(--fs, 1))/1.75 var(--font-display) !important; color: var(--app-ink); }
+.profile-card > small.profile-sub { margin: -6px 0 0; font-size: calc(12px * var(--fs, 1)); }
+.library-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.library-filter button small { margin-left: 2px; color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); }
+.library-filter button.selected small { color: inherit; }
+.memory-rows, .scene-rows { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.memory-rows li { display: grid; gap: 6px; padding: 12px 10px 14px 14px; border-radius: 14px; background: color-mix(in srgb, var(--app-ink) 3%, transparent); }
+.memory-rows li.pinned { box-shadow: inset 3px 0 0 var(--app-accent); }
+.memory-row-head { display: flex; align-items: center; gap: 6px; }
+.memory-row-actions { display: flex; gap: 2px; margin-left: auto; }
+.memory-row-actions button { width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 50%; color: var(--app-muted); background: transparent; cursor: pointer; }
+.memory-row-actions button:hover { color: var(--app-ink); background: color-mix(in srgb, var(--app-ink) 6%, transparent); }
+.memory-row-actions button[aria-pressed="true"] { color: var(--app-accent); }
+.memory-row-actions .memory-row-delete:hover { color: #b4474f; background: color-mix(in srgb, #b4474f 8%, transparent); }
+.memory-rows strong { font: 500 calc(17px * var(--fs, 1))/1.4 var(--font-display); }
+.memory-rows p { margin: 0; color: var(--app-muted); font-family: var(--font-body) !important; font-size: calc(14px * var(--fs, 1)); line-height: 1.7 !important; }
+.memory-rows footer { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+.memory-rows footer small { padding: 3px 9px; border-radius: 999px; color: var(--app-accent); background: color-mix(in srgb, var(--app-accent) 10%, transparent); font-size: calc(11px * var(--fs, 1)); }
+.scene-rows button { width: 100%; display: flex; align-items: flex-start; gap: 10px; padding: 12px 12px 12px 14px; border: 0; border-radius: 14px; color: var(--app-ink); background: color-mix(in srgb, var(--app-ink) 3%, transparent); text-align: left; cursor: pointer; }
+.scene-rows button span { flex: 1; min-width: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font: 400 calc(15px * var(--fs, 1))/1.75 var(--font-display); }
+.scene-rows button.open span { display: block; }
+.scene-rows button svg { flex: none; margin-top: 6px; color: var(--app-muted); transition: transform .2s ease; }
+.scene-rows button.open svg { transform: rotate(180deg); }
+.scene-rows button:hover { background: color-mix(in srgb, var(--app-accent) 6%, transparent); }
+.profile-card .library-empty { padding: 0; }

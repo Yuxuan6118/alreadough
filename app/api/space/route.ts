@@ -58,9 +58,20 @@ export async function PUT(request: Request) {
   try { body = JSON.parse(raw); } catch { return json({ error: "INVALID_JSON" }, 400); }
   if (!body || typeof body !== "object" || !("space" in body)) return json({ error: "INVALID_SPACE" }, 400);
   const payload = JSON.stringify((body as { space: unknown }).space);
+  const baseRevision = (body as { baseRevision?: unknown }).baseRevision;
   const updatedAt = new Date().toISOString();
   await ensureTable();
-  await env.DB.prepare(`INSERT INTO user_spaces (user_id, payload, revision, updated_at)
+  if (typeof baseRevision === "number" && Number.isInteger(baseRevision) && baseRevision >= 0) {
+    // Only save on top of the copy this device last saw; a device holding stale data must reload first instead of overwriting newer work.
+    const result = baseRevision === 0
+      ? await env.DB.prepare("INSERT INTO user_spaces (user_id, payload, revision, updated_at) VALUES (?, ?, 1, ?) ON CONFLICT(user_id) DO NOTHING").bind(id, payload, updatedAt).run()
+      : await env.DB.prepare("UPDATE user_spaces SET payload = ?, revision = revision + 1, updated_at = ? WHERE user_id = ? AND revision = ?").bind(payload, updatedAt, id, baseRevision).run();
+    if (!result.meta.changes) {
+      const current = await env.DB.prepare("SELECT revision FROM user_spaces WHERE user_id = ?").bind(id).first<{ revision: number }>();
+      return json({ error: "STALE_REVISION", revision: current?.revision || 0 }, 409);
+    }
+  } else {
+    await env.DB.prepare(`INSERT INTO user_spaces (user_id, payload, revision, updated_at)
     VALUES (?, ?, 1, ?)
     ON CONFLICT(user_id) DO UPDATE SET
       payload = excluded.payload,
@@ -68,6 +79,7 @@ export async function PUT(request: Request) {
       updated_at = excluded.updated_at`)
     .bind(id, payload, updatedAt)
     .run();
+  }
   const saved = await env.DB.prepare("SELECT revision FROM user_spaces WHERE user_id = ?").bind(id).first<{ revision: number }>();
   return json({ saved: true, revision: saved?.revision || 1, updatedAt });
 }
