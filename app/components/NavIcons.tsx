@@ -23,9 +23,10 @@ function useSw() {
   return (n: number) => n / k;
 }
 
-type Box = [number, number, number, number];
-function fitScale([, , w, h]: Box) {
-  return Math.min(AREA / Math.sqrt(w * h), MAX_SIDE / Math.max(w, h));
+// [x, y, w, h, boost?]: boost enlarges one icon on purpose (founder asked for a bigger Dreamscape).
+type Box = [number, number, number, number, number?];
+function fitScale([, , w, h, boost = 1]: Box) {
+  return Math.min(AREA / Math.sqrt(w * h), MAX_SIDE / Math.max(w, h)) * boost;
 }
 
 function Frame({ size = 20, box, children }: { size?: number; box: Box; children: ReactNode }) {
@@ -140,7 +141,7 @@ export function VisionIcon({ size, weight }: Props) {
   );
 }
 
-const DREAMSCAPE_BOX: Box = [1.3, 1.3, 21.5, 19.2];
+const DREAMSCAPE_BOX: Box = [1.3, 1.3, 21.5, 19.2, 1.18];
 /** Dreamscape: a sleeping dough wearing headphones, a big z with a small z above-right. */
 export function DreamscapeIcon({ size, weight }: Props) {
   const active = weight === "fill";
