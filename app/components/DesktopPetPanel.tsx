@@ -53,35 +53,44 @@ export default function DesktopPetPanel({ lang }: { lang: Lang }) {
   const zh = lang === "zh";
   const platform = useSyncExternalStore(subscribe, detectPlatform, () => "other" as Platform);
   const ordered = platform === "windows" ? [...builds].reverse() : builds;
+  const tips = zh
+    ? ["轻点面团会弹一下，连点三下开醒发派对。", "拉一拉会拉长；拉得够远它会挣脱，跟着你走，放在屏幕任何地方都行。", "右键可以换大小、让它躲一会儿、放回右下角，或者让它下班。"]
+    : ["Tap the dough to make it bounce; three quick taps start a proofing party.", "Pull it and it stretches; pull far enough and it breaks free and follows you anywhere on screen.", "Right-click to change its size, hide it for a while, send it back to the corner, or quit."];
   return (
-    <div className="settings-section pet-panel">
-      <div className="setting-card pet-intro">
-        <img src="/mascot/already-dough-fold-v3.png" alt="" aria-hidden="true" />
-        <p>{zh ? "让面团住在你的电脑桌面上：它会呼吸，轻点会弹一下，拉一拉会拉长再弹回去，连点三下会开一场醒发派对。没有打卡，也不打扰你。" : "Let the dough live on your desktop. It breathes, bounces when you tap it, stretches when you pull it, and throws a proofing party on three quick taps. No check-ins, no interruptions."}</p>
-      </div>
-      {platform === "phone" && <div className="setting-card"><p className="setting-hint">{zh ? "桌宠是给电脑用的，请在电脑上打开这一页下载。手机上直接用 AlreaDough 就好，首页就有面团。" : "The desktop pet is for computers; open this page on your computer to download it. On a phone, just use AlreaDough — the dough is on the home screen."}</p></div>}
-      {ordered.map((build) => {
-        const Icon = build.icon;
-        const mine = build.id === platform;
-        return (
-          <div key={build.id} className={`setting-card pet-build${mine ? " mine" : ""}`}>
-            <div className="pet-build-head">
-              <Icon size={26} weight="fill" aria-hidden="true" />
-              <div><strong>{build.name[lang]}{mine && <small>{zh ? "你正在用的电脑" : "This computer"}</small>}</strong><span>{build.needs[lang]}{build.ready ? ` · ${build.size}` : ""}</span></div>
-              {build.ready && <a className="primary pet-download" href={build.file} download><DownloadSimple size={18} />{zh ? "下载" : "Download"}</a>}
-            </div>
-            {build.ready ? <ol>{build.steps[lang].map((step) => <li key={step}>{step}</li>)}</ol> : <p className="pet-soon">{zh ? "正在打包，很快就能下载。" : "Being packaged; available soon."}</p>}
+    <div className="settings-section profile-panel pet-panel">
+      <div className="profile-cards">
+        <section className="profile-card pet-intro">
+          <img src="/mascot/already-dough-fold-v3.png" alt="" aria-hidden="true" />
+          <div>
+            <h3>{zh ? "让面团住在你的桌面上" : "Let the dough live on your desktop"}</h3>
+            <p className="profile-sub">{zh ? "它会呼吸，轻点会弹一下，拉一拉会拉长再弹回去。没有打卡，也不打扰你。" : "It breathes, bounces when you tap it, and stretches when you pull it. No check-ins, no interruptions."}</p>
           </div>
-        );
-      })}
-      <div className="setting-card pet-tips">
-        <label>{zh ? "怎么玩" : "HOW TO PLAY"}</label>
-        <ul>
-          <li>{zh ? "轻点面团会弹一下，连点三下开醒发派对。" : "Tap the dough to make it bounce; three quick taps start a proofing party."}</li>
-          <li>{zh ? "拉一拉会拉长；拉得够远它会挣脱，跟着你走，放在屏幕任何地方都行。" : "Pull it and it stretches; pull far enough and it breaks free and follows you anywhere on screen."}</li>
-          <li>{zh ? "右键可以换大小、让它躲一会儿、放回右下角，或者让它下班。" : "Right-click to change its size, hide it for a while, send it back to the corner, or quit."}</li>
-        </ul>
-        {platform === "other" && <small className="setting-hint">{zh ? "目前有 Mac 和 Windows 两个版本。" : "Available for Mac and Windows."}</small>}
+        </section>
+        {platform === "phone" && <div className="library-elsewhere"><p>{zh ? "桌宠是给电脑用的，请在电脑上打开这一页下载。手机上直接用 AlreaDough 就好，首页就有面团。" : "The desktop pet is for computers; open this page on your computer to download it. On a phone, just use AlreaDough — the dough is on the home screen."}</p></div>}
+        {ordered.map((build) => {
+          const Icon = build.icon;
+          const mine = build.id === platform;
+          return (
+            <section key={build.id} className={`profile-card pet-build${mine ? " mine" : ""}`}>
+              <div className="pet-build-head">
+                <span className="pet-os" aria-hidden="true"><Icon size={22} weight="fill" /></span>
+                <div>
+                  <h3>{build.name[lang]}{mine && <span className="wish-chip is-current">{zh ? "你正在用的电脑" : "This computer"}</span>}</h3>
+                  <span>{build.needs[lang]}{build.ready ? ` · ${build.size}` : ""}</span>
+                </div>
+                {build.ready && <a className={`pet-download ${mine ? "wish-primary" : "profile-topic-plus"}`} href={build.file} download><DownloadSimple size={17} /> {zh ? "下载" : "Download"}</a>}
+              </div>
+              {build.ready
+                ? <ol className="pet-steps">{build.steps[lang].map((step, index) => <li key={step}><b>{index + 1}</b><span>{step}</span></li>)}</ol>
+                : <p className="profile-sub pet-soon">{zh ? "正在打包，很快就能下载。" : "Being packaged; available soon."}</p>}
+            </section>
+          );
+        })}
+        <section className="profile-card pet-tips">
+          <h3>{zh ? "怎么玩" : "How to play"}</h3>
+          <ul className="pet-steps">{tips.map((tip) => <li key={tip}><b aria-hidden="true">·</b><span>{tip}</span></li>)}</ul>
+          {platform === "other" && <small className="profile-sub">{zh ? "目前有 Mac 和 Windows 两个版本。" : "Available for Mac and Windows."}</small>}
+        </section>
       </div>
     </div>
   );

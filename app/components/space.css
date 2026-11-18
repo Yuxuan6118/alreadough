@@ -75,27 +75,47 @@
   .library-intro { flex-direction: column; }
 }
 
-/* 下载桌宠 */
-.pet-intro { display: flex; align-items: center; gap: 18px; }
-.pet-intro img { flex: none; width: 104px; height: auto; }
-.pet-intro p { margin: 0; color: var(--app-ink); line-height: 1.75; }
+/* 下载桌宠: same soft cards as My desires */
+.profile-card.pet-intro { display: flex; align-items: center; gap: 18px; }
+.pet-intro img { flex: none; width: 92px; height: auto; }
+.pet-intro > div { display: grid; gap: 14px; }
 .pet-build-head { display: flex; align-items: center; gap: 14px; }
-.pet-build-head > svg { flex: none; color: var(--app-ink); }
-.pet-build-head > div { flex: 1; min-width: 0; display: grid; gap: 3px; }
-.pet-build-head strong { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font: 500 calc(18px * var(--fs, 1))/1.3 var(--font-display); }
-.pet-build-head strong small { padding: 2px 8px; border-radius: 999px; color: var(--app-accent); background: color-mix(in srgb, var(--app-accent) 10%, transparent); font-family: var(--font-body); font-size: calc(11px * var(--fs, 1)); font-weight: 600; }
-.pet-build-head > div > span { color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); }
-.settings-view .pet-build a.pet-download { flex: none; width: auto; min-height: 40px; display: inline-flex; align-items: center; gap: 6px; padding: 0 18px; border-radius: 999px; text-decoration: none; font-weight: 600; }
-.settings-view .pet-build a.outline-button.pet-download { color: var(--app-ink); }
-.pet-build ol { margin: 12px 0 0 40px; padding-left: 18px; color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); line-height: 1.75; }
-.pet-build .pet-soon { margin: 10px 0 0 40px; color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); }
-.pet-tips ul { margin: 0; padding-left: 18px; color: var(--app-ink); font-size: calc(14px * var(--fs, 1)); line-height: 1.85; }
+.pet-os { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; color: var(--app-ink); background: color-mix(in srgb, var(--app-ink) 5%, transparent); }
+.pet-build.mine .pet-os { color: var(--app-accent); background: color-mix(in srgb, var(--app-accent) 12%, transparent); }
+.pet-build-head > div { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.pet-build-head h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pet-build-head h3 .wish-chip { font-family: var(--font-body); font-size: calc(11px * var(--fs, 1)); min-height: 22px; }
+.pet-build-head > div > span { color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); line-height: 1.5; }
+.settings-view .pet-build a.pet-download { flex: none; width: auto; min-height: 40px; text-decoration: none; }
+.pet-steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.pet-steps li { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--app-ink) 3%, transparent); color: var(--app-ink); font-size: calc(14px * var(--fs, 1)); line-height: 1.65; }
+.pet-steps li b { flex: none; display: grid; place-items: center; width: 22px; height: 22px; margin-top: 1px; border-radius: 999px; color: var(--app-accent); background: color-mix(in srgb, var(--app-accent) 12%, transparent); font-size: calc(12px * var(--fs, 1)); font-weight: 600; }
+.pet-tips .pet-steps li b { background: transparent; font-size: calc(18px * var(--fs, 1)); }
+.profile-card .pet-soon { margin: 0; }
 @media (max-width: 560px) {
-  .pet-intro img { width: 76px; }
+  .pet-intro img { width: 68px; }
   .pet-build-head { flex-wrap: wrap; }
   .settings-view .pet-build a.pet-download { width: 100%; justify-content: center; }
-  .pet-build ol, .pet-build .pet-soon { margin-left: 0; }
 }
+
+/* 同步与数据 */
+.sync-card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.sync-card-top .wish-chip { gap: 5px; }
+.sync-block { display: grid; gap: 8px; padding: 16px; border-radius: 14px; background: color-mix(in srgb, var(--app-ink) 3%, transparent); }
+.sync-block > strong { color: var(--app-ink); font-size: calc(15px * var(--fs, 1)); font-weight: 600; }
+.sync-block > small { color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); line-height: 1.6; }
+.sync-block > small.sync-warning { margin: 0; color: var(--app-accent); }
+.sync-block .sync-code { display: block; margin-top: 4px; background: var(--app-panel); }
+.sync-block .sync-code-row { margin: 4px 0 0; gap: 4px; }
+.sync-block .profile-topic-add { margin-top: 4px; }
+.sync-block .sync-message { margin: 0; color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); line-height: 1.6; }
+.settings-view .sync-block .profile-topic-add input { background: transparent; }
+.data-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.data-danger { border-color: color-mix(in srgb, #b4474f 28%, var(--app-line)); }
+.data-danger h3 { color: #b4474f !important; }
+.data-danger-button { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 16px; border: 1px solid color-mix(in srgb, #b4474f 40%, var(--app-line)); border-radius: 999px; color: #b4474f; background: transparent; font-weight: 600; cursor: pointer; }
+.data-danger-button:hover { background: color-mix(in srgb, #b4474f 8%, transparent); }
+.app-shell[data-theme="dark"] .data-danger h3, .app-shell[data-theme="dark"] .data-danger-button { color: #e48a92 !important; }
 
 /* 我的愿望: one soft card per desire; tap to edit in place */
 .wish-list ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }

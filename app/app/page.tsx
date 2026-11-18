@@ -30,6 +30,8 @@ import {
   ThumbsDown,
   ThumbsUp,
   X,
+  DownloadSimple,
+  ArrowCounterClockwise,
 } from "@phosphor-icons/react";
 import SubliminalStudio, { PracticeCheckIn, practiceStreak, todayKey } from "../components/SubliminalStudio";
 import Dreamscape from "../components/Dreamscape";
@@ -1799,12 +1801,26 @@ export default function Home() {
                 <div className="language-card"><div><span>{lang === "zh" ? "界面语言" : "LANGUAGE"}</span><strong>{lang === "zh" ? "简体中文" : "English"}</strong></div><button onClick={switchLanguage}>{lang === "zh" ? "Switch to English" : "切换到中文"}</button></div>
                 <FontSizePanel lang={lang} />
               </div>}
-              {shown === "sync" && <div className="settings-section">
-                <div className="setting-card"><span>{lang === "zh" ? "重新走一遍开场" : "RUN THE OPENING AGAIN"}</span><p>{lang === "zh" ? "把开场的问题再填一遍。你填的内容会加进现在的账号，已有的愿望、记忆和对话都不会被删除。" : "Answer the opening questions again. What you write is added to this account; nothing you already have is deleted."}</p><button className="outline-button" onClick={() => setReplaying(true)}>{lang === "zh" ? "开始" : "Start"}</button></div>
-                <div className="setting-card sync-card"><span>{lang === "zh" ? "跨设备同步" : "CROSS-DEVICE SYNC"}</span><p>{syncStatus === "saved" ? (lang === "zh" ? "愿望、记忆、对话、故事和练习记录已安全同步。" : "Your desire, memory, conversations, stories, and practice history are synced.") : (lang === "zh" ? "当前使用本机副本；恢复连接后会自动继续同步。" : "Using the on-device copy. Sync resumes automatically when available.")}</p></div>
-                <SyncPanel lang={lang} sessionId={sessionId} syncStatus={syncStatus} hasLocalData={goal.setupComplete} />
-                <div className="setting-card data-control-card"><span>{lang === "zh" ? "我的数据" : "MY DATA"}</span><p>{lang === "zh" ? "下载一个压缩包：解压后双击里面的 index.html，就能在浏览器里查看、搜索你的愿望、对话、记忆和故事；原始数据也一起附上（JSON 格式）。私密照片和录音不在里面。" : "Download a .zip: unzip it and open index.html to read and search your desires, conversations, memories and stories in a browser. The raw data comes along as JSON. Private photos and audio are not included."}</p><button className="outline-button" onClick={exportMyData}>{lang === "zh" ? "导出我的数据" : "Export my data"}</button></div>
-                <button className="outline-button danger-button" onClick={async () => { if (await askConfirm({ title: t.confirm, body: lang === "zh" ? "愿望、对话、记忆、故事和本机的照片与音频都会删除，不能恢复。" : "Desires, conversations, memories, stories, and this device's photos and audio will be deleted. This can't be undone.", confirmLabel: lang === "zh" ? "全部清除" : "Clear everything", cancelLabel: lang === "zh" ? "取消" : "Cancel" })) { void fetch("/api/space", { method: "DELETE", headers: { "x-already-session-id": sessionId } }); removeStored("already-private-state-v5"); removeStored("already-practice-checkins-v1"); removeStored("already-subliminal-v1"); removeStored("already-vision-project-v1"); indexedDB.deleteDatabase("already-private-audio-v1"); indexedDB.deleteDatabase("already-private-vision-v1"); removeStored("already-opening-v1"); setProfile(emptyProfile); setOtherGoals([]); setGoal({ ...defaultGoal }); setGoalArchive([]); setConversationArchive([]); setConversationId(""); setSpNameDraft(""); setBeliefDraft(""); setStoryLibrary([]); setMessages([]); setRevisions([]); setCheckIns([]); setBoard([]); setView("home"); setOnboardingStep(0); } }}>{t.clear}</button>
+              {shown === "sync" && <div className="settings-section profile-panel data-section">
+                <p className="setting-hint">{lang === "zh" ? "换设备、带走资料、重新开始，都在这里。" : "Switch devices, take your data with you, or start over."}</p>
+                <div className="profile-cards">
+                  <SyncPanel lang={lang} sessionId={sessionId} syncStatus={syncStatus} hasLocalData={goal.setupComplete} />
+                  <section className="profile-card">
+                    <h3>{lang === "zh" ? "导出我的数据" : "Export my data"}</h3>
+                    <p className="profile-sub">{lang === "zh" ? "下载一个压缩包：解压后双击里面的 index.html，就能在浏览器里查看、搜索你的愿望、对话、记忆和故事；原始数据也一起附上（JSON 格式）。私密照片和录音不在里面。" : "Download a .zip: unzip it and open index.html to read and search your desires, conversations, memories and stories in a browser. The raw data comes along as JSON. Private photos and audio are not included."}</p>
+                    <div className="data-actions"><button type="button" className="profile-topic-plus" onClick={exportMyData}><DownloadSimple size={16} /> {lang === "zh" ? "导出压缩包" : "Download .zip"}</button></div>
+                  </section>
+                  <section className="profile-card">
+                    <h3>{lang === "zh" ? "重新走一遍开场" : "Run the opening again"}</h3>
+                    <p className="profile-sub">{lang === "zh" ? "把开场的问题再填一遍。你填的内容会加进现在的账号，已有的愿望、记忆和对话都不会被删除。" : "Answer the opening questions again. What you write is added to this account; nothing you already have is deleted."}</p>
+                    <div className="data-actions"><button type="button" className="profile-topic-plus" onClick={() => setReplaying(true)}><ArrowCounterClockwise size={16} /> {lang === "zh" ? "开始" : "Start"}</button></div>
+                  </section>
+                  <section className="profile-card data-danger">
+                    <h3>{lang === "zh" ? "清除全部数据" : "Clear everything"}</h3>
+                    <p className="profile-sub">{lang === "zh" ? "云端和这台设备上的愿望、对话、记忆、故事、照片与音频都会删除，不能恢复。需要的话先导出一份。" : "Desires, conversations, memories, stories, photos and audio in the cloud and on this device are deleted and cannot be recovered. Export a copy first if you want one."}</p>
+                    <div className="data-actions"><button type="button" className="data-danger-button" onClick={async () => { if (await askConfirm({ title: t.confirm, body: lang === "zh" ? "愿望、对话、记忆、故事和本机的照片与音频都会删除，不能恢复。" : "Desires, conversations, memories, stories, and this device's photos and audio will be deleted. This can't be undone.", confirmLabel: lang === "zh" ? "全部清除" : "Clear everything", cancelLabel: lang === "zh" ? "取消" : "Cancel" })) { void fetch("/api/space", { method: "DELETE", headers: { "x-already-session-id": sessionId } }); removeStored("already-private-state-v5"); removeStored("already-practice-checkins-v1"); removeStored("already-subliminal-v1"); removeStored("already-vision-project-v1"); indexedDB.deleteDatabase("already-private-audio-v1"); indexedDB.deleteDatabase("already-private-vision-v1"); removeStored("already-opening-v1"); setProfile(emptyProfile); setOtherGoals([]); setGoal({ ...defaultGoal }); setGoalArchive([]); setConversationArchive([]); setConversationId(""); setSpNameDraft(""); setBeliefDraft(""); setStoryLibrary([]); setMessages([]); setRevisions([]); setCheckIns([]); setBoard([]); setView("home"); setOnboardingStep(0); } }}><Trash size={16} /> {lang === "zh" ? "清除全部数据" : "Clear everything"}</button></div>
+                  </section>
+                </div>
               </div>}
               {shown === "help" && <div className="settings-section">
                 <div className="setting-card report-card"><span>{lang === "zh" ? "联系与举报" : "CONTACT & REPORTS"}</span><p>{lang === "zh" ? "发现不当、违法或让你不舒服的内容，可以在这里举报。每条 AI 回复下面也有“举报”按钮。我们会尽快查看。" : "If you see anything inappropriate, unlawful, or upsetting, report it here. Every AI reply also has a Report button. We read these as soon as we can."}</p><button className="outline-button" onClick={() => setReportTarget({})}>{lang === "zh" ? "举报内容或反馈问题" : "Report content or send feedback"}</button><SiteRecord lang={lang} /></div>
