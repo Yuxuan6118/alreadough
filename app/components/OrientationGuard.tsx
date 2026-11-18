@@ -28,7 +28,10 @@ export default function OrientationGuard() {
     const root = document.documentElement;
     const sync = () => root.classList.toggle("landscape-blocked", isSideways());
     // Works inside the installed home-screen app; a normal browser tab refuses, and the cover message takes over.
-    (window.screen.orientation as ScreenOrientation & { lock?: (type: string) => Promise<void> }).lock?.("portrait")?.catch(() => { /* not allowed here */ });
+    // Chrome and the Google app on iPhone have no screen.orientation at all, so every step is optional.
+    try {
+      (window.screen.orientation as (ScreenOrientation & { lock?: (type: string) => Promise<void> }) | undefined)?.lock?.("portrait")?.catch(() => { /* not allowed here */ });
+    } catch { /* not supported here */ }
     sync();
     window.addEventListener("orientationchange", sync);
     window.screen.orientation?.addEventListener("change", sync);
