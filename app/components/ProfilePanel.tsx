@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Plus, X } from "@phosphor-icons/react";
 import { type OnboardingLang, type ProfileSeed } from "@/lib/onboarding-flow";
+import { showUndo } from "./ConfirmHost";
 
 type Props = {
   lang: OnboardingLang;
@@ -85,7 +86,7 @@ export default function ProfilePanel({ lang, profile, onChange, name, onNameChan
                 <input aria-label={zh ? "名字" : "Name"} maxLength={40} value={person.name} onChange={(event) => updatePerson(person.id, { name: event.target.value })} />
                 <input aria-label={zh ? "TA 是谁" : "Who they are"} maxLength={80} value={person.relation} onChange={(event) => updatePerson(person.id, { relation: event.target.value })} placeholder={zh ? "TA 是谁" : "Who they are"} />
               </div>
-              <button type="button" className="profile-remove" aria-label={zh ? `移除 ${person.name}` : `Remove ${person.name}`} onClick={() => patch({ people: profile.people.filter((item) => item.id !== person.id) })}><X size={16} /></button>
+              <button type="button" className="profile-remove" aria-label={zh ? `移除 ${person.name}` : `Remove ${person.name}`} onClick={() => { patch({ people: profile.people.filter((item) => item.id !== person.id) }); showUndo(zh ? `已移除 ${person.name}` : `Removed ${person.name}`, zh ? "撤销" : "Undo", () => onChange({ ...profile })); }}><X size={16} /></button>
             </li>
           ))}</ul>}
           {profile.people.length < MAX_PEOPLE && (adding ? (
@@ -106,7 +107,7 @@ export default function ProfilePanel({ lang, profile, onChange, name, onNameChan
           <h3>{zh ? "不想被提的话题" : "Topics to leave alone"}</h3>
           <p className="profile-sub">{zh ? "AlreaDough 不会主动提起，也不会写进场景和故事。" : "AlreaDough will not bring them up or write them into scenes and stories."}</p>
           {profile.neverInclude.length > 0 && <div className="profile-topics">{profile.neverInclude.map((topic) => (
-            <span key={topic} className="profile-topic">{topic}<button type="button" aria-label={zh ? `移除「${topic}」` : `Remove “${topic}”`} onClick={() => patch({ neverInclude: profile.neverInclude.filter((item) => item !== topic) })}><X size={13} /></button></span>
+            <span key={topic} className="profile-topic">{topic}<button type="button" aria-label={zh ? `移除「${topic}」` : `Remove “${topic}”`} onClick={() => { patch({ neverInclude: profile.neverInclude.filter((item) => item !== topic) }); showUndo(zh ? `已移除「${topic}」` : `Removed “${topic}”`, zh ? "撤销" : "Undo", () => onChange({ ...profile })); }}><X size={13} /></button></span>
           ))}</div>}
           {profile.neverInclude.length < MAX_TOPICS && <div className="profile-topic-add">
             <input maxLength={80} value={topicDraft} onChange={(event) => setTopicDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addTopic(); } }} placeholder={zh ? "例如：我的体重" : "For example: my weight"} />

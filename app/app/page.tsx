@@ -28,6 +28,7 @@ import {
   StopCircle,
   ThumbsDown,
   ThumbsUp,
+  X,
 } from "@phosphor-icons/react";
 import SubliminalStudio, { PracticeCheckIn, practiceStreak, todayKey } from "../components/SubliminalStudio";
 import Dreamscape from "../components/Dreamscape";
@@ -40,6 +41,7 @@ import SyncPanel from "../components/SyncPanel";
 import GuidedOnboarding from "../components/GuidedOnboarding";
 import ProfilePanel from "../components/ProfilePanel";
 import WishList, { type WishItem } from "../components/WishList";
+import ConfirmHost, { askConfirm, showUndo } from "../components/ConfirmHost";
 import SpaceNav from "../components/SpaceNav";
 import FontSizePanel from "../components/FontSizePanel";
 import type { ReflectionAnswers } from "@/lib/reflection";
@@ -889,10 +891,11 @@ export default function Home() {
     setMemoryDraft(emptyMemoryDraft);
   };
 
-  const deleteMemoryItem = (id: string) => setGoal((current) => ({
-    ...current,
-    memoryItems: { ...current.memoryItems, [lang]: current.memoryItems[lang].filter((item) => item.id !== id) },
-  }));
+  const deleteMemoryItem = async (id: string) => {
+    const ok = await askConfirm({ title: lang === "zh" ? "删除这条记忆？" : "Delete this memory?", body: lang === "zh" ? "AlreaDough 之后不会再用到它，删除后不能恢复。" : "AlreaDough won't use it again. This can't be undone.", confirmLabel: lang === "zh" ? "删除" : "Delete", cancelLabel: lang === "zh" ? "取消" : "Cancel" });
+    if (!ok) return;
+    setGoal((current) => ({ ...current, memoryItems: { ...current.memoryItems, [lang]: current.memoryItems[lang].filter((item) => item.id !== id) } }));
+  };
 
   const toggleMemoryPin = (id: string) => setGoal((current) => ({
     ...current,
@@ -1070,6 +1073,12 @@ export default function Home() {
     window.setTimeout(() => setSavedPulse(false), 1800);
   };
 
+  const removeBeliefWithUndo = (text: string) => {
+    const before = parseBeliefs(beliefDraft);
+    removeBelief(text);
+    showUndo(lang === "zh" ? "已删除这个念头" : "Thought deleted", lang === "zh" ? "撤销" : "Undo", () => { setBeliefDraft(before.join("\n")); setGoal((current) => ({ ...current, beliefs: { ...current.beliefs, [lang]: before } })); });
+  };
+
   const removeBelief = (text: string) => {
     setGoal((current) => ({ ...current, beliefs: { ...current.beliefs, [lang]: (current.beliefs[lang] || []).filter((item) => item !== text) } }));
     setBeliefDraft((current) => parseBeliefs(current).filter((item) => item !== text).join("\n"));
@@ -1211,8 +1220,8 @@ export default function Home() {
     setStoryDraft(emptyStoryDraft);
   };
 
-  const deleteStory = (id: string) => {
-    const confirmed = window.confirm(lang === "zh" ? "删除这个故事吗？此操作只会删除保存在这台设备上的版本。" : "Delete this story? This removes only the copy saved on this device.");
+  const deleteStory = async (id: string) => {
+    const confirmed = await askConfirm({ title: lang === "zh" ? "删除这个故事？" : "Delete this story?", body: lang === "zh" ? "只会删除保存在这台设备上的版本，删除后不能恢复。" : "This removes only the copy saved on this device and can't be undone.", confirmLabel: lang === "zh" ? "删除" : "Delete", cancelLabel: lang === "zh" ? "取消" : "Cancel" });
     if (!confirmed) return;
     setStoryLibrary((items) => items.filter((story) => story.id !== id));
     setStoryIndex((index) => Math.max(0, index - 1));
@@ -1385,10 +1394,10 @@ export default function Home() {
     setOnboardingStep(0);
   };
 
-  const deleteOtherGoal = (id: string) => {
+  const deleteOtherGoal = async (id: string) => {
     const target = otherGoals.find((item) => item.id === id);
     if (!target) return;
-    const confirmed = window.confirm(lang === "zh" ? `删除愿望「${goalTitle(target, lang)}」及它的记忆吗？这不能恢复。` : `Delete the desire “${goalTitle(target, lang)}” and its memories? This cannot be undone.`);
+    const confirmed = await askConfirm({ title: lang === "zh" ? `删除愿望「${goalTitle(target, lang)}」？` : `Delete “${goalTitle(target, lang)}”?`, body: lang === "zh" ? "它的记忆和对话会一起删除，不能恢复。" : "Its memories and conversations go with it. This can't be undone.", confirmLabel: lang === "zh" ? "删除" : "Delete", cancelLabel: lang === "zh" ? "取消" : "Cancel" });
     if (!confirmed) return;
     setOtherGoals((items) => items.filter((item) => item.id !== id));
     setConversationArchive((items) => items.filter((item) => item.goalId !== id));
@@ -1438,6 +1447,7 @@ export default function Home() {
   if (!goal.setupComplete || replaying) {
     const adding = !replaying && otherGoals.length > 0;
     return <main className="app-shell onboarding-shell" data-theme={dark ? "dark" : "light"} data-lang={lang}>
+      <ConfirmHost />
       <div className="app-grain" aria-hidden="true" />
       <header className="onboarding-topbar"><span className="brand"><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></span><div className="top-actions"><button className="language-toggle" onClick={switchLanguage}>{lang === "zh" ? "EN" : "中"}</button></div></header>
       <GuidedOnboarding
@@ -1483,7 +1493,7 @@ export default function Home() {
       </div>
       <footer><button type="button" onClick={() => { openSpace(); moveSidebar(false); }}><DoughLineMark className="avatar-mark avatar-mark-lg" /><span>{goal.companionName || (lang === "zh" ? "我的空间" : "My space")}</span><GearSix size={20} className="swipe-gear" aria-hidden="true"/></button></footer>
     </aside>
-    <main ref={setShellEl} className={`app-shell${sidebarOpen ? " drawer-open" : ""}`} data-theme={dark ? "dark" : "light"} data-lang={lang}>
+    <main ref={setShellEl} className={`app-shell${sidebarOpen ? " drawer-open" : ""}`} data-theme={dark ? "dark" : "light"} data-lang={lang}><ConfirmHost />
       <div className="app-grain" aria-hidden="true" />
       <aside className="app-rail">
         <button className="brand" onClick={() => navigate("home")} aria-label="AlreaDough home"><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></button>
@@ -1507,7 +1517,7 @@ export default function Home() {
         <div className="top-actions"><span className={`sync-badge ${syncStatus}`}>{syncStatus === "saved" ? <CloudCheck size={15}/> : <CloudSlash size={15}/>}<span>{syncStatus === "saved" ? (lang === "zh" ? "已同步" : "Synced") : syncStatus === "saving" || syncStatus === "loading" ? (lang === "zh" ? "同步中" : "Syncing") : (lang === "zh" ? "本机模式" : "On device")}</span></span></div>
       </header>
 
-      {historyOpen && <div className="history-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setHistoryOpen(false); }}><aside className="history-drawer"><header><div><p className="eyebrow">{lang === "zh" ? "对话记录" : "CONVERSATION HISTORY"}</p><h2>{lang === "zh" ? "回到之前的片段" : "Return to an earlier moment"}</h2></div><button onClick={() => setHistoryOpen(false)} aria-label={lang === "zh" ? "关闭" : "Close"}>×</button></header><button className="history-new" onClick={beginNewConversation}><Plus size={17}/>{lang === "zh" ? "开始新对话" : "Start a new conversation"}</button><div className="history-list">{conversationArchive.length ? conversationArchive.map((conversation) => <article key={conversation.id}><button onClick={() => openConversation(conversation)}><strong>{conversation.title}</strong><small>{new Date(conversation.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US")}</small></button><button aria-label={lang === "zh" ? "删除对话" : "Delete conversation"} onClick={() => setConversationArchive((items) => items.filter((item) => item.id !== conversation.id))}><Trash size={16}/></button></article>) : <p>{lang === "zh" ? "完成第一段对话后，它会安全地出现在这里。" : "Your first completed conversation will appear here."}</p>}</div></aside></div>}
+      {historyOpen && <div className="history-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setHistoryOpen(false); }}><aside className="history-drawer"><header><div><p className="eyebrow">{lang === "zh" ? "对话记录" : "CONVERSATION HISTORY"}</p><h2>{lang === "zh" ? "回到之前的片段" : "Return to an earlier moment"}</h2></div><button onClick={() => setHistoryOpen(false)} aria-label={lang === "zh" ? "关闭" : "Close"}>×</button></header><button className="history-new" onClick={beginNewConversation}><Plus size={17}/>{lang === "zh" ? "开始新对话" : "Start a new conversation"}</button><div className="history-list">{conversationArchive.length ? conversationArchive.map((conversation) => <article key={conversation.id}><button onClick={() => openConversation(conversation)}><strong>{conversation.title}</strong><small>{new Date(conversation.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US")}</small></button><button aria-label={lang === "zh" ? "删除对话" : "Delete conversation"} onClick={async () => { if (await askConfirm({ title: lang === "zh" ? "删除这段对话？" : "Delete this conversation?", body: lang === "zh" ? "删除后不能恢复。" : "This can't be undone.", confirmLabel: lang === "zh" ? "删除" : "Delete", cancelLabel: lang === "zh" ? "取消" : "Cancel" })) setConversationArchive((items) => items.filter((item) => item.id !== conversation.id)); }}><Trash size={16}/></button></article>) : <p>{lang === "zh" ? "完成第一段对话后，它会安全地出现在这里。" : "Your first completed conversation will appear here."}</p>}</div></aside></div>}
 
       {view === "home" && <section className={`home-ai-view ${sessionMessages.length ? "has-conversation" : "is-empty"}`}>
         {sessionMessages.length === 0 && <div className="home-ai-welcome">
@@ -1635,9 +1645,23 @@ export default function Home() {
                 {goalArchive.length > 0 && <div className="setting-card archive-card"><label>{lang === "zh" ? `已经发生的愿望 · ${goalArchive.length}` : `FULFILLED DESIRES · ${goalArchive.length}`}</label>{goalArchive.slice(0, 5).map((item) => <article key={item.id}><strong>{item.desire[lang] || item.desire[lang === "zh" ? "en" : "zh"]}</strong><small>{item.createdAt ? new Date(item.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US") : ""}</small></article>)}</div>}
               </div>}
               {shown === "about" && <ProfilePanel lang={lang} profile={profile} onChange={(next) => setProfile(normalizeProfile(next))} name={goal.companionName} onNameChange={(value) => setGoal((current) => ({ ...current, companionName: value }))} />}
-              {shown === "memory" && <div className="settings-section">
-                <div className="setting-card editable-card"><label>{lang === "zh" ? "我的背景与处境" : "MY CONTEXT"}</label><textarea maxLength={MAX_BACKGROUND} value={goal.background[lang]} onChange={(event) => setGoal((current) => ({ ...current, background: { ...current.background, [lang]: event.target.value } }))}/><div className="field-counter"><span>{goal.background[lang].length} / {MAX_BACKGROUND}</span></div></div>
-                <div className="setting-card belief-editor"><label>{lang === "zh" ? "想换掉的念头" : "THOUGHTS TO TURN AROUND"}</label><p className="setting-hint">{lang === "zh" ? "反复冒出来、想换掉的旧念头。点「转念」会带去重写，写好新版本后，这一句就从这里拿掉。" : "Old thoughts that keep coming back. Tap Turn it to take one into Revision; once you accept the new version, it leaves this list."}</p>{parseBeliefs(beliefDraft).length ? <ul className="belief-rows">{parseBeliefs(beliefDraft).map((item, index) => <li key={`${index}-${item}`}><span>{item}</span><button type="button" className="belief-turn" onClick={() => turnBelief(item)}>{lang === "zh" ? "转念" : "Turn it"}</button><button type="button" className="belief-remove" aria-label={lang === "zh" ? `删除：${item}` : `Delete: ${item}`} onClick={() => removeBelief(item)}><Trash size={16}/></button></li>)}</ul> : <p className="setting-empty">{lang === "zh" ? "还没有写下想换掉的念头。" : "Nothing written here yet."}</p>}{beliefCount < MAX_BELIEFS && <div className="belief-add"><input value={beliefInput} maxLength={200} onChange={(event) => setBeliefInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); addBelief(); } }} placeholder={lang === "zh" ? "再写一句" : "Add one more"} aria-label={lang === "zh" ? "添加一个想换掉的念头" : "Add a thought to turn around"}/><button type="button" className="outline-button" disabled={!beliefInput.trim()} onClick={addBelief}><Plus size={16}/>{lang === "zh" ? "添加" : "Add"}</button></div>}<div className={`field-counter ${beliefCount > MAX_BELIEFS ? "over" : ""}`}><span>{beliefCount} / {MAX_BELIEFS}</span></div></div>
+              {shown === "memory" && <div className="settings-section profile-panel">
+                <p className="setting-hint">{lang === "zh" ? "这一页只属于当前愿望，切换愿望后会换成那个愿望自己的内容。" : "This page belongs to the current desire. Switch desires and it shows that one's own notes."}</p>
+                <div className="profile-cards">
+                  <div className="memory-for"><span className="wish-chip is-current">{lang === "zh" ? "当前愿望" : "Current desire"}</span><span>{goalTitle(goal, lang)}</span></div>
+                  <section className="profile-card">
+                    <h3>{lang === "zh" ? "我的背景与处境" : "My context"}</h3>
+                    <label className="wish-field"><span className="profile-sub">{lang === "zh" ? "和这个愿望有关的经历、现状和顾虑" : "What has happened, where things stand, and what worries you"}</span><textarea maxLength={MAX_BACKGROUND} value={goal.background[lang]} onChange={(event) => setGoal((current) => ({ ...current, background: { ...current.background, [lang]: event.target.value } }))} placeholder={lang === "zh" ? "写得越具体，回复越贴合你的情况。" : "The more specific, the better the replies fit."}/></label>
+                    <small className="profile-count">{goal.background[lang].length} / {MAX_BACKGROUND}</small>
+                  </section>
+                  <section className="profile-card">
+                    <h3>{lang === "zh" ? "想换掉的念头" : "Thoughts to turn around"}</h3>
+                    <p className="profile-sub">{lang === "zh" ? "反复冒出来、想换掉的旧念头。点「转念」会带去重写，写好新版本后，这一句就从这里拿掉。" : "Old thoughts that keep coming back. Tap Turn it to take one into Revision; once you accept the new version, it leaves this list."}</p>
+                    {parseBeliefs(beliefDraft).length ? <ul className="thought-rows">{parseBeliefs(beliefDraft).map((item, index) => <li key={`${index}-${item}`}><span>{item}</span><button type="button" className="thought-turn" onClick={() => turnBelief(item)}>{lang === "zh" ? "转念" : "Turn it"}</button><button type="button" className="profile-remove" aria-label={lang === "zh" ? `删除：${item}` : `Delete: ${item}`} onClick={() => removeBeliefWithUndo(item)}><X size={16}/></button></li>)}</ul> : <p className="setting-empty">{lang === "zh" ? "还没有写下想换掉的念头。" : "Nothing written here yet."}</p>}
+                    {beliefCount < MAX_BELIEFS && <div className="profile-topic-add"><input value={beliefInput} maxLength={200} onChange={(event) => setBeliefInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); addBelief(); } }} placeholder={lang === "zh" ? "例如：他根本不在乎我" : "e.g. They don't really care"} aria-label={lang === "zh" ? "添加一个想换掉的念头" : "Add a thought to turn around"}/><button type="button" className="profile-topic-plus" disabled={!beliefInput.trim()} onClick={addBelief}><Plus size={15}/> {lang === "zh" ? "添加" : "Add"}</button></div>}
+                    <small className={`profile-count${beliefCount > MAX_BELIEFS ? " over" : ""}`}>{beliefCount} / {MAX_BELIEFS}</small>
+                  </section>
+                </div>
               </div>}
               {shown === "library" && <div className="settings-section library-section">
                 <div className="setting-card library-intro"><p>{lang === "zh" ? "AlreaDough 会从对话里记下以后还用得上的事，每次只取回和眼前话题有关的几条。每一条都可以改、置顶或删掉。" : "AlreaDough keeps what will still matter from your conversations and brings back only the few that fit what you are talking about. You can edit, pin, or delete any of them."}</p><button type="button" className="outline-button library-add" onClick={() => openMemoryEditor()}><Plus size={16}/>{lang === "zh" ? "添加记忆" : "Add memory"}</button></div>
@@ -1660,7 +1684,7 @@ export default function Home() {
                 <div className="setting-card sync-card"><span>{lang === "zh" ? "跨设备同步" : "CROSS-DEVICE SYNC"}</span><p>{syncStatus === "saved" ? (lang === "zh" ? "愿望、记忆、对话、故事和练习记录已安全同步。" : "Your desire, memory, conversations, stories, and practice history are synced.") : (lang === "zh" ? "当前使用本机副本；恢复连接后会自动继续同步。" : "Using the on-device copy. Sync resumes automatically when available.")}</p></div>
                 <SyncPanel lang={lang} sessionId={sessionId} syncStatus={syncStatus} hasLocalData={goal.setupComplete} />
                 <div className="setting-card data-control-card"><span>{lang === "zh" ? "我的数据" : "MY DATA"}</span><p>{lang === "zh" ? "下载一个压缩包：解压后双击里面的 index.html，就能在浏览器里查看、搜索你的愿望、对话、记忆和故事；原始数据也一起附上（JSON 格式）。私密照片和录音不在里面。" : "Download a .zip: unzip it and open index.html to read and search your desires, conversations, memories and stories in a browser. The raw data comes along as JSON. Private photos and audio are not included."}</p><button className="outline-button" onClick={exportMyData}>{lang === "zh" ? "导出我的数据" : "Export my data"}</button></div>
-                <button className="outline-button danger-button" onClick={() => { if (window.confirm(t.confirm)) { void fetch("/api/space", { method: "DELETE", headers: { "x-already-session-id": sessionId } }); removeStored("already-private-state-v5"); removeStored("already-practice-checkins-v1"); removeStored("already-subliminal-v1"); removeStored("already-vision-project-v1"); indexedDB.deleteDatabase("already-private-audio-v1"); indexedDB.deleteDatabase("already-private-vision-v1"); removeStored("already-opening-v1"); setProfile(emptyProfile); setOtherGoals([]); setGoal({ ...defaultGoal }); setGoalArchive([]); setConversationArchive([]); setConversationId(""); setSpNameDraft(""); setBeliefDraft(""); setStoryLibrary([]); setMessages([]); setRevisions([]); setCheckIns([]); setBoard([]); setView("home"); setOnboardingStep(0); } }}>{t.clear}</button>
+                <button className="outline-button danger-button" onClick={async () => { if (await askConfirm({ title: t.confirm, body: lang === "zh" ? "愿望、对话、记忆、故事和本机的照片与音频都会删除，不能恢复。" : "Desires, conversations, memories, stories, and this device's photos and audio will be deleted. This can't be undone.", confirmLabel: lang === "zh" ? "全部清除" : "Clear everything", cancelLabel: lang === "zh" ? "取消" : "Cancel" })) { void fetch("/api/space", { method: "DELETE", headers: { "x-already-session-id": sessionId } }); removeStored("already-private-state-v5"); removeStored("already-practice-checkins-v1"); removeStored("already-subliminal-v1"); removeStored("already-vision-project-v1"); indexedDB.deleteDatabase("already-private-audio-v1"); indexedDB.deleteDatabase("already-private-vision-v1"); removeStored("already-opening-v1"); setProfile(emptyProfile); setOtherGoals([]); setGoal({ ...defaultGoal }); setGoalArchive([]); setConversationArchive([]); setConversationId(""); setSpNameDraft(""); setBeliefDraft(""); setStoryLibrary([]); setMessages([]); setRevisions([]); setCheckIns([]); setBoard([]); setView("home"); setOnboardingStep(0); } }}>{t.clear}</button>
               </div>}
               {shown === "help" && <div className="settings-section">
                 <div className="setting-card report-card"><span>{lang === "zh" ? "联系与举报" : "CONTACT & REPORTS"}</span><p>{lang === "zh" ? "发现不当、违法或让你不舒服的内容，可以在这里举报。每条 AI 回复下面也有“举报”按钮。我们会尽快查看。" : "If you see anything inappropriate, unlawful, or upsetting, report it here. Every AI reply also has a Report button. We read these as soon as we can."}</p><button className="outline-button" onClick={() => setReportTarget({})}>{lang === "zh" ? "举报内容或反馈问题" : "Report content or send feedback"}</button><SiteRecord lang={lang} /></div>

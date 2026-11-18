@@ -4,6 +4,7 @@ import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { DownloadSimple, Pause, Play, X } from "@phosphor-icons/react";
 import { renderSubMix, type TrackEdit } from "@/lib/audio-mix";
 import { readStored, writeStored } from "@/lib/safe-storage";
+import { askConfirm } from "./ConfirmHost";
 
 export type PracticeCheckIn = {
   date: string;
@@ -744,7 +745,8 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
     setAudioError("");
   };
 
-  const removeTrack = (kind: "voice" | "music") => {
+  const removeTrack = async (kind: "voice" | "music") => {
+    if (!(await askConfirm({ title: lang === "zh" ? (kind === "voice" ? "删除这段人声音轨？" : "删除这段音乐音轨？") : (kind === "voice" ? "Delete the voice track?" : "Delete the music track?"), body: lang === "zh" ? "音频只存在这台设备上，删除后需要重新上传。" : "The audio lives only on this device; you would need to upload it again.", confirmLabel: lang === "zh" ? "删除" : "Delete", cancelLabel: lang === "zh" ? "取消" : "Cancel" }))) return;
     if (kind === "voice") {
       recordedAudioRef.current?.pause();
       setVoiceUrl(""); setVoiceName("");

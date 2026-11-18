@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { removeStored, writeStored } from "@/lib/safe-storage";
 import { isShareableSyncCode, normalizeSyncCode } from "@/lib/sync-code";
+import { askConfirm } from "./ConfirmHost";
 
 type Lang = "zh" | "en";
 type SyncStatus = "loading" | "saved" | "saving" | "offline";
@@ -84,7 +85,7 @@ export default function SyncPanel({ lang, sessionId, syncStatus, hasLocalData, e
       const data = await response.json().catch(() => ({})) as { space?: unknown };
       if (!response.ok) { setMessage(t.network); return; }
       if (!data.space) { setMessage(t.notFound); return; }
-      if (!window.confirm(hasLocalData ? t.confirmReplace : t.confirmEmpty)) { setMessage(""); return; }
+      if (!(await askConfirm({ title: lang === "zh" ? "换成那份资料？" : "Switch to that space?", body: hasLocalData ? t.confirmReplace : t.confirmEmpty, confirmLabel: lang === "zh" ? "确定替换" : "Replace", cancelLabel: lang === "zh" ? "取消" : "Cancel" }))) { setMessage(""); return; }
       // Point this device at the other space, drop the local copy so the cloud copy loads cleanly, and restart.
       writeStored("already-session-id", code);
       removeStored("already-private-state-v5");

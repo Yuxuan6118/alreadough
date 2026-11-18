@@ -9,6 +9,7 @@ import { cacheKey, clearVoiceCache, readCached, writeCached } from "@/lib/voice-
 import { VOICE_LIMITS } from "@/lib/voice-limits";
 import { readStored, writeStored } from "@/lib/safe-storage";
 import "./dreamscape.css";
+import { askConfirm } from "./ConfirmHost";
 
 type Lang = "zh" | "en";
 type Screen = "home" | "record" | "player";
@@ -294,7 +295,7 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
   const flipUseMine = () => { const next = !useMine; setUseMine(next); writeStored(KEY_USE_MINE, next ? "on" : "off"); };
 
   const removeVoice = async () => {
-    if (!window.confirm(t("要删除你录下的声音吗？删除后会回到默认声音，之后可以重新录。", "Delete your recorded voice? You will go back to the default voice and can record again."))) return;
+    if (!(await askConfirm({ title: t("删除你录下的声音？", "Delete your recorded voice?"), body: t("删除后会回到默认声音，之后可以重新录。", "You will go back to the default voice and can record again."), confirmLabel: t("删除", "Delete"), cancelLabel: t("取消", "Cancel") }))) return;
     try {
       const response = await fetch("/api/voice", { method: "DELETE", headers });
       if (!response.ok) throw new Error("DELETE_FAILED");
