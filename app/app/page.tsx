@@ -50,6 +50,7 @@ import { validateSpName } from "@/lib/name-policy";
 import { answersToSeeds, sharedMemories, splitLines, type GoalSeed, type MemorySeed, type OnboardingAnswers, type ProfileSeed } from "@/lib/onboarding-flow";
 import { readStored, writeStored, removeStored } from "@/lib/safe-storage";
 import { formatGreeting, pickGreeting } from "@/lib/greetings";
+import { pickQuote, type Quote } from "@/lib/quotes";
 import { buildExportZip, exportFileName } from "@/lib/export-archive";
 import { getDeviceSessionId } from "@/lib/device-session";
 import DoughLineMark from "../components/DoughLineMark";
@@ -755,6 +756,7 @@ export default function Home() {
   const checkedToday = checkIns.some((item) => item.date === todayKey());
   // Home greeting: picked once per open (time of day, holidays by IP country, special moments), never during SSR.
   const [greeting, setGreeting] = useState<ReturnType<typeof pickGreeting> | null>(null);
+  const [quote, setQuote] = useState<Quote | null>(null);
   const greetingPicked = useRef(false);
   useEffect(() => {
     if (!hydrated || !goal.setupComplete || greetingPicked.current) return;
@@ -769,11 +771,16 @@ export default function Home() {
     let recent: string[] = [];
     try { const parsed = JSON.parse(readStored("already-greeting-recent-v1") || "[]"); if (Array.isArray(parsed)) recent = parsed.filter((item): item is string => typeof item === "string"); } catch { /* ignore */ }
     const choose = (country: string | null) => {
-      const next = pickGreeting({ now, lang, country, firstVisit, daysAway, checkedToday, streak, recent });
+      const next = pickGreeting({ now, lang, country, firstVisit, daysAway, streak, recent });
       setGreeting(next);
       writeStored("already-greeting-recent-v1", JSON.stringify([next.id, ...recent.filter((id) => id !== next.id)].slice(0, 5)));
       writeStored("already-last-visit-v1", now.toISOString());
     };
+    let recentQuotes: string[] = [];
+    try { const parsed = JSON.parse(readStored("already-quote-recent-v1") || "[]"); if (Array.isArray(parsed)) recentQuotes = parsed.filter((item): item is string => typeof item === "string"); } catch { /* ignore */ }
+    const nextQuote = pickQuote(now, recentQuotes);
+    setQuote(nextQuote);
+    writeStored("already-quote-recent-v1", JSON.stringify([nextQuote.id, ...recentQuotes.filter((id) => id !== nextQuote.id)].slice(0, 30)));
     const cached = readStored("already-region-v1");
     const refresh = fetch("/api/region", { cache: "no-store" }).then((response) => response.json()).then((data: { country?: string | null }) => {
       const country = typeof data.country === "string" ? data.country : "";
@@ -782,7 +789,7 @@ export default function Home() {
     }).catch(() => null);
     if (cached !== null) choose(cached || null);
     else Promise.race([refresh, new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500))]).then(choose);
-  }, [hydrated, goal.setupComplete, lang, checkedToday, streak]);
+  }, [hydrated, goal.setupComplete, lang, streak]);
   const suggestions = lang === "zh" ? ["冬日旅行", "理想的新家", "事业里程碑", "丰盛日常"] : ["Winter trip", "Dream home", "Career milestone", "Abundant everyday life"];
   const primaryNav = [
     { id: "home" as View, label: t.nav[0], icon: CompanionIcon },
@@ -1614,7 +1621,7 @@ export default function Home() {
         {sessionMessages.length === 0 && <div className="home-ai-welcome">
           <p className="eyebrow" suppressHydrationWarning>{dateLabel}</p>
           <h1 style={greeting ? undefined : { visibility: "hidden" }}>{formatGreeting(greeting ?? { zh: "欢迎回来", en: "Welcome back", ask: false }, lang, goal.companionName)}</h1>
-          <p>{t.hero}</p>
+          <p style={quote ? undefined : { visibility: "hidden" }}>{quote ? (lang === "zh" ? quote.zh.map((part, index) => <span key={index}>{index > 0 && <br />}{part}</span>) : quote.en) : t.hero}</p>
         </div>}
         <div className="home-ai-thread">
           {sessionMessages.map((message, index) => <div className={`message-group ${message.role}`} key={message.id}><div className={`message ${message.role}`}>{message.text}</div><div className="message-actions">

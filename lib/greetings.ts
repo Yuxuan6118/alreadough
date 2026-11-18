@@ -6,48 +6,60 @@ type Holiday = Line & { regions: "all" | "CN" | "US" | "zh" };
 
 const line = (id: string, zh: string, en: string, ask = false): Line => ({ id, zh, en, ask });
 
-// Device local time. Morning 6–11, noon 11–14, afternoon 14–17, evening 17–23, late night 23–6.
-const BY_TIME: Record<"morning" | "noon" | "afternoon" | "evening" | "night", Line[]> = {
-  morning: [
-    line("m1", "早上好", "Good morning"),
-    line("m2", "早安", "Morning"),
-    line("m3", "醒啦", "You're up"),
-    line("m4", "新的一天", "A new day"),
-    line("m5", "早，今天想先做什么", "Morning. What's first today", true),
-    line("m6", "咖啡泡好了吗", "Coffee ready", true),
-    line("m7", "新的一天从这里开始吧", "Let's start the day here"),
-    line("m8", "睡得好吗", "Sleep well", true),
-  ],
-  noon: [
-    line("n1", "中午好", "Good afternoon"),
-    line("n2", "吃过饭了吗", "Had lunch yet", true),
-    line("n3", "午休时间到啦", "Lunch break"),
-    line("n4", "上午过得怎么样", "How was your morning", true),
-  ],
-  afternoon: [
-    line("a1", "下午好", "Good afternoon"),
-    line("a2", "下午茶时间", "Teatime"),
-    line("a3", "休息一下吧", "Take a little break"),
-    line("a4", "下午也来待一会儿吧", "Stay a while this afternoon"),
-  ],
-  evening: [
-    line("e1", "晚上好", "Good evening"),
-    line("e2", "今天辛苦啦", "Long day", true),
-    line("e3", "到家了吗", "Home yet", true),
-    line("e4", "晚饭吃了什么", "What was dinner", true),
-    line("e5", "忙完啦", "All done for today", true),
-    line("e6", "今天过得怎么样", "How was today", true),
-    line("e7", "窝进沙发了吗", "Settled in on the couch", true),
-  ],
-  night: [
-    line("z1", "还没睡呀", "Still up", true),
-    line("z2", "夜深了", "It's late"),
-    line("z3", "睡不着就来聊聊吧", "Can't sleep? Let's talk"),
-    line("z4", "睡前再聊聊", "One more chat before sleep"),
-    line("z5", "我夜里也在", "I'm here at night too"),
-    line("z6", "窝进被窝了吗", "Tucked in yet", true),
-  ],
-};
+// Each line carries the hours it may appear in (device local time, [from, to), wrapping past midnight).
+// Day parts, the way they are said in Chinese: 凌晨 1–6, 早上 6–9, 上午 9–11, 中午 11–13, 下午 13–17, 傍晚 17–19, 晚上 19–23, 深夜 23–1.
+type TimedLine = Line & { from: number; to: number };
+const timed = (id: string, from: number, to: number, zh: string, en: string, ask = false): TimedLine => ({ id, zh, en, ask, from, to });
+
+const TIMED: TimedLine[] = [
+  // 早上 / 上午
+  timed("m1", 6, 10, "早上好", "Good morning"),
+  timed("m2", 6, 10, "早安", "Morning"),
+  timed("m3", 6, 10, "醒啦", "You're up"),
+  timed("m4", 6, 11, "新的一天", "A new day"),
+  timed("m5", 6, 10, "早，今天想先做什么", "Morning. What's first today", true),
+  timed("m6", 7, 11, "咖啡泡好了吗", "Coffee ready", true),
+  timed("m7", 6, 11, "新的一天从这里开始吧", "Let's start the day here"),
+  timed("m8", 6, 10, "睡得好吗", "Sleep well", true),
+  timed("m9", 9, 11, "上午好", "Good morning"),
+  // 中午
+  timed("n1", 11, 13, "中午好", "Hi, it's midday"),
+  timed("n2", 11, 14, "吃过饭了吗", "Had lunch yet", true),
+  timed("n3", 12, 14, "午休时间到啦", "Lunch break"),
+  timed("n4", 11, 14, "上午过得怎么样", "How was your morning", true),
+  // 下午
+  timed("a1", 13, 17, "下午好", "Good afternoon"),
+  timed("a2", 14, 17, "下午茶时间", "Teatime"),
+  timed("a3", 13, 17, "休息一下吧", "Take a little break"),
+  timed("a4", 13, 17, "下午也来待一会儿吧", "Stay a while this afternoon"),
+  // 傍晚 / 晚上
+  timed("e8", 17, 20, "下班了吗", "Off work yet", true),
+  timed("e1", 18, 24, "晚上好", "Good evening"),
+  timed("e2", 17, 23, "今天辛苦啦", "Long day today"),
+  timed("e3", 17, 22, "到家了吗", "Home yet", true),
+  timed("e4", 18, 21, "晚饭吃了什么", "What was dinner", true),
+  timed("e5", 17, 23, "忙完了吗", "All done for today", true),
+  timed("e6", 17, 24, "今天过得怎么样", "How was today", true),
+  timed("e7", 19, 23, "窝进沙发了吗", "Settled in on the couch", true),
+  // 深夜 / 凌晨
+  timed("z2", 23, 3, "夜深了", "It's late"),
+  timed("z1", 23, 4, "还没睡呀", "Still up", true),
+  timed("z4", 22, 2, "睡前再聊聊", "One more chat before sleep"),
+  timed("z6", 22, 2, "窝进被窝了吗", "Tucked in yet", true),
+  timed("z5", 23, 5, "我夜里也在", "I'm here at night too"),
+  timed("z3", 0, 5, "睡不着就来聊聊吧", "Can't sleep? Let's talk"),
+  timed("z7", 4, 6, "这么早就醒啦", "Up so early", true),
+  // 周末早上
+  timed("w6b", 7, 13, "周末睡到自然醒了吗", "Sleep in this weekend", true),
+];
+
+const inHours = (item: { from: number; to: number }, hour: number) => (item.from < item.to ? hour >= item.from && hour < item.to : hour >= item.from || hour < item.to);
+/** Lines that fit this hour (weekend-only lines only on Saturday and Sunday). */
+export function linesAt(now: Date): Line[] {
+  const hour = now.getHours();
+  const weekend = now.getDay() === 0 || now.getDay() === 6;
+  return TIMED.filter((item) => inHours(item, hour) && (item.id !== "w6b" || weekend));
+}
 
 const ANYTIME: Line[] = [
   line("g1", "欢迎回来", "Welcome back"),
@@ -65,14 +77,13 @@ const ANYTIME: Line[] = [
 const WEEKDAY: Record<number, Line[]> = {
   1: [line("w1", "周一好", "Happy Monday")],
   5: [line("w5", "周五啦", "It's Friday")],
-  6: [line("w6", "周末愉快", "Happy weekend"), line("w6b", "周末睡到自然醒了吗", "Sleep in this weekend", true)],
-  0: [line("w0", "周末愉快", "Happy weekend"), line("w0b", "周末睡到自然醒了吗", "Sleep in this weekend", true)],
+  6: [line("w6", "周末愉快", "Happy weekend")],
+  0: [line("w0", "周末愉快", "Happy weekend")],
 };
 
 const SPECIAL = {
   first: line("s1", "第一次见面", "Nice to meet you"),
   away: line("s2", "好久不见", "Long time no see"),
-  checked: line("s4", "打过卡了呀", "Checked in already"),
 };
 
 // Lunar-calendar holidays, by Gregorian date (month-day), 2026–2030.
@@ -132,21 +143,12 @@ export function holidaysOn(date: Date): Holiday[] {
   return out;
 }
 
-export function timeSlot(hour: number): keyof typeof BY_TIME {
-  if (hour >= 6 && hour < 11) return "morning";
-  if (hour >= 11 && hour < 14) return "noon";
-  if (hour >= 14 && hour < 17) return "afternoon";
-  if (hour >= 17 && hour < 23) return "evening";
-  return "night";
-}
-
 export type GreetingContext = {
   now: Date;
   lang: "zh" | "en";
   country: string | null;
   firstVisit: boolean;
   daysAway: number | null;
-  checkedToday: boolean;
   streak: number;
   recent: string[];
   random?: () => number;
@@ -166,13 +168,12 @@ export function pickGreeting(ctx: GreetingContext): { id: string; zh: string; en
   if (holiday) return shown(holiday);
   if (ctx.firstVisit) return shown(SPECIAL.first);
   if (ctx.daysAway !== null && ctx.daysAway > 7) return shown(SPECIAL.away);
-  if (ctx.checkedToday && rand() < 0.5) return shown(SPECIAL.checked);
   if (ctx.streak >= 3 && rand() < 0.4) return { id: "s3", zh: `连续第 ${ctx.streak} 天见到你`, en: `Day ${ctx.streak} in a row`, ask: false, streak: ctx.streak };
-  const slot = timeSlot(ctx.now.getHours());
-  // "今天也是你的一天" reads oddly after midnight; "睡到自然醒" only makes sense before the afternoon.
-  const anytime = slot === "night" ? ANYTIME.filter((item) => item.id !== "g9") : ANYTIME;
-  const weekday = (WEEKDAY[ctx.now.getDay()] ?? []).filter((item) => !item.id.endsWith("b") || slot === "morning" || slot === "noon");
-  return shown(pick([...BY_TIME[slot], ...anytime, ...weekday]));
+  const hour = ctx.now.getHours();
+  const lateNight = hour >= 23 || hour < 6;
+  // "今天也是你的一天" reads oddly after midnight.
+  const anytime = lateNight ? ANYTIME.filter((item) => item.id !== "g9") : ANYTIME;
+  return shown(pick([...linesAt(ctx.now), ...anytime, ...(WEEKDAY[ctx.now.getDay()] ?? [])]));
 }
 
 /** "晚饭吃了什么，瑄瑄？" / "Good evening, Xuan" — the name is dropped cleanly when there is none. */
