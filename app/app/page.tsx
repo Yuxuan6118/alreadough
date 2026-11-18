@@ -39,6 +39,12 @@ import {
   Flag,
   LockSimple,
   ShieldCheck,
+  Sparkle,
+  UserCircle,
+  Lightbulb,
+  Desktop,
+  Palette,
+  Question,
 } from "@phosphor-icons/react";
 import SubliminalStudio, { PracticeCheckIn, practiceStreak, todayKey } from "../components/SubliminalStudio";
 import Dreamscape from "../components/Dreamscape";
@@ -1591,7 +1597,7 @@ export default function Home() {
       <nav className="swipe-nav" aria-label={t.ariaNav}>
         {primaryNav.map((item) => {
           const Icon = item.icon;
-          return <button type="button" key={item.id} className={view === item.id ? "active" : ""} onClick={() => { navigate(item.id); moveSidebar(false); }}><Icon size={20} weight={view === item.id ? "fill" : "regular"}/><span>{item.label}</span></button>;
+          return <button type="button" key={item.id} className={view === item.id ? "active" : ""} onClick={() => { navigate(item.id); moveSidebar(false); }}><Icon size={24} weight={view === item.id ? "fill" : "regular"}/><span>{item.label}</span></button>;
         })}
       </nav>
       <div className="swipe-history">
@@ -1605,11 +1611,11 @@ export default function Home() {
       <aside className="app-rail">
         <button className="brand" onClick={() => navigate("home")} aria-label="AlreaDough home"><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></button>
         <button className="rail-new-chat" onClick={beginNewConversation}><Plus size={18}/><span>{lang === "zh" ? "新对话" : "New conversation"}</span></button>
-        <button className="rail-history" onClick={() => setHistoryOpen(true)}><HistoryIcon size={18}/><span>{lang === "zh" ? "对话记录" : "Conversation history"}</span><small>{conversationArchive.length}</small></button>
+        <button className="rail-history" onClick={() => setHistoryOpen(true)}><HistoryIcon size={22}/><span>{lang === "zh" ? "对话记录" : "Conversation history"}</span><small>{conversationArchive.length}</small></button>
         <nav className="rail-nav" aria-label={t.ariaNav}>
           {primaryNav.map((item) => {
             const Icon = item.icon;
-            return <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => navigate(item.id)}><Icon size={19} weight={view === item.id ? "fill" : "regular"}/><span>{item.label}</span></button>;
+            return <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => navigate(item.id)}><Icon size={23} weight={view === item.id ? "fill" : "regular"}/><span>{item.label}</span></button>;
           })}
         </nav>
         <div className="rail-footer">
@@ -1726,21 +1732,21 @@ export default function Home() {
               onSelect={(id) => { setSettingsSection(id as SpaceSection); scrollSpaceToTop(); }}
               groups={[
                 { title: zhText ? "我" : "Me", rows: [
-                  { id: "wishes", label: titles.wishes, value: String(sortedGoals.length) },
-                  { id: "about", label: titles.about },
+                  { id: "wishes", icon: Sparkle, label: titles.wishes, value: String(sortedGoals.length) },
+                  { id: "about", icon: UserCircle, label: titles.about },
                 ] },
                 { title: zhText ? "记忆" : "Memory", rows: [
-                  { id: "library", label: titles.library, value: String(currentMemoryItems.length) },
-                  { id: "memory", label: titles.memory },
+                  { id: "library", icon: Brain, label: titles.library, value: String(currentMemoryItems.length) },
+                  { id: "memory", icon: Lightbulb, label: titles.memory },
                 ] },
                 { title: zhText ? "应用" : "App", rows: [
                   // The iPhone app must not link to web checkout (App Store rules).
-                  ...(Capacitor.isNativePlatform() ? [] : [{ id: "membership", label: titles.membership, value: memberPlanLabel(member, lang) }]),
+                  ...(Capacitor.isNativePlatform() ? [] : [{ id: "membership", icon: Crown, label: titles.membership, value: memberPlanLabel(member, lang) }]),
                   // a desktop pet is for computers; the phone app already has the dough on its home screen
-                  ...(Capacitor.isNativePlatform() ? [] : [{ id: "pet", label: titles.pet }]),
-                  { id: "look", label: titles.look, value: dark ? (zhText ? "深色" : "Dark") : (zhText ? "浅色" : "Light") },
-                  { id: "sync", label: titles.sync },
-                  { id: "help", label: titles.help },
+                  ...(Capacitor.isNativePlatform() ? [] : [{ id: "pet", icon: Desktop, label: titles.pet }]),
+                  { id: "look", icon: Palette, label: titles.look, value: dark ? (zhText ? "深色" : "Dark") : (zhText ? "浅色" : "Light") },
+                  { id: "sync", icon: ArrowsClockwise, label: titles.sync },
+                  { id: "help", icon: Question, label: titles.help },
                 ] },
               ]}
             />
