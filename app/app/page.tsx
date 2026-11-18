@@ -39,12 +39,6 @@ import {
   Flag,
   LockSimple,
   ShieldCheck,
-  Sparkle,
-  UserCircle,
-  Lightbulb,
-  Desktop,
-  Palette,
-  Question,
 } from "@phosphor-icons/react";
 import SubliminalStudio, { PracticeCheckIn, practiceStreak, todayKey } from "../components/SubliminalStudio";
 import Dreamscape from "../components/Dreamscape";
@@ -59,6 +53,7 @@ import ProfilePanel from "../components/ProfilePanel";
 import WishList, { type WishItem } from "../components/WishList";
 import ConfirmHost, { askConfirm, showUndo } from "../components/ConfirmHost";
 import SpaceNav from "../components/SpaceNav";
+import { AboutIcon, HelpIcon, LibraryIcon, LookIcon, MembershipIcon, PetIcon, SyncIcon, ThoughtsIcon, WishesIcon } from "../components/SpaceIcons";
 import FontSizePanel from "../components/FontSizePanel";
 import type { ReflectionAnswers } from "@/lib/reflection";
 import { validateSpName } from "@/lib/name-policy";
@@ -1732,21 +1727,21 @@ export default function Home() {
               onSelect={(id) => { setSettingsSection(id as SpaceSection); scrollSpaceToTop(); }}
               groups={[
                 { title: zhText ? "我" : "Me", rows: [
-                  { id: "wishes", icon: Sparkle, label: titles.wishes, value: String(sortedGoals.length) },
-                  { id: "about", icon: UserCircle, label: titles.about },
+                  { id: "wishes", icon: WishesIcon, label: titles.wishes, value: String(sortedGoals.length) },
+                  { id: "about", icon: AboutIcon, label: titles.about },
                 ] },
                 { title: zhText ? "记忆" : "Memory", rows: [
-                  { id: "library", icon: Brain, label: titles.library, value: String(currentMemoryItems.length) },
-                  { id: "memory", icon: Lightbulb, label: titles.memory },
+                  { id: "library", icon: LibraryIcon, label: titles.library, value: String(currentMemoryItems.length) },
+                  { id: "memory", icon: ThoughtsIcon, label: titles.memory },
                 ] },
                 { title: zhText ? "应用" : "App", rows: [
                   // The iPhone app must not link to web checkout (App Store rules).
-                  ...(Capacitor.isNativePlatform() ? [] : [{ id: "membership", icon: Crown, label: titles.membership, value: memberPlanLabel(member, lang) }]),
+                  ...(Capacitor.isNativePlatform() ? [] : [{ id: "membership", icon: MembershipIcon, label: titles.membership, value: memberPlanLabel(member, lang) }]),
                   // a desktop pet is for computers; the phone app already has the dough on its home screen
-                  ...(Capacitor.isNativePlatform() ? [] : [{ id: "pet", icon: Desktop, label: titles.pet }]),
-                  { id: "look", icon: Palette, label: titles.look, value: dark ? (zhText ? "深色" : "Dark") : (zhText ? "浅色" : "Light") },
-                  { id: "sync", icon: ArrowsClockwise, label: titles.sync },
-                  { id: "help", icon: Question, label: titles.help },
+                  ...(Capacitor.isNativePlatform() ? [] : [{ id: "pet", icon: PetIcon, label: titles.pet }]),
+                  { id: "look", icon: LookIcon, label: titles.look, value: dark ? (zhText ? "深色" : "Dark") : (zhText ? "浅色" : "Light") },
+                  { id: "sync", icon: SyncIcon, label: titles.sync },
+                  { id: "help", icon: HelpIcon, label: titles.help },
                 ] },
               ]}
             />

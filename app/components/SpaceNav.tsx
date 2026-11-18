@@ -1,9 +1,10 @@
 "use client";
 
-import { CaretRight, type Icon } from "@phosphor-icons/react";
+import type { ComponentType } from "react";
+import { CaretRight } from "@phosphor-icons/react";
 import "./space.css";
 
-export type SpaceRow = { id: string; label: string; value?: string; icon?: Icon };
+export type SpaceRow = { id: string; label: string; value?: string; icon?: ComponentType<{ size?: number }> };
 export type SpaceGroup = { title: string; rows: SpaceRow[] };
 
 type Props = {
@@ -29,7 +30,7 @@ export default function SpaceNav({ title, intro, groups, active, onSelect }: Pro
             {group.rows.map((row) => (
               <li key={row.id}>
                 <button type="button" className={active === row.id ? "active" : ""} aria-current={active === row.id ? "page" : undefined} onClick={() => onSelect(row.id)}>
-                  {row.icon && <i className="space-row-icon" aria-hidden="true"><row.icon size={18} /></i>}
+                  {row.icon && <i className="space-row-icon" aria-hidden="true"><row.icon size={26} /></i>}
                   <span>{row.label}</span>
                   {row.value && <small>{row.value}</small>}
                   <CaretRight size={16} aria-hidden="true" />
