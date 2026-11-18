@@ -1,7 +1,8 @@
 "use client";
 
 import { Capacitor } from "@capacitor/core";
-import { ArrowRight, Sparkle, X } from "@phosphor-icons/react";
+import { ArrowRight, X } from "@phosphor-icons/react";
+import DoughLineMark from "./DoughLineMark";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   exhaustedWindow, fetchMemberStatus, MEMBER_PLANS, memberErrorText, memberPost, planName, resetLabel,
@@ -126,7 +127,7 @@ export function UsageBanner({ lang, member, gate, onOpen }: { lang: Lang; member
   const reset = used === "week" ? member?.membership?.usage.weekResetMs : member?.membership?.usage.fiveResetMs;
   return (
     <div className="usage-banner" role="status">
-      <Sparkle size={20} aria-hidden="true" />
+      <DoughLineMark />
       <div>
         <strong>{needsSignIn ? (zh ? "用邮箱登录后就能开始对话" : "Sign in with email to start chatting")
           : used === "week" ? (zh ? "本周的用量用完了" : "You're out of this week's usage")

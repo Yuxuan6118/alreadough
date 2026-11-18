@@ -4,6 +4,7 @@ import { MEMBER_PLANS } from "@/lib/member-client";
 import SiteFooter from "./SiteFooter";
 import ModuleIndex from "./ModuleIndex";
 import PetPreview from "./PetPreview";
+import PlanPicker from "./PlanPicker";
 import styles from "./product.module.css";
 
 type Lang = "zh" | "en";
@@ -165,19 +166,16 @@ export default function ProductPage({ lang }: { lang: Lang }) {
             <h2 id="pricing-title">{t.pricingTitle}</h2>
             <p>{t.pricingIntro}</p>
           </div>
-          <div className={styles.plans}>
-            {MEMBER_PLANS.map((plan) => (
-              <article key={plan.id} className={styles.plan} data-featured={plan.id === "deep" ? "true" : undefined}>
-                <h3>{plan.name[lang]}</h3>
-                <p className={styles.price}>{plan.price === 0 ? t.free : <>¥{plan.price}<small> {t.perMonth}</small></>}</p>
-                <ul>
-                  <li>{t.session(plan.session)}</li>
-                  <li>{t.week(plan.week)}</li>
-                  <li>{t.planNotes[plan.id]}</li>
-                </ul>
-              </article>
-            ))}
-          </div>
+          <PlanPicker
+            initial="deep"
+            label={t.pricingTitle}
+            items={MEMBER_PLANS.map((plan) => ({
+              id: plan.id,
+              title: plan.name[lang],
+              price: plan.price === 0 ? t.free : <>¥{plan.price}<small> {t.perMonth}</small></>,
+              lines: [t.session(plan.session), t.week(plan.week), t.planNotes[plan.id]],
+            }))}
+          />
           <p className={styles.estimate}>{t.estimate}</p>
           <a href={zh ? "/pricing" : "/en/pricing"} className={styles.secondary}>{t.pricingCta}</a>
         </section>

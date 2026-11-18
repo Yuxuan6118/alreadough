@@ -1634,3 +1634,7 @@ html[data-theme="dark"].landscape-blocked::after { color: #f1e8e2; background: #
 .dough-pet-inline .dough-stage::before { content: ""; position: absolute; z-index: 0; inset: -64px -40px -24px; touch-action: none; }
 .pet-sheet > header { z-index: 20; }   /* above the dough (z-index 12) and its pinch frame, so the close button always works */
 
+
+/* account avatar: the AlreaDough line mark */
+.avatar-mark { width: 20px; height: 20px; color: var(--app-accent); }
+.avatar-mark-lg { width: 26px; height: 26px; flex: none; }

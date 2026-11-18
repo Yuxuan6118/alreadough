@@ -29,7 +29,7 @@
 
 /* the card above the chat box when she cannot send */
 .usage-banner { position: absolute; left: 0; right: 0; bottom: calc(100% + 12px); z-index: 2; display: flex; align-items: center; gap: 12px; padding: 14px 14px 14px 16px; border: 1px solid var(--app-line); border-radius: 16px; background: var(--app-panel); box-shadow: var(--app-shadow); }
-.usage-banner > svg { flex: none; color: var(--app-accent); }
+.usage-banner > svg { flex: none; width: 28px; height: 28px; color: var(--app-accent); }
 .usage-banner > div { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .usage-banner strong { color: var(--app-ink); font-size: calc(15px * var(--fs, 1)); font-weight: 600; }
 .usage-banner span { color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); line-height: 1.5; }

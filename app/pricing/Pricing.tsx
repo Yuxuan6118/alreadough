@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, LockKey, Sparkle } from "@phosphor-icons/react";
+import { Check, LockKey } from "@phosphor-icons/react";
+import DoughLineMark from "../components/DoughLineMark";
 import { useEffect, useState } from "react";
 import { getDeviceSessionId } from "@/lib/device-session";
 import { MEMBER_PLANS, type MemberStatus } from "@/lib/member-client";
@@ -11,7 +12,7 @@ const plans = MEMBER_PLANS;
 
 export default function Pricing({ initialLang }: { initialLang: "zh" | "en" }) {
   const [lang, setLang] = useState(initialLang);
-  const [selected, setSelected] = useState<(typeof plans)[1 | 2]>(plans[1]);
+  const [selected, setSelected] = useState<(typeof plans)[number]>(plans[1]);
   const [contact, setContact] = useState("");
   const [status, setStatus] = useState<"idle" | "busy" | "saved" | "error">("idle");
   const [member, setMember] = useState<MemberStatus | null>(null);
@@ -94,11 +95,19 @@ export default function Pricing({ initialLang }: { initialLang: "zh" | "en" }) {
           <h1>{zh ? "会员与价格" : "Membership and pricing"}</h1>
           <span>{member?.enabled ? (zh ? "按用量使用；支付宝购买为 30 天，到期不会自动扣款。" : "Usage-based allowances. Alipay purchases last 30 days and do not renew automatically.") : (zh ? "新会员方案预览。试用和付款尚未开放。" : "Preview of the new membership plans. Trials and payments are not open yet.")}</span>
         </header>
-        <section className="pricing-plans">
+        <section className="pricing-plans" role="radiogroup" aria-label={zh ? "会员方案" : "Membership plans"}>
           {plans.map((plan) => {
             const isSelected = selected.id === plan.id;
             return (
-              <article key={plan.id} className={isSelected ? "selected" : undefined}>
+              <article
+                key={plan.id}
+                className={isSelected ? "selected" : undefined}
+                role="radio"
+                tabIndex={0}
+                aria-checked={isSelected}
+                onClick={() => { setSelected(plan); setStatus("idle"); }}
+                onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelected(plan); setStatus("idle"); } }}
+              >
                 <h2>{plan.name[lang]}</h2>
                 <strong>{plan.price ? <>¥{plan.price}<i> / {member?.enabled ? (zh ? "30 天" : "30 days") : (zh ? "月" : "month")}</i></> : (zh ? "免费" : "Free")}</strong>
                 <ul>
@@ -107,17 +116,12 @@ export default function Pricing({ initialLang }: { initialLang: "zh" | "en" }) {
                   {plan.id === "atelier" && <li><Check weight="bold" />{zh ? "填邀请码可免费体验 7 天" : "Try it free for 7 days with an invitation code"}</li>}
                   {plan.id === "atelier" && <li><Check weight="bold" />{zh ? "醒发用量的 3 倍以上" : "More than three times the Deep Practice allowance"}</li>}
                 </ul>
-                {plan.id !== "soft" && (
-                  <button type="button" aria-pressed={isSelected} disabled={status === "busy"} onClick={() => { setSelected(plan); setStatus("idle"); }}>
-                    {member?.enabled ? (zh ? "选择套餐" : "Select plan") : (zh ? "选择预约套餐" : "Select for launch notice")}
-                  </button>
-                )}
               </article>
             );
           })}
         </section>
         {member?.enabled ? <section className="checkout-preview member-checkout">
-          <div><Sparkle /><h2>{zh ? "我的会员" : "My membership"}</h2>
+          <div><DoughLineMark /><h2>{zh ? "我的会员" : "My membership"}</h2>
             {member.authenticated && member.membership?.unlimited ? <p>{zh ? "创始人账户 · 不限用量" : "Founder account · no usage limit"}</p> : member.authenticated && member.membership ? <p>{zh ? "当前方案" : "Current plan"}：{plans.find(p => p.id === member.membership?.plan)?.name[lang]} · {zh ? "本 5 小时已用" : "Used this 5-hour window"} {member.membership.usage.fiveUnits}/{member.membership.limits.fiveHours} · {zh ? "本周已用" : "Used this week"} {member.membership.usage.weekUnits}/{member.membership.limits.week}</p> : <p>{zh ? "先用邮箱登录，会员和用量会跟着你的账户走。" : "Sign in with email to keep your membership and allowance with your account."}</p>}
             {member.membership?.referralEndMs && <p>{zh ? "丰盛工坊体验到期" : "Atelier trial ends"}：{new Date(member.membership.referralEndMs).toLocaleString(zh ? "zh-CN" : "en-US")}{zh ? "，之后回到你原来的方案" : ", then back to your own plan"}</p>}
             {member.membership?.periodEndMs && <p>{zh ? "当前方案到期" : "Current plan ends"}：{new Date(member.membership.periodEndMs).toLocaleDateString(zh ? "zh-CN" : "en-US")}</p>}
@@ -135,7 +139,7 @@ export default function Pricing({ initialLang }: { initialLang: "zh" | "en" }) {
               <button type="button" disabled={memberBusy || !referral.trim()} onClick={() => void memberAction("/api/member/referral", { code: referral.trim() })}>{zh ? "使用邀请码" : "Use invitation code"}</button>
               </>}
               {referralDone && <p role="status">{zh ? "已开通 7 天丰盛工坊。" : "7 days of Dough Atelier added."}</p>}
-              {member.checkoutAvailable && <button type="button" disabled={memberBusy} onClick={() => void memberAction("/api/pay/zpay/checkout", { plan: selected.id })}>{zh ? `支付宝购买${selected.name.zh} · ¥${selected.price} / 30 天` : `Buy ${selected.name.en} · ¥${selected.price} / 30 days`}</button>}
+              {member.checkoutAvailable && selected.price > 0 && <button type="button" disabled={memberBusy} onClick={() => void memberAction("/api/pay/zpay/checkout", { plan: selected.id })}>{zh ? `支付宝购买${selected.name.zh} · ¥${selected.price} / 30 天` : `Buy ${selected.name.en} · ¥${selected.price} / 30 days`}</button>}
               {!member.checkoutAvailable && <p>{zh ? "支付入口正在开通。" : "Checkout is being set up."}</p>}
               <button type="button" className="member-link" disabled={memberBusy} onClick={() => void memberAction("/api/member/auth/logout")}>{zh ? "退出登录" : "Sign out"}</button>
             </>}
@@ -144,7 +148,7 @@ export default function Pricing({ initialLang }: { initialLang: "zh" | "en" }) {
           </aside>
         </section> : <section className="checkout-preview">
           <div>
-            <Sparkle />
+            <DoughLineMark />
             <h2>{zh ? `等「${selected.name.zh}」开放时通知我` : `Notify me when ${selected.name.en} opens`}</h2>
             <p>{zh ? "聊天次数是估算，长对话和生成内容会消耗更多用量。会员开放后，计划提供额外用量包。" : "Turn counts are estimates. Longer chats and generation tasks use more of the allowance. Extra usage packs are planned."}</p>
           </div>
