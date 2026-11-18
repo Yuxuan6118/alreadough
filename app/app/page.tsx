@@ -3,7 +3,6 @@
 import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import {
-  CircleHalf,
   Moon,
   PencilSimple,
   Plus,
@@ -1691,7 +1690,7 @@ export default function Home() {
                   ...(Capacitor.isNativePlatform() ? [] : [{ id: "membership", label: titles.membership, value: memberPlanLabel(member, lang) }]),
                   // a desktop pet is for computers; the phone app already has the dough on its home screen
                   ...(Capacitor.isNativePlatform() ? [] : [{ id: "pet", label: titles.pet }]),
-                  { id: "look", label: titles.look, value: themePref === "system" ? (zhText ? "跟随系统" : "Match phone") : dark ? (zhText ? "深色" : "Dark") : (zhText ? "浅色" : "Light") },
+                  { id: "look", label: titles.look, value: dark ? (zhText ? "深色" : "Dark") : (zhText ? "浅色" : "Light") },
                   { id: "sync", label: titles.sync },
                   { id: "help", label: titles.help },
                 ] },
@@ -1751,12 +1750,12 @@ export default function Home() {
                 <div className="setting-card font-size-card theme-card">
                   <span>{lang === "zh" ? "日夜间模式" : "Day and night"}</span>
                   <div className="font-size-options" role="radiogroup" aria-label={lang === "zh" ? "日夜间模式" : "Day and night"}>
-                    {([["system", CircleHalf, "跟随系统", "Match phone"], ["light", Sun, "浅色", "Light"], ["dark", Moon, "深色", "Dark"]] as const).map(([option, Icon, zhLabel, enLabel]) => <button key={option} type="button" role="radio" aria-checked={themePref === option} className={themePref === option ? "selected" : ""} onClick={() => chooseTheme(option)}>
+                    {([["light", Sun, "浅色", "Light"], ["dark", Moon, "深色", "Dark"]] as const).map(([option, Icon, zhLabel, enLabel]) => <button key={option} type="button" role="radio" aria-checked={(option === "dark") === dark} className={(option === "dark") === dark ? "selected" : ""} onClick={() => chooseTheme(option)}>
                       <Icon size={22} aria-hidden="true" />
                       <small>{lang === "zh" ? zhLabel : enLabel}</small>
                     </button>)}
                   </div>
-                  <p className="theme-note">{lang === "zh" ? "添加到主屏幕后，手机最顶上那一条的颜色由手机系统决定。选「跟随系统」，再在手机设置里打开深色模式，顶部就会和页面一起变暗。" : "Once AlreaDough is on your Home Screen, the strip at the very top of your phone takes its colour from the phone's own setting. Choose Match phone and turn on Dark Mode in your phone's settings, and the top darkens along with the page."}</p>
+                  <p className="theme-note">{lang === "zh" ? "手机最顶上那一条的颜色由手机系统决定，只能跟随手机自己的深色模式：在手机设置里打开深色模式时，顶部才会和页面一起变暗；没打开时，顶部就是浅色。换了模式后如果顶部和页面颜色对不上，在后台把 AlreaDough 上划关掉，再重新打开就好。" : "The strip at the very top of your phone takes its colour from the phone itself, so it can only follow your phone's Dark Mode: it darkens with the page only when Dark Mode is on in your phone's settings, and stays light when it's off. If the top and the page don't match after you switch, swipe AlreaDough away in the app switcher and open it again."}</p>
                 </div>
                 <div className="language-card"><div><span>{lang === "zh" ? "界面语言" : "LANGUAGE"}</span><strong>{lang === "zh" ? "简体中文" : "English"}</strong></div><button onClick={switchLanguage}>{lang === "zh" ? "Switch to English" : "切换到中文"}</button></div>
                 <FontSizePanel lang={lang} />
