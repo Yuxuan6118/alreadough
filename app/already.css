@@ -1567,6 +1567,7 @@ html[data-theme="dark"].landscape-blocked::after { color: #f1e8e2; background: #
   .app-shell.drawer-moving .app-grain { display: none; }
   .app-shell.drawer-open::after { content: ""; position: absolute; inset: 0; z-index: 400; background: rgba(0, 0, 0, .06); }
   .topbar-menu { display: grid; place-items: center; flex: none; width: 36px; height: 36px; margin-right: 2px; padding: 0; border: 0; border-radius: 12px; color: var(--app-ink); background: transparent; }
+  .topbar > .top-actions:empty { width: 38px; } /* same width as the menu button, so the logo stays centred */
 }
 
 /* phones: no bottom bar. The sections live in the side panel (swipe right or the menu button). The element stays in the
