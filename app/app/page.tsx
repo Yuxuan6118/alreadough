@@ -806,7 +806,7 @@ export default function Home() {
     { id: "story" as View, label: t.nav[1], icon: StoriesIcon },
     { id: "revision" as View, label: t.nav[2], icon: ReviseIcon },
     { id: "board" as View, label: t.nav[3], icon: VisionIcon },
-    { id: "subliminal" as View, label: t.nav[4], icon: DreamscapeIcon, boost: 4 },
+    { id: "subliminal" as View, label: t.nav[4], icon: DreamscapeIcon },
   ];
 
   const goalFromSeed = (seed: GoalSeed, base: GoalProfile): GoalProfile => ({
@@ -1592,7 +1592,7 @@ export default function Home() {
       <nav className="swipe-nav" aria-label={t.ariaNav}>
         {primaryNav.map((item) => {
           const Icon = item.icon;
-          return <button type="button" key={item.id} className={view === item.id ? "active" : ""} onClick={() => { navigate(item.id); moveSidebar(false); }}><Icon size={28 + ("boost" in item ? item.boost : 0)} weight={view === item.id ? "fill" : "regular"}/><span>{item.label}</span></button>;
+          return <button type="button" key={item.id} className={view === item.id ? "active" : ""} onClick={() => { navigate(item.id); moveSidebar(false); }}><Icon size={28} weight={view === item.id ? "fill" : "regular"}/><span>{item.label}</span></button>;
         })}
       </nav>
       <div className="swipe-history">
@@ -1610,7 +1610,7 @@ export default function Home() {
         <nav className="rail-nav" aria-label={t.ariaNav}>
           {primaryNav.map((item) => {
             const Icon = item.icon;
-            return <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => navigate(item.id)}><Icon size={27 + ("boost" in item ? item.boost : 0)} weight={view === item.id ? "fill" : "regular"}/><span>{item.label}</span></button>;
+            return <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => navigate(item.id)}><Icon size={26} weight={view === item.id ? "fill" : "regular"}/><span>{item.label}</span></button>;
           })}
         </nav>
         <div className="rail-footer">
