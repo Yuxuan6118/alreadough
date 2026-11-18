@@ -3,9 +3,12 @@
 import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import {
+  CircleHalf,
+  Moon,
   PencilSimple,
   Plus,
   SlidersHorizontal,
+  Sun,
   Trash,
   Waveform,
   ArrowsClockwise,
@@ -294,8 +297,10 @@ export default function Home() {
   const [lang, setLang] = useState<Lang>("zh");
   const explicitLanguage = useRef<Lang | null>(null);
   const [view, setView] = useState<View>("home");
-  // The site is light only.
-  const dark = false;
+  // Theme: "system" follows the phone's light/dark setting (the only way the phone's own top strip matches the page).
+  const [themePref, setThemePref] = useState<"system" | "light" | "dark">("system");
+  const [systemDark, setSystemDark] = useState(false);
+  const dark = themePref === "system" ? systemDark : themePref === "dark";
   const [hydrated, setHydrated] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [beliefDraft, setBeliefDraft] = useState("");
@@ -551,6 +556,20 @@ export default function Home() {
     };
   }, [shellEl]);
 
+  // Theme: read her saved pick (none = follow the phone) and keep listening to the phone's setting.
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- one-time read of the system and saved theme */
+    const saved = readStored("already-theme-v1");
+    if (saved === "dark" || saved === "light") setThemePref(saved);
+    const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+    if (!media) return;
+    setSystemDark(media.matches);
+    /* eslint-enable react-hooks/set-state-in-effect */
+    const follow = (event: MediaQueryListEvent) => setSystemDark(event.matches);
+    media.addEventListener("change", follow);
+    return () => media.removeEventListener("change", follow);
+  }, []);
+
   // The page edge (status bar strip, overscroll area) and the browser's bar colour follow the theme in use,
   // not only the phone's system setting.
   useEffect(() => {
@@ -564,9 +583,15 @@ export default function Home() {
       meta.setAttribute("data-app-theme", "yes");
       document.head.appendChild(meta);
     }
-    meta.content = dark ? "#211d1d" : "#f4efea";
+    meta.content = dark ? "#211d1d" : getComputedStyle(root).getPropertyValue("--app-bg").trim() || "#f4efea";
   }, [dark]);
 
+  const chooseTheme = (next: "system" | "light" | "dark") => {
+    if (next === "system") removeStored("already-theme-v1");
+    else writeStored("already-theme-v1", next);
+    setThemePref(next);
+  };
+  const toggleDark = () => chooseTheme(dark ? "light" : "dark");
 
   /* eslint-disable react-hooks/set-state-in-effect -- one-time restoration from device storage */
   useEffect(() => {
@@ -1484,7 +1509,7 @@ export default function Home() {
     return <main className="app-shell onboarding-shell" data-theme={dark ? "dark" : "light"} data-lang={lang}>
       <ConfirmHost />
       <div className="app-grain" aria-hidden="true" />
-      <header className="onboarding-topbar"><span className="brand"><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></span><div className="top-actions"><button className="language-toggle" onClick={switchLanguage}>{lang === "zh" ? "EN" : "中"}</button></div></header>
+      <header className="onboarding-topbar"><span className="brand"><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></span><div className="top-actions"><button className="language-toggle" onClick={switchLanguage}>{lang === "zh" ? "EN" : "中"}</button><button className="theme-toggle" onClick={toggleDark} aria-label={dark ? "Light" : "Dark"}>{dark ? <Sun size={17}/> : <Moon size={17}/>}</button></div></header>
       <GuidedOnboarding
         key={`${lang}-${replaying ? "replay" : adding ? "extra" : "first"}`}
         lang={lang}
@@ -1666,7 +1691,7 @@ export default function Home() {
                   ...(Capacitor.isNativePlatform() ? [] : [{ id: "membership", label: titles.membership, value: memberPlanLabel(member, lang) }]),
                   // a desktop pet is for computers; the phone app already has the dough on its home screen
                   ...(Capacitor.isNativePlatform() ? [] : [{ id: "pet", label: titles.pet }]),
-                  { id: "look", label: titles.look },
+                  { id: "look", label: titles.look, value: themePref === "system" ? (zhText ? "跟随系统" : "Match phone") : dark ? (zhText ? "深色" : "Dark") : (zhText ? "浅色" : "Light") },
                   { id: "sync", label: titles.sync },
                   { id: "help", label: titles.help },
                 ] },
@@ -1723,6 +1748,16 @@ export default function Home() {
               {shown === "membership" && <MembershipPanel lang={lang} member={member} onRefresh={refreshMember} />}
               {shown === "pet" && <DesktopPetPanel lang={lang} />}
               {shown === "look" && <div className="settings-section">
+                <div className="setting-card font-size-card theme-card">
+                  <span>{lang === "zh" ? "日夜间模式" : "Day and night"}</span>
+                  <div className="font-size-options" role="radiogroup" aria-label={lang === "zh" ? "日夜间模式" : "Day and night"}>
+                    {([["system", CircleHalf, "跟随系统", "Match phone"], ["light", Sun, "浅色", "Light"], ["dark", Moon, "深色", "Dark"]] as const).map(([option, Icon, zhLabel, enLabel]) => <button key={option} type="button" role="radio" aria-checked={themePref === option} className={themePref === option ? "selected" : ""} onClick={() => chooseTheme(option)}>
+                      <Icon size={22} aria-hidden="true" />
+                      <small>{lang === "zh" ? zhLabel : enLabel}</small>
+                    </button>)}
+                  </div>
+                  <p className="theme-note">{lang === "zh" ? "手机最顶上那一条的颜色由手机系统决定。选「跟随系统」，再在手机设置里打开深色模式，顶部就会和页面一起变暗。" : "The strip at the very top of your phone takes its colour from the phone's own setting. Choose Match phone and turn on Dark Mode in your phone's settings, and the top darkens along with the page."}</p>
+                </div>
                 <div className="language-card"><div><span>{lang === "zh" ? "界面语言" : "LANGUAGE"}</span><strong>{lang === "zh" ? "简体中文" : "English"}</strong></div><button onClick={switchLanguage}>{lang === "zh" ? "Switch to English" : "切换到中文"}</button></div>
                 <FontSizePanel lang={lang} />
               </div>}

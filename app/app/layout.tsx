@@ -15,8 +15,12 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  colorScheme: "light", // light only; stops phone browsers force-darkening it
-  themeColor: "#f4efea",
+  colorScheme: "light dark",
+  themeColor: [
+    { media: "(prefers-color-scheme: light) and (max-width: 820px)", color: "#ece3db" },
+    { media: "(prefers-color-scheme: light)", color: "#f4efea" },
+    { media: "(prefers-color-scheme: dark)", color: "#211d1d" },
+  ],
 };
 
 export default function BetaAppLayout({ children }: { children: React.ReactNode }) {
