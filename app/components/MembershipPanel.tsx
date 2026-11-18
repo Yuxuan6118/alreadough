@@ -3,6 +3,7 @@
 import { Capacitor } from "@capacitor/core";
 import { ArrowRight, X } from "@phosphor-icons/react";
 import DoughLineMark from "./DoughLineMark";
+import { askConfirm } from "./ConfirmHost";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   exhaustedWindow, fetchMemberStatus, MEMBER_PLANS, memberErrorText, memberPost, planName, resetLabel,
@@ -254,7 +255,7 @@ export default function MembershipPanel({ lang, member, onRefresh }: { lang: Lan
 
         <section className="profile-card member-account">
           <span>{zh ? "已用邮箱登录" : "Signed in with email"}</span>
-          <button type="button" className="wish-delete" disabled={busy} onClick={() => void act("/api/member/auth/logout")}>{zh ? "退出登录" : "Sign out"}</button>
+          <button type="button" className="wish-delete" disabled={busy} onClick={async () => { if (await askConfirm({ title: zh ? "确定要退出登录吗？" : "Sign out?", body: zh ? "退出后需要用邮箱重新登录，才能继续使用会员。" : "You'll need to sign in with your email again to use your membership.", confirmLabel: zh ? "退出登录" : "Sign out", cancelLabel: zh ? "取消" : "Cancel" })) void act("/api/member/auth/logout"); }}>{zh ? "退出登录" : "Sign out"}</button>
         </section>
       </div>
     </div>
