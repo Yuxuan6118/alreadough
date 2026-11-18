@@ -48,7 +48,7 @@
 .member-upgrade li strong { display: flex; align-items: baseline; gap: 10px; font-family: var(--font-display); font-size: calc(18px * var(--fs, 1)); font-weight: 500; }
 .member-upgrade li strong span { color: var(--app-muted); font-family: var(--font-body); font-size: calc(13px * var(--fs, 1)); font-weight: 400; }
 .member-upgrade li small { color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); }
-.member-upgrade li.current strong { color: var(--app-accent); }
+.member-upgrade li.current strong { font-weight: 700; }
 .member-upgrade li button { flex: none; width: auto; min-height: 40px; padding: 0 18px; border-radius: 999px; }
 .member-upgrade li .member-buy-link { flex: none; width: auto; display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 96px; padding: 0 20px; border-radius: 999px; text-decoration: none; white-space: nowrap; }
 .membership-section .setting-hint a, .usage-link { color: var(--app-accent); }
