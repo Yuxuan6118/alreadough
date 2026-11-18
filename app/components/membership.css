@@ -38,7 +38,7 @@
 
 /* the panel in My space */
 .membership-section .member-plan-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
-.membership-section .member-plan-name strong { font-family: var(--font-display); font-size: calc(28px * var(--fs, 1)); font-weight: 400; }
+.membership-section .member-plan-name strong { font-family: var(--font-headline); font-size: calc(28px * var(--fs, 1)); font-weight: 400; }
 .membership-section .member-plan-name small { padding: 3px 9px; border-radius: 999px; color: var(--app-accent); background: color-mix(in srgb, var(--app-accent) 10%, transparent); font-size: calc(12px * var(--fs, 1)); }
 .membership-section .member-plan-meta { margin: 8px 0 0; color: var(--app-muted); font-family: var(--font-body) !important; font-size: calc(14px * var(--fs, 1)); }
 .member-upgrade ul { margin: 0; padding: 0; list-style: none; }
