@@ -1599,7 +1599,7 @@ export default function Home() {
         <small>{lang === "zh" ? "对话记录" : "Conversations"}</small>
         {conversationArchive.length ? conversationArchive.map((conversation) => <button type="button" key={conversation.id} onClick={() => { openConversation(conversation); moveSidebar(false); }}><span>{conversation.title}</span><small>{new Date(conversation.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US")}</small></button>) : <p>{lang === "zh" ? "完成第一段对话后，它会出现在这里。" : "Your first conversation will appear here."}</p>}
       </div>
-      <footer><button type="button" onClick={() => { openSpace(); moveSidebar(false); }}><DoughLineMark className="avatar-mark avatar-mark-lg" /><span>{goal.companionName || (lang === "zh" ? "我的空间" : "My space")}</span><GearSix size={20} className="swipe-gear" aria-hidden="true"/></button></footer>
+      <footer><button type="button" onClick={() => { openSpace(); moveSidebar(false); }}><DoughLineMark className="avatar-mark avatar-mark-lg" /><span>{goal.companionName || (lang === "zh" ? "我的空间" : "My space")}</span><GearSix size={24} className="swipe-gear" aria-hidden="true"/></button></footer>
     </aside>
     <main ref={setShellEl} className={`app-shell${sidebarOpen ? " drawer-open" : ""}`} data-theme={dark ? "dark" : "light"} data-lang={lang}><ConfirmHost />
       <div className="app-grain" aria-hidden="true" />

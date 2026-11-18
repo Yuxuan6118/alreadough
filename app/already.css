@@ -1426,7 +1426,7 @@ body { min-width: 0; }
 /* one menu instead of a row of small buttons (theme, language, space, and on phones memory and history) */
 .top-actions { position: relative; }
 .rail-footer { position: relative; }
-.rail-avatar { width: 24px; height: 24px; flex: none; display: grid; place-items: center; border-radius: 8px; color: var(--app-ink); background: var(--app-panel-strong); font-size: calc(12px * var(--fs, 1)); font-weight: 750; }
+.rail-avatar { width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 8px; color: var(--app-ink); background: var(--app-panel-strong); font-size: calc(12px * var(--fs, 1)); font-weight: 750; }
 .app-menu-backdrop, .rail-footer .app-menu-backdrop { position: fixed !important; inset: 0; width: auto !important; height: auto !important; min-height: 0 !important; padding: 0 !important; border: 0; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; z-index: 39; cursor: default; }
 .app-menu { position: absolute; z-index: 40; width: 220px; display: grid; gap: 2px; padding: 6px; border: 1px solid var(--app-line); border-radius: 16px; background: var(--app-panel-strong); box-shadow: var(--app-shadow); }
 .app-menu button { width: 100%; min-height: 44px; display: flex; align-items: center; gap: 12px; border: 0; border-radius: 11px; padding: 0 12px; color: var(--app-ink); background: transparent; text-align: left; font-size: calc(14px * var(--fs, 1)); }
@@ -1641,7 +1641,8 @@ html[data-theme="dark"].landscape-blocked::after { color: #f1e8e2; background: #
 
 /* account avatar: the AlreaDough line mark */
 .avatar-mark { width: 20px; height: 20px; color: var(--app-accent); }
-.avatar-mark-lg { width: 26px; height: 26px; flex: none; }
+.avatar-mark-lg { width: 32px; height: 32px; flex: none; }
+.rail-avatar .avatar-mark { width: 26px; height: 26px; }
 
 /* dough-style nav icons: fill used for the selected item */
 .app-shell { --nav-icon-fill: #e7c4c8; }
