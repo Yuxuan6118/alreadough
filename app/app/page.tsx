@@ -32,6 +32,13 @@ import {
   X,
   DownloadSimple,
   ArrowCounterClockwise,
+  CaretRight,
+  Copyright,
+  Crown,
+  FileText,
+  Flag,
+  LockSimple,
+  ShieldCheck,
 } from "@phosphor-icons/react";
 import SubliminalStudio, { PracticeCheckIn, practiceStreak, todayKey } from "../components/SubliminalStudio";
 import Dreamscape from "../components/Dreamscape";
@@ -1787,19 +1794,27 @@ export default function Home() {
               </div>}
               {shown === "membership" && <MembershipPanel lang={lang} member={member} onRefresh={refreshMember} />}
               {shown === "pet" && <DesktopPetPanel lang={lang} />}
-              {shown === "look" && <div className="settings-section">
-                <div className="setting-card font-size-card theme-card">
-                  <span>{lang === "zh" ? "日夜间模式" : "Day and night"}</span>
-                  <div className="font-size-options" role="radiogroup" aria-label={lang === "zh" ? "日夜间模式" : "Day and night"}>
-                    {([["light", Sun, "浅色", "Light"], ["dark", Moon, "深色", "Dark"]] as const).map(([option, Icon, zhLabel, enLabel]) => <button key={option} type="button" role="radio" aria-checked={(option === "dark") === dark} className={(option === "dark") === dark ? "selected" : ""} onClick={() => chooseTheme(option)}>
-                      <Icon size={22} aria-hidden="true" />
-                      <small>{lang === "zh" ? zhLabel : enLabel}</small>
-                    </button>)}
-                  </div>
-                  <p className="theme-note">{lang === "zh" ? "手机最顶上那一条的颜色由手机系统决定，只能跟随手机自己的深色模式：在手机设置里打开深色模式时，顶部才会和页面一起变暗；没打开时，顶部就是浅色。换了模式后如果顶部和页面颜色对不上，在后台把 AlreaDough 上划关掉，再重新打开就好。" : "The strip at the very top of your phone takes its colour from the phone itself, so it can only follow your phone's Dark Mode: it darkens with the page only when Dark Mode is on in your phone's settings, and stays light when it's off. If the top and the page don't match after you switch, swipe AlreaDough away in the app switcher and open it again."}</p>
+              {shown === "look" && <div className="settings-section profile-panel look-section">
+                <p className="setting-hint">{lang === "zh" ? "日夜间模式和字号只改这台设备上的样子。" : "Day/night and text size only change how it looks on this device."}</p>
+                <div className="profile-cards">
+                  <section className="profile-card">
+                    <h3>{lang === "zh" ? "日夜间模式" : "Day and night"}</h3>
+                    <div className="look-options" role="radiogroup" aria-label={lang === "zh" ? "日夜间模式" : "Day and night"}>
+                      {([["light", Sun, "浅色", "Light"], ["dark", Moon, "深色", "Dark"]] as const).map(([option, Icon, zhLabel, enLabel]) => <button key={option} type="button" role="radio" aria-checked={(option === "dark") === dark} className={(option === "dark") === dark ? "selected" : ""} onClick={() => chooseTheme(option)}>
+                        <Icon size={22} aria-hidden="true" />
+                        <small>{lang === "zh" ? zhLabel : enLabel}</small>
+                      </button>)}
+                    </div>
+                    <p className="profile-sub theme-note">{lang === "zh" ? "手机最顶上那一条的颜色由手机系统决定，只能跟随手机自己的深色模式：在手机设置里打开深色模式时，顶部才会和页面一起变暗；没打开时，顶部就是浅色。换了模式后如果顶部和页面颜色对不上，在后台把 AlreaDough 上划关掉，再重新打开就好。" : "The strip at the very top of your phone takes its colour from the phone itself, so it can only follow your phone's Dark Mode: it darkens with the page only when Dark Mode is on in your phone's settings, and stays light when it's off. If the top and the page don't match after you switch, swipe AlreaDough away in the app switcher and open it again."}</p>
+                  </section>
+                  <section className="profile-card">
+                    <h3>{lang === "zh" ? "界面语言" : "Language"}</h3>
+                    <div className="wish-pills" role="radiogroup" aria-label={lang === "zh" ? "界面语言" : "Language"}>
+                      {([["zh", "简体中文"], ["en", "English"]] as const).map(([option, label]) => <button key={option} type="button" role="radio" aria-checked={lang === option} className={lang === option ? "selected" : ""} onClick={() => { if (lang !== option) switchLanguage(); }}>{label}</button>)}
+                    </div>
+                  </section>
+                  <FontSizePanel lang={lang} />
                 </div>
-                <div className="language-card"><div><span>{lang === "zh" ? "界面语言" : "LANGUAGE"}</span><strong>{lang === "zh" ? "简体中文" : "English"}</strong></div><button onClick={switchLanguage}>{lang === "zh" ? "Switch to English" : "切换到中文"}</button></div>
-                <FontSizePanel lang={lang} />
               </div>}
               {shown === "sync" && <div className="settings-section profile-panel data-section">
                 <p className="setting-hint">{lang === "zh" ? "换设备、带走资料、重新开始，都在这里。" : "Switch devices, take your data with you, or start over."}</p>
@@ -1822,9 +1837,28 @@ export default function Home() {
                   </section>
                 </div>
               </div>}
-              {shown === "help" && <div className="settings-section">
-                <div className="setting-card report-card"><span>{lang === "zh" ? "联系与举报" : "CONTACT & REPORTS"}</span><p>{lang === "zh" ? "发现不当、违法或让你不舒服的内容，可以在这里举报。每条 AI 回复下面也有“举报”按钮。我们会尽快查看。" : "If you see anything inappropriate, unlawful, or upsetting, report it here. Every AI reply also has a Report button. We read these as soon as we can."}</p><button className="outline-button" onClick={() => setReportTarget({})}>{lang === "zh" ? "举报内容或反馈问题" : "Report content or send feedback"}</button><SiteRecord lang={lang} /></div>
-                <div className="legal-links"><a className="trust-link" href="/pricing">{lang === "zh" ? "会员与价格" : "Membership & pricing"}</a><a className="trust-link" href="/trust">{t.trust}</a><a className="trust-link" href="/privacy">{lang === "zh" ? "隐私说明" : "Privacy"}</a><a className="trust-link" href="/terms">{lang === "zh" ? "测试版条款" : "Beta terms"}</a><a className="trust-link" href="/copyright">{lang === "zh" ? "素材与版权" : "Content & copyright"}</a></div>
+              {shown === "help" && <div className="settings-section profile-panel help-section">
+                <p className="setting-hint">{lang === "zh" ? "想反馈问题、举报内容，或查看规则说明，都在这里。" : "Send feedback, report content, or read how things work."}</p>
+                <div className="profile-cards">
+                  <section className="profile-card">
+                    <h3>{lang === "zh" ? "联系与举报" : "Contact & reports"}</h3>
+                    <p className="profile-sub">{lang === "zh" ? "发现不当、违法或让你不舒服的内容，可以在这里举报。每条 AI 回复下面也有“举报”按钮。我们会尽快查看。" : "If you see anything inappropriate, unlawful, or upsetting, report it here. Every AI reply also has a Report button. We read these as soon as we can."}</p>
+                    <div className="data-actions"><button type="button" className="profile-topic-plus" onClick={() => setReportTarget({})}><Flag size={16} /> {lang === "zh" ? "举报内容或反馈问题" : "Report content or send feedback"}</button></div>
+                    <SiteRecord lang={lang} />
+                  </section>
+                  <section className="profile-card">
+                    <h3>{lang === "zh" ? "说明与条款" : "Notices & terms"}</h3>
+                    <ul className="help-links">
+                      {([
+                        ["/pricing", Crown, lang === "zh" ? "会员与价格" : "Membership & pricing"],
+                        ["/trust", ShieldCheck, t.trust],
+                        ["/privacy", LockSimple, lang === "zh" ? "隐私说明" : "Privacy"],
+                        ["/terms", FileText, lang === "zh" ? "测试版条款" : "Beta terms"],
+                        ["/copyright", Copyright, lang === "zh" ? "素材与版权" : "Content & copyright"],
+                      ] as const).map(([href, Icon, label]) => <li key={href}><a href={href}><span className="help-icon" aria-hidden="true"><Icon size={18} /></span><span>{label}</span><CaretRight size={16} aria-hidden="true" /></a></li>)}
+                    </ul>
+                  </section>
+                </div>
               </div>}
             </div>
           </div>

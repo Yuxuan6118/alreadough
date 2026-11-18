@@ -264,3 +264,20 @@
 .scene-rows button.open svg { transform: rotate(180deg); }
 .scene-rows button:hover { background: color-mix(in srgb, var(--app-accent) 6%, transparent); }
 .profile-card .library-empty { padding: 0; }
+
+/* 外观与语言 */
+.look-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); grid-auto-flow: column; gap: 10px; }
+.look-options button { display: grid; justify-items: center; align-content: center; gap: 8px; min-height: 82px; padding: 12px 8px; border: 1px solid transparent; border-radius: 14px; color: var(--app-muted); background: color-mix(in srgb, var(--app-ink) 3%, transparent); cursor: pointer; transition: background .2s ease, color .2s ease, border-color .2s ease; }
+.look-options button:hover { color: var(--app-ink); }
+.look-options button.selected { color: var(--app-accent); border-color: color-mix(in srgb, var(--app-accent) 55%, transparent); background: color-mix(in srgb, var(--app-accent) 9%, transparent); font-weight: 600; }
+.look-options small { font-size: calc(13px * var(--fs, 1)); }
+.profile-card p.theme-note { margin: 0; font-size: calc(12px * var(--fs, 1)); }
+
+/* 帮助与条款 */
+.help-links { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.help-links a { display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; border-radius: 14px; color: var(--app-ink); background: color-mix(in srgb, var(--app-ink) 3%, transparent); text-decoration: none; transition: background .2s ease; }
+.help-links a:hover { background: color-mix(in srgb, var(--app-accent) 8%, transparent); }
+.help-links a > span:nth-child(2) { flex: 1; font-size: calc(15px * var(--fs, 1)); }
+.help-links a > svg { flex: none; color: var(--app-muted); }
+.help-icon { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 11px; color: var(--app-accent); background: color-mix(in srgb, var(--app-accent) 10%, transparent); }
+.profile-card .site-record { margin-top: 0; }

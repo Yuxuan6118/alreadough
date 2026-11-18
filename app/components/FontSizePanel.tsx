@@ -14,7 +14,7 @@ const text = {
     labels: { small: "小", medium: "中", large: "大" },
   },
   en: {
-    title: "TEXT SIZE",
+    title: "Text size",
     intro: "Changes the text size across the app, on this device only.",
     labels: { small: "Small", medium: "Medium", large: "Large" },
   },
@@ -36,14 +36,14 @@ export default function FontSizePanel({ lang }: { lang: Lang }) {
     else document.documentElement.dataset.fontSize = next;
   };
 
-  return <div className="setting-card font-size-card">
-    <span>{t.title}</span>
-    <p>{t.intro}</p>
-    <div className="font-size-options" role="radiogroup" aria-label={t.title}>
+  return <section className="profile-card font-size-card">
+    <h3>{t.title}</h3>
+    <p className="profile-sub">{t.intro}</p>
+    <div className="look-options" role="radiogroup" aria-label={t.title}>
       {(["small", "medium", "large"] as const).map((option) => <button key={option} type="button" role="radio" aria-checked={size === option} className={size === option ? "selected" : ""} onClick={() => choose(option)}>
         <b className={`font-size-glyph ${option}`} aria-hidden="true">{lang === "zh" ? "字" : "Aa"}</b>
         <small>{t.labels[option]}</small>
       </button>)}
     </div>
-  </div>;
+  </section>;
 }
