@@ -96,3 +96,45 @@
   .settings-view .pet-build a.pet-download { width: 100%; justify-content: center; }
   .pet-build ol, .pet-build .pet-soon { margin-left: 0; }
 }
+
+/* 我的愿望: one soft card per desire; tap to edit in place */
+.wish-list ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+.wish-card { border: 1px solid var(--app-line); border-radius: 18px; background: var(--app-panel); transition: border-color .2s ease, box-shadow .2s ease; }
+.wish-card:hover { border-color: color-mix(in srgb, var(--app-accent) 40%, var(--app-line)); }
+.wish-card.open { border-color: color-mix(in srgb, var(--app-accent) 55%, var(--app-line)); box-shadow: 0 10px 30px color-mix(in srgb, var(--app-accent) 8%, transparent); }
+.wish-card-head { width: 100%; display: grid; gap: 10px; padding: 18px 20px; border: 0; background: transparent; color: var(--app-ink); text-align: left; cursor: pointer; }
+.wish-card-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.wish-chip { display: inline-flex; align-items: center; min-height: 24px; padding: 0 10px; border-radius: 999px; color: var(--app-muted); background: color-mix(in srgb, var(--app-ink) 5%, transparent); font-size: calc(12px * var(--fs, 1)); }
+.wish-chip.is-current { color: var(--app-accent-ink); background: var(--app-accent); font-weight: 600; }
+.wish-card-text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font: 500 calc(17px * var(--fs, 1))/1.6 var(--font-display); text-wrap: pretty; }
+.wish-card.open .wish-card-text { display: none; }
+.wish-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.wish-level { display: inline-flex; align-items: center; gap: 4px; }
+.wish-level i { width: 7px; height: 7px; border-radius: 50%; background: color-mix(in srgb, var(--app-ink) 12%, transparent); }
+.wish-level i.on { background: var(--app-accent); }
+.wish-level small { margin-left: 6px; color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); }
+.wish-caret { flex: none; color: var(--app-muted); transition: transform .2s ease; }
+.wish-card.open .wish-caret { transform: rotate(180deg); }
+.wish-card-body { display: grid; gap: 22px; padding: 4px 20px 20px; border-top: 1px solid color-mix(in srgb, var(--app-line) 60%, transparent); padding-top: 18px; }
+.wish-field { display: grid; gap: 8px; }
+.wish-field > span { color: var(--app-accent); font-size: calc(12px * var(--fs, 1)); font-weight: 700; letter-spacing: .06em; }
+.settings-view .wish-field textarea, .settings-view .wish-field input { width: 100%; border: 0; border-bottom: 1px solid var(--app-line); border-radius: 0; padding: 8px 0; color: var(--app-ink); background: transparent; font: inherit; }
+.settings-view .wish-field textarea { min-height: 84px; resize: vertical; font: 400 calc(16px * var(--fs, 1))/1.7 var(--font-display); }
+.settings-view .wish-field textarea:focus, .settings-view .wish-field input:focus { outline: 0; border-bottom-color: var(--app-accent); }
+.wish-field .field-error { color: #b4474f; font-size: calc(12px * var(--fs, 1)); }
+.wish-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.wish-pills button { min-height: 36px; padding: 0 14px; border: 1px solid var(--app-line); border-radius: 999px; color: var(--app-ink); background: transparent; font-size: calc(14px * var(--fs, 1)); cursor: pointer; transition: border-color .15s ease, background-color .15s ease, color .15s ease; }
+.wish-pills button:hover { border-color: color-mix(in srgb, var(--app-accent) 50%, var(--app-line)); }
+.wish-pills button.selected { border-color: var(--app-accent); color: var(--app-accent); background: color-mix(in srgb, var(--app-accent) 10%, transparent); font-weight: 600; }
+.wish-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.wish-primary { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 18px; border: 0; border-radius: 999px; color: var(--app-accent-ink); background: var(--app-accent); font-weight: 600; cursor: pointer; }
+.wish-primary:hover { filter: brightness(1.05); }
+.wish-delete { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 0 12px; border: 0; border-radius: 999px; color: var(--app-muted); background: transparent; cursor: pointer; }
+.wish-delete:hover { color: #b4474f; background: color-mix(in srgb, #b4474f 8%, transparent); }
+.wish-add { width: 100%; min-height: 54px; margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px dashed color-mix(in srgb, var(--app-accent) 45%, var(--app-line)); border-radius: 18px; color: var(--app-accent); background: transparent; font-weight: 600; cursor: pointer; }
+.wish-add:hover { background: color-mix(in srgb, var(--app-accent) 6%, transparent); }
+.settings-view .settings-section > .wish-list-card { padding-top: 0; }
+@media (max-width: 560px) {
+  .wish-card-head { padding: 16px; }
+  .wish-card-body { padding: 16px; }
+}

@@ -1,18 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { splitLines, type OnboardingLang, type ProfileSeed } from "@/lib/onboarding-flow";
 
 type Props = {
   lang: OnboardingLang;
   profile: ProfileSeed;
   onChange: (next: ProfileSeed) => void;
+  before?: ReactNode;
 };
 
 const MAX_PEOPLE = 12;
 
 /** What she told us about herself, editable after the opening. Everything here is optional and can be emptied. */
-export default function ProfilePanel({ lang, profile, onChange }: Props) {
+export default function ProfilePanel({ lang, profile, onChange, before }: Props) {
   const zh = lang === "zh";
   const [neverDraft, setNeverDraft] = useState(() => profile.neverInclude.join("\n"));
   const [draft, setDraft] = useState({ name: "", relation: "" });
@@ -29,6 +30,7 @@ export default function ProfilePanel({ lang, profile, onChange }: Props) {
 
   return (
     <div className="settings-section profile-panel">
+      {before}
       <div className="setting-card editable-card">
         <label>{zh ? "我在哪里" : "WHERE I AM"}</label>
         <input maxLength={60} value={profile.country} onChange={(event) => patch({ country: event.target.value })} placeholder={zh ? "国家或城市" : "Country or city"} />

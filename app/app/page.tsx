@@ -39,6 +39,7 @@ import DesktopPetPanel from "../components/DesktopPetPanel";
 import SyncPanel from "../components/SyncPanel";
 import GuidedOnboarding from "../components/GuidedOnboarding";
 import ProfilePanel from "../components/ProfilePanel";
+import WishList, { type WishItem } from "../components/WishList";
 import SpaceNav from "../components/SpaceNav";
 import FontSizePanel from "../components/FontSizePanel";
 import type { ReflectionAnswers } from "@/lib/reflection";
@@ -1283,20 +1284,6 @@ export default function Home() {
     window.setTimeout(() => URL.revokeObjectURL(href), 10_000);
   };
 
-  const archiveAndBeginAgain = () => {
-    const confirmed = window.confirm(lang === "zh"
-      ? "将当前愿望标记为已经发生并归档，然后开启一张新的愿望卡吗？故事、愿景和练习记录仍会保留在这台设备上。"
-      : "Mark this desire as fulfilled, archive it, and begin a new desire card? Stories, visions, and practice history will remain on this device.");
-    if (!confirmed) return;
-    setGoalArchive((items) => [{ ...goal, status: "fulfilled" }, ...items].slice(0, 20));
-    setGoal({ ...defaultGoal });
-    setSpNameDraft("");
-    setBeliefDraft("");
-    setMessages([]);
-    setOnboardingStep(0);
-    setView("home");
-  };
-
   const navigate = (nextView: View) => {
     setView(nextView);
     if (nextView === "story") setStoryReading(false);
@@ -1407,11 +1394,13 @@ export default function Home() {
     setConversationArchive((items) => items.filter((item) => item.goalId !== id));
   };
 
-  const setGoalIntensity = (id: string, value: number) => {
-    if (id === goal.id) setGoal((current) => ({ ...current, intensity: value }));
-    else setOtherGoals((items) => items.map((item) => item.id === id ? { ...item, intensity: value } : item));
+  const updateGoalById = (id: string, patch: Partial<WishItem>) => {
+    const next = patch as Partial<GoalProfile>;
+    if (id === goal.id) {
+      setGoal((current) => ({ ...current, ...next }));
+      if (patch.spName !== undefined) setSpNameDraft(patch.spName);
+    } else setOtherGoals((items) => items.map((item) => item.id === id ? { ...item, ...next, spName: next.spName !== undefined ? next.spName.trim() : item.spName } : item));
   };
-
 
   const sortedGoals = [goal, ...otherGoals].filter((item) => item.setupComplete).sort((a, b) => b.intensity - a.intensity);
 
@@ -1641,15 +1630,10 @@ export default function Home() {
             <div className="space-detail">
               <header className="space-detail-head"><button type="button" className="space-back" onClick={() => setSettingsSection(null)} aria-label={zhText ? "返回我的空间" : "Back to My space"}><ArrowLeft size={22}/></button><h2>{titles[shown]}</h2></header>
               {shown === "wishes" && <div className="settings-section">
-                <div className="setting-card goal-list-card"><label>{lang === "zh" ? "我的愿望" : "MY DESIRES"}</label><p>{lang === "zh" ? "按想要的程度排序。每个愿望有自己的记忆和对话。" : "Sorted by how much you want each one. Each desire has its own memory and conversations."}</p>{sortedGoals.map((item) => <div key={item.id} className={`goal-row ${item.id === goal.id ? "current" : ""}`}><div><strong>{goalTitle(item, lang)}</strong><small>{lang === "zh" ? wishCategories.find((entry) => entry.id === item.wishCategory)?.zh : wishCategories.find((entry) => entry.id === item.wishCategory)?.en}{item.id === goal.id ? (lang === "zh" ? " · 当前" : " · Current") : ""}</small></div><select aria-label={lang === "zh" ? "想要的程度" : "How much you want it"} value={item.intensity} onChange={(event) => setGoalIntensity(item.id, Number(event.target.value))}>{intensityLabels[lang].map((label, index) => <option key={label} value={index + 1}>{label}</option>)}</select>{item.id !== goal.id && <><button className="outline-button" onClick={() => switchGoal(item.id)}>{lang === "zh" ? "切换" : "Open"}</button><button className="outline-button" aria-label={lang === "zh" ? "删除愿望" : "Delete desire"} onClick={() => deleteOtherGoal(item.id)}><Trash size={16}/></button></>}</div>)}<button className="outline-button" onClick={addGoal}><Plus size={16}/> {lang === "zh" ? "添加愿望" : "Add a desire"}</button></div>
-                <div className="setting-card editable-card"><label>{lang === "zh" ? "我喜欢的称呼" : "WHAT ALREADOUGH CALLS ME"}</label><input value={goal.companionName} onChange={(event) => setGoal((current) => ({ ...current, companionName: event.target.value }))}/></div>
-                <div className="setting-card editable-card"><label>{lang === "zh" ? "愿望方向" : "DESIRE CATEGORY"}</label><div className="option-card-grid category-grid">{wishCategories.map((category) => <button key={category.id} className={goal.wishCategory === category.id ? "selected" : ""} onClick={() => setGoal((current) => ({ ...current, wishCategory: category.id }))}><strong>{lang === "zh" ? category.zh : category.en}</strong><small>{lang === "zh" ? category.zhDescription : category.enDescription}</small></button>)}</div></div>
-                <div className="setting-card editable-card sp-name-card"><label>{goal.wishCategory === "relationship" ? (lang === "zh" ? "显化对象" : "MANIFESTATION PERSON") : (lang === "zh" ? "愿望焦点" : "DESIRE FOCUS")}</label><input value={spNameDraft} maxLength={24} aria-invalid={Boolean(spNameError)} onChange={(event) => setSpNameDraft(event.target.value)}/>{spNameError && <p className="field-error" role="alert">{spNameError}</p>}</div>
-                <div className="setting-card editable-card"><label>{t.coreWish}</label><textarea value={goal.desire[lang]} onChange={(event) => setGoal((current) => ({ ...current, desire: { ...current.desire, [lang]: event.target.value } }))}/></div>
-                <div className="setting-card goal-lifecycle-card"><span>{lang === "zh" ? "愿望生命周期" : "DESIRE LIFECYCLE"}</span><p>{lang === "zh" ? "愿望完成后，把它留在历程中，再开启一张新的愿望卡。" : "When this desire is complete, keep it in your journey and open a fresh desire card."}</p><button className="outline-button" onClick={archiveAndBeginAgain}>{lang === "zh" ? "完成并归档，开启新愿望" : "Complete, archive, and begin again"}</button></div>
-                {goalArchive.length > 0 && <div className="setting-card archive-card"><span>{lang === "zh" ? `已经发生的愿望 · ${goalArchive.length}` : `FULFILLED DESIRES · ${goalArchive.length}`}</span>{goalArchive.slice(0, 5).map((item) => <article key={item.id}><strong>{item.desire[lang] || item.desire[lang === "zh" ? "en" : "zh"]}</strong><small>{item.createdAt ? new Date(item.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US") : ""}</small></article>)}</div>}
+                <div className="setting-card wish-list-card"><WishList lang={lang} items={sortedGoals} currentId={goal.id} categories={wishCategories} intensityLabels={intensityLabels[lang]} onUpdate={updateGoalById} onOpen={switchGoal} onDelete={deleteOtherGoal} onAdd={addGoal} /></div>
+                {goalArchive.length > 0 && <div className="setting-card archive-card"><label>{lang === "zh" ? `已经发生的愿望 · ${goalArchive.length}` : `FULFILLED DESIRES · ${goalArchive.length}`}</label>{goalArchive.slice(0, 5).map((item) => <article key={item.id}><strong>{item.desire[lang] || item.desire[lang === "zh" ? "en" : "zh"]}</strong><small>{item.createdAt ? new Date(item.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US") : ""}</small></article>)}</div>}
               </div>}
-              {shown === "about" && <ProfilePanel lang={lang} profile={profile} onChange={(next) => setProfile(normalizeProfile(next))} />}
+              {shown === "about" && <ProfilePanel lang={lang} profile={profile} onChange={(next) => setProfile(normalizeProfile(next))} before={<div className="setting-card editable-card"><label>{lang === "zh" ? "我喜欢的称呼" : "WHAT ALREADOUGH CALLS ME"}</label><input value={goal.companionName} onChange={(event) => setGoal((current) => ({ ...current, companionName: event.target.value }))}/></div>} />}
               {shown === "memory" && <div className="settings-section">
                 <div className="setting-card editable-card"><label>{lang === "zh" ? "我的背景与处境" : "MY CONTEXT"}</label><textarea maxLength={MAX_BACKGROUND} value={goal.background[lang]} onChange={(event) => setGoal((current) => ({ ...current, background: { ...current.background, [lang]: event.target.value } }))}/><div className="field-counter"><span>{goal.background[lang].length} / {MAX_BACKGROUND}</span></div></div>
                 <div className="setting-card belief-editor"><label>{lang === "zh" ? "想换掉的念头" : "THOUGHTS TO TURN AROUND"}</label><p className="setting-hint">{lang === "zh" ? "反复冒出来、想换掉的旧念头。点「转念」会带去重写，写好新版本后，这一句就从这里拿掉。" : "Old thoughts that keep coming back. Tap Turn it to take one into Revision; once you accept the new version, it leaves this list."}</p>{parseBeliefs(beliefDraft).length ? <ul className="belief-rows">{parseBeliefs(beliefDraft).map((item, index) => <li key={`${index}-${item}`}><span>{item}</span><button type="button" className="belief-turn" onClick={() => turnBelief(item)}>{lang === "zh" ? "转念" : "Turn it"}</button><button type="button" className="belief-remove" aria-label={lang === "zh" ? `删除：${item}` : `Delete: ${item}`} onClick={() => removeBelief(item)}><Trash size={16}/></button></li>)}</ul> : <p className="setting-empty">{lang === "zh" ? "还没有写下想换掉的念头。" : "Nothing written here yet."}</p>}{beliefCount < MAX_BELIEFS && <div className="belief-add"><input value={beliefInput} maxLength={200} onChange={(event) => setBeliefInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); addBelief(); } }} placeholder={lang === "zh" ? "再写一句" : "Add one more"} aria-label={lang === "zh" ? "添加一个想换掉的念头" : "Add a thought to turn around"}/><button type="button" className="outline-button" disabled={!beliefInput.trim()} onClick={addBelief}><Plus size={16}/>{lang === "zh" ? "添加" : "Add"}</button></div>}<div className={`field-counter ${beliefCount > MAX_BELIEFS ? "over" : ""}`}><span>{beliefCount} / {MAX_BELIEFS}</span></div></div>
