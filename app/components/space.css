@@ -138,3 +138,9 @@
   .wish-card-head { padding: 16px; }
   .wish-card-body { padding: 16px; }
 }
+
+/* Save bar: sits under the section title and stays pinned to the top while scrolling, so it never covers the fields. */
+.settings-view .space-detail > .settings-savebar { position: sticky; top: 16px; bottom: auto; margin: 0 0 18px; }
+@media (max-width: 820px) {
+  .settings-view .space-detail > .settings-savebar { top: calc(78px + env(safe-area-inset-top)); bottom: auto; }
+}
