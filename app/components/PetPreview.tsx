@@ -172,7 +172,6 @@ export default function PetPreview({ lang }: { lang: Lang }) {
               type="button"
               className={styles.petButton}
               aria-label={t.pet}
-              data-no-press
               drag={!reduce}
               dragConstraints={deskRef}
               dragElastic={0.22}

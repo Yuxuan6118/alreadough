@@ -113,7 +113,7 @@ export default function ProductPage({ lang }: { lang: Lang }) {
           <span className={styles.tag}>{t.tag}</span>
           <h1>{t.headline}<br /><span>{t.headlineAccent}</span></h1>
           <p>{t.intro}</p>
-          <a href={appHref} className={styles.heroCta} data-magnetic>{t.nav.start}</a>
+          <a href={appHref} className={styles.heroCta}>{t.nav.start}</a>
           <img className={styles.dough} src="/brand/already-dough-mark.png" width={360} height={360} alt="" />
         </section>
 
@@ -138,8 +138,8 @@ export default function ProductPage({ lang }: { lang: Lang }) {
                       <p>{item.body}</p>
                       <ul>{item.details.map((detail) => <li key={detail}>{detail}</li>)}</ul>
                       {item.id === "pet" && <div className={styles.downloads}>
-                        <a href="/downloads/AlreaDough-Pet-mac.zip" download className={styles.primary} data-magnetic>{t.download.mac}</a>
-                        <a href="/downloads/AlreaDough-Pet-windows.zip" download className={styles.primary} data-magnetic>{t.download.win}</a>
+                        <a href="/downloads/AlreaDough-Pet-mac.zip" download className={styles.primary}>{t.download.mac}</a>
+                        <a href="/downloads/AlreaDough-Pet-windows.zip" download className={styles.primary}>{t.download.win}</a>
                       </div>}
                     </div>
                   </article>
