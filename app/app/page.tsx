@@ -3,9 +3,6 @@
 import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import {
-  BookOpenText,
-  House,
-  ImagesSquare,
   PencilSimple,
   Plus,
   SlidersHorizontal,
@@ -20,7 +17,6 @@ import {
   Check,
   ArrowClockwise,
   BookmarkSimple,
-  ChatCircleDots,
   CloudCheck,
   CloudSlash,
   ArrowDown,
@@ -52,6 +48,7 @@ import { readStored, writeStored, removeStored } from "@/lib/safe-storage";
 import { buildExportZip, exportFileName } from "@/lib/export-archive";
 import { getDeviceSessionId } from "@/lib/device-session";
 import DoughLineMark from "../components/DoughLineMark";
+import { CompanionIcon, DreamscapeIcon, HistoryIcon, ReviseIcon, StoriesIcon, VisionIcon } from "../components/NavIcons";
 
 type SpaceSection = "wishes" | "about" | "companion" | "library" | "memory" | "membership" | "pet" | "look" | "sync" | "help";
 type View = "home" | "subliminal" | "story" | "revision" | "board" | "settings";
@@ -695,11 +692,11 @@ export default function Home() {
   const checkedToday = checkIns.some((item) => item.date === todayKey());
   const suggestions = lang === "zh" ? ["冬日旅行", "理想的新家", "事业里程碑", "丰盛日常"] : ["Winter trip", "Dream home", "Career milestone", "Abundant everyday life"];
   const primaryNav = [
-    { id: "home" as View, label: t.nav[0], icon: House },
-    { id: "story" as View, label: t.nav[1], icon: BookOpenText },
-    { id: "revision" as View, label: t.nav[2], icon: ArrowsClockwise },
-    { id: "board" as View, label: t.nav[3], icon: ImagesSquare },
-    { id: "subliminal" as View, label: t.nav[4], icon: Waveform },
+    { id: "home" as View, label: t.nav[0], icon: CompanionIcon },
+    { id: "story" as View, label: t.nav[1], icon: StoriesIcon },
+    { id: "revision" as View, label: t.nav[2], icon: ReviseIcon },
+    { id: "board" as View, label: t.nav[3], icon: VisionIcon },
+    { id: "subliminal" as View, label: t.nav[4], icon: DreamscapeIcon },
   ];
 
   const goalFromSeed = (seed: GoalSeed, base: GoalProfile): GoalProfile => ({
@@ -1502,7 +1499,7 @@ export default function Home() {
       <aside className="app-rail">
         <button className="brand" onClick={() => navigate("home")} aria-label="AlreaDough home"><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></button>
         <button className="rail-new-chat" onClick={beginNewConversation}><Plus size={18}/><span>{lang === "zh" ? "新对话" : "New conversation"}</span></button>
-        <button className="rail-history" onClick={() => setHistoryOpen(true)}><ChatCircleDots size={18}/><span>{lang === "zh" ? "对话记录" : "Conversation history"}</span><small>{conversationArchive.length}</small></button>
+        <button className="rail-history" onClick={() => setHistoryOpen(true)}><HistoryIcon size={18}/><span>{lang === "zh" ? "对话记录" : "Conversation history"}</span><small>{conversationArchive.length}</small></button>
         <nav className="rail-nav" aria-label={t.ariaNav}>
           {primaryNav.map((item) => {
             const Icon = item.icon;

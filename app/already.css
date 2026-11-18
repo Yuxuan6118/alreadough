@@ -1638,3 +1638,7 @@ html[data-theme="dark"].landscape-blocked::after { color: #f1e8e2; background: #
 /* account avatar: the AlreaDough line mark */
 .avatar-mark { width: 20px; height: 20px; color: var(--app-accent); }
 .avatar-mark-lg { width: 26px; height: 26px; flex: none; }
+
+/* dough-style nav icons: fill used for the selected item */
+.app-shell { --nav-icon-fill: #e7c4c8; }
+.app-shell[data-theme="dark"], .swipe-sidebar[data-theme="dark"] { --nav-icon-fill: #6d4a50; }
