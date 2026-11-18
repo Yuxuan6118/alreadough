@@ -71,7 +71,7 @@ const STAR = roundStar(12, 13, 9.8, 4.9);
 
 /** 我的愿望: a star-shaped dough. */
 export function WishesIcon({ size }: Props) {
-  return <Svg size={size}><path d={STAR} /><Eyes a={10} b={14.2} y={13.4} r={1.05} /></Svg>;
+  return <Svg size={size}><path d={STAR} /><Eyes a={10} b={14.2} y={12.6} r={1.05} /></Svg>;
 }
 
 /** 关于我: a name card printed with a dough. */
