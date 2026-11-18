@@ -170,29 +170,37 @@ export default function MembershipPanel({ lang, member, onRefresh }: { lang: Lan
     } finally { setBusy(false); }
   }
 
-  if (!member) return <div className="settings-section"><div className="setting-card"><p className="setting-empty">{zh ? "正在读取会员信息…" : "Loading your membership…"}</p></div></div>;
+  if (!member) return <div className="settings-section profile-panel"><div className="profile-cards"><section className="profile-card"><p className="setting-empty">{zh ? "正在读取会员信息…" : "Loading your membership…"}</p></section></div></div>;
 
   if (!member.enabled) return (
-    <div className="settings-section">
-      <div className="setting-card"><label>{zh ? "会员" : "MEMBERSHIP"}</label><p>{zh ? "会员还没有开放，现在可以照常使用。" : "Membership is not open yet. Everything works as usual."}</p>{!native && <a className="usage-link" href={zh ? "/pricing" : "/en/pricing"}>{zh ? "看看会员方案" : "See the plans"}<ArrowRight size={14} /></a>}</div>
+    <div className="settings-section profile-panel">
+      <div className="profile-cards">
+        <section className="profile-card">
+          <h3>{zh ? "会员" : "Membership"}</h3>
+          <p className="profile-sub">{zh ? "会员还没有开放，现在可以照常使用。" : "Membership is not open yet. Everything works as usual."}</p>
+          {!native && <a className="profile-topic-plus member-pill-link" href={zh ? "/pricing" : "/en/pricing"}>{zh ? "看看会员方案" : "See the plans"}<ArrowRight size={14} /></a>}
+        </section>
+      </div>
     </div>
   );
 
   if (!member.authenticated) return (
-    <div className="settings-section">
-      <div className="setting-card member-signin">
-        <label>{zh ? "用邮箱登录" : "SIGN IN WITH EMAIL"}</label>
-        <p>{zh ? "登录后，会员和用量会跟着你的账户走，换设备也一样。" : "Once you sign in, your plan and usage follow your account on any device."}</p>
-        {!member.emailAvailable ? <p className="setting-empty">{zh ? "邮箱登录暂时不可用，请稍后再试。" : "Email sign-in is unavailable right now. Please try again later."}</p> : <>
-          <input type="email" value={email} autoComplete="email" placeholder={zh ? "邮箱" : "Email"} aria-label={zh ? "邮箱" : "Email"} disabled={codeSent} onChange={(event) => setEmail(event.target.value)} />
-          {codeSent && <input type="text" inputMode="numeric" autoComplete="one-time-code" value={code} maxLength={8} placeholder={zh ? "邮件里的验证码" : "Code from the email"} aria-label={zh ? "验证码" : "Code"} onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))} />}
-          <div className="member-actions">
-            <button type="button" className="primary" disabled={busy || !email.trim() || (codeSent && code.length < 6)} onClick={() => void act(codeSent ? "/api/member/auth/verify" : "/api/member/auth/otp", codeSent ? { email, code } : { email })}>{busy ? (zh ? "请稍候…" : "Please wait…") : codeSent ? (zh ? "验证并登录" : "Verify and sign in") : (zh ? "发送验证码" : "Send code")}</button>
-            {codeSent && <button type="button" className="text-button" disabled={busy} onClick={() => { setCodeSent(false); setCode(""); }}>{zh ? "换个邮箱" : "Change email"}</button>}
-          </div>
-          {codeSent && <small className="setting-hint">{zh ? "验证码已发到你的邮箱，几分钟内有效。没收到的话看看垃圾邮件。" : "We sent a code to your email. It expires in a few minutes; check spam if you don't see it."}</small>}
-        </>}
-        {error && <p className="member-error" role="alert">{error}</p>}
+    <div className="settings-section profile-panel">
+      <p className="setting-hint">{zh ? "登录后，会员和用量会跟着你的账户走，换设备也一样。" : "Once you sign in, your plan and usage follow your account on any device."}</p>
+      <div className="profile-cards">
+        <section className="profile-card member-signin">
+          <h3>{zh ? "用邮箱登录" : "Sign in with email"}</h3>
+          {!member.emailAvailable ? <p className="setting-empty">{zh ? "邮箱登录暂时不可用，请稍后再试。" : "Email sign-in is unavailable right now. Please try again later."}</p> : <>
+            <label className="wish-field"><span>{zh ? "邮箱" : "Email"}</span><input type="email" value={email} autoComplete="email" placeholder="name@example.com" disabled={codeSent} onChange={(event) => setEmail(event.target.value)} /></label>
+            {codeSent && <label className="wish-field"><span>{zh ? "验证码" : "Code"}</span><input type="text" inputMode="numeric" autoComplete="one-time-code" value={code} maxLength={8} placeholder={zh ? "邮件里的验证码" : "Code from the email"} onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))} /></label>}
+            <div className="wish-actions member-signin-actions">
+              <button type="button" className="wish-primary" disabled={busy || !email.trim() || (codeSent && code.length < 6)} onClick={() => void act(codeSent ? "/api/member/auth/verify" : "/api/member/auth/otp", codeSent ? { email, code } : { email })}>{busy ? (zh ? "请稍候…" : "Please wait…") : codeSent ? (zh ? "验证并登录" : "Verify and sign in") : (zh ? "发送验证码" : "Send code")}</button>
+              {codeSent && <button type="button" className="wish-delete" disabled={busy} onClick={() => { setCodeSent(false); setCode(""); }}>{zh ? "换个邮箱" : "Change email"}</button>}
+            </div>
+            {codeSent && <small className="profile-sub">{zh ? "验证码已发到你的邮箱，几分钟内有效。没收到的话看看垃圾邮件。" : "We sent a code to your email. It expires in a few minutes; check spam if you don't see it."}</small>}
+          </>}
+          {error && <p className="member-error" role="alert">{error}</p>}
+        </section>
       </div>
     </div>
   );
@@ -203,41 +211,51 @@ export default function MembershipPanel({ lang, member, onRefresh }: { lang: Lan
   const paidPlans = MEMBER_PLANS.filter((plan) => plan.price > 0);
   const date = (ms: number) => new Date(ms).toLocaleDateString(zh ? "zh-CN" : "en-US");
   return (
-    <div className="settings-section membership-section">
-      <div className="setting-card member-plan">
-        <label>{zh ? "当前方案" : "CURRENT PLAN"}</label>
-        <div className="member-plan-name"><strong>{current?.name[lang]}</strong>{membership.trial && <small>{zh ? "试用中" : "Trial"}</small>}{membership.referral && <small>{zh ? "邀请体验" : "Invitation"}</small>}{membership.unlimited && <small>{zh ? "创始人 · 不限用量" : "Founder · unlimited"}</small>}</div>
-        <p className="member-plan-meta">
-          {membership.referralEndMs ? (zh ? `丰盛工坊体验到 ${date(membership.referralEndMs)}，之后回到原来的方案。` : `Dough Atelier until ${date(membership.referralEndMs)}, then back to your own plan.`)
-            : membership.periodEndMs ? (zh ? `有效期到 ${date(membership.periodEndMs)}，到期不会自动扣款。` : `Active until ${date(membership.periodEndMs)}. It does not renew automatically.`)
-            : (zh ? `免费方案：每 5 小时约 ${current?.session} 次、每周约 ${current?.week} 次普通对话。` : `Free plan: about ${current?.session} replies per 5 hours and ${current?.week} per week.`)}
-        </p>
-      </div>
-      <div className="setting-card">
-        <label>{zh ? "用量" : "USAGE"}</label>
-        {membership.unlimited && <p className="usage-note">{zh ? "创始人账户不受限制。下面按当前方案的额度显示，方便你看到用户看到的样子。" : "Founder account, no limit. Shown against the plan's allowance so you can see what members see."}</p>}
-        <UsageBars membership={membership} lang={lang} />
-        <small className="setting-hint">{zh ? "一条普通回复算 1 次，特别长的对话会多算一些。用量会按时间自动恢复。" : "One normal reply counts once; very long conversations count a little more. Allowances refill on their own."}</small>
-      </div>
-      {!native && (member.checkoutAvailable || member.cardCheckoutAvailable) && <div className="setting-card member-upgrade">
-        <label>{zh ? "升级或续费" : "UPGRADE OR EXTEND"}</label>
-        <ul>
-          {paidPlans.map((plan) => <li key={plan.id} className={plan.id === membership.plan ? "current" : ""}>
-            <div><strong>{plan.name[lang]}<span>¥{plan.price} / {zh ? "30 天" : "30 days"}</span></strong><small>{zh ? `每 5 小时约 ${plan.session} 次 · 每周约 ${plan.week} 次` : `About ${plan.session} per 5 hours · ${plan.week} per week`}</small></div>
-            <a className={plan.id === "deep" && membership.plan === "soft" ? "primary member-buy-link" : "outline-button member-buy-link"} href={`${zh ? "/checkout" : "/en/checkout"}?plan=${plan.id}`}>{plan.id === membership.plan && membership.periodEndMs && !membership.referral ? (zh ? "续 30 天" : "Add 30 days") : (zh ? "购买" : "Buy")}</a>
-          </li>)}
-        </ul>
-        <small className="setting-hint">{zh ? "支付宝或银行卡付款。一次购买 30 天，到期不会自动扣款。" : "Pay with Alipay or card. Each purchase covers 30 days and never renews on its own."}</small>
-      </div>}
-      {!membership.referralUsed && <div className="setting-card member-referral">
-        <label>{zh ? "邀请码" : "INVITATION CODE"}</label>
-        <p className="setting-hint">{zh ? "填邀请码可以免费体验 7 天丰盛工坊，每个账户一次。" : "An invitation code gives 7 days of Dough Atelier, once per account."}</p>
-        <div className="member-inline"><input type="text" value={referral} maxLength={32} placeholder={zh ? "邀请码" : "Code"} aria-label={zh ? "邀请码" : "Invitation code"} onChange={(event) => setReferral(event.target.value)} /><button type="button" className="outline-button" disabled={busy || !referral.trim()} onClick={() => void act("/api/member/referral", { code: referral.trim() })}>{zh ? "使用" : "Use"}</button></div>
-      </div>}
-      {(notice || error) && <p className={error ? "member-error" : "member-notice"} role={error ? "alert" : "status"}>{error || notice}</p>}
-      <div className="setting-card member-account">
-        <span>{zh ? "已用邮箱登录" : "Signed in with email"}</span>
-        <button type="button" className="text-button" disabled={busy} onClick={() => void act("/api/member/auth/logout")}>{zh ? "退出登录" : "Sign out"}</button>
+    <div className="settings-section profile-panel membership-section">
+      <div className="profile-cards">
+        <section className="profile-card member-plan">
+          <div className="member-plan-top">
+            <span className="member-plan-label">{zh ? "当前方案" : "Current plan"}</span>
+            <div className="member-plan-chips">{membership.trial && <span className="wish-chip">{zh ? "试用中" : "Trial"}</span>}{membership.referral && <span className="wish-chip">{zh ? "邀请体验" : "Invitation"}</span>}{membership.unlimited && <span className="wish-chip is-current">{zh ? "创始人 · 不限用量" : "Founder · unlimited"}</span>}</div>
+          </div>
+          <strong className="member-plan-title">{current?.name[lang]}</strong>
+          <p className="profile-sub member-plan-meta">
+            {membership.referralEndMs ? (zh ? `丰盛工坊体验到 ${date(membership.referralEndMs)}，之后回到原来的方案。` : `Dough Atelier until ${date(membership.referralEndMs)}, then back to your own plan.`)
+              : membership.periodEndMs ? (zh ? `有效期到 ${date(membership.periodEndMs)}，到期不会自动扣款。` : `Active until ${date(membership.periodEndMs)}. It does not renew automatically.`)
+              : (zh ? `免费方案：每 5 小时约 ${current?.session} 次、每周约 ${current?.week} 次普通对话。` : `Free plan: about ${current?.session} replies per 5 hours and ${current?.week} per week.`)}
+          </p>
+        </section>
+
+        <section className="profile-card">
+          <h3>{zh ? "用量" : "Usage"}</h3>
+          {membership.unlimited && <p className="profile-sub">{zh ? "创始人账户不受限制。下面按当前方案的额度显示，方便你看到用户看到的样子。" : "Founder account, no limit. Shown against the plan's allowance so you can see what members see."}</p>}
+          <UsageBars membership={membership} lang={lang} />
+          <small className="profile-sub">{zh ? "一条普通回复算 1 次，特别长的对话会多算一些。用量会按时间自动恢复。" : "One normal reply counts once; very long conversations count a little more. Allowances refill on their own."}</small>
+        </section>
+
+        {!native && (member.checkoutAvailable || member.cardCheckoutAvailable) && <section className="profile-card member-upgrade">
+          <h3>{zh ? "升级或续费" : "Upgrade or extend"}</h3>
+          <p className="profile-sub">{zh ? "支付宝或银行卡付款。一次购买 30 天，到期不会自动扣款。" : "Pay with Alipay or card. Each purchase covers 30 days and never renews on its own."}</p>
+          <ul>
+            {paidPlans.map((plan) => <li key={plan.id} className={plan.id === membership.plan ? "current" : ""}>
+              <div><strong>{plan.name[lang]}{plan.id === membership.plan && <span className="wish-chip is-current">{zh ? "当前" : "Current"}</span>}</strong><span className="member-price">¥{plan.price}<small> / {zh ? "30 天" : "30 days"}</small></span><small>{zh ? `每 5 小时约 ${plan.session} 次 · 每周约 ${plan.week} 次` : `About ${plan.session} per 5 hours · ${plan.week} per week`}</small></div>
+              <a className={plan.id === "deep" && membership.plan === "soft" ? "wish-primary member-buy-link" : "profile-topic-plus member-buy-link"} href={`${zh ? "/checkout" : "/en/checkout"}?plan=${plan.id}`}>{plan.id === membership.plan && membership.periodEndMs && !membership.referral ? (zh ? "续 30 天" : "Add 30 days") : (zh ? "购买" : "Buy")}</a>
+            </li>)}
+          </ul>
+        </section>}
+
+        {!membership.referralUsed && <section className="profile-card member-referral">
+          <h3>{zh ? "邀请码" : "Invitation code"}</h3>
+          <p className="profile-sub">{zh ? "填邀请码可以免费体验 7 天丰盛工坊，每个账户一次。" : "An invitation code gives 7 days of Dough Atelier, once per account."}</p>
+          <div className="profile-topic-add"><input type="text" value={referral} maxLength={32} placeholder={zh ? "邀请码" : "Code"} aria-label={zh ? "邀请码" : "Invitation code"} onChange={(event) => setReferral(event.target.value)} /><button type="button" className="profile-topic-plus" disabled={busy || !referral.trim()} onClick={() => void act("/api/member/referral", { code: referral.trim() })}>{zh ? "使用" : "Use"}</button></div>
+        </section>}
+
+        {(notice || error) && <p className={error ? "member-error" : "member-notice"} role={error ? "alert" : "status"}>{error || notice}</p>}
+
+        <section className="profile-card member-account">
+          <span>{zh ? "已用邮箱登录" : "Signed in with email"}</span>
+          <button type="button" className="wish-delete" disabled={busy} onClick={() => void act("/api/member/auth/logout")}>{zh ? "退出登录" : "Sign out"}</button>
+        </section>
       </div>
     </div>
   );

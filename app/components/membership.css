@@ -72,3 +72,34 @@
 }
 /* before the first message the chat box sits under the greeting: put the card below it so the greeting stays readable */
 .home-composer.is-empty > .usage-banner { top: calc(100% + 34px); bottom: auto; }
+
+/* 会员与用量: the same soft cards as the other My space sections */
+.membership-section .member-plan { gap: 6px; }
+.member-plan-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.member-plan-label { color: var(--app-accent); font-size: calc(12px * var(--fs, 1)); font-weight: 700; letter-spacing: .06em; }
+.member-plan-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.member-plan-title { font: 400 calc(28px * var(--fs, 1))/1.3 var(--font-display); color: var(--app-ink); }
+.membership-section .profile-card .member-plan-meta { margin: 0; }
+.profile-card .usage-bars { display: grid; gap: 16px; }
+.profile-card .usage-row { padding: 14px; border-radius: 14px; background: color-mix(in srgb, var(--app-ink) 3%, transparent); }
+.profile-card .usage-track { height: 8px; }
+.profile-card .usage-count { display: block; margin-top: 8px; color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); }
+.profile-card.member-upgrade ul { display: grid; gap: 8px; }
+.profile-card.member-upgrade li { display: flex; align-items: center; gap: 14px; padding: 14px; border: 1px solid transparent; border-top: 1px solid transparent; border-radius: 14px; background: color-mix(in srgb, var(--app-ink) 3%, transparent); }
+.profile-card.member-upgrade li:first-child { padding-top: 14px; }
+.profile-card.member-upgrade li.current { border-color: color-mix(in srgb, var(--app-accent) 45%, var(--app-line)); background: color-mix(in srgb, var(--app-accent) 6%, transparent); }
+.profile-card.member-upgrade li.current strong { color: var(--app-ink); }
+.profile-card.member-upgrade li strong { align-items: center; }
+.member-price { color: var(--app-ink); font: 500 calc(20px * var(--fs, 1))/1.3 var(--font-display); }
+.member-price small { color: var(--app-muted); font-family: var(--font-body); font-size: calc(12px * var(--fs, 1)); }
+.profile-card .member-buy-link { flex: none; min-width: 92px; justify-content: center; text-decoration: none; }
+.member-pill-link { justify-self: start; text-decoration: none; }
+.profile-card.member-account { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 14px; padding-bottom: 14px; }
+.profile-card.member-account > span { color: var(--app-muted); font-size: calc(14px * var(--fs, 1)); }
+.member-signin-actions { justify-content: flex-start; }
+.profile-card .wish-primary:disabled, .profile-card .wish-delete:disabled { opacity: .5; cursor: default; filter: none; }
+.membership-section > .profile-cards > .member-error, .membership-section > .profile-cards > .member-notice { margin: 0 4px; }
+@media (max-width: 560px) {
+  .profile-card.member-upgrade li { flex-wrap: wrap; }
+  .profile-card.member-upgrade li .member-buy-link { width: 100%; }
+}
