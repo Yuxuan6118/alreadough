@@ -806,7 +806,7 @@ export default function Home() {
     { id: "story" as View, label: t.nav[1], icon: StoriesIcon },
     { id: "revision" as View, label: t.nav[2], icon: ReviseIcon },
     { id: "board" as View, label: t.nav[3], icon: VisionIcon },
-    { id: "subliminal" as View, label: t.nav[4], icon: DreamscapeIcon },
+    { id: "subliminal" as View, label: t.nav[4], icon: DreamscapeIcon, boost: 4 },
   ];
 
   const goalFromSeed = (seed: GoalSeed, base: GoalProfile): GoalProfile => ({
@@ -1592,7 +1592,7 @@ export default function Home() {
       <nav className="swipe-nav" aria-label={t.ariaNav}>
         {primaryNav.map((item) => {
           const Icon = item.icon;
-          return <button type="button" key={item.id} className={view === item.id ? "active" : ""} onClick={() => { navigate(item.id); moveSidebar(false); }}><Icon size={24} weight={view === item.id ? "fill" : "regular"}/><span>{item.label}</span></button>;
+          return <button type="button" key={item.id} className={view === item.id ? "active" : ""} onClick={() => { navigate(item.id); moveSidebar(false); }}><Icon size={28 + ("boost" in item ? item.boost : 0)} weight={view === item.id ? "fill" : "regular"}/><span>{item.label}</span></button>;
         })}
       </nav>
       <div className="swipe-history">
@@ -1606,11 +1606,11 @@ export default function Home() {
       <aside className="app-rail">
         <button className="brand" onClick={() => navigate("home")} aria-label="AlreaDough home"><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></button>
         <button className="rail-new-chat" onClick={beginNewConversation}><Plus size={18}/><span>{lang === "zh" ? "新对话" : "New conversation"}</span></button>
-        <button className="rail-history" onClick={() => setHistoryOpen(true)}><HistoryIcon size={22}/><span>{lang === "zh" ? "对话记录" : "Conversation history"}</span><small>{conversationArchive.length}</small></button>
+        <button className="rail-history" onClick={() => setHistoryOpen(true)}><HistoryIcon size={26}/><span>{lang === "zh" ? "对话记录" : "Conversation history"}</span><small>{conversationArchive.length}</small></button>
         <nav className="rail-nav" aria-label={t.ariaNav}>
           {primaryNav.map((item) => {
             const Icon = item.icon;
-            return <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => navigate(item.id)}><Icon size={23} weight={view === item.id ? "fill" : "regular"}/><span>{item.label}</span></button>;
+            return <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => navigate(item.id)}><Icon size={27 + ("boost" in item ? item.boost : 0)} weight={view === item.id ? "fill" : "regular"}/><span>{item.label}</span></button>;
           })}
         </nav>
         <div className="rail-footer">
