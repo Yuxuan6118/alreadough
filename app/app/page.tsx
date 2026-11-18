@@ -49,6 +49,7 @@ import type { ReflectionAnswers } from "@/lib/reflection";
 import { validateSpName } from "@/lib/name-policy";
 import { answersToSeeds, sharedMemories, splitLines, type GoalSeed, type MemorySeed, type OnboardingAnswers, type ProfileSeed } from "@/lib/onboarding-flow";
 import { readStored, writeStored, removeStored } from "@/lib/safe-storage";
+import { formatGreeting, pickGreeting } from "@/lib/greetings";
 import { buildExportZip, exportFileName } from "@/lib/export-archive";
 import { getDeviceSessionId } from "@/lib/device-session";
 import DoughLineMark from "../components/DoughLineMark";
@@ -752,6 +753,36 @@ export default function Home() {
   const sessionMessages = messages;
   const streak = useMemo(() => practiceStreak(checkIns), [checkIns]);
   const checkedToday = checkIns.some((item) => item.date === todayKey());
+  // Home greeting: picked once per open (time of day, holidays by IP country, special moments), never during SSR.
+  const [greeting, setGreeting] = useState<ReturnType<typeof pickGreeting> | null>(null);
+  const greetingPicked = useRef(false);
+  useEffect(() => {
+    if (!hydrated || !goal.setupComplete || greetingPicked.current) return;
+    greetingPicked.current = true;
+    const now = new Date();
+    const lastVisit = readStored("already-last-visit-v1");
+    const lastMs = lastVisit ? Date.parse(lastVisit) : NaN;
+    const daysAway = Number.isFinite(lastMs) ? Math.floor((now.getTime() - lastMs) / 86400000) : null;
+    // Set only when the first-time onboarding finishes, so existing users never see "第一次见面".
+    const firstVisit = readStored("already-greeting-first-v1") === "1";
+    if (firstVisit) removeStored("already-greeting-first-v1");
+    let recent: string[] = [];
+    try { const parsed = JSON.parse(readStored("already-greeting-recent-v1") || "[]"); if (Array.isArray(parsed)) recent = parsed.filter((item): item is string => typeof item === "string"); } catch { /* ignore */ }
+    const choose = (country: string | null) => {
+      const next = pickGreeting({ now, lang, country, firstVisit, daysAway, checkedToday, streak, recent });
+      setGreeting(next);
+      writeStored("already-greeting-recent-v1", JSON.stringify([next.id, ...recent.filter((id) => id !== next.id)].slice(0, 5)));
+      writeStored("already-last-visit-v1", now.toISOString());
+    };
+    const cached = readStored("already-region-v1");
+    const refresh = fetch("/api/region", { cache: "no-store" }).then((response) => response.json()).then((data: { country?: string | null }) => {
+      const country = typeof data.country === "string" ? data.country : "";
+      writeStored("already-region-v1", country);
+      return country || null;
+    }).catch(() => null);
+    if (cached !== null) choose(cached || null);
+    else Promise.race([refresh, new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500))]).then(choose);
+  }, [hydrated, goal.setupComplete, lang, checkedToday, streak]);
   const suggestions = lang === "zh" ? ["冬日旅行", "理想的新家", "事业里程碑", "丰盛日常"] : ["Winter trip", "Dream home", "Career milestone", "Abundant everyday life"];
   const primaryNav = [
     { id: "home" as View, label: t.nav[0], icon: CompanionIcon },
@@ -784,6 +815,7 @@ export default function Home() {
 
   /** The whole opening is done: every desire becomes a card, and what she said about herself is kept once. */
   const finishGuidedOpening = (answers: OnboardingAnswers) => {
+    writeStored("already-greeting-first-v1", "1");
     const { goals: seeds, profile: seedProfile } = answersToSeeds(answers, lang);
     if (!seeds.length || !answers.name.trim()) return;
     const base: GoalProfile = {
@@ -1581,7 +1613,7 @@ export default function Home() {
       {view === "home" && <section className={`home-ai-view ${sessionMessages.length ? "has-conversation" : "is-empty"}`}>
         {sessionMessages.length === 0 && <div className="home-ai-welcome">
           <p className="eyebrow" suppressHydrationWarning>{dateLabel}</p>
-          <h1>{lang === "zh" ? `欢迎回来，${goal.companionName}` : `Welcome back, ${goal.companionName}`}</h1>
+          <h1 style={greeting ? undefined : { visibility: "hidden" }}>{formatGreeting(greeting ?? { zh: "欢迎回来", en: "Welcome back", ask: false }, lang, goal.companionName)}</h1>
           <p>{t.hero}</p>
         </div>}
         <div className="home-ai-thread">
