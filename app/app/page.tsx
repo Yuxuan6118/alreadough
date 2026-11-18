@@ -50,7 +50,7 @@ import { getDeviceSessionId } from "@/lib/device-session";
 import DoughLineMark from "../components/DoughLineMark";
 import { CompanionIcon, DreamscapeIcon, HistoryIcon, ReviseIcon, StoriesIcon, VisionIcon } from "../components/NavIcons";
 
-type SpaceSection = "wishes" | "about" | "companion" | "library" | "memory" | "membership" | "pet" | "look" | "sync" | "help";
+type SpaceSection = "wishes" | "about" | "library" | "memory" | "membership" | "pet" | "look" | "sync" | "help";
 type View = "home" | "subliminal" | "story" | "revision" | "board" | "settings";
 type Lang = "zh" | "en";
 type Message = { id: string; role: "ai" | "user"; text: string; feedback?: "helpful" | "missed"; saved?: boolean; logId?: string; error?: boolean };
@@ -1610,7 +1610,7 @@ export default function Home() {
       {view === "settings" && (() => {
         const shown: SpaceSection = settingsSection ?? "wishes";
         const zhText = lang === "zh";
-        const titles: Record<SpaceSection, string> = { wishes: zhText ? "我的愿望" : "My desires", about: zhText ? "关于我" : "About me", companion: zhText ? "引导方式" : "Guidance method", library: zhText ? "记忆库" : "Memory library", memory: zhText ? "背景与念头" : "Background and thoughts", membership: zhText ? "会员与用量" : "Membership and usage", pet: zhText ? "下载桌宠" : "Desktop pet", look: zhText ? "外观与语言" : "Look and language", sync: zhText ? "同步与数据" : "Sync and data", help: zhText ? "帮助与条款" : "Help and terms" };
+        const titles: Record<SpaceSection, string> = { wishes: zhText ? "我的愿望" : "My desires", about: zhText ? "关于我" : "About me", library: zhText ? "记忆库" : "Memory library", memory: zhText ? "背景与念头" : "Background and thoughts", membership: zhText ? "会员与用量" : "Membership and usage", pet: zhText ? "下载桌宠" : "Desktop pet", look: zhText ? "外观与语言" : "Look and language", sync: zhText ? "同步与数据" : "Sync and data", help: zhText ? "帮助与条款" : "Help and terms" };
         return <section className="full-view settings-view space">
           <div className={`space-layout${settingsSection ? " has-detail" : ""}`}>
             <SpaceNav
@@ -1622,7 +1622,6 @@ export default function Home() {
                 { title: zhText ? "我" : "Me", rows: [
                   { id: "wishes", label: titles.wishes, value: String(sortedGoals.length) },
                   { id: "about", label: titles.about },
-                  { id: "companion", label: titles.companion },
                 ] },
                 { title: zhText ? "记忆" : "Memory", rows: [
                   { id: "library", label: titles.library, value: String(currentMemoryItems.length) },
@@ -1651,9 +1650,6 @@ export default function Home() {
                 {goalArchive.length > 0 && <div className="setting-card archive-card"><span>{lang === "zh" ? `已经发生的愿望 · ${goalArchive.length}` : `FULFILLED DESIRES · ${goalArchive.length}`}</span>{goalArchive.slice(0, 5).map((item) => <article key={item.id}><strong>{item.desire[lang] || item.desire[lang === "zh" ? "en" : "zh"]}</strong><small>{item.createdAt ? new Date(item.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US") : ""}</small></article>)}</div>}
               </div>}
               {shown === "about" && <ProfilePanel lang={lang} profile={profile} onChange={(next) => setProfile(normalizeProfile(next))} />}
-              {shown === "companion" && <div className="settings-section">
-                <div className="setting-card editable-card"><label>{lang === "zh" ? "引导方式" : "GUIDANCE METHOD"}</label><div className="option-card-grid coach-settings-grid">{coachModes.map((coach) => <button key={coach.id} className={goal.coachMode === coach.id ? "selected" : ""} onClick={() => setGoal((current) => ({ ...current, coachMode: coach.id }))}><strong>{lang === "zh" ? coach.zh : coach.en}</strong><small>{lang === "zh" ? coach.zhDescription : coach.enDescription}</small></button>)}</div></div>
-              </div>}
               {shown === "memory" && <div className="settings-section">
                 <div className="setting-card editable-card"><label>{lang === "zh" ? "我的背景与处境" : "MY CONTEXT"}</label><textarea maxLength={MAX_BACKGROUND} value={goal.background[lang]} onChange={(event) => setGoal((current) => ({ ...current, background: { ...current.background, [lang]: event.target.value } }))}/><div className="field-counter"><span>{goal.background[lang].length} / {MAX_BACKGROUND}</span></div></div>
                 <div className="setting-card belief-editor"><label>{lang === "zh" ? "想换掉的念头" : "THOUGHTS TO TURN AROUND"}</label><p className="setting-hint">{lang === "zh" ? "反复冒出来、想换掉的旧念头。点「转念」会带去重写，写好新版本后，这一句就从这里拿掉。" : "Old thoughts that keep coming back. Tap Turn it to take one into Revision; once you accept the new version, it leaves this list."}</p>{parseBeliefs(beliefDraft).length ? <ul className="belief-rows">{parseBeliefs(beliefDraft).map((item, index) => <li key={`${index}-${item}`}><span>{item}</span><button type="button" className="belief-turn" onClick={() => turnBelief(item)}>{lang === "zh" ? "转念" : "Turn it"}</button><button type="button" className="belief-remove" aria-label={lang === "zh" ? `删除：${item}` : `Delete: ${item}`} onClick={() => removeBelief(item)}><Trash size={16}/></button></li>)}</ul> : <p className="setting-empty">{lang === "zh" ? "还没有写下想换掉的念头。" : "Nothing written here yet."}</p>}{beliefCount < MAX_BELIEFS && <div className="belief-add"><input value={beliefInput} maxLength={200} onChange={(event) => setBeliefInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); addBelief(); } }} placeholder={lang === "zh" ? "再写一句" : "Add one more"} aria-label={lang === "zh" ? "添加一个想换掉的念头" : "Add a thought to turn around"}/><button type="button" className="outline-button" disabled={!beliefInput.trim()} onClick={addBelief}><Plus size={16}/>{lang === "zh" ? "添加" : "Add"}</button></div>}<div className={`field-counter ${beliefCount > MAX_BELIEFS ? "over" : ""}`}><span>{beliefCount} / {MAX_BELIEFS}</span></div></div>
@@ -1685,7 +1681,7 @@ export default function Home() {
                 <div className="setting-card report-card"><span>{lang === "zh" ? "联系与举报" : "CONTACT & REPORTS"}</span><p>{lang === "zh" ? "发现不当、违法或让你不舒服的内容，可以在这里举报。每条 AI 回复下面也有“举报”按钮。我们会尽快查看。" : "If you see anything inappropriate, unlawful, or upsetting, report it here. Every AI reply also has a Report button. We read these as soon as we can."}</p><button className="outline-button" onClick={() => setReportTarget({})}>{lang === "zh" ? "举报内容或反馈问题" : "Report content or send feedback"}</button><SiteRecord lang={lang} /></div>
                 <div className="legal-links"><a className="trust-link" href="/pricing">{lang === "zh" ? "会员与价格" : "Membership & pricing"}</a><a className="trust-link" href="/trust">{t.trust}</a><a className="trust-link" href="/privacy">{lang === "zh" ? "隐私说明" : "Privacy"}</a><a className="trust-link" href="/terms">{lang === "zh" ? "测试版条款" : "Beta terms"}</a><a className="trust-link" href="/copyright">{lang === "zh" ? "素材与版权" : "Content & copyright"}</a></div>
               </div>}
-              {(shown === "wishes" || shown === "about" || shown === "companion" || shown === "memory") && <div className="settings-savebar"><span>{syncStatus === "saved" ? <CloudCheck size={18}/> : <FloppyDisk size={18}/>} {syncStatus === "saved" ? (lang === "zh" ? "会自动同步" : "Auto-sync is on") : (lang === "zh" ? "本机副本已保留" : "On-device copy retained")}</span><button className="primary" onClick={saveGoalSettings} disabled={Boolean(spNameError) || beliefCount > MAX_BELIEFS || !goal.companionStyle}>{goalSavedPulse ? t.savedGoal : t.saveGoal}</button></div>}
+              {(shown === "wishes" || shown === "about" || shown === "memory") && <div className="settings-savebar"><span>{syncStatus === "saved" ? <CloudCheck size={18}/> : <FloppyDisk size={18}/>} {syncStatus === "saved" ? (lang === "zh" ? "会自动同步" : "Auto-sync is on") : (lang === "zh" ? "本机副本已保留" : "On-device copy retained")}</span><button className="primary" onClick={saveGoalSettings} disabled={Boolean(spNameError) || beliefCount > MAX_BELIEFS || !goal.companionStyle}>{goalSavedPulse ? t.savedGoal : t.saveGoal}</button></div>}
             </div>
           </div>
         </section>;
