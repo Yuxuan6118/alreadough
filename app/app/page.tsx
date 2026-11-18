@@ -1756,7 +1756,7 @@ export default function Home() {
                       <small>{lang === "zh" ? zhLabel : enLabel}</small>
                     </button>)}
                   </div>
-                  <p className="theme-note">{lang === "zh" ? "手机最顶上那一条的颜色由手机系统决定。选「跟随系统」，再在手机设置里打开深色模式，顶部就会和页面一起变暗。" : "The strip at the very top of your phone takes its colour from the phone's own setting. Choose Match phone and turn on Dark Mode in your phone's settings, and the top darkens along with the page."}</p>
+                  <p className="theme-note">{lang === "zh" ? "添加到主屏幕后，手机最顶上那一条的颜色由手机系统决定。选「跟随系统」，再在手机设置里打开深色模式，顶部就会和页面一起变暗。" : "Once AlreaDough is on your Home Screen, the strip at the very top of your phone takes its colour from the phone's own setting. Choose Match phone and turn on Dark Mode in your phone's settings, and the top darkens along with the page."}</p>
                 </div>
                 <div className="language-card"><div><span>{lang === "zh" ? "界面语言" : "LANGUAGE"}</span><strong>{lang === "zh" ? "简体中文" : "English"}</strong></div><button onClick={switchLanguage}>{lang === "zh" ? "Switch to English" : "切换到中文"}</button></div>
                 <FontSizePanel lang={lang} />
