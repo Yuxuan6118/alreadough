@@ -69,7 +69,7 @@ export default function FounderMailPage() {
   }
 
   async function removeLetter(item: Letter) {
-    if (!window.confirm(`从站内信撤下《${item.subject}》？已经读过的人也看不到了。`)) return;
+    if (!window.confirm(`从站内信撤下《${item.subject || item.body.slice(0, 20)}》？已经读过的人也看不到了。`)) return;
     await fetch(`/api/beta/mail?letter=${item.id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
     load();
   }
@@ -84,22 +84,22 @@ export default function FounderMailPage() {
         <article><small>发过的信</small><strong>{stats.sends.length}</strong><span>最近 20 次</span></article>
       </section>
       <section style={box}>
-        <label><small>标题</small><input style={field} value={subject} maxLength={200} onChange={(e) => setSubject(e.target.value)} /></label>
-        <label style={{ display: "block", marginTop: 18 }}><small>正文（纯文字，空行就是分段）</small><textarea style={{ ...field, minHeight: 220, resize: "vertical" }} value={body} onChange={(e) => setBody(e.target.value)} /></label>
+        <label><small>标题（可以不写）</small><input style={field} value={subject} maxLength={200} onChange={(e) => setSubject(e.target.value)} /></label>
+        <label style={{ display: "block", marginTop: 18 }}><small>正文（可以不写；纯文字，空行就是分段）</small><textarea style={{ ...field, minHeight: 220, resize: "vertical" }} value={body} onChange={(e) => setBody(e.target.value)} /></label>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end", marginTop: 18 }}>
           <label style={{ flex: "1 1 260px" }}><small>测试收件地址</small><input style={field} type="email" value={testEmail} placeholder="先发给自己看看" onChange={(e) => setTestEmail(e.target.value)} /></label>
-          <button style={button} disabled={busy || !stats.ready || !testEmail.trim()} onClick={() => send("test")}>{busy ? "发送中…" : "只发给这个地址"}</button>
+          <button style={button} disabled={busy || !stats.ready || !testEmail.trim() || (!subject.trim() && !body.trim())} onClick={() => send("test")}>{busy ? "发送中…" : "只发给这个地址"}</button>
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 18, alignItems: "center", marginTop: 22, paddingTop: 18, borderTop: "1px solid #eadccf" }}>
           <label style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={toEmail} onChange={(e) => setToEmail(e.target.checked)} />发邮件（{stats.subscribed} 人）</label>
           <label style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={toInbox} onChange={(e) => setToInbox(e.target.checked)} />放进站内信（所有打开 App 的人）</label>
-          <button style={{ ...button, background: "transparent", color: "#73504a" }} disabled={busy || (!toEmail && !toInbox) || (toEmail && (!stats.ready || stats.subscribed === 0))} onClick={() => send("all")}>发给全部人</button>
+          <button style={{ ...button, background: "transparent", color: "#73504a" }} disabled={busy || (!subject.trim() && !body.trim()) || (!toEmail && !toInbox) || (toEmail && (!stats.ready || stats.subscribed === 0))} onClick={() => send("all")}>发给全部人</button>
         </div>
         {notice && <p style={{ marginTop: 16 }}>{notice}</p>}
       </section>
       {stats.letters.length > 0 && <section style={box}>
         <small>站内信</small>
-        {stats.letters.map((item) => <p key={item.id} style={{ margin: "12px 0 0", display: "flex", gap: 12, alignItems: "center" }}><span style={{ flex: 1 }}>{new Date(item.createdAt).toLocaleString("zh-CN", { hour12: false })} · {item.subject}</span><button style={{ ...button, padding: "6px 14px", background: "transparent", color: "#73504a" }} onClick={() => removeLetter(item)}>撤下</button></p>)}
+        {stats.letters.map((item) => <p key={item.id} style={{ margin: "12px 0 0", display: "flex", gap: 12, alignItems: "center" }}><span style={{ flex: 1 }}>{new Date(item.createdAt).toLocaleString("zh-CN", { hour12: false })} · {item.subject || item.body.slice(0, 40)}</span><button style={{ ...button, padding: "6px 14px", background: "transparent", color: "#73504a" }} onClick={() => removeLetter(item)}>撤下</button></p>)}
       </section>}
       {stats.sends.length > 0 && <section style={box}>
         <small>发信记录</small>

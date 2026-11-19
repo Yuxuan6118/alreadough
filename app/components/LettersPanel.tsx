@@ -24,11 +24,11 @@ export default function LettersPanel({ lang, letters, unread }: Props) {
           <article key={letter.id} className={`letter${isOpen ? " open" : ""}`}>
             <button type="button" className="letter-head" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : letter.id)}>
               <DoughLineMark className="letter-mark" />
-              <span className="letter-title"><strong>{letter.subject}</strong><small>{when(letter.createdAt, lang)}</small></span>
+              <span className="letter-title"><strong>{letter.subject || letter.body.trim().split("\n")[0].slice(0, 40) || "AlreaDough"}</strong><small>{when(letter.createdAt, lang)}</small></span>
               {unread.has(letter.id) && <i className="letter-dot" aria-label={lang === "zh" ? "未读" : "Unread"} />}
             </button>
             {isOpen && <div className="letter-body">
-              {letter.body.trim().split(/\n\s*\n/).map((block, index) => <p key={index}>{block.split("\n").map((line, i) => <span key={i}>{i > 0 && <br />}{line}</span>)}</p>)}
+              {letter.body.trim() && letter.body.trim().split(/\n\s*\n/).map((block, index) => <p key={index}>{block.split("\n").map((line, i) => <span key={i}>{i > 0 && <br />}{line}</span>)}</p>)}
               <p className="letter-sign">AlreaDough</p>
             </div>}
           </article>

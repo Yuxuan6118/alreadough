@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   const input = await request.json().catch(() => null) as { audience?: unknown; testEmail?: unknown; confirmCount?: unknown; subject?: unknown; body?: unknown; email?: unknown; inbox?: unknown } | null;
   const subject = typeof input?.subject === "string" ? input.subject.trim() : "";
   const body = typeof input?.body === "string" ? input.body.trim() : "";
-  if (!subject || subject.length > 200 || !body || body.length > 20_000) return Response.json({ error: "INVALID_LETTER" }, { status: 400, headers: noStore });
+  if ((!subject && !body) || subject.length > 200 || body.length > 20_000) return Response.json({ error: "INVALID_LETTER" }, { status: 400, headers: noStore });
   if (input?.audience === "test") {
     if (!mailReady()) return Response.json({ error: "MAIL_NOT_CONFIGURED" }, { status: 503, headers: noStore });
     const testEmail = normalizeEmail(input.testEmail);

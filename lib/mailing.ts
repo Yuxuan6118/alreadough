@@ -97,10 +97,12 @@ async function letter(to: string, subject: string, body: string) {
   const link = await unsubscribeUrl(to);
   const text = `${body}\n\n—\nAlreaDough · ${SITE}\n不想再收到这类邮件 / Unsubscribe: ${link}`;
   const html = letterHtml(subject, body, link);
+  // A letter may have no title; the inbox still needs a subject line.
+  const headerSubject = subject || body.split("\n")[0].slice(0, 60) || "AlreaDough";
   return {
     from: FROM,
     to: [to],
-    subject,
+    subject: headerSubject,
     text,
     html,
     headers: { "List-Unsubscribe": `<${link}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
@@ -140,7 +142,7 @@ export async function sendLetter(audience: Audience, subject: string, body: stri
   }
   await ensureMailTables();
   await env.DB.prepare("INSERT INTO mail_sends (id, audience, subject, recipients, delivered, created_at) VALUES (?, ?, ?, ?, ?, ?)")
-    .bind(crypto.randomUUID(), audience, subject, recipients.length, delivered, Date.now()).run();
+    .bind(crypto.randomUUID(), audience, subject || body.split("\n")[0].slice(0, 60), recipients.length, delivered, Date.now()).run();
   return { recipients: recipients.length, delivered, failure };
 }
 
