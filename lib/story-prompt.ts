@@ -31,7 +31,6 @@ const core = {
 写法：
 - 第一人称“我”，现在时，写愿望已经实现之后的某一天或某一刻。不写过程、等待和匮乏，不写“终于”“曾经”。
 - 地点：关键词里写了地点，剧本就发生在那里，并把它写到具体的街区、楼、店、酒店或学校。关键词没写地点时，用 desire_details 里她写过的地方，再没有就用 her_home（她住的城市）。愿望涉及物质环境时（住处、店、学校、公司、物品），用现实中存在、叫得出名字的地方和品牌；拿不准名字的，只写它是什么样的地方，不编造名字。不写真实名人。
-- 档次：她的资料和关键词没说明时，品牌、酒店、餐厅、衣物和用品默认选同类里高一档的真实选择。像本来就过这样日子的人那样写：懂行，有品味，低调。一两样点到为止，写它的质感和用法，不报价钱炫耀，不罗列名牌。
 - desire_details 和 about_her 是她自己写的愿望细节和生活状况，里面能用进这个场景的人、地方、习惯和细节都用上。
 - 感知要全：看见的颜色、光线和天气，听见的人声和背景里的环境音，闻到的气味，尝到的味道，皮肤上的温度、质地和重量，身体里面的感觉（心跳、呼吸、肩膀松下来、胃里暖起来）。
 - 让场景是活的：写清时间（几点、季节），写周围的人和万物在做什么，写具体的数字和小物件（金额、分数、门牌、时间、手里拿着的东西），可以有一点不完美的小插曲（打翻、迟到、笑场），真实生活就是这样。
@@ -50,7 +49,6 @@ const core = {
 How to write:
 - First person, present tense, a day or moment after the desire is already real. No process, waiting, or lack; no "finally" or "used to".
 - Place: if the keywords name a place, the script happens there, written down to the street, building, shop, hotel or school. If they do not, use a place she wrote in desire_details, and failing that her_home (the city she lives in). When the desire involves a physical world (a home, a shop, a school, a company, things), use places and brands that exist and can be named; if you are unsure of a name, describe what kind of place it is and invent no name. No real celebrities.
-- Taste: unless her details or keywords say otherwise, choose brands, hotels, restaurants, clothes and things from the upper end of what is real in their kind. Write like someone who has always lived this way: knowing, tasteful, understated. One or two touches are enough; show their texture and how they are used, never prices to impress or a list of labels.
 - desire_details and about_her are her own words about this desire and her life; use every person, place, habit and detail from them that fits this scene.
 - All the senses: colours, light and weather; voices and the ambient sound behind them; smells; tastes; temperature, texture and weight on the skin; what happens inside the body (heartbeat, breath, shoulders dropping, warmth in the stomach).
 - Make the scene alive: give the time (hour, season), what the people and things around her are doing, specific numbers and small objects (amounts, scores, door numbers, times, what is in her hand), and a small imperfection if it fits (a spill, running late, a laugh at the wrong moment).
@@ -72,8 +70,8 @@ const modules: Record<StoryCategory, { zh: string; en: string }> = {
     en: "Category: love. The other person (the name in her_person, at least twice) is there throughout. Write what passes between them: gestures, dialogue, eye contact, closeness, his warmth and voice, him saying her name. Show everyday intimacy, like doing a small ordinary thing together while he remembers her habits without being asked. He only says what fits this scene; no vows or speeches about his feelings.",
   },
   wealth: {
-    zh: "类目：财富。钱要落到具体的数字和币种（按她生活的地方），比如银行 App 里的余额、到账通知、一张账单的金额。写她用的、穿的、住的、开的东西的真实品牌和型号，档次贴合她的愿望，用懂行的人的品味去选，写质感和细节，不堆砌奢侈品牌，不写成炫富。重点写有钱以后的从容：付款时不看价格，顺手帮别人买单，时间被自己安排。",
-    en: "Category: wealth. Put money into specific amounts and her local currency: a balance in her banking app, a deposit notification, the total on a bill. Name the real brands and models of what she wears, uses, lives in and drives, at the level her desire describes, chosen with the taste of someone who knows; show texture and detail, never a pile of luxury labels or a show of money. Show the ease of having it: paying without checking the price, picking up someone else's bill, owning her time.",
+    zh: "类目：财富。钱要落到具体的数字和币种（按她生活的地方），比如银行 App 里的余额、到账通知、一张账单的金额。写她用的、穿的、住的、开的东西的真实品牌和型号，档次贴合她的愿望，不堆砌奢侈品牌。重点写有钱以后的从容：付款时不看价格，顺手帮别人买单，时间被自己安排。",
+    en: "Category: wealth. Put money into specific amounts and her local currency: a balance in her banking app, a deposit notification, the total on a bill. Name the real brands and models of what she wears, uses, lives in and drives, at the level her desire describes, without piling up luxury labels. Show the ease of having it: paying without checking the price, picking up someone else's bill, owning her time.",
   },
   career: {
     zh: "类目：事业。写清她做的是什么工作、在什么样的公司或城市，职位、团队、项目要具体。可以有邮件签名里的新头衔、工资条或合同上的数字、会议上被认真听的一句话、同事的反应、办公室里真实的声音和气味（咖啡机、键盘、空调）。写她做得轻松熟练的样子。",
