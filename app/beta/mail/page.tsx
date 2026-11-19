@@ -85,7 +85,7 @@ export default function FounderMailPage() {
       </section>
       <section style={box}>
         <label><small>标题（可以不写）</small><input style={field} value={subject} maxLength={200} onChange={(e) => setSubject(e.target.value)} /></label>
-        <label style={{ display: "block", marginTop: 18 }}><small>正文（可以不写；纯文字，空行就是分段）</small><textarea style={{ ...field, minHeight: 220, resize: "vertical" }} value={body} onChange={(e) => setBody(e.target.value)} /></label>
+        <label style={{ display: "block", marginTop: 18 }}><small>正文（可以不写）</small><textarea style={{ ...field, minHeight: 220, resize: "vertical" }} value={body} onChange={(e) => setBody(e.target.value)} /></label>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end", marginTop: 18 }}>
           <label style={{ flex: "1 1 260px" }}><small>测试收件地址</small><input style={field} type="email" value={testEmail} placeholder="先发给自己看看" onChange={(e) => setTestEmail(e.target.value)} /></label>
           <button style={button} disabled={busy || !stats.ready || !testEmail.trim() || (!subject.trim() && !body.trim())} onClick={() => send("test")}>{busy ? "发送中…" : "只发给这个地址"}</button>
