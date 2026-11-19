@@ -108,6 +108,7 @@ export default function SyncPanel({ lang, sessionId, syncStatus, hasLocalData, e
       // Point this device at the other space, drop the local copy so the cloud copy loads cleanly, and restart.
       writeStored("already-session-id", code);
       removeStored("already-private-state-v5");
+      removeStored("already-sync-base-v1");
       removeStored("already-practice-checkins-v1");
       window.location.assign("/");
     } catch {

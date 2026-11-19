@@ -211,10 +211,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .revised-card > span, .setting-card > span { color: var(--app-accent); font-size: calc(12px * var(--fs, 1)); font-weight: 740; letter-spacing: .07em; }
 .revised-card p { font-family: var(--font-display); font-size: calc(19px * var(--fs, 1)); line-height: 1.8; }
 .revised-card button, .outline-button, .trust-link { border: 1px solid var(--app-line); border-radius: var(--app-radius-control); padding: 13px 16px; color: var(--app-ink); background: var(--app-panel); text-decoration: none; }
+.revised-card .new-thought-reading { display: block; margin: -4px 0 18px; color: var(--app-muted); font-size: calc(14px * var(--fs, 1)); line-height: 1.7; }
 .revision-history { margin-top: 46px; }
 .revision-history > div { margin-top: 12px; padding: 18px; border-radius: var(--app-radius-control); background: var(--app-panel); }
 .revision-history span { color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); }
 .revision-history p { margin-bottom: 0; font-family: var(--font-display); line-height: 1.7; }
+.revision-history .revision-to-dreamscape { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; padding: 7px 12px; border: 1px solid var(--app-line); border-radius: var(--app-radius-control); color: var(--app-ink); background: transparent; font-size: calc(13px * var(--fs, 1)); }
 
 .board-view { width: min(1120px,100%); }
 .vision-mode-tabs { display: inline-grid; grid-template-columns: 1fr 1fr; margin-bottom: 24px; padding: 4px; border: 1px solid var(--app-line); border-radius: 16px; background: var(--app-panel); }

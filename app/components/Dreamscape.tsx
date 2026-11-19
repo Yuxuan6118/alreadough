@@ -24,6 +24,8 @@ type Props = {
   onCheckIn: (feeling: Feeling) => void;
   /** ask the companion for a few lines in her own words; may throw */
   makeAffirmations: () => Promise<string[]>;
+  /** New thoughts she accepted in Reframe; they lead her affirmations, in her own words. */
+  ownLines?: string[];
   onOpenStudio: () => void;
 };
 
@@ -74,7 +76,7 @@ function errorText(code: string, zh: boolean) {
   return hit ? hit[zh ? 0 : 1] : zh ? "声音暂时没有成功，请再试一次。" : "That didn't work. Please try again.";
 }
 
-export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, makeAffirmations, onOpenStudio }: Props) {
+export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, makeAffirmations, ownLines = [], onOpenStudio }: Props) {
   const zh = lang === "zh";
   const t = (a: string, b: string) => (zh ? a : b);
   const headers = useMemo(() => ({ "x-already-session-id": sessionId, "Content-Type": "application/json" }), [sessionId]);
@@ -143,18 +145,22 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
 
   const owner = voice.has && useMine ? `mine:${voice.createdAt}` : "default";
 
+  const ownKey = ownLines.slice(0, 3).join("\n");
   const loadAffirmations = useCallback(async (): Promise<string[]> => {
+    // her own new thoughts first (at most 3), then the generated set, 8 lines in all
+    const own = ownKey ? ownKey.split("\n") : [];
+    const withOwn = (lines: string[]) => [...own, ...lines.filter((line) => !own.includes(line))].slice(0, 8);
     const key = `${KEY_AFFIRM}:${lang}:${desire.slice(0, 60)}`;
     try {
       const cached = JSON.parse(readStored(key) || "null") as string[] | null;
-      if (Array.isArray(cached) && cached.length >= 3) return cached;
+      if (Array.isArray(cached) && cached.length >= 3) return withOwn(cached);
     } catch { /* fall through to a fresh set */ }
     try {
       const lines = (await makeAffirmations()).map((line) => line.trim()).filter((line) => line.length >= 4 && line.length <= (zh ? 40 : 120)).slice(0, 8);
-      if (lines.length >= 3) { writeStored(key, JSON.stringify(lines)); return lines; }
+      if (lines.length >= 3) { writeStored(key, JSON.stringify(lines)); return withOwn(lines); }
     } catch { /* the companion is unavailable: use the plain lines */ }
-    return DEFAULT_LINES[lang];
-  }, [desire, lang, makeAffirmations, zh]);
+    return withOwn(DEFAULT_LINES[lang]);
+  }, [desire, lang, makeAffirmations, ownKey, zh]);
 
   const fetchLine = useCallback(async (text: string): Promise<Blob> => {
     const key = await cacheKey(owner, text);

@@ -63,6 +63,7 @@ import { formatGreeting, pickGreeting } from "@/lib/greetings";
 import { pickQuote, type Quote } from "@/lib/quotes";
 import { buildExportZip, exportFileName } from "@/lib/export-archive";
 import { getDeviceSessionId } from "@/lib/device-session";
+import { mergeSpaces } from "@/lib/space-merge";
 import DoughLineMark from "../components/DoughLineMark";
 import { CompanionIcon, DreamscapeIcon, HistoryIcon, ReviseIcon, StoriesIcon, VisionIcon } from "../components/NavIcons";
 
@@ -153,6 +154,12 @@ type SearchImage = { title: string; image: string; source: string; credit: strin
 type ImageSearchPlan = { original: string; translated: string; queries: string[] };
 type BetaStatus = { authenticated: boolean; enabled?: boolean; totalRequests?: number; totalTokens?: number };
 
+/** The reframe reply is the new thought on its first line, optionally followed by one short new reading. */
+const splitThought = (text: string) => {
+  const [thought = "", ...rest] = text.trim().split(/\n+/).map((line) => line.trim()).filter(Boolean);
+  return { thought, reading: rest.join(" ") };
+};
+
 const emptyStoryDraft: StoryDraft = { title: "", city: "", subtitle: "", scene: "", anchor: "" };
 const emptyMemoryDraft: MemoryDraft = { kind: "insight", title: "", detail: "", keywords: "" };
 const emptyStory: Story = {
@@ -194,6 +201,12 @@ const defaultGoal: GoalProfile = {
 
 const MAX_BELIEFS = 12;
 const MAX_GOALS = 30;
+/** Device storage key for the copy last agreed with the cloud (the base of the three-way merge). */
+const SYNC_BASE_KEY = "already-sync-base-v1";
+/** How many stories one person can keep. One place to change it when membership tiers set their own limits. */
+const MAX_STORIES = 30;
+/** Paragraphs kept per story; long enough for a full script. */
+const MAX_STORY_PARAGRAPHS = 20;
 const intensityLabels: Record<Lang, string[]> = {
   zh: ["有也不错", "想要", "很想要", "特别想要", "最想要"],
   en: ["Nice to have", "Want it", "Really want it", "Want it a lot", "Want it most"],
@@ -289,18 +302,18 @@ const ui = {
   zh: {
     day: "第 1 天", greeting: "欢迎回来", hero: <>你无须说服任何人。<br />回到你已经选择的故事里。</>, wish: "我的愿望", happened: "已经发生", start: "开始对话",
     newStory: "你的新故事", moment: "今天想进入哪个时刻？", enter: "进入故事", returnBelief: "快速回到信念", need: "此刻，你需要什么？", talk: "和陪伴者说说话", quiet: "让怀疑停止扩音", rewrite: "重写这一刻", accept: "接纳你选择的新版本",
-    companion: "信念陪伴者", here: "我在这里", companionCopy: "把旧故事交出来。AI 会结合你的当前愿望、限制性信念和最近旅程，陪你回到选择的版本。", chatPlaceholder: "写下此刻冒出的念头……",
-    previous: "← 上一个", next: "下一个故事 →", revisionTitle: "让这一刻按你的方式发生", revisionCopy: "旧版本只需出现一次。接纳后，我们只保留你的新故事。", oldLabel: "刚刚什么让你离开了新故事？", oldPlaceholder: "例如：一个结果、消息或眼前情况，让我开始怀疑自己的愿望……", makeRevision: "✶ 为我重写这一刻", chosen: "你选择的新版本", accepted: "已经接纳 ✓", acceptStory: "接纳为我的新故事", history: "已接纳",
+    companion: "信念陪伴者", here: "我在这里", companionCopy: "把此刻冒出来的念头说出来。AI 会结合你的当前愿望、旧念头和最近的练习，陪你回到愿望已经实现的样子。", chatPlaceholder: "写下此刻冒出的念头……",
+    previous: "← 上一个", next: "下一个故事 →", revisionTitle: "把这个念头转过来", revisionCopy: "把挡在愿望前面的那句话写下来。旧念头只需要出现一次，接纳后只留下新的那句。", oldLabel: "此刻冒出来的是哪一句？", oldPlaceholder: "例如：我既没钱又穷，也没有能拿到 3 万美金的条件。", makeRevision: "✶ 帮我转这个念头", turning: "正在转这个念头……", chosen: "你的新念头", accepted: "已经接纳 ✓", acceptStory: "接纳这个新念头", history: "我的新念头", toDreamscape: "带入声场",
     boardTitle: "收藏你正在走进的生活", boardCopy: "从授权真实摄影中寻觅灵感，或用自己的照片编织专属愿景板。不会使用 AI 生成图片。", realPhotos: "寻梦灵感", photoCopy: "在可商用授权的真实摄影中，寻找属于你的生活画面", searchPlaceholder: "例如：冬日旅行、理想的新家", searching: "寻觅中", search: "开始寻梦", collect: "＋ 收进我的愿景", manual: "或者添加你已经喜欢的素材", nameScene: "为这个画面命名", pasteLink: "粘贴任意网站的来源链接或图片直链", addLink: "添加链接", local: "从本机添加", source: "查看来源 ↗",
-    private: "我的空间", space: "我的已完成空间", privateCopy: "愿望、记忆、对话与练习支持跨设备同步", coreWish: "当前唯一愿望", tone: "陪伴语气", toneCopy: "温柔、坚定，不分析可能性，不用旧故事反驳新选择。", region: "使用范围", regionCopy: "提供中文与英文。", clear: "清除我的练习数据", confirm: "要清除云端与这台设备上保存的所有练习吗？", nav: ["陪伴", "故事", "重写", "愿景", "入梦声场"], ariaSettings: "打开私人设定", ariaNav: "主导航", send: "发送", activeGoal: "当前愿望", beliefs: "限制性信念地图", memory: "AI 旅程摘要", saveGoal: "保存更改", savedGoal: "更改已保存", generating: "AI 正在进入这个场景……", generateStory: "✶ 为这一刻生成专属故事", aiReady: "AI 已连接", aiSetup: "AI 暂时没有回应", trust: "AI 与安全说明",
+    private: "我的空间", space: "我的已完成空间", privateCopy: "愿望、记忆、对话与练习支持跨设备同步", coreWish: "当前唯一愿望", tone: "陪伴语气", toneCopy: "温柔、坚定，不分析可能性，不用旧故事反驳新选择。", region: "使用范围", regionCopy: "提供中文与英文。", clear: "清除我的练习数据", confirm: "要清除云端与这台设备上保存的所有练习吗？", nav: ["陪伴", "故事", "转念", "愿景", "入梦声场"], ariaSettings: "打开私人设定", ariaNav: "主导航", send: "发送", activeGoal: "当前愿望", beliefs: "限制性信念地图", memory: "AI 旅程摘要", saveGoal: "保存更改", savedGoal: "更改已保存", generating: "AI 正在写这个故事……", generateStory: "✶ 让 AI 展开这个故事", aiReady: "AI 已连接", aiSetup: "AI 暂时没有回应", trust: "AI 与安全说明",
   },
   en: {
     day: "DAY 1", greeting: "Welcome back", hero: <>You do not need to convince anyone.<br />Return to the story you have already chosen.</>, wish: "MY DESIRE", happened: "ALREADY MINE", start: "Begin today’s practice",
     newStory: "YOUR NEW STORY", moment: "Which moment will you enter today?", enter: "Enter the story", returnBelief: "RETURN TO KNOWING", need: "What do you need right now?", talk: "Talk with your companion", quiet: "Turn down the volume of doubt", rewrite: "Revise this moment", accept: "Choose the version that belongs to you",
-    companion: "BELIEF COMPANION · GLOBAL BETA", here: "I’m here", companionCopy: "Give me the old story. Your AI uses your active desire, belief map, and recent journey to bring you back to the version you chose.", chatPlaceholder: "Write the thought that just appeared…",
-    previous: "← Previous", next: "Next story →", revisionTitle: "Let this moment happen your way", revisionCopy: "The old version only needs to appear once. After revision, we keep your new story.", oldLabel: "What just pulled you away from your new story?", oldPlaceholder: "For example: A result, message, or present circumstance made me doubt my desire…", makeRevision: "✶ Revise this moment for me", chosen: "THE VERSION YOU CHOOSE", accepted: "Accepted ✓", acceptStory: "Accept as my new story", history: "ACCEPTED",
+    companion: "BELIEF COMPANION · GLOBAL BETA", here: "I’m here", companionCopy: "Tell me the thought that is here right now. Your AI uses your active desire, your old thoughts, and your recent practice to bring you back to your desire already fulfilled.", chatPlaceholder: "Write the thought that just appeared…",
+    previous: "← Previous", next: "Next story →", revisionTitle: "Turn this thought around", revisionCopy: "Write down the line standing in front of your desire. The old thought only needs to appear once; once you accept, only the new one stays.", oldLabel: "Which thought just came up?", oldPlaceholder: "For example: I am broke, and nothing in my life could bring me $30,000.", makeRevision: "✶ Turn this thought for me", turning: "Turning this thought…", chosen: "YOUR NEW THOUGHT", accepted: "Accepted ✓", acceptStory: "Accept this new thought", history: "MY NEW THOUGHTS", toDreamscape: "Take to Dreamscape",
     boardTitle: "Collect the life you are entering", boardCopy: "Discover inspiration in licensed real photography, or weave a personal vision board from your own photos. No AI-generated imagery.", realPhotos: "Discover Dreamscapes", photoCopy: "Find the life you imagine through commercially licensed real photography", searchPlaceholder: "e.g. winter travel, dream home", searching: "Dreaming", search: "Discover", collect: "+ Keep in my vision", manual: "or add something you already love", nameScene: "Name this scene", pasteLink: "Paste any source link or direct image URL", addLink: "Add link", local: "Upload", source: "View source ↗",
-    private: "PRIVATE SPACE · GLOBAL BETA", space: "My already-done space", privateCopy: "Your desire card, journey summary, chats, and revisions can sync across devices.", coreWish: "ONE ACTIVE DESIRE", tone: "COMPANION TONE", toneCopy: "Gentle and certain. It does not debate possibility or use the old story against your new choice.", region: "BETA REGION", regionCopy: "Available in Chinese and English.", clear: "Clear practice data on this device", confirm: "Clear all practice data saved on this device?", nav: ["Companion", "Stories", "Revise", "Vision", "Dreamscape"], ariaSettings: "Open private settings", ariaNav: "Main navigation", send: "Send", activeGoal: "ACTIVE GOAL", beliefs: "LIMITING-BELIEF MAP", memory: "AI JOURNEY SUMMARY", saveGoal: "Save active desire card", savedGoal: "Desire card saved", generating: "Your AI is entering this scene…", generateStory: "✶ Create my personal story", aiReady: "LIVE AI", aiSetup: "AI isn’t responding right now", trust: "AI & Safety Notice",
+    private: "PRIVATE SPACE · GLOBAL BETA", space: "My already-done space", privateCopy: "Your desire card, journey summary, chats, and revisions can sync across devices.", coreWish: "ONE ACTIVE DESIRE", tone: "COMPANION TONE", toneCopy: "Gentle and certain. It does not debate possibility or use the old story against your new choice.", region: "BETA REGION", regionCopy: "Available in Chinese and English.", clear: "Clear practice data on this device", confirm: "Clear all practice data saved on this device?", nav: ["Companion", "Stories", "Reframe", "Vision", "Dreamscape"], ariaSettings: "Open private settings", ariaNav: "Main navigation", send: "Send", activeGoal: "ACTIVE GOAL", beliefs: "LIMITING-BELIEF MAP", memory: "AI JOURNEY SUMMARY", saveGoal: "Save active desire card", savedGoal: "Desire card saved", generating: "Your AI is writing this story…", generateStory: "✶ Let AI expand this story", aiReady: "LIVE AI", aiSetup: "AI isn’t responding right now", trust: "AI & Safety Notice",
   },
 };
 
@@ -342,6 +355,10 @@ export default function Home() {
   // Version of the cloud copy this device last loaded or saved. Saves are sent on top of it, so a stale device can't overwrite newer work.
   const cloudRevisionRef = useRef<number | null>(null);
   const restoreSpaceRef = useRef<((data: Record<string, unknown>) => void) | null>(null);
+  // The copy this device last agreed with the cloud, and what it holds now. A newer cloud copy is merged
+  // against these three ways (see lib/space-merge), so work done here is never dropped by another device's save.
+  const syncBaseRef = useRef<Record<string, unknown> | null>(null);
+  const latestSpaceRef = useRef<Record<string, unknown> | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [aiConnected, setAiConnected] = useState<boolean | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -358,7 +375,11 @@ export default function Home() {
   const [oldScene, setOldScene] = useState("");
   const [rewritingBelief, setRewritingBelief] = useState("");
   const [newScene, setNewScene] = useState("");
+  /** A new thought taken into Dreamscape; when empty, Dreamscape shows the latest accepted scene. */
+  const [focusThought, setFocusThought] = useState("");
   const [generatedStory, setGeneratedStory] = useState("");
+  /** The generated story already saved as a card, so one click can't save it twice. */
+  const [savedGeneratedStory, setSavedGeneratedStory] = useState("");
   const [storyGenerating, setStoryGenerating] = useState(false);
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [board, setBoard] = useState<BoardItem[]>([]);
@@ -634,7 +655,7 @@ export default function Home() {
         setBeliefDraft((restoredGoal.beliefs[restoredLang] || []).join("\n"));
       }
       if (data.profile) setProfile(normalizeProfile(data.profile));
-      if (Array.isArray(data.storyLibrary)) setStoryLibrary((data.storyLibrary as Story[]).slice(0, 6));
+      if (Array.isArray(data.storyLibrary)) setStoryLibrary((data.storyLibrary as Story[]).slice(0, MAX_STORIES));
       if (Array.isArray(data.goalArchive)) setGoalArchive((data.goalArchive as GoalProfile[]).slice(0, 20));
       if (Array.isArray(data.otherGoals)) setOtherGoals((data.otherGoals as Partial<GoalProfile>[]).filter((item) => item?.setupComplete && item.desire && item.beliefs && item.id).map(normalizeGoal).slice(0, MAX_GOALS));
       if (Array.isArray(data.messages)) setMessages(normalizeMessages(data.messages));
@@ -648,6 +669,10 @@ export default function Home() {
     const activeSession = getDeviceSessionId();
     setSessionId(activeSession);
     try {
+      const base = JSON.parse(readStored(SYNC_BASE_KEY) || "null") as { sessionId?: string; space?: Record<string, unknown> } | null;
+      if (base?.sessionId === activeSession && base.space) syncBaseRef.current = base.space;
+    } catch { /* no agreed copy yet: the first merge keeps everything from both sides */ }
+    try {
       const saved = readStored("already-private-state-v5");
       if (saved) restore(JSON.parse(saved));
       const savedCheckIns = readStored("already-practice-checkins-v1");
@@ -660,7 +685,7 @@ export default function Home() {
         .then(async (response) => ({ response, data: await response.json() as { space?: Record<string, unknown> | null; revision?: number } }))
         .then(({ response, data }) => {
           if (response.ok) cloudRevisionRef.current = data.space ? data.revision ?? 0 : 0;
-          if (response.ok && data.space) restore(data.space);
+          if (response.ok && data.space) applyCloudSpace(data.space, data.revision ?? 0);
           setSyncStatus(response.ok ? "saved" : "offline");
         })
         .catch(() => setSyncStatus("offline"))
@@ -702,6 +727,16 @@ export default function Home() {
     return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", resetTick); };
   }, [hydrated]);
 
+  /** Take in a cloud copy: merge it with this device's work against the last agreed copy, then show the result. */
+  const applyCloudSpace = (cloud: Record<string, unknown>, revision: number) => {
+    const local = latestSpaceRef.current;
+    const merged = local ? mergeSpaces(syncBaseRef.current, local, cloud) : cloud;
+    cloudRevisionRef.current = revision;
+    syncBaseRef.current = cloud;
+    writeStored(SYNC_BASE_KEY, JSON.stringify({ sessionId: getDeviceSessionId(), revision, space: cloud }));
+    restoreSpaceRef.current?.(merged);
+  };
+
   /** Load the newest cloud copy when another device saved after this one (on returning to the app, or when a save was refused as stale). */
   const pullCloudSpace = (force = false) => {
     if (!sessionId || sessionId === "local-beta") return;
@@ -710,8 +745,7 @@ export default function Home() {
       .then((data) => {
         if (!data?.space || typeof data.revision !== "number") return;
         if (!force && cloudRevisionRef.current !== null && data.revision <= cloudRevisionRef.current) return;
-        cloudRevisionRef.current = data.revision;
-        restoreSpaceRef.current?.(data.space);
+        applyCloudSpace(data.space, data.revision);
         setSyncStatus("saved");
       })
       .catch(() => setSyncStatus("offline"));
@@ -729,8 +763,10 @@ export default function Home() {
     if (!hydrated) return;
     const space = { lang, goal, goalArchive: goalArchive.slice(0, 20), otherGoals: otherGoals.slice(0, MAX_GOALS), conversationId, conversationArchive: conversationArchive.slice(0, 30), messages: messages.slice(-80), revisions: revisions.slice(0, 20), board, storyLibrary, checkIns, profile };
     writeStored("already-private-state-v5", JSON.stringify(space));
+    latestSpaceRef.current = JSON.parse(JSON.stringify(space));
     document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
     if (!cloudReady) return;
+    if (syncBaseRef.current && JSON.stringify(syncBaseRef.current) === JSON.stringify(space)) return; // nothing new to save
     const timeout = window.setTimeout(() => {
       setSyncStatus("saving");
       const baseRevision = cloudRevisionRef.current;
@@ -738,7 +774,11 @@ export default function Home() {
         .then(async (response) => {
           if (response.status === 409) { pullCloudSpace(true); return; }
           const data = await response.json().catch(() => ({})) as { revision?: number };
-          if (response.ok && typeof data.revision === "number") cloudRevisionRef.current = data.revision;
+          if (response.ok && typeof data.revision === "number") {
+            cloudRevisionRef.current = data.revision;
+            syncBaseRef.current = JSON.parse(JSON.stringify(space));
+            writeStored(SYNC_BASE_KEY, JSON.stringify({ sessionId, revision: data.revision, space }));
+          }
           setSyncStatus(response.ok ? "saved" : "offline");
         })
         .catch(() => setSyncStatus("offline"));
@@ -1121,8 +1161,8 @@ export default function Home() {
   };
 
   const saveReplyAsStory = (message: Message) => {
-    if (storyLibrary.length >= 6) { setView("story"); return; }
-    const paragraphs = message.text.split(/\n+/).map((item) => item.trim()).filter(Boolean).slice(0, 6);
+    if (storyLibrary.length >= MAX_STORIES) { setView("story"); return; }
+    const paragraphs = message.text.split(/\n+/).map((item) => item.trim()).filter(Boolean).slice(0, MAX_STORY_PARAGRAPHS);
     const title = paragraphs[0]?.slice(0, 24) || (lang === "zh" ? "来自陪伴者的故事" : "A story from my companion");
     const created: Story = {
       id: crypto.randomUUID(),
@@ -1167,8 +1207,23 @@ export default function Home() {
     } finally { setStoryGenerating(false); }
   };
 
+  /** Keep the AI-written story as a new card in the library, and as an accepted scene the AI treats as already done. */
   const acceptGeneratedStory = () => {
-    if (!generatedStory.trim()) return;
+    if (!generatedStory.trim() || storyLibrary.length >= MAX_STORIES || savedGeneratedStory === generatedStory) return;
+    setSavedGeneratedStory(generatedStory);
+    const paragraphs = generatedStory.split(/\n+/).map((item) => item.trim()).filter(Boolean).slice(0, MAX_STORY_PARAGRAPHS);
+    const baseTitle = currentStory.title[lang] || (lang === "zh" ? "我的新故事" : "My new story");
+    const title = `${baseTitle}${lang === "zh" ? " · 展开" : " · expanded"}`.slice(0, 42);
+    const created: Story = {
+      id: crypto.randomUUID(),
+      title: { zh: lang === "zh" ? title : currentStory.title.zh, en: lang === "en" ? title : currentStory.title.en },
+      city: { ...currentStory.city },
+      subtitle: { zh: "", en: "" },
+      text: { zh: lang === "zh" ? paragraphs : currentStory.text.zh, en: lang === "en" ? paragraphs : currentStory.text.en },
+      anchor: { ...currentStory.anchor },
+      tone: ["nyc", "snow", "seoul"][storyLibrary.length % 3] as Story["tone"],
+    };
+    setStoryLibrary((items) => [...items, created]);
     setGoal((current) => {
       const compact = generatedStory.trim().slice(0, 900);
       const existing = current.acceptedSceneLedger[lang].filter((item) => item !== compact);
@@ -1216,14 +1271,8 @@ export default function Home() {
     if (!newScene) return;
     if (rewritingBelief && oldScene.trim() === rewritingBelief.trim()) removeBelief(rewritingBelief);
     setRewritingBelief("");
+    // A new thought is kept with the other new thoughts (and reaches the AI as recentRevisions); it is not a scene, so it stays out of the accepted-scene ledger.
     setRevisions((items) => [{ id: nextLocalId(), old: oldScene, revised: newScene, date: new Date().toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US") }, ...items]);
-    setGoal((current) => ({
-      ...current,
-      acceptedSceneLedger: {
-        ...current.acceptedSceneLedger,
-        [lang]: [newScene.slice(0, 500), ...current.acceptedSceneLedger[lang]].slice(0, 8),
-      },
-    }));
     setOldScene(""); setNewScene(""); setSavedPulse(true);
     window.setTimeout(() => setSavedPulse(false), 1800);
   };
@@ -1299,7 +1348,7 @@ export default function Home() {
 
   const saveStory = () => {
     if (!storyDraft.title.trim() || !storyDraft.scene.trim()) return;
-    const paragraphs = storyDraft.scene.split(/\n+/).map((item) => item.trim()).filter(Boolean).slice(0, 6);
+    const paragraphs = storyDraft.scene.split(/\n+/).map((item) => item.trim()).filter(Boolean).slice(0, MAX_STORY_PARAGRAPHS);
     if (storyEditingId) {
       setStoryLibrary((items) => items.map((story) => story.id === storyEditingId ? {
         ...story,
@@ -1310,7 +1359,7 @@ export default function Home() {
         anchor: { ...story.anchor, [lang]: storyDraft.anchor.trim() },
         sample: false,
       } : story));
-    } else if (storyLibrary.length < 6) {
+    } else if (storyLibrary.length < MAX_STORIES) {
       const fallback = lang === "zh" ? "我的新故事" : "My New Story";
       const created: Story = {
         id: crypto.randomUUID(),
@@ -1636,7 +1685,7 @@ export default function Home() {
         <div className="home-ai-thread">
           {sessionMessages.map((message, index) => <div className={`message-group ${message.role}`} key={message.id}><div className={`message ${message.role}`}>{message.text}</div><div className="message-actions">
             <button onClick={() => navigator.clipboard.writeText(message.text)} aria-label={lang === "zh" ? "复制" : "Copy"}><Copy size={15}/><span>{lang === "zh" ? "复制" : "Copy"}</span></button>
-            {message.role === "user" ? <button onClick={() => editUserMessage(index)}><NotePencil size={15}/><span>{lang === "zh" ? "编辑并重发" : "Edit and resend"}</span></button> : <><button onClick={() => regenerateReply(index)}><ArrowClockwise size={15}/><span>{lang === "zh" ? "重新回答" : "Regenerate"}</span></button><button onClick={() => saveReplyAsStory(message)}><BookmarkSimple size={15}/><span>{message.saved ? (lang === "zh" ? "已保存" : "Saved") : (lang === "zh" ? "存为故事" : "Save as story")}</span></button><button onClick={() => { setOldScene(message.text); setView("revision"); }}><ArrowsClockwise size={15}/><span>{lang === "zh" ? "带入重写" : "Take to revision"}</span></button><button onClick={() => { setGoal((current) => ({ ...current, acceptedSceneLedger: { ...current.acceptedSceneLedger, [lang]: [message.text.slice(0, 500), ...current.acceptedSceneLedger[lang]].slice(0, 8) } })); setView("subliminal"); }}><Waveform size={15}/><span>{lang === "zh" ? "带入声场" : "Take to Dreamscape"}</span></button><button className={message.feedback === "helpful" ? "selected" : ""} onClick={() => feedbackReply(message, "helpful")}><ThumbsUp size={15}/><span>{lang === "zh" ? "懂我" : "Helpful"}</span></button><button className={message.feedback === "missed" ? "selected" : ""} onClick={() => feedbackReply(message, "missed")}><ThumbsDown size={15}/><span>{lang === "zh" ? "不适合" : "Not for me"}</span></button><ReportButton lang={lang} onClick={() => setReportTarget({ excerpt: message.text })}/></>}
+            {message.role === "user" ? <><button onClick={() => editUserMessage(index)}><NotePencil size={15}/><span>{lang === "zh" ? "编辑并重发" : "Edit and resend"}</span></button><button onClick={() => { setOldScene(message.text); setNewScene(""); setRewritingBelief(""); setView("revision"); }}><ArrowsClockwise size={15}/><span>{lang === "zh" ? "带去转念" : "Reframe this"}</span></button></> : <><button onClick={() => regenerateReply(index)}><ArrowClockwise size={15}/><span>{lang === "zh" ? "重新回答" : "Regenerate"}</span></button><button onClick={() => saveReplyAsStory(message)}><BookmarkSimple size={15}/><span>{message.saved ? (lang === "zh" ? "已保存" : "Saved") : (lang === "zh" ? "存为故事" : "Save as story")}</span></button><button onClick={() => { setFocusThought(""); setGoal((current) => ({ ...current, acceptedSceneLedger: { ...current.acceptedSceneLedger, [lang]: [message.text.slice(0, 500), ...current.acceptedSceneLedger[lang]].slice(0, 8) } })); setView("subliminal"); }}><Waveform size={15}/><span>{lang === "zh" ? "带入声场" : "Take to Dreamscape"}</span></button><button className={message.feedback === "helpful" ? "selected" : ""} onClick={() => feedbackReply(message, "helpful")}><ThumbsUp size={15}/><span>{lang === "zh" ? "懂我" : "Helpful"}</span></button><button className={message.feedback === "missed" ? "selected" : ""} onClick={() => feedbackReply(message, "missed")}><ThumbsDown size={15}/><span>{lang === "zh" ? "不适合" : "Not for me"}</span></button><ReportButton lang={lang} onClick={() => setReportTarget({ excerpt: message.text })}/></>}
           </div></div>)}
           {isTyping && <div className="message ai typing"><i/><i/><i/></div>}
         </div>
@@ -1657,11 +1706,12 @@ export default function Home() {
           const reply = await callCompanion("chat", ask, undefined, []);
           return (reply || "").split(/\r?\n/).map((line) => line.replace(/^[\s\-*\d.、)）]+/, "").trim()).filter(Boolean);
         }}
+        ownLines={(focusThought ? [focusThought] : []).concat(revisions.map((item) => splitThought(item.revised).thought)).filter((line, index, all) => line && all.indexOf(line) === index)}
         onOpenStudio={() => setStudioOpen(true)}
       />}
       {view === "subliminal" && studioOpen && <>
         <button type="button" className="dream-studio-back" onClick={() => setStudioOpen(false)}>{lang === "zh" ? "返回入梦声场" : "Back to Dreamscape"}</button>
-        <SubliminalStudio lang={lang} desire={goal.desire[lang]} focusText={goal.acceptedSceneLedger[lang][0]} checkIns={checkIns} onCheckIn={recordCheckIn}/>
+        <SubliminalStudio lang={lang} desire={goal.desire[lang]} focusText={focusThought || goal.acceptedSceneLedger[lang][0]} focusKind={focusThought ? "thought" : "scene"} checkIns={checkIns} onCheckIn={recordCheckIn}/>
       </>}
 
       {memoryEditorOpen && <div className="memory-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setMemoryEditorOpen(false); }}><section className="memory-modal" role="dialog" aria-modal="true" aria-labelledby="memory-editor-title"><header><div><p className="eyebrow">{lang === "zh" ? "由你决定保留什么" : "YOU CHOOSE WHAT STAYS"}</p><h2 id="memory-editor-title">{memoryEditingId ? (lang === "zh" ? "编辑这条记忆" : "Edit this memory") : (lang === "zh" ? "添加一条记忆" : "Add a memory")}</h2></div><button onClick={() => setMemoryEditorOpen(false)} aria-label={lang === "zh" ? "关闭" : "Close"}>×</button></header><label><span>{lang === "zh" ? "类型" : "TYPE"}</span><select value={memoryDraft.kind} onChange={(event) => setMemoryDraft((current) => ({ ...current, kind: event.target.value as MemoryKind }))}>{memoryKinds.map((kind) => <option key={kind.id} value={kind.id}>{lang === "zh" ? kind.zh : kind.en}</option>)}</select></label><label><span>{lang === "zh" ? "标题" : "TITLE"}</span><input maxLength={80} value={memoryDraft.title} onChange={(event) => setMemoryDraft((current) => ({ ...current, title: event.target.value }))} placeholder={lang === "zh" ? "例如：我喜欢先被理解" : "For example: Meet the feeling first"}/></label><label><span>{lang === "zh" ? "具体内容" : "DETAIL"}</span><textarea maxLength={600} value={memoryDraft.detail} onChange={(event) => setMemoryDraft((current) => ({ ...current, detail: event.target.value }))} placeholder={lang === "zh" ? "写下以后对话中仍然有用的语境。" : "Write the context that will still matter later."}/></label><label><span>{lang === "zh" ? "检索词" : "KEYWORDS"}</span><input value={memoryDraft.keywords} onChange={(event) => setMemoryDraft((current) => ({ ...current, keywords: event.target.value }))} placeholder={lang === "zh" ? "用逗号分隔，最多 5 个" : "Comma-separated, up to 5"}/></label><footer><button className="outline-button" onClick={() => setMemoryEditorOpen(false)}>{lang === "zh" ? "取消" : "Cancel"}</button><button className="primary" disabled={!memoryDraft.title.trim() || !memoryDraft.detail.trim()} onClick={saveMemoryItem}>{lang === "zh" ? "保存到记忆库" : "Save to memory"}</button></footer></section></div>}
@@ -1669,13 +1719,13 @@ export default function Home() {
 
       {view === "story" && !storyReading && <section className="full-view story-library-view">
         <div className="view-heading"><p className="eyebrow">{lang === "zh" ? "你的故事库" : "YOUR STORY LIBRARY"}</p><h1>{lang === "zh" ? "写下已经发生的生活" : "Write the life already lived"}</h1><p>{lang === "zh" ? "每个故事都是一个可以反复进入、随时编辑的完成态场景。" : "Each story is a fulfilled scene you can revisit and edit at any time."}</p></div>
-        <div className="story-library-meta"><span>{storyLibrary.length} / 6</span><small>{lang === "zh" ? "最多保存 6 个故事" : "Up to 6 saved stories"}</small></div>
+        <div className="story-library-meta"><span>{storyLibrary.length} / {MAX_STORIES}</span><small>{lang === "zh" ? `最多保存 ${MAX_STORIES} 个故事` : `Up to ${MAX_STORIES} saved stories`}</small></div>
         <div className="story-library-grid">
           {storyLibrary.map((story, index) => <article className="story-library-card" key={story.id}>
             <button className={`story-card-cover ${story.tone}`} onClick={() => { setStoryIndex(index); setStoryReading(true); setGeneratedStory(""); }}><span>{story.city[lang]}</span><strong>{story.title[lang]}</strong></button>
             <div><p>{story.subtitle[lang] || story.text[lang][0]}</p><div className="story-card-actions"><button onClick={() => openStoryEditor(story)}><PencilSimple size={17}/>{lang === "zh" ? "编辑" : "Edit"}</button><button onClick={() => deleteStory(story.id)}><Trash size={17}/>{lang === "zh" ? "删除" : "Delete"}</button></div></div>
           </article>)}
-          {storyLibrary.length < 6 && <button className="story-add-card" onClick={() => openStoryEditor()}><span><Plus size={28}/></span><strong>{lang === "zh" ? "添加新故事" : "Add a story"}</strong><small>{lang === "zh" ? "地点、场景和感受都由你决定" : "Choose the place, scene, and feeling"}</small></button>}
+          {storyLibrary.length < MAX_STORIES && <button className="story-add-card" onClick={() => openStoryEditor()}><span><Plus size={28}/></span><strong>{lang === "zh" ? "添加新故事" : "Add a story"}</strong><small>{lang === "zh" ? "地点、场景和感受都由你决定" : "Choose the place, scene, and feeling"}</small></button>}
         </div>
       </section>}
 
@@ -1684,18 +1734,18 @@ export default function Home() {
         <article className="story-body">{storyText.map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>)}{currentStory.anchor[lang] && <blockquote>{currentStory.anchor[lang]}</blockquote>}</article>
         <div className="personal-story-action story-reader-actions"><button onClick={() => setStoryReading(false)}>{lang === "zh" ? "返回故事库" : "Back to stories"}</button><button onClick={() => openStoryEditor(currentStory)}><PencilSimple size={17}/>{lang === "zh" ? "编辑故事" : "Edit story"}</button><button className="primary" onClick={makeStory} disabled={storyGenerating}>{storyGenerating ? t.generating : t.generateStory}</button></div>
         {aiError && <div className="ai-notice story-ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
-        {generatedStory && <article className="generated-story"><span>AI PERSONAL STORY</span>{generatedStory.split(/\n+/).filter(Boolean).map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>)}<button className="outline-button" onClick={acceptGeneratedStory}>{savedPulse ? (lang === "zh" ? "已收进长期故事 ✓" : "Saved to your story memory ✓") : (lang === "zh" ? "收进我的长期故事" : "Keep in my story memory")}</button></article>}
+        {generatedStory && <article className="generated-story"><span>AI PERSONAL STORY</span>{generatedStory.split(/\n+/).filter(Boolean).map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>)}<button className="outline-button" onClick={acceptGeneratedStory} disabled={savedGeneratedStory === generatedStory || storyLibrary.length >= MAX_STORIES}>{savedGeneratedStory === generatedStory ? (lang === "zh" ? "已存成新故事 ✓" : "Saved as a new story ✓") : storyLibrary.length >= MAX_STORIES ? (lang === "zh" ? `故事库已满（${MAX_STORIES} 个）` : `Story library is full (${MAX_STORIES})`) : (lang === "zh" ? "存成一个新故事" : "Save as a new story")}</button></article>}
         {storyLibrary.length > 1 && <div className="story-controls"><button onClick={() => { setStoryIndex((storyIndex - 1 + storyLibrary.length) % storyLibrary.length); setGeneratedStory(""); setAiError(""); }}>{t.previous}</button><button className="dark-button" onClick={() => { setStoryIndex((storyIndex + 1) % storyLibrary.length); setGeneratedStory(""); setAiError(""); }}>{t.next}</button></div>}
       </section>}
 
       {view === "revision" && <section className="full-view revision-view">
-        <div className="view-heading"><p className="eyebrow">{lang === "zh" ? "重写这一刻" : "REVISION STUDIO"}</p><h1>{t.revisionTitle}</h1><p>{t.revisionCopy}</p></div>
+        <div className="view-heading"><p className="eyebrow">{lang === "zh" ? "转念" : "REFRAME"}</p><h1>{t.revisionTitle}</h1><p>{t.revisionCopy}</p></div>
         <label className="field-label">{t.oldLabel}</label>
         <textarea value={oldScene} onChange={(e) => setOldScene(e.target.value)} placeholder={t.oldPlaceholder} />
-        <button className="primary" onClick={makeRevision} disabled={isTyping}>{isTyping ? t.generating : t.makeRevision}</button>
+        <button className="primary" onClick={makeRevision} disabled={isTyping}>{isTyping ? t.turning : t.makeRevision}</button>
         {aiError && <div className="ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
-        {newScene && <div className="revised-card"><span>{t.chosen}</span><p>{newScene}</p><button onClick={acceptRevision}>{savedPulse ? t.accepted : t.acceptStory}</button></div>}
-        {revisions.length > 0 && <div className="revision-history"><p className="eyebrow">{t.history}</p>{revisions.slice(0, 4).map((item) => <div key={item.id}><span>{item.date}</span><p>{item.revised}</p></div>)}</div>}
+        {newScene && <div className="revised-card"><span>{t.chosen}</span><p>{splitThought(newScene).thought}</p>{splitThought(newScene).reading && <small className="new-thought-reading">{splitThought(newScene).reading}</small>}<button onClick={acceptRevision}>{savedPulse ? t.accepted : t.acceptStory}</button></div>}
+        {revisions.length > 0 && <div className="revision-history"><p className="eyebrow">{t.history}</p>{revisions.slice(0, 8).map((item) => <div key={item.id}><span>{item.date}</span><p>{splitThought(item.revised).thought}</p><button type="button" className="revision-to-dreamscape" onClick={() => { setFocusThought(splitThought(item.revised).thought); setStudioOpen(false); setView("subliminal"); }}><Waveform size={15}/>{t.toDreamscape}</button></div>)}</div>}
       </section>}
 
       {view === "board" && <section className="full-view board-view">
@@ -1764,8 +1814,8 @@ export default function Home() {
                   </section>
                   <section className="profile-card">
                     <h3>{lang === "zh" ? "想换掉的念头" : "Thoughts to turn around"}</h3>
-                    <p className="profile-sub">{lang === "zh" ? "反复冒出来、想换掉的旧念头。点「转念」会带去重写，写好新版本后，这一句就从这里拿掉。" : "Old thoughts that keep coming back. Tap Turn it to take one into Revision; once you accept the new version, it leaves this list."}</p>
-                    {parseBeliefs(beliefDraft).length ? <ul className="thought-rows">{parseBeliefs(beliefDraft).map((item, index) => <li key={`${index}-${item}`}><span>{item}</span><button type="button" className="thought-turn" onClick={() => turnBelief(item)}>{lang === "zh" ? "转念" : "Turn it"}</button><button type="button" className="profile-remove" aria-label={lang === "zh" ? `删除：${item}` : `Delete: ${item}`} onClick={() => removeBeliefWithUndo(item)}><X size={16}/></button></li>)}</ul> : <p className="setting-empty">{lang === "zh" ? "还没有写下想换掉的念头。" : "Nothing written here yet."}</p>}
+                    <p className="profile-sub">{lang === "zh" ? "反复冒出来、想换掉的旧念头。点「转念」就能把它转成一句新念头，接纳以后，这一句就从这里拿掉。" : "Old thoughts that keep coming back. Tap Reframe to turn one into a new thought; once you accept it, the old one leaves this list."}</p>
+                    {parseBeliefs(beliefDraft).length ? <ul className="thought-rows">{parseBeliefs(beliefDraft).map((item, index) => <li key={`${index}-${item}`}><span>{item}</span><button type="button" className="thought-turn" onClick={() => turnBelief(item)}>{lang === "zh" ? "转念" : "Reframe"}</button><button type="button" className="profile-remove" aria-label={lang === "zh" ? `删除：${item}` : `Delete: ${item}`} onClick={() => removeBeliefWithUndo(item)}><X size={16}/></button></li>)}</ul> : <p className="setting-empty">{lang === "zh" ? "还没有写下想换掉的念头。" : "Nothing written here yet."}</p>}
                     {beliefCount < MAX_BELIEFS && <div className="profile-topic-add"><input value={beliefInput} maxLength={200} onChange={(event) => setBeliefInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); addBelief(); } }} placeholder={lang === "zh" ? "例如：他根本不在乎我" : "e.g. They don't really care"} aria-label={lang === "zh" ? "添加一个想换掉的念头" : "Add a thought to turn around"}/><button type="button" className="profile-topic-plus" disabled={!beliefInput.trim()} onClick={addBelief}><Plus size={15}/> {lang === "zh" ? "添加" : "Add"}</button></div>}
                     <small className={`profile-count${beliefCount > MAX_BELIEFS ? " over" : ""}`}>{beliefCount} / {MAX_BELIEFS}</small>
                   </section>
@@ -1788,8 +1838,8 @@ export default function Home() {
                   </section>
                   <section className="profile-card">
                     <h3>{lang === "zh" ? `已接纳的新场景 · ${goal.acceptedSceneLedger[lang].length}` : `Accepted scenes · ${goal.acceptedSceneLedger[lang].length}`}</h3>
-                    <p className="profile-sub">{lang === "zh" ? "在故事或重写里接纳的版本。AlreaDough 会把它们当作已经发生的事，保留最近 8 条。点开看全文。" : "Versions you accepted in Stories or Revision. AlreaDough treats them as already done and keeps the latest 8. Tap to read in full."}</p>
-                    {goal.acceptedSceneLedger[lang].length ? <ul className="scene-rows">{goal.acceptedSceneLedger[lang].map((item, index) => <li key={`${index}-${item.slice(0, 24)}`}><button type="button" className={openScene === index ? "open" : ""} aria-expanded={openScene === index} onClick={() => setOpenScene(openScene === index ? null : index)}><span>{item}</span><CaretDown size={15}/></button></li>)}</ul> : <p className="setting-empty">{lang === "zh" ? "在故事或重写里接纳的场景会出现在这里。" : "Scenes you accept in Stories or Revision will appear here."}</p>}
+                    <p className="profile-sub">{lang === "zh" ? "在故事里接纳的场景。AlreaDough 会把它们当作已经发生的事，保留最近 8 条。点开看全文。" : "Scenes you accepted in Stories. AlreaDough treats them as already done and keeps the latest 8. Tap to read in full."}</p>
+                    {goal.acceptedSceneLedger[lang].length ? <ul className="scene-rows">{goal.acceptedSceneLedger[lang].map((item, index) => <li key={`${index}-${item.slice(0, 24)}`}><button type="button" className={openScene === index ? "open" : ""} aria-expanded={openScene === index} onClick={() => setOpenScene(openScene === index ? null : index)}><span>{item}</span><CaretDown size={15}/></button></li>)}</ul> : <p className="setting-empty">{lang === "zh" ? "在故事里接纳的场景会出现在这里。" : "Scenes you accept in Stories will appear here."}</p>}
                   </section>
                 </div>
               </div>}
@@ -1834,7 +1884,7 @@ export default function Home() {
                   <section className="profile-card data-danger">
                     <h3>{lang === "zh" ? "清除全部数据" : "Clear everything"}</h3>
                     <p className="profile-sub">{lang === "zh" ? "云端和这台设备上的愿望、对话、记忆、故事、照片与音频都会删除，不能恢复。需要的话先导出一份。" : "Desires, conversations, memories, stories, photos and audio in the cloud and on this device are deleted and cannot be recovered. Export a copy first if you want one."}</p>
-                    <div className="data-actions"><button type="button" className="data-danger-button" onClick={async () => { if (await askConfirm({ title: t.confirm, body: lang === "zh" ? "愿望、对话、记忆、故事和本机的照片与音频都会删除，不能恢复。" : "Desires, conversations, memories, stories, and this device's photos and audio will be deleted. This can't be undone.", confirmLabel: lang === "zh" ? "全部清除" : "Clear everything", cancelLabel: lang === "zh" ? "取消" : "Cancel" })) { void fetch("/api/space", { method: "DELETE", headers: { "x-already-session-id": sessionId } }); removeStored("already-private-state-v5"); removeStored("already-practice-checkins-v1"); removeStored("already-subliminal-v1"); removeStored("already-vision-project-v1"); indexedDB.deleteDatabase("already-private-audio-v1"); indexedDB.deleteDatabase("already-private-vision-v1"); removeStored("already-opening-v1"); setProfile(emptyProfile); setOtherGoals([]); setGoal({ ...defaultGoal }); setGoalArchive([]); setConversationArchive([]); setConversationId(""); setSpNameDraft(""); setBeliefDraft(""); setStoryLibrary([]); setMessages([]); setRevisions([]); setCheckIns([]); setBoard([]); setView("home"); setOnboardingStep(0); } }}><Trash size={16} /> {lang === "zh" ? "清除全部数据" : "Clear everything"}</button></div>
+                    <div className="data-actions"><button type="button" className="data-danger-button" onClick={async () => { if (await askConfirm({ title: t.confirm, body: lang === "zh" ? "愿望、对话、记忆、故事和本机的照片与音频都会删除，不能恢复。" : "Desires, conversations, memories, stories, and this device's photos and audio will be deleted. This can't be undone.", confirmLabel: lang === "zh" ? "全部清除" : "Clear everything", cancelLabel: lang === "zh" ? "取消" : "Cancel" })) { void fetch("/api/space", { method: "DELETE", headers: { "x-already-session-id": sessionId } }); removeStored("already-private-state-v5"); removeStored(SYNC_BASE_KEY); syncBaseRef.current = null; removeStored("already-practice-checkins-v1"); removeStored("already-subliminal-v1"); removeStored("already-vision-project-v1"); indexedDB.deleteDatabase("already-private-audio-v1"); indexedDB.deleteDatabase("already-private-vision-v1"); removeStored("already-opening-v1"); setProfile(emptyProfile); setOtherGoals([]); setGoal({ ...defaultGoal }); setGoalArchive([]); setConversationArchive([]); setConversationId(""); setSpNameDraft(""); setBeliefDraft(""); setStoryLibrary([]); setMessages([]); setRevisions([]); setCheckIns([]); setBoard([]); setView("home"); setOnboardingStep(0); } }}><Trash size={16} /> {lang === "zh" ? "清除全部数据" : "Clear everything"}</button></div>
                   </section>
                 </div>
               </div>}
@@ -1869,7 +1919,7 @@ export default function Home() {
       </section>
 
       {surveyOpen && <div className="survey-backdrop" role="presentation"><section className="beta-survey" role="dialog" aria-modal="true" aria-labelledby="beta-survey-title"><header><div><p className="eyebrow">10-MINUTE CHECK-IN</p><h2 id="beta-survey-title">{lang === "zh" ? "刚刚这十分钟，对你有帮助吗？" : "Did these ten minutes help?"}</h2><span>{lang === "zh" ? "四个简短问题，大约 30 秒。" : "Four quick questions, about 30 seconds."}</span></div><button type="button" onClick={dismissSurvey} aria-label={lang === "zh" ? "稍后再说" : "Ask me later"}>×</button></header><div className="survey-scroll"><fieldset><legend>{lang === "zh" ? "1. “我的愿望已经属于我”这件事，稳定感有多少？" : "1. How steady does “my desire is already mine” feel?"}</legend><div className="survey-pair"><label><span>{lang === "zh" ? "刚打开时" : "When I opened"}</span><SurveyScale value={surveyBefore} onChange={setSurveyBefore} lang={lang}/></label><label><span>{lang === "zh" ? "现在" : "Right now"}</span><SurveyScale value={surveyNow} onChange={setSurveyNow} lang={lang}/></label></div></fieldset><fieldset><legend>{lang === "zh" ? "2. AlreaDough 有没有在不否定愿望的情况下，真正理解你？" : "2. Did AlreaDough understand you without denying your desire?"}</legend><SurveyScale value={surveyUnderstood} onChange={setSurveyUnderstood} lang={lang}/></fieldset><fieldset><legend>{lang === "zh" ? "3. 下次动摇时，你有多愿意再次打开 AlreaDough？" : "3. How likely are you to open AlreaDough the next time doubt appears?"}</legend><SurveyScale value={surveyReturn} onChange={setSurveyReturn} lang={lang}/></fieldset><fieldset><legend>{lang === "zh" ? "4. 今天最帮到你的部分是什么？" : "4. What helped you most today?"}</legend><div className="survey-features">{[
-        ["chat", lang === "zh" ? "AI 对话" : "AI chat"], ["story", lang === "zh" ? "故事" : "Stories"], ["revision", lang === "zh" ? "重写" : "Revision"], ["audio", lang === "zh" ? "声音练习" : "Audio"], ["vision", lang === "zh" ? "愿景板" : "Vision board"], ["unsure", lang === "zh" ? "还不确定" : "Not sure yet"],
+        ["chat", lang === "zh" ? "AI 对话" : "AI chat"], ["story", lang === "zh" ? "故事" : "Stories"], ["revision", lang === "zh" ? "转念" : "Reframe"], ["audio", lang === "zh" ? "声音练习" : "Audio"], ["vision", lang === "zh" ? "愿景板" : "Vision board"], ["unsure", lang === "zh" ? "还不确定" : "Not sure yet"],
       ].map(([id, label]) => <button type="button" key={id} className={surveyFeature === id ? "selected" : ""} onClick={() => setSurveyFeature(id)}>{label}</button>)}</div></fieldset></div><footer><small>{lang === "zh" ? "只记录匿名选项，不保存你的愿望或聊天内容。" : "Only anonymous choices are recorded—never your desire or chat content."}</small><div><button type="button" className="survey-later" onClick={dismissSurvey}>{lang === "zh" ? "稍后再说" : "Later"}</button><button type="button" className="primary" disabled={!surveyBefore || !surveyNow || !surveyUnderstood || !surveyReturn || !surveyFeature} onClick={submitSurvey}>{lang === "zh" ? "提交，继续练习" : "Submit and continue"}</button></div></footer></section></div>}
 
       {storyEditorOpen && <div className="story-editor-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setStoryEditorOpen(false); }}>
@@ -1882,7 +1932,7 @@ export default function Home() {
           <label><span>{lang === "zh" ? "一句氛围" : "MOOD IN ONE LINE"}</span><input value={storyDraft.subtitle} onChange={(event) => setStoryDraft((draft) => ({ ...draft, subtitle: event.target.value }))} maxLength={80} placeholder={lang === "zh" ? "这个时刻最真实的感受" : "How this moment feels"}/></label>
           <label><span>{lang === "zh" ? "故事场景" : "THE SCENE"}</span><textarea value={storyDraft.scene} onChange={(event) => setStoryDraft((draft) => ({ ...draft, scene: event.target.value }))} placeholder={lang === "zh" ? "用已经发生的语气，写下你看见、听见和感受到的细节。分段书写会更好读。" : "Write what you see, hear, and feel as something already lived. Use paragraphs for an easier read."}/></label>
           <label><span>{lang === "zh" ? "锚定句" : "ANCHOR LINE"}</span><input value={storyDraft.anchor} onChange={(event) => setStoryDraft((draft) => ({ ...draft, anchor: event.target.value }))} maxLength={100} placeholder={lang === "zh" ? "例如：拥有它已经是我熟悉的日常。" : "For example: Having it is already part of my everyday life."}/></label>
-          <footer><small>{lang === "zh" ? `${storyLibrary.length} / 6 个故事` : `${storyLibrary.length} / 6 stories`}</small><div><button type="button" className="outline-button" onClick={() => setStoryEditorOpen(false)}>{lang === "zh" ? "取消" : "Cancel"}</button><button type="submit" className="primary" disabled={!storyDraft.title.trim() || !storyDraft.scene.trim()}>{lang === "zh" ? "保存故事" : "Save story"}</button></div></footer>
+          <footer><small>{lang === "zh" ? `${storyLibrary.length} / ${MAX_STORIES} 个故事` : `${storyLibrary.length} / ${MAX_STORIES} stories`}</small><div><button type="button" className="outline-button" onClick={() => setStoryEditorOpen(false)}>{lang === "zh" ? "取消" : "Cancel"}</button><button type="submit" className="primary" disabled={!storyDraft.title.trim() || !storyDraft.scene.trim()}>{lang === "zh" ? "保存故事" : "Save story"}</button></div></footer>
         </form>
       </div>}
 

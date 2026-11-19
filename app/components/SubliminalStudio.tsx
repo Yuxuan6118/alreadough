@@ -154,11 +154,13 @@ type Props = {
   lang: Lang;
   desire: string;
   focusText?: string;
+  /** Whether focusText is an accepted scene or a new thought brought from Reframe. */
+  focusKind?: "scene" | "thought";
   checkIns: PracticeCheckIn[];
   onCheckIn: (feeling: PracticeCheckIn["feeling"]) => void;
 };
 
-export default function SubliminalStudio({ lang, desire, focusText, checkIns, onCheckIn }: Props) {
+export default function SubliminalStudio({ lang, desire, focusText, focusKind = "scene", checkIns, onCheckIn }: Props) {
   const copy = lang === "zh" ? {
     eyebrow: "入梦声场 · 私人声音练习",
     heading: "听见你已经拥有的生活",
@@ -789,7 +791,7 @@ export default function SubliminalStudio({ lang, desire, focusText, checkIns, on
       <button className="tutorial-button" onClick={() => setTutorialOpen(true)}>ⓘ {copy.tutorial}</button>
     </div>
 
-    {focusText && <div className="dreamscape-focus"><span>{lang === "zh" ? "从对话带来的场景" : "SCENE FROM YOUR CONVERSATION"}</span><p>{focusText}</p></div>}
+    {focusText && <div className="dreamscape-focus"><span>{focusKind === "thought" ? (lang === "zh" ? "从转念带来的新念头" : "NEW THOUGHT FROM REFRAME") : (lang === "zh" ? "从对话带来的场景" : "SCENE FROM YOUR CONVERSATION")}</span><p>{focusText}</p></div>}
 
     <div className="dreamscape-workspace">
       <div className="sub-player-card">

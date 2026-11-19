@@ -215,7 +215,7 @@ export async function POST(request: Request) {
         console.error("coach reply rewrite failed", String(error));
       }
     }
-    if (payload.mode === "chat" && hasStockCoachLine(result.reply)) result.reply = dropStockSentences(result.reply);
+    if ((payload.mode === "chat" || payload.mode === "revision") && hasStockCoachLine(result.reply)) result.reply = dropStockSentences(result.reply);
     const reply = cleanReply(result.reply, { mode: payload.mode, name: payload.goal.companionName });
     // Beta: keep the conversation turn (not the desire card) so replies can be reviewed and improved.
     const logId = await recordConversation(gate.ticket, {
