@@ -118,7 +118,8 @@ export async function POST(request: Request) {
 
   const chatModel = process.env.OPENAI_CHAT_MODEL || "deepseek-v4-flash-0731";
   const creativeModel = process.env.OPENAI_CREATIVE_MODEL || chatModel;
-  const model = payload.mode === "chat" ? chatModel : creativeModel;
+  // stories are long, detailed scripts; they can run on a stronger model than chat (OPENAI_STORY_MODEL)
+  const model = payload.mode === "chat" ? chatModel : payload.mode === "story" ? (process.env.OPENAI_STORY_MODEL || creativeModel) : creativeModel;
   const gate = await beginBetaRequest(request, payload.sessionId, payload.mode);
   if (!gate.ok) {
     const messages: Record<string, Record<"zh" | "en", string>> = {

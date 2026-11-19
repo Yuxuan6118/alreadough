@@ -145,6 +145,10 @@ type Story = {
   cover?: StoryCover | null;
   /** When the story was saved (ISO). Older stories have none. */
   createdAt?: string;
+  /** Her own keywords or scene notes, kept so the script can be written again from them. */
+  seed?: Record<Lang, string>;
+  /** text holds the AI-written script, not her own notes. */
+  scripted?: boolean;
 };
 type StoryCover = { image: string; credit?: string; source?: string };
 type StoryDraft = { title: string; city: string; subtitle: string; scene: string; anchor: string };
@@ -420,10 +424,9 @@ export default function Home() {
   const [newScene, setNewScene] = useState("");
   /** A new thought taken into Dreamscape; when empty, Dreamscape shows the latest accepted scene. */
   const [focusThought, setFocusThought] = useState("");
-  const [generatedStory, setGeneratedStory] = useState("");
   /** The generated story already saved as a card, so one click can't save it twice. */
-  const [savedGeneratedStory, setSavedGeneratedStory] = useState("");
-  const [storyGenerating, setStoryGenerating] = useState(false);
+  /** Story whose script the AI is writing right now. */
+  const [scriptingId, setScriptingId] = useState<string | null>(null);
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [board, setBoard] = useState<BoardItem[]>([]);
   const [boardMode, setBoardMode] = useState<"licensed" | "mine">("licensed");
@@ -1263,47 +1266,47 @@ export default function Home() {
     } finally { setIsTyping(false); }
   };
 
-  const makeStory = async () => {
-    setStoryGenerating(true); setAiError("");
+  /** Her keywords for a story: the scene notes she wrote, or the story text when there are none. */
+  const storyNotes = (story: Story) => story.seed?.[lang] ?? story.text[lang].join("\n\n");
+
+  /** Expands her keywords into a full fulfilled-state script and makes it the story's text. */
+  const writeScript = async (story: Story) => {
+    if (scriptingId) return;
+    setScriptingId(story.id); setAiError("");
+    const zh = lang === "zh";
+    const notes = storyNotes(story);
+    const place = ["我的生活", "MY LIFE"].includes(story.city[lang]) ? "" : story.city[lang];
+    const fields: Array<[string, string]> = zh
+      ? [["标题", story.title[lang]], ["地点", place], ["氛围", story.subtitle[lang]], ["场景要点", notes], ["锚定句", story.anchor[lang]]]
+      : [["Title", story.title[lang]], ["Place", place], ["Mood", story.subtitle[lang]], ["Scene notes", notes], ["Anchor line", story.anchor[lang]]];
+    // the model follows the request more closely than the system notes, so the two things it tends to skip are repeated here
+    const must = zh
+      ? "地点写到一个真实存在、叫得出名字的地方（比如具体哪个雪场、哪家酒店或餐厅），并写出至少两种闻到的气味。"
+      : "Name one real place that exists (the specific resort, hotel, or restaurant), and include at least two smells."
+    const prompt = `${zh ? "把下面这些关键词扩写成我的完成态剧本。" : "Expand these keywords into my fulfilled-state script."}${must}\n${fields.filter(([, value]) => value.trim()).map(([label, value]) => `${label}${zh ? "：" : ": "}${value.trim()}`).join("\n")}`;
     try {
-      const prompt = lang === "zh"
-        ? `请以“${currentStory.title.zh}”为主题，为我写今天的专属完成态故事。地点是 ${currentStory.city.zh}，核心感受是：${currentStory.anchor.zh}`
-        : `Create today's personal fulfilled-state story around “${currentStory.title.en}.” The place is ${currentStory.city.en}, and the core feeling is: ${currentStory.anchor.en}`;
-      setGeneratedStory(await callCompanion("story", prompt));
+      const script = await callCompanion("story", prompt);
+      let paragraphs = script.split(/\n+/).map((item) => item.trim()).filter(Boolean);
+      // the model sometimes returns one long block: break it into paragraphs of about three sentences
+      if (paragraphs.length === 1 && paragraphs[0].length > 300) {
+        const sentences = paragraphs[0].match(/[^。！？!?]+[。！？!?”"]*|[^。！？!?]+$/g) || paragraphs;
+        paragraphs = [];
+        for (let i = 0; i < sentences.length; i += 3) paragraphs.push(sentences.slice(i, i + 3).join("").trim());
+      }
+      paragraphs = paragraphs.filter(Boolean).slice(0, MAX_STORY_PARAGRAPHS);
+      if (!paragraphs.length) throw new Error(zh ? "AI 这次没有写出内容，请再试一次。" : "The AI returned nothing this time. Please try again.");
+      const before = story;
+      setStoryLibrary((items) => items.map((item) => item.id === story.id ? { ...item, seed: { zh: item.seed?.zh ?? "", en: item.seed?.en ?? "", [lang]: notes }, text: { ...item.text, [lang]: paragraphs }, scripted: true } : item));
+      // the script is a scene she has accepted, so the companion treats it as already done
+      setGoal((current) => {
+        const compact = paragraphs.join("\n").slice(0, 900);
+        return { ...current, acceptedSceneLedger: { ...current.acceptedSceneLedger, [lang]: [compact, ...current.acceptedSceneLedger[lang]].slice(0, 8) } };
+      });
+      if (before.scripted) showUndo(zh ? "已经重写了这个剧本" : "Script rewritten", zh ? "撤销" : "Undo", () => setStoryLibrary((items) => items.map((item) => item.id === before.id ? { ...item, text: before.text } : item)));
     } catch (error) {
       const message = error instanceof Error ? error.message : "AI_REQUEST_FAILED";
       setAiConnected(false); setAiError(message);
-    } finally { setStoryGenerating(false); }
-  };
-
-  /** Keep the AI-written story as a new card in the library, and as an accepted scene the AI treats as already done. */
-  const acceptGeneratedStory = () => {
-    if (!generatedStory.trim() || storyLibrary.length >= MAX_STORIES || savedGeneratedStory === generatedStory) return;
-    setSavedGeneratedStory(generatedStory);
-    const paragraphs = generatedStory.split(/\n+/).map((item) => item.trim()).filter(Boolean).slice(0, MAX_STORY_PARAGRAPHS);
-    const baseTitle = currentStory.title[lang] || (lang === "zh" ? "我的新故事" : "My new story");
-    const title = `${baseTitle}${lang === "zh" ? " · 展开" : " · expanded"}`.slice(0, 42);
-    const created: Story = {
-      id: crypto.randomUUID(),
-      title: { zh: lang === "zh" ? title : currentStory.title.zh, en: lang === "en" ? title : currentStory.title.en },
-      city: { ...currentStory.city },
-      subtitle: { zh: "", en: "" },
-      text: { zh: lang === "zh" ? paragraphs : currentStory.text.zh, en: lang === "en" ? paragraphs : currentStory.text.en },
-      anchor: { ...currentStory.anchor },
-      tone: ["nyc", "snow", "seoul"][storyLibrary.length % 3] as Story["tone"],
-      createdAt: new Date().toISOString(),
-    };
-    setStoryLibrary((items) => [...items, created]);
-    setGoal((current) => {
-      const compact = generatedStory.trim().slice(0, 900);
-      const existing = current.acceptedSceneLedger[lang].filter((item) => item !== compact);
-      return {
-        ...current,
-        acceptedSceneLedger: { ...current.acceptedSceneLedger, [lang]: [compact, ...existing].slice(0, 8) },
-      };
-    });
-    setSavedPulse(true);
-    window.setTimeout(() => setSavedPulse(false), 1800);
+    } finally { setScriptingId(null); }
   };
 
   const removeBeliefWithUndo = (text: string) => {
@@ -1417,7 +1420,7 @@ export default function Home() {
   const openStoryEditor = (story?: Story) => {
     if (story) {
       setStoryEditingId(story.id);
-      setStoryDraft({ title: story.title[lang], city: story.city[lang], subtitle: story.subtitle[lang], scene: story.text[lang].join("\n\n"), anchor: story.anchor[lang] });
+      setStoryDraft({ title: story.title[lang], city: story.city[lang], subtitle: story.subtitle[lang], scene: storyNotes(story), anchor: story.anchor[lang] });
     } else {
       setStoryEditingId(null);
       setStoryDraft(emptyStoryDraft);
@@ -1425,36 +1428,52 @@ export default function Home() {
     setStoryEditorOpen(true);
   };
 
-  const saveStory = () => {
+  const saveStory = (andWrite = false) => {
     if (!storyDraft.title.trim() || !storyDraft.scene.trim()) return;
-    const paragraphs = storyDraft.scene.split(/\n+/).map((item) => item.trim()).filter(Boolean).slice(0, MAX_STORY_PARAGRAPHS);
+    const notes = storyDraft.scene.trim();
+    const paragraphs = notes.split(/\n+/).map((item) => item.trim()).filter(Boolean).slice(0, MAX_STORY_PARAGRAPHS);
+    let saved: Story | null = null;
+    let savedIndex = -1;
     if (storyEditingId) {
-      setStoryLibrary((items) => items.map((story) => story.id === storyEditingId ? {
-        ...story,
-        title: { ...story.title, [lang]: storyDraft.title.trim() },
-        city: { ...story.city, [lang]: storyDraft.city.trim() || (lang === "zh" ? "我的生活" : "MY LIFE") },
-        subtitle: { ...story.subtitle, [lang]: storyDraft.subtitle.trim() },
-        text: { ...story.text, [lang]: paragraphs },
-        anchor: { ...story.anchor, [lang]: storyDraft.anchor.trim() },
-        sample: false,
-      } : story));
+      const index = storyLibrary.findIndex((story) => story.id === storyEditingId);
+      const story = storyLibrary[index];
+      if (story) {
+        saved = {
+          ...story,
+          title: { ...story.title, [lang]: storyDraft.title.trim() },
+          city: { ...story.city, [lang]: storyDraft.city.trim() || (lang === "zh" ? "我的生活" : "MY LIFE") },
+          subtitle: { ...story.subtitle, [lang]: storyDraft.subtitle.trim() },
+          anchor: { ...story.anchor, [lang]: storyDraft.anchor.trim() },
+          seed: { zh: story.seed?.zh ?? "", en: story.seed?.en ?? "", [lang]: notes },
+          // a script stays until it is written again; her own text follows her edits
+          text: story.scripted ? story.text : { ...story.text, [lang]: paragraphs },
+          sample: false,
+        };
+        savedIndex = index;
+        setStoryLibrary((items) => items.map((item) => item.id === storyEditingId ? saved as Story : item));
+      }
     } else if (storyLibrary.length < MAX_STORIES) {
       const fallback = lang === "zh" ? "我的新故事" : "My New Story";
-      const created: Story = {
+      saved = {
         id: crypto.randomUUID(),
         title: { zh: lang === "zh" ? storyDraft.title.trim() : fallback, en: lang === "en" ? storyDraft.title.trim() : fallback },
         city: { zh: lang === "zh" ? (storyDraft.city.trim() || "我的生活") : "MY LIFE", en: lang === "en" ? (storyDraft.city.trim() || "MY LIFE") : "MY LIFE" },
         subtitle: { zh: lang === "zh" ? storyDraft.subtitle.trim() : "", en: lang === "en" ? storyDraft.subtitle.trim() : "" },
         text: { zh: lang === "zh" ? paragraphs : [fallback], en: lang === "en" ? paragraphs : [fallback] },
         anchor: { zh: lang === "zh" ? storyDraft.anchor.trim() : "", en: lang === "en" ? storyDraft.anchor.trim() : "" },
+        seed: { zh: lang === "zh" ? notes : "", en: lang === "en" ? notes : "" },
         tone: ["nyc", "snow", "seoul"][storyLibrary.length % 3] as Story["tone"],
         createdAt: new Date().toISOString(),
       };
-      setStoryLibrary((items) => [...items, created]);
-      setStoryIndex(storyLibrary.length);
+      savedIndex = storyLibrary.length;
+      setStoryLibrary((items) => [...items, saved as Story]);
     }
     setStoryEditorOpen(false);
     setStoryDraft(emptyStoryDraft);
+    if (saved && savedIndex >= 0) {
+      setStoryIndex(savedIndex);
+      if (andWrite) { setStoryReading(true); window.scrollTo({ top: 0 }); void writeScript(saved); }
+    }
   };
 
   const deleteStory = async (id: string) => {
@@ -1802,7 +1821,7 @@ export default function Home() {
         <div className="story-library-meta"><span>{storyLibrary.length} / {MAX_STORIES}</span><small>{lang === "zh" ? `最多保存 ${MAX_STORIES} 个故事` : `Up to ${MAX_STORIES} saved stories`}</small></div>
         <div className="story-grid">
           {storyLibrary.map((story, index) => <article className="story-tile" key={story.id}>
-            <button type="button" className="story-tile-open" onClick={() => { setStoryIndex(index); setStoryReading(true); setGeneratedStory(""); setStoryMenuId(null); window.scrollTo({ top: 0 }); }}>
+            <button type="button" className="story-tile-open" onClick={() => { setStoryIndex(index); setStoryReading(true); setStoryMenuId(null); window.scrollTo({ top: 0 }); }}>
               {story.cover?.image ? <img src={story.cover.image} alt="" loading="lazy" decoding="async"/> : <span className={`story-fallback ${story.tone}`} aria-hidden="true"/>}
               <span className="story-tile-text">{storyMeta(story, lang) && <small>{storyMeta(story, lang)}</small>}<strong>{story.title[lang]}</strong></span>
             </button>
@@ -1834,11 +1853,13 @@ export default function Home() {
         </div>
         <div className="story-sheet">
           <header className="story-sheet-head">{storyMeta(currentStory, lang) && <small>{storyMeta(currentStory, lang)}</small>}<h1>{currentStory.title[lang]}</h1>{currentStory.subtitle[lang] && <p>{currentStory.subtitle[lang]}</p>}</header>
-          <article className="story-body">{storyText.map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>)}{currentStory.anchor[lang] && <blockquote>{currentStory.anchor[lang]}</blockquote>}</article>
-          <div className="story-expand"><button className="primary" onClick={makeStory} disabled={storyGenerating}>{storyGenerating ? t.generating : t.generateStory}</button></div>
+          <article className={`story-body${scriptingId === currentStory.id ? " is-writing" : ""}`} aria-busy={scriptingId === currentStory.id}>{storyText.map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>)}{currentStory.anchor[lang] && !currentStory.scripted && <blockquote>{currentStory.anchor[lang]}</blockquote>}</article>
+          <div className="story-expand">
+            {scriptingId === currentStory.id && <p className="story-writing-note" role="status">{lang === "zh" ? "正在把你的关键词写成剧本，大约半分钟……" : "Writing your keywords into a script, about half a minute…"}</p>}
+            <button className={currentStory.scripted ? "outline-button" : "primary"} onClick={() => writeScript(currentStory)} disabled={Boolean(scriptingId)}>{scriptingId === currentStory.id ? (lang === "zh" ? "正在写……" : "Writing…") : currentStory.scripted ? (lang === "zh" ? "✶ 重新写一版" : "✶ Write it again") : (lang === "zh" ? "✶ 写成剧本" : "✶ Write it as a script")}</button>
+          </div>
           {aiError && <div className="ai-notice story-ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
-          {generatedStory && <article className="generated-story"><span>{lang === "zh" ? "AI 展开的版本" : "AI-EXPANDED VERSION"}</span>{generatedStory.split(/\n+/).filter(Boolean).map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>)}<button className="outline-button" onClick={acceptGeneratedStory} disabled={savedGeneratedStory === generatedStory || storyLibrary.length >= MAX_STORIES}>{savedGeneratedStory === generatedStory ? (lang === "zh" ? "已存成新故事 ✓" : "Saved as a new story ✓") : storyLibrary.length >= MAX_STORIES ? (lang === "zh" ? `故事库已满（${MAX_STORIES} 个）` : `Story library is full (${MAX_STORIES})`) : (lang === "zh" ? "存成一个新故事" : "Save as a new story")}</button></article>}
-          {storyLibrary.length > 1 && <nav className="story-controls" aria-label={lang === "zh" ? "切换故事" : "Switch story"}><button onClick={() => { setStoryIndex((storyIndex - 1 + storyLibrary.length) % storyLibrary.length); setGeneratedStory(""); setAiError(""); window.scrollTo({ top: 0 }); }}>{t.previous}</button><button onClick={() => { setStoryIndex((storyIndex + 1) % storyLibrary.length); setGeneratedStory(""); setAiError(""); window.scrollTo({ top: 0 }); }}>{t.next}</button></nav>}
+          {storyLibrary.length > 1 && <nav className="story-controls" aria-label={lang === "zh" ? "切换故事" : "Switch story"}><button onClick={() => { setStoryIndex((storyIndex - 1 + storyLibrary.length) % storyLibrary.length); setAiError(""); window.scrollTo({ top: 0 }); }}>{t.previous}</button><button onClick={() => { setStoryIndex((storyIndex + 1) % storyLibrary.length); setAiError(""); window.scrollTo({ top: 0 }); }}>{t.next}</button></nav>}
         </div>
       </section>}
 
@@ -2042,16 +2063,16 @@ export default function Home() {
       ].map(([id, label]) => <button type="button" key={id} className={surveyFeature === id ? "selected" : ""} onClick={() => setSurveyFeature(id)}>{label}</button>)}</div></fieldset></div><footer><small>{lang === "zh" ? "只记录匿名选项，不保存你的愿望或聊天内容。" : "Only anonymous choices are recorded—never your desire or chat content."}</small><div><button type="button" className="survey-later" onClick={dismissSurvey}>{lang === "zh" ? "稍后再说" : "Later"}</button><button type="button" className="primary" disabled={!surveyBefore || !surveyNow || !surveyUnderstood || !surveyReturn || !surveyFeature} onClick={submitSurvey}>{lang === "zh" ? "提交，继续练习" : "Submit and continue"}</button></div></footer></section></div>}
 
       {storyEditorOpen && <div className="story-editor-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setStoryEditorOpen(false); }}>
-        <form className="story-editor-modal" onSubmit={(event) => { event.preventDefault(); saveStory(); }}>
+        <form className="story-editor-modal" onSubmit={(event) => { event.preventDefault(); saveStory(true); }}>
           <header><div><p className="eyebrow">{storyEditingId ? (lang === "zh" ? "编辑故事" : "EDIT STORY") : (lang === "zh" ? "新的已实现时刻" : "A NEW FULFILLED MOMENT")}</p><h2>{storyEditingId ? (lang === "zh" ? "把这个故事写成你的版本" : "Make this story yours") : (lang === "zh" ? "它已经发生在哪里？" : "Where has it already happened?")}</h2></div><button type="button" onClick={() => setStoryEditorOpen(false)} aria-label={lang === "zh" ? "关闭" : "Close"}>×</button></header>
           <div className="story-editor-grid">
             <label><span>{lang === "zh" ? "故事标题" : "STORY TITLE"}</span><input value={storyDraft.title} onChange={(event) => setStoryDraft((draft) => ({ ...draft, title: event.target.value }))} maxLength={42} placeholder={lang === "zh" ? "例如：愿望实现后的普通一天" : "For example: An ordinary day after it came true"}/></label>
             <label><span>{lang === "zh" ? "地点" : "PLACE"}</span><input value={storyDraft.city} onChange={(event) => setStoryDraft((draft) => ({ ...draft, city: event.target.value }))} maxLength={32} placeholder={lang === "zh" ? "家里、校园、办公室、旅途中" : "Home, campus, work, or on a trip"}/></label>
           </div>
           <label><span>{lang === "zh" ? "一句氛围" : "MOOD IN ONE LINE"}</span><input value={storyDraft.subtitle} onChange={(event) => setStoryDraft((draft) => ({ ...draft, subtitle: event.target.value }))} maxLength={80} placeholder={lang === "zh" ? "这个时刻最真实的感受" : "How this moment feels"}/></label>
-          <label><span>{lang === "zh" ? "故事场景" : "THE SCENE"}</span><textarea value={storyDraft.scene} onChange={(event) => setStoryDraft((draft) => ({ ...draft, scene: event.target.value }))} placeholder={lang === "zh" ? "用已经发生的语气，写下你看见、听见和感受到的细节。分段书写会更好读。" : "Write what you see, hear, and feel as something already lived. Use paragraphs for an easier read."}/></label>
+          <label><span>{lang === "zh" ? "场景要点" : "SCENE NOTES"}</span><textarea value={storyDraft.scene} onChange={(event) => setStoryDraft((draft) => ({ ...draft, scene: event.target.value }))} placeholder={lang === "zh" ? "几个关键词或几句话就够。AI 会把它写成有真实地点、气味、声音和对话的完整剧本。" : "A few keywords or lines are enough. The AI writes them into a full script with a real place, smells, sounds, and dialogue."}/></label>
           <label><span>{lang === "zh" ? "锚定句" : "ANCHOR LINE"}</span><input value={storyDraft.anchor} onChange={(event) => setStoryDraft((draft) => ({ ...draft, anchor: event.target.value }))} maxLength={100} placeholder={lang === "zh" ? "例如：拥有它已经是我熟悉的日常。" : "For example: Having it is already part of my everyday life."}/></label>
-          <footer><small>{lang === "zh" ? `${storyLibrary.length} / ${MAX_STORIES} 个故事` : `${storyLibrary.length} / ${MAX_STORIES} stories`}</small><div><button type="button" className="outline-button" onClick={() => setStoryEditorOpen(false)}>{lang === "zh" ? "取消" : "Cancel"}</button><button type="submit" className="primary" disabled={!storyDraft.title.trim() || !storyDraft.scene.trim()}>{lang === "zh" ? "保存故事" : "Save story"}</button></div></footer>
+          <footer><small>{lang === "zh" ? `${storyLibrary.length} / ${MAX_STORIES} 个故事` : `${storyLibrary.length} / ${MAX_STORIES} stories`}</small><div><button type="button" className="outline-button" onClick={() => setStoryEditorOpen(false)}>{lang === "zh" ? "取消" : "Cancel"}</button><button type="button" className="outline-button" disabled={!storyDraft.title.trim() || !storyDraft.scene.trim()} onClick={() => saveStory(false)}>{lang === "zh" ? "只保存" : "Save only"}</button><button type="submit" className="primary" disabled={!storyDraft.title.trim() || !storyDraft.scene.trim() || Boolean(scriptingId)}>{storyEditingId && storyLibrary.find((item) => item.id === storyEditingId)?.scripted ? (lang === "zh" ? "✶ 保存并重写剧本" : "✶ Save and rewrite") : (lang === "zh" ? "✶ 保存并写成剧本" : "✶ Save and write script")}</button></div></footer>
         </form>
       </div>}
 
