@@ -324,7 +324,7 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
       <section className="dream dream-player">
         <header className="dream-player-head">
           <button type="button" className="dream-back" onClick={leavePlayer} aria-label={t("返回", "Back")}><ArrowLeft size={22} /></button>
-          <h1>{mode === "story" ? (story?.title || t("我的剧本", "My story")) : mode === "night" ? t("睡前声场", "Night soundscape") : t("我的肯定语", "My affirmations")}</h1>
+          <h1>{mode === "story" ? (story?.title || t("我的剧本", "My story")) : mode === "night" ? t("睡前潜音", "Night soundscape") : t("我的肯定语", "My affirmations")}</h1>
           <span>{voice.has && useMine ? t("用你的声音", "In your voice") : t("默认声音", "Default voice")}</span>
         </header>
         <div className="dream-stage">
@@ -360,14 +360,14 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
   return (
     <section className="dream dream-home">
       <header>
-        <h1>{t("入梦声场", "Dreamscape")}</h1>
+        <h1>{t("潜音", "Dreamscape")}</h1>
         <p>{t("今晚听自己的声音。", "Tonight, listen to your own voice.")}</p>
       </header>
-      <button type="button" className="dream-orb dream-orb-button" onClick={() => void begin("night")} aria-label={t("开始睡前声场", "Start the night soundscape")}>
+      <button type="button" className="dream-orb dream-orb-button" onClick={() => void begin("night")} aria-label={t("开始睡前潜音", "Start the night soundscape")}>
         <i aria-hidden="true" />
         <Image src={DOUGH} alt="" width={1536} height={1024} sizes="240px" priority />
       </button>
-      <button type="button" className="dream-start" onClick={() => void begin("night")}><Play size={20} weight="fill" />{t("开始睡前声场", "Start the night soundscape")}</button>
+      <button type="button" className="dream-start" onClick={() => void begin("night")}><Play size={20} weight="fill" />{t("开始睡前潜音", "Start the night soundscape")}</button>
       <p className="dream-start-note">{t(`约 ${estimateMinutes} 分钟，轻声加雨声`, `About ${estimateMinutes} minutes, soft voice with rain`)}</p>
       {message && <p className="dream-message" role="status">{message}</p>}
       <ul className="dream-list">
@@ -382,7 +382,7 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
       <div className="dream-links">
         {voice.has && <button type="button" className="dream-record-link" onClick={() => setScreen("record")}><Microphone size={16} />{t("重新录我的声音", "Record my voice again")}</button>}
         {voice.has && <button type="button" className="dream-record-link muted" onClick={() => void removeVoice()}>{t("删除我的声音", "Delete my voice")}</button>}
-        <button type="button" className="dream-record-link muted" onClick={onOpenStudio}>{t("高级：声场工作台", "Advanced: studio")}</button>
+        <button type="button" className="dream-record-link muted" onClick={onOpenStudio}>{t("高级：潜音工作台", "Advanced: studio")}</button>
       </div>
     </section>
   );

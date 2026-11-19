@@ -162,7 +162,7 @@ type Props = {
 
 export default function SubliminalStudio({ lang, desire, focusText, focusKind = "scene", checkIns, onCheckIn }: Props) {
   const copy = lang === "zh" ? {
-    eyebrow: "入梦声场 · 私人声音练习",
+    eyebrow: "潜音 · 私人声音练习",
     heading: "听见你已经拥有的生活",
     intro: "把完成态写进自己的声音空间。肯定语、录音和练习记录默认留在这台设备上。",
     tutorial: "制作教程",
@@ -204,7 +204,7 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
     soundSearch: "搜索雨声、海浪、壁炉、森林……",
     search: "搜索",
     searching: "正在寻找",
-    useSound: "加入声场",
+    useSound: "加入潜音",
     selectedSound: "正在使用",
     previewSound: "试听",
     stopPreview: "停止试听",
@@ -847,6 +847,6 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
     <section className="practice-progress practice-progress-separated"><div><span>✦</span><strong>{streak}</strong><small>{copy.streak} · {copy.days}</small></div><div className="week-checks"><p>{copy.thisWeek}</p><div>{week.map((day) => <span className={day.complete ? "complete" : ""} key={day.key}><i>{day.complete ? "✓" : ""}</i>{day.label}</span>)}</div></div></section>
 
     {checkInOpen && <div className="modal-backdrop"><div className="checkin-modal"><span>✦</span><h2>{copy.checkTitle}</h2><p>{copy.checkCopy}</p>{copy.feelings.map(([value, label]) => <button key={value} onClick={() => { onCheckIn(value); setCheckInOpen(false); setSecondsLeft(profile.duration * 60); }}>{label}</button>)}</div></div>}
-    {tutorialOpen && <div className="modal-backdrop"><div className="tutorial-modal"><p className="eyebrow">{lang === "zh" ? "入梦声场" : "DREAMSCAPE"}</p><h2>{copy.tutorialTitle}</h2><ol>{copy.tutorialSteps.map((step) => <li key={step}>{step}</li>)}</ol><button className="primary" onClick={() => setTutorialOpen(false)}>{copy.close}</button></div></div>}
+    {tutorialOpen && <div className="modal-backdrop"><div className="tutorial-modal"><p className="eyebrow">{lang === "zh" ? "潜音" : "DREAMSCAPE"}</p><h2>{copy.tutorialTitle}</h2><ol>{copy.tutorialSteps.map((step) => <li key={step}>{step}</li>)}</ol><button className="primary" onClick={() => setTutorialOpen(false)}>{copy.close}</button></div></div>}
   </section>;
 }
