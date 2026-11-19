@@ -55,7 +55,7 @@ import ProfilePanel from "../components/ProfilePanel";
 import WishList, { type WishItem } from "../components/WishList";
 import ConfirmHost, { askConfirm, showUndo } from "../components/ConfirmHost";
 import SpaceNav from "../components/SpaceNav";
-import { AboutIcon, HelpIcon, LettersIcon, LibraryIcon, LookIcon, MembershipIcon, PetIcon, SyncIcon, ThoughtsIcon, WishesIcon } from "../components/SpaceIcons";
+import { AboutIcon, DoughIcon, HelpIcon, LibraryIcon, LookIcon, MembershipIcon, PetIcon, SyncIcon, ThoughtsIcon, WishesIcon } from "../components/SpaceIcons";
 import LettersPanel, { type AppLetter } from "../components/LettersPanel";
 import FontSizePanel from "../components/FontSizePanel";
 import StoryCoverPicker from "../components/StoryCoverPicker";
@@ -72,7 +72,7 @@ import { mergeSpaces } from "@/lib/space-merge";
 import DoughLineMark from "../components/DoughLineMark";
 import { CompanionIcon, DreamscapeIcon, HistoryIcon, ReviseIcon, StoriesIcon, VisionIcon } from "../components/NavIcons";
 
-type SpaceSection = "wishes" | "about" | "library" | "memory" | "letters" | "membership" | "pet" | "look" | "sync" | "help";
+type SpaceSection = "wishes" | "about" | "library" | "memory" | "dough" | "membership" | "pet" | "look" | "sync" | "help";
 type View = "home" | "subliminal" | "story" | "revision" | "board" | "settings";
 type Lang = "zh" | "en";
 type Message = { id: string; role: "ai" | "user"; text: string; feedback?: "helpful" | "missed"; saved?: boolean; logId?: string; error?: boolean };
@@ -417,8 +417,19 @@ export default function Home() {
     fetch("/api/letters").then((response) => response.ok ? response.json() : null).then((data: { letters?: AppLetter[] } | null) => { if (data?.letters) setLetters(data.letters); }).catch(() => undefined);
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
+  // Phones and iPads (touch, no hover) get the dough as its own page in My space; computers have the floating pet.
+  const [touchDevice, setTouchDevice] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia("(hover: none) and (pointer: coarse)");
+    const sync = () => setTouchDevice(query.matches);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
   const unreadLetters = letters.filter((letter) => !readLetters.has(letter.id));
+  const [lettersOpen, setLettersOpen] = useState(false);
   const openLetters = () => {
+    setLettersOpen(true);
     setLettersUnreadOnOpen(new Set(unreadLetters.map((letter) => letter.id)));
     const next = new Set([...readLetters, ...letters.map((letter) => letter.id)]);
     setReadLetters(next);
@@ -442,7 +453,6 @@ export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profile, setProfile] = useState<Profile>(emptyProfile);
   const [plusSection, setPlusSection] = useState<"goal" | "coach" | null>(null);
-  const [petOpen, setPetOpen] = useState(false);
   const [studioOpen, setStudioOpen] = useState(false);
   const [replaying, setReplaying] = useState(false);
   const [shellEl, setShellEl] = useState<HTMLElement | null>(null);
@@ -1795,7 +1805,6 @@ export default function Home() {
 
   /** One way into My space: from the list (phone) or straight to a section. On a wide screen the first section is already open. */
   const openSpace = (section?: SpaceSection) => {
-    if (section === "letters") openLetters();
     setSettingsSection(section ?? (typeof window !== "undefined" && window.matchMedia("(min-width: 1000px)").matches ? "wishes" : null));
     setView("settings");
     scrollSpaceToTop();
@@ -1809,7 +1818,7 @@ export default function Home() {
   return (
     <>
     <aside className={`swipe-sidebar${sidebarOpen ? " open" : ""}`} aria-label={lang === "zh" ? "侧边栏" : "Sidebar"} aria-hidden={!sidebarOpen} inert={!sidebarOpen} data-theme={dark ? "dark" : "light"}>
-      <header><button type="button" className="swipe-brand" onClick={() => { openSpace("letters"); moveSidebar(false); }} aria-label={lang === "zh" ? "来信" : "Letters"}><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" />{unreadLetters.length > 0 && <i className="brand-dot" />}</span><strong>Alrea<span className="brand-dough">Dough</span></strong></button></header>
+      <header><button type="button" className="swipe-brand" onClick={() => { openLetters(); moveSidebar(false); }} aria-label={lang === "zh" ? "来信" : "Letters"}><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" />{unreadLetters.length > 0 && <i className="brand-dot" />}</span><strong>Alrea<span className="brand-dough">Dough</span></strong></button></header>
       <button type="button" className="swipe-new" onClick={() => { beginNewConversation(); moveSidebar(false); }}><Plus size={18}/>{lang === "zh" ? "新对话" : "New conversation"}</button>
       <nav className="swipe-nav" aria-label={t.ariaNav}>
         {primaryNav.map((item) => {
@@ -1826,7 +1835,7 @@ export default function Home() {
     <main ref={setShellEl} className={`app-shell${sidebarOpen ? " drawer-open" : ""}`} data-theme={dark ? "dark" : "light"} data-lang={lang}><ConfirmHost />
       <div className="app-grain" aria-hidden="true" />
       <aside className="app-rail">
-        <button className="brand" onClick={() => openSpace("letters")} aria-label={lang === "zh" ? (unreadLetters.length ? "有新来信" : "来信") : (unreadLetters.length ? "New letter" : "Letters")} title={unreadLetters.length ? (lang === "zh" ? "有一封来信" : "You have a letter") : undefined}><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" />{unreadLetters.length > 0 && <i className="brand-dot" />}</span><strong>Alrea<span className="brand-dough">Dough</span></strong></button>
+        <button className="brand" onClick={openLetters} aria-label={lang === "zh" ? (unreadLetters.length ? "有新来信" : "来信") : (unreadLetters.length ? "New letter" : "Letters")} title={unreadLetters.length ? (lang === "zh" ? "有一封来信" : "You have a letter") : undefined}><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" />{unreadLetters.length > 0 && <i className="brand-dot" />}</span><strong>Alrea<span className="brand-dough">Dough</span></strong></button>
         <button className="rail-new-chat" onClick={beginNewConversation}><Plus size={18}/><span>{lang === "zh" ? "新对话" : "New conversation"}</span></button>
         <button className="rail-history" onClick={() => setHistoryOpen(true)}><HistoryIcon size={26}/><span>{lang === "zh" ? "对话记录" : "Conversation history"}</span><small>{conversationArchive.length}</small></button>
         <nav className="rail-nav" aria-label={t.ariaNav}>
@@ -1843,10 +1852,11 @@ export default function Home() {
       <section className="app-stage">
       <header className="topbar">
         <button type="button" className="topbar-menu" onClick={() => moveSidebar(true)} aria-label={lang === "zh" ? "打开侧边栏" : "Open the sidebar"}><List size={22}/></button>
-        <button className="brand" onClick={() => unreadLetters.length ? openSpace("letters") : setPetOpen((open) => !open)} aria-expanded={unreadLetters.length ? undefined : petOpen} aria-label={unreadLetters.length ? (lang === "zh" ? "有新来信" : "New letter") : (lang === "zh" ? "打开面团" : "Open the dough")}><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" />{unreadLetters.length > 0 && <i className="brand-dot" />}</span><strong>Alrea<span className="brand-dough">Dough</span></strong></button>
+        <button className="brand" onClick={openLetters} aria-label={unreadLetters.length ? (lang === "zh" ? "有新来信" : "New letter") : (lang === "zh" ? "来信" : "Letters")}><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" />{unreadLetters.length > 0 && <i className="brand-dot" />}</span><strong>Alrea<span className="brand-dough">Dough</span></strong></button>
         <div className="top-actions" aria-hidden="true" />
       </header>
 
+      {lettersOpen && <div className="history-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setLettersOpen(false); }}><aside className="history-drawer letters-drawer" aria-label={lang === "zh" ? "来信" : "Letters"}><header><div><p className="eyebrow">{lang === "zh" ? "来信" : "LETTERS"}</p><h2>{lang === "zh" ? "AlreaDough 写给你的信" : "Letters from AlreaDough"}</h2></div><button onClick={() => setLettersOpen(false)} aria-label={lang === "zh" ? "关闭" : "Close"}>×</button></header><LettersPanel lang={lang} letters={letters} unread={lettersUnreadOnOpen} /></aside></div>}
       {historyOpen && <div className="history-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setHistoryOpen(false); }}><aside className="history-drawer"><header><div><p className="eyebrow">{lang === "zh" ? "对话记录" : "CONVERSATION HISTORY"}</p><h2>{lang === "zh" ? "回到之前的片段" : "Return to an earlier moment"}</h2></div><button onClick={() => setHistoryOpen(false)} aria-label={lang === "zh" ? "关闭" : "Close"}>×</button></header><button className="history-new" onClick={beginNewConversation}><Plus size={17}/>{lang === "zh" ? "开始新对话" : "Start a new conversation"}</button><div className="history-list">{conversationArchive.length ? conversationArchive.map((conversation) => <article key={conversation.id}><button onClick={() => openConversation(conversation)}><strong>{conversation.title}</strong><small>{new Date(conversation.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US")}</small></button><button aria-label={lang === "zh" ? "删除对话" : "Delete conversation"} onClick={async () => { if (await askConfirm({ title: lang === "zh" ? "删除这段对话？" : "Delete this conversation?", body: lang === "zh" ? "删除后不能恢复。" : "This can't be undone.", confirmLabel: lang === "zh" ? "删除" : "Delete", cancelLabel: lang === "zh" ? "取消" : "Cancel" })) setConversationArchive((items) => items.filter((item) => item.id !== conversation.id)); }}><Trash size={16}/></button></article>) : <p>{lang === "zh" ? "完成第一段对话后，它会安全地出现在这里。" : "Your first completed conversation will appear here."}</p>}</div></aside></div>}
 
       {view === "home" && <section className={`home-ai-view ${sessionMessages.length ? "has-conversation" : "is-empty"}`}>
@@ -1981,14 +1991,14 @@ export default function Home() {
       {view === "settings" && (() => {
         const shown: SpaceSection = settingsSection ?? "wishes";
         const zhText = lang === "zh";
-        const titles: Record<SpaceSection, string> = { wishes: zhText ? "我的愿望" : "My desires", about: zhText ? "关于我" : "About me", library: zhText ? "记忆库" : "Memory library", memory: zhText ? "背景与念头" : "Background and thoughts", letters: zhText ? "来信" : "Letters", membership: zhText ? "会员与用量" : "Membership and usage", pet: zhText ? "下载桌宠" : "Desktop pet", look: zhText ? "外观与语言" : "Look and language", sync: zhText ? "同步与数据" : "Sync and data", help: zhText ? "帮助与条款" : "Help and terms" };
+        const titles: Record<SpaceSection, string> = { wishes: zhText ? "我的愿望" : "My desires", about: zhText ? "关于我" : "About me", library: zhText ? "记忆库" : "Memory library", memory: zhText ? "背景与念头" : "Background and thoughts", dough: zhText ? "小 Dough" : "Little Dough", membership: zhText ? "会员与用量" : "Membership and usage", pet: zhText ? "下载桌宠" : "Desktop pet", look: zhText ? "外观与语言" : "Look and language", sync: zhText ? "同步与数据" : "Sync and data", help: zhText ? "帮助与条款" : "Help and terms" };
         return <section className="full-view settings-view space">
           <div className={`space-layout${settingsSection ? " has-detail" : ""}`}>
             <SpaceNav
               title={zhText ? "我的空间" : "My space"}
               intro={zhText ? "愿望、记忆和设置都在这里。" : "Your desires, memory and settings live here."}
               active={settingsSection}
-              onSelect={(id) => { if (id === "letters") openLetters(); setSettingsSection(id as SpaceSection); scrollSpaceToTop(); }}
+              onSelect={(id) => { setSettingsSection(id as SpaceSection); scrollSpaceToTop(); }}
               groups={[
                 { title: zhText ? "我" : "Me", rows: [
                   { id: "wishes", icon: WishesIcon, label: titles.wishes, value: String(sortedGoals.length) },
@@ -1999,7 +2009,7 @@ export default function Home() {
                   { id: "memory", icon: ThoughtsIcon, label: titles.memory },
                 ] },
                 { title: zhText ? "应用" : "App", rows: [
-                  { id: "letters", icon: LettersIcon, label: titles.letters, value: unreadLetters.length ? (zhText ? `${unreadLetters.length} 封未读` : `${unreadLetters.length} unread`) : letters.length ? String(letters.length) : undefined },
+                  ...(touchDevice ? [{ id: "dough", icon: DoughIcon, label: titles.dough, value: checkedToday ? (zhText ? "今天已打卡" : "Checked in") : undefined }] : []),
                   // The iPhone app must not link to web checkout (App Store rules).
                   ...(Capacitor.isNativePlatform() ? [] : [{ id: "membership", icon: MembershipIcon, label: titles.membership, value: memberPlanLabel(member, lang) }]),
                   // a desktop pet is for computers; the phone app already has the dough on its home screen
@@ -2108,7 +2118,7 @@ export default function Home() {
                   </section>
                 </div>
               </div>}
-              {shown === "letters" && <div className="settings-section"><LettersPanel lang={lang} letters={letters} unread={lettersUnreadOnOpen} /></div>}
+              {shown === "dough" && <div className="settings-section dough-space"><DoughPet inline lang={lang} checked={checkedToday} streak={streak} onCheckIn={() => recordCheckIn("chosen")}/></div>}
               {shown === "help" && <div className="settings-section profile-panel help-section">
                 <p className="setting-hint">{lang === "zh" ? "想反馈问题、举报内容，或查看规则说明，都在这里。" : "Send feedback, report content, or read how things work."}</p>
                 <div className="profile-cards">
@@ -2170,13 +2180,6 @@ export default function Home() {
 
       {view === "home" && <DoughPet lang={lang} checked={checkedToday} streak={streak} onCheckIn={() => recordCheckIn("chosen")}/>}
 
-      {petOpen && <>
-        <button type="button" className="pet-sheet-backdrop" aria-label={lang === "zh" ? "关闭" : "Close"} onClick={() => setPetOpen(false)} />
-        <section className="pet-sheet" role="dialog" aria-label={lang === "zh" ? "面团" : "Dough"}>
-          <header><button type="button" onClick={() => setPetOpen(false)} aria-label={lang === "zh" ? "关闭" : "Close"}>×</button></header>
-          <DoughPet inline lang={lang} checked={checkedToday} streak={streak} onCheckIn={() => recordCheckIn("chosen")}/>
-        </section>
-      </>}
 
       <nav className="bottom-nav" aria-label={t.ariaNav}>
         {primaryNav.map((item) => {
