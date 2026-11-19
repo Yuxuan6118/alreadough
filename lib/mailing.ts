@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { letterHtml } from "./mail-template";
 
 // Mail to signed-in users. Everyone who signs in (email code or Google) is on the list by default;
 // every letter carries a one-click unsubscribe link, and an unsubscribed address stays off for good.
@@ -90,15 +91,11 @@ async function subscribedEmails() {
   return rows.results.map((row: { email: string }) => row.email);
 }
 
-const escapeHtml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 async function letter(to: string, subject: string, body: string) {
   const link = await unsubscribeUrl(to);
   const text = `${body}\n\n—\nAlreaDough · ${SITE}\n不想再收到这类邮件 / Unsubscribe: ${link}`;
-  const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Helvetica Neue',sans-serif;font-size:16px;line-height:1.7;color:#2b2622;max-width:560px">`
-    + `<div>${escapeHtml(body).replace(/\n/g, "<br>")}</div>`
-    + `<p style="margin-top:40px;font-size:12px;color:#8a817a">AlreaDough · <a href="${SITE}" style="color:#8a817a">alreadough.com</a><br>`
-    + `<a href="${link}" style="color:#8a817a">不想再收到这类邮件 · Unsubscribe</a></p></div>`;
+  const html = letterHtml(subject, body, link);
   return {
     from: FROM,
     to: [to],
