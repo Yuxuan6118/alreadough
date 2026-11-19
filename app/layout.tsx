@@ -38,11 +38,12 @@ export const metadata: Metadata = {
   icons: {
     // Small files on purpose: a 1.4MB favicon often times out on phones, and the system then draws a letter instead of the logo.
     icon: [
-      { url: "/already-app-icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/favicon.ico", sizes: "any" },
+      // The tab icon is the whole dough on a clear background; ?v= makes browsers drop the old cached icon.
+      { url: "/already-tab-icon-192.png?v=2", sizes: "192x192", type: "image/png" },
+      { url: "/favicon.ico?v=2", sizes: "any" },
     ],
-    shortcut: "/already-app-icon-192.png",
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    shortcut: "/already-tab-icon-192.png?v=2",
+    apple: [{ url: "/apple-touch-icon.png?v=2", sizes: "180x180", type: "image/png" }],
   },
   openGraph: {
     title: "AlreaDough | Your living desire space",
