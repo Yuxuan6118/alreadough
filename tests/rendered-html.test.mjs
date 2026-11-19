@@ -179,7 +179,7 @@ test("does not presume that a new user's desire is romantic", async () => {
   ]) assert.doesNotMatch(studioDefaults, new RegExp(romanticDefault));
 
   assert.match(page, /wishCategory: "other"/);
-  assert.match(page, /一个结果、消息或眼前情况/);
+  assert.match(page, /此刻冒出来的是哪一句/);
   assert.match(page, /愿望实现后的普通一天/);
   assert.match(page, /拥有它已经是我熟悉的日常/);
   assert.match(studio, /我的愿望已经实现/);
