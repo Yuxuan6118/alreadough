@@ -32,6 +32,7 @@ const core = {
 - 第一人称“我”，现在时，写愿望已经实现之后的某一天或某一刻。不写过程、等待和匮乏，不写“终于”“曾经”。
 - 地点：关键词里写了地点，剧本就发生在那里，并把它写到具体的街区、楼、店、酒店或学校。关键词没写地点时，用 desire_details 里她写过的地方，再没有就用 her_home（她住的城市）。愿望涉及物质环境时（住处、店、学校、公司、物品），用现实中存在、叫得出名字的地方和品牌；拿不准名字的，只写它是什么样的地方，不编造名字。不写真实名人。
 - desire_details 和 about_her 是她自己写的愿望细节和生活状况，里面能用进这个场景的人、地方、习惯和细节都用上。
+- story_setting 是她为这个愿望交代的剧本设定（人物是什么样、他们的生活、不想出现的东西），每一条都照做；和其他资料冲突时以它为准，里面说不要的一律不写。
 - 感知要全：看见的颜色、光线和天气，听见的人声和背景里的环境音，闻到的气味，尝到的味道，皮肤上的温度、质地和重量，身体里面的感觉（心跳、呼吸、肩膀松下来、胃里暖起来）。
 - 让场景是活的：写清时间（几点、季节），写周围的人和万物在做什么，写具体的数字和小物件（金额、分数、门牌、时间、手里拿着的东西），可以有一点不完美的小插曲（打翻、迟到、笑场），真实生活就是这样。
 - 情绪靠动作、对白和身体写出来，不直接说“我很幸福”。对白是自然口语，短。
@@ -50,6 +51,7 @@ How to write:
 - First person, present tense, a day or moment after the desire is already real. No process, waiting, or lack; no "finally" or "used to".
 - Place: if the keywords name a place, the script happens there, written down to the street, building, shop, hotel or school. If they do not, use a place she wrote in desire_details, and failing that her_home (the city she lives in). When the desire involves a physical world (a home, a shop, a school, a company, things), use places and brands that exist and can be named; if you are unsure of a name, describe what kind of place it is and invent no name. No real celebrities.
 - desire_details and about_her are her own words about this desire and her life; use every person, place, habit and detail from them that fits this scene.
+- story_setting is what she has asked every script for this desire to keep to (who the people are, their life, what to leave out). Follow every point; it wins over anything else, and anything it says to leave out never appears.
 - All the senses: colours, light and weather; voices and the ambient sound behind them; smells; tastes; temperature, texture and weight on the skin; what happens inside the body (heartbeat, breath, shoulders dropping, warmth in the stomach).
 - Make the scene alive: give the time (hour, season), what the people and things around her are doing, specific numbers and small objects (amounts, scores, door numbers, times, what is in her hand), and a small imperfection if it fits (a spill, running late, a laugh at the wrong moment).
 - Feelings come through action, dialogue and the body; never state "I am so happy". Dialogue is short and spoken.
@@ -110,6 +112,7 @@ export function buildStoryMessages(payload: CompanionRequest, category: StoryCat
     // only strings reach the prompt; the request body is not trusted to have the right shapes
     her_home: (typeof profile?.home === "string" && profile.home.slice(0, 80)) || payload.country || "",
     ...(typeof payload.goal.background === "string" && payload.goal.background.trim() ? { desire_details: payload.goal.background.slice(0, 1200) } : {}),
+    ...(typeof payload.goal.storySetting === "string" && payload.goal.storySetting.trim() ? { story_setting: payload.goal.storySetting.slice(0, 1500) } : {}),
     ...(profile?.about || profile?.situation ? { about_her: [profile?.about, profile?.situation].filter(Boolean).join("\n").slice(0, 800) } : {}),
     ...(profile?.people?.length ? { people_in_her_life: profile.people.slice(0, 8).map((person) => `${person.name}${person.relation ? `（${person.relation}）` : ""}`) } : {}),
     ...(profile?.neverInclude?.length ? { never_mention: profile.neverInclude.slice(0, 20) } : {}),

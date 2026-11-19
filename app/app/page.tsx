@@ -61,7 +61,7 @@ import StoryCoverPicker from "../components/StoryCoverPicker";
 import { STORY_CATEGORIES, STORY_CATEGORY_LABELS, storyCategoryFor, type StoryCategory } from "@/lib/story-prompt";
 import type { ReflectionAnswers } from "@/lib/reflection";
 import { validateSpName } from "@/lib/name-policy";
-import { answersToSeeds, sharedMemories, splitLines, type GoalSeed, type MemorySeed, type OnboardingAnswers, type ProfileSeed } from "@/lib/onboarding-flow";
+import { answersToSeeds, MAX_STORY_SETTING, sharedMemories, splitLines, type GoalSeed, type MemorySeed, type OnboardingAnswers, type ProfileSeed } from "@/lib/onboarding-flow";
 import { readStored, writeStored, removeStored } from "@/lib/safe-storage";
 import { formatGreeting, pickGreeting } from "@/lib/greetings";
 import { pickQuote, type Quote } from "@/lib/quotes";
@@ -108,6 +108,8 @@ type GoalProfile = {
   spPronunciation: string;
   desire: Record<Lang, string>;
   background: Record<Lang, string>;
+  /** What every story script for this desire keeps to: who the person is, their life, what to leave out. */
+  storySetting: Record<Lang, string>;
   beliefs: Record<Lang, string[]>;
   tone: Record<Lang, string>;
   journeySummary: Record<Lang, string>;
@@ -200,6 +202,7 @@ const defaultGoal: GoalProfile = {
   spPronunciation: "",
   desire: { zh: "", en: "" },
   background: { zh: "", en: "" },
+  storySetting: { zh: "", en: "" },
   beliefs: { zh: [], en: [] },
   tone: { zh: "", en: "" },
   journeySummary: { zh: "", en: "" },
@@ -258,6 +261,7 @@ const normalizeGoal = (item: Partial<GoalProfile>): GoalProfile => ({
   ...item,
   intensity: Math.min(5, Math.max(1, Math.round(Number(item.intensity) || 3))),
   background: item.background || defaultGoal.background,
+  storySetting: item.storySetting || defaultGoal.storySetting,
   spPronunciation: item.spPronunciation || "",
   canon: item.canon || defaultGoal.canon,
   responsePreferences: item.responsePreferences || defaultGoal.responsePreferences,
@@ -937,6 +941,7 @@ export default function Home() {
     spName: seed.spName,
     desire: { ...base.desire, [lang]: seed.desire },
     background: { ...base.background, [lang]: seed.background },
+    storySetting: { ...base.storySetting, [lang]: seed.storySetting || "" },
     beliefs: { ...base.beliefs, [lang]: seed.beliefs.slice(0, MAX_BELIEFS) },
     journeySummary: { ...base.journeySummary, [lang]: seedJourneySummary(seed.background) },
     canon: { ...base.canon, [lang]: [seed.desire] },
@@ -994,6 +999,7 @@ export default function Home() {
       updated[index] = {
         ...current,
         spName: current.spName || seed.spName,
+        storySetting: current.storySetting[lang] || !seed.storySetting ? current.storySetting : { ...current.storySetting, [lang]: seed.storySetting },
         background: seed.background && !(current.background[lang] || "").includes(seed.background) ? { ...current.background, [lang]: [current.background[lang], seed.background].filter(Boolean).join("\n\n") } : current.background,
         beliefs: { ...current.beliefs, [lang]: [...beliefs, ...seed.beliefs.filter((belief) => !beliefs.some((item) => sameBelief(item, belief)))].slice(0, MAX_BELIEFS) },
         memoryItems: { ...current.memoryItems, [lang]: addMemories(current.memoryItems[lang] || [], seed.memories) },
@@ -1155,6 +1161,7 @@ export default function Home() {
           acceptedSceneLedger: goal.acceptedSceneLedger[lang],
           memoryItems: goal.memoryItems[lang],
           background: goal.background[lang],
+          storySetting: goal.storySetting[lang],
           profile: { home: profile.country, about: profile.about, situation: profile.situation, people: profile.people.map((person) => ({ name: person.name, relation: person.relation })), neverInclude: profile.neverInclude },
         },
         recentMessages: (recentOverride || (mode === "chat" ? sessionMessages : messages)).filter((item) => !item.error).slice(-10),
@@ -1973,6 +1980,11 @@ export default function Home() {
                     <small className="profile-count">{goal.background[lang].length} / {MAX_BACKGROUND}</small>
                   </section>
                   <section className="profile-card">
+                    <h3>{lang === "zh" ? "剧本设定" : "Story setting"}</h3>
+                    <label className="wish-field"><span className="profile-sub">{lang === "zh" ? "这个愿望的每篇剧本都会照着写：TA 是什么样的人，你们的生活水平和品味，剧本里不想出现的东西。" : "Every script for this desire follows it: who they are, how you live and your taste, what to leave out of scripts."}</span><textarea maxLength={MAX_STORY_SETTING} value={goal.storySetting[lang]} onChange={(event) => { const value = event.target.value; setGoal((current) => ({ ...current, storySetting: { ...current.storySetting, [lang]: value } })); }} placeholder={lang === "zh" ? "比如：他家里条件很好，穿衣讲究但不张扬，说话慢。不要写他穿运动品牌。" : "For example: he comes from money, dresses well but quietly, speaks slowly. No sportswear on him."}/></label>
+                    <small className="profile-count">{goal.storySetting[lang].length} / {MAX_STORY_SETTING}</small>
+                  </section>
+                  <section className="profile-card">
                     <h3>{lang === "zh" ? "想换掉的念头" : "Thoughts to turn around"}</h3>
                     <p className="profile-sub">{lang === "zh" ? "反复冒出来、想换掉的旧念头。点「转念」就能把它转成一句新念头，接纳以后，这一句就从这里拿掉。" : "Old thoughts that keep coming back. Tap Reframe to turn one into a new thought; once you accept it, the old one leaves this list."}</p>
                     {parseBeliefs(beliefDraft).length ? <ul className="thought-rows">{parseBeliefs(beliefDraft).map((item, index) => <li key={`${index}-${item}`}><span>{item}</span><button type="button" className="thought-turn" onClick={() => turnBelief(item)}>{lang === "zh" ? "转念" : "Reframe"}</button><button type="button" className="profile-remove" aria-label={lang === "zh" ? `删除：${item}` : `Delete: ${item}`} onClick={() => removeBeliefWithUndo(item)}><X size={16}/></button></li>)}</ul> : <p className="setting-empty">{lang === "zh" ? "还没有写下想换掉的念头。" : "Nothing written here yet."}</p>}
@@ -2091,7 +2103,7 @@ export default function Home() {
             <label><span>{lang === "zh" ? "地点" : "PLACE"}</span><input value={storyDraft.city} onChange={(event) => setStoryDraft((draft) => ({ ...draft, city: event.target.value }))} maxLength={32} placeholder={lang === "zh" ? "家里、校园、办公室、旅途中" : "Home, campus, work, or on a trip"}/></label>
           </div>
           <label><span>{lang === "zh" ? "一句氛围" : "MOOD IN ONE LINE"}</span><input value={storyDraft.subtitle} onChange={(event) => setStoryDraft((draft) => ({ ...draft, subtitle: event.target.value }))} maxLength={80} placeholder={lang === "zh" ? "这个时刻最真实的感受" : "How this moment feels"}/></label>
-          <label><span>{lang === "zh" ? "场景要点" : "SCENE NOTES"}</span><textarea value={storyDraft.scene} onChange={(event) => setStoryDraft((draft) => ({ ...draft, scene: event.target.value }))} placeholder={lang === "zh" ? "几个关键词或几句话就够。AI 会把它写成有真实地点、气味、声音和对话的完整剧本。" : "A few keywords or lines are enough. The AI writes them into a full script with a real place, smells, sounds, and dialogue."}/><small className="story-notes-tip">{lang === "zh" ? "写得越详细，剧本就越贴近你的新 3D。" : "The more detail you give, the closer the script comes to your new reality."}</small></label>
+          <label><span>{lang === "zh" ? "场景要点" : "SCENE NOTES"}</span><textarea value={storyDraft.scene} onChange={(event) => setStoryDraft((draft) => ({ ...draft, scene: event.target.value }))} placeholder={lang === "zh" ? "几个关键词或几句话就够。AI 会把它写成有真实地点、气味、声音和对话的完整剧本。" : "A few keywords or lines are enough. The AI writes them into a full script with a real place, smells, sounds, and dialogue."}/><small className="story-notes-tip">{lang === "zh" ? "写得越详细，剧本就越贴近你的新 3D。" : "The more detail you give, the closer the script comes to your new reality."}</small></label><details className="story-setting"{...(goal.storySetting[lang] ? { open: true } : {})}><summary>{lang === "zh" ? "剧本设定（对这个愿望的所有故事都生效）" : "Story setting (for every story of this desire)"}</summary><textarea maxLength={MAX_STORY_SETTING} value={goal.storySetting[lang]} onChange={(event) => { const value = event.target.value; setGoal((current) => ({ ...current, storySetting: { ...current.storySetting, [lang]: value } })); }} placeholder={lang === "zh" ? "TA 是什么样的人：家境、职业、穿着、说话方式、小习惯。你们的生活：生活水平、品味、常去的地方。剧本里不想出现的：比如不要写他穿运动品牌。" : "Who they are: background, work, how they dress and talk, little habits. Your life together: how you live, your taste, places you go. What to leave out of scripts: for example, no sportswear on him."}/><small>{lang === "zh" ? "写一次，这个愿望以后的每篇剧本都会照着写。只想对所有愿望都避开的人和事，放在「关于我 → 不要提」。" : "Write it once and every later script for this desire follows it. People and things to avoid for every desire go in About me, Never mention."}</small></details>
           <label><span>{lang === "zh" ? "锚定句" : "ANCHOR LINE"}</span><input value={storyDraft.anchor} onChange={(event) => setStoryDraft((draft) => ({ ...draft, anchor: event.target.value }))} maxLength={100} placeholder={lang === "zh" ? "例如：拥有它已经是我熟悉的日常。" : "For example: Having it is already part of my everyday life."}/></label>
           {storiesLeft !== null && <StoryQuotaNote lang={lang} left={storiesLeft} onUpgrade={Capacitor.isNativePlatform() ? undefined : () => { setStoryEditorOpen(false); setStoryReading(false); setView("settings"); setSettingsSection("membership"); }}/>}
           <footer><small>{lang === "zh" ? `${storyLibrary.length} / ${MAX_STORIES} 个故事` : `${storyLibrary.length} / ${MAX_STORIES} stories`}</small><div><button type="button" className="outline-button" onClick={() => setStoryEditorOpen(false)}>{lang === "zh" ? "取消" : "Cancel"}</button><button type="button" className="outline-button" disabled={!storyDraft.title.trim() || !storyDraft.scene.trim() || !storyDraft.category} onClick={() => saveStory(false)}>{lang === "zh" ? "只保存" : "Save only"}</button><button type="submit" className="primary" disabled={!storyDraft.title.trim() || !storyDraft.scene.trim() || !storyDraft.category || Boolean(scriptingId) || storyQuotaOut}>{storyEditingId && storyLibrary.find((item) => item.id === storyEditingId)?.scripted ? (lang === "zh" ? "✶ 保存并重写剧本" : "✶ Save and rewrite") : (lang === "zh" ? "✶ 保存并写成剧本" : "✶ Save and write script")}</button></div></footer>

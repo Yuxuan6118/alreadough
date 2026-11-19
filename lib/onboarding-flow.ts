@@ -60,6 +60,10 @@ export const STEPS: Record<string, StepDef> = {
   rel_state: step({ id: "rel_state", type: "long", optional: true, reply: false,
     prompt: { zh: "说说你们现在的关系和相处情况。", en: "Tell us where your relationship stands and how you interact now." },
     placeholder: { zh: "比如：刚认识、暧昧中、异地、断联一段时间，或已经重新联系。也可以写你们平时多久联系一次。", en: "For example: We just met, we’re figuring things out, we’re long-distance, we’ve lost touch, or we recently reconnected. Add how often you talk if it helps." } }),
+  rel_who: step({ id: "rel_who", type: "long", optional: true, reply: false,
+    prompt: { zh: "TA 是个什么样的人？", en: "What kind of person are they?" },
+    hint: { zh: "家境、职业、穿着、说话的样子、小习惯，想到什么写什么。AI 为你写剧本时会照着写。", en: "Background, work, how they dress, how they talk, little habits. Whatever comes to mind. The AI follows it when it writes your scripts." },
+    placeholder: { zh: "比如：家里条件很好，穿衣讲究但不张扬，说话慢，紧张时会摸耳朵。", en: "For example: comes from money, dresses well but quietly, speaks slowly, touches his ear when nervous." } }),
   rel_close: step({ id: "rel_close", type: "long", optional: true, reply: false,
     prompt: { zh: "你想要的亲密是什么样子？", en: "What does the closeness you want look like?" },
     hint: { zh: "拥抱、牵手、TA 的声音、TA 怎样对你。", en: "A hug, holding hands, their voice, how they treat you." },
@@ -115,7 +119,7 @@ export const STEPS: Record<string, StepDef> = {
 };
 
 const WISH_SPECIFICS: Record<WishKind, string[]> = {
-  relationship: ["sp_name", "rel_state", "rel_close"],
+  relationship: ["sp_name", "rel_state", "rel_who", "rel_close"],
   wealth: ["wealth_form", "wealth_when"],
   self: ["self_who", "self_body"],
   lifestyle: ["life_where", "life_morning"],
@@ -266,7 +270,9 @@ export function canAdvance(stepId: string, answers: OnboardingAnswers, wishIndex
 export type MemoryKindSeed = "person" | "place" | "event" | "preference" | "insight";
 /** One thing she told us, shaped for the memory library. Her own words, nothing added. */
 export type MemorySeed = { kind: MemoryKindSeed; title: string; detail: string; keywords: string[] };
-export type GoalSeed = { wishCategory: WishKind; desire: string; background: string; beliefs: string[]; spName: string; intensity: number; memories: MemorySeed[] };
+/** Longest story setting kept per desire (characters). */
+export const MAX_STORY_SETTING = 1500;
+export type GoalSeed = { wishCategory: WishKind; desire: string; background: string; beliefs: string[]; spName: string; intensity: number; memories: MemorySeed[]; storySetting: string };
 export type ProfileSeed = { country: string; about: string; situation: string; people: OnboardingPerson[]; neverInclude: string[] };
 
 /** Every question has to be answered, so "none" is a real answer. It should not become a memory. */
@@ -323,6 +329,8 @@ export function answersToSeeds(answers: OnboardingAnswers, lang: OnboardingLang)
       background: wishBackground(wish, lang),
       beliefs: clean(wish.pullback) ? [clean(wish.pullback)] : [],
       spName: wish.kind === "relationship" ? wishPersonName(wish) : "",
+      // "what kind of person are they" goes into this desire's story setting
+      storySetting: wish.kind === "relationship" ? clean(wish.specifics.rel_who).slice(0, MAX_STORY_SETTING) : "",
       intensity: Math.min(5, Math.max(1, Math.round(wish.intensity || 3))),
       memories: [...wishMemories(wish, lang), ...shared].slice(0, 40),
     }));

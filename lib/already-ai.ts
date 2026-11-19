@@ -42,6 +42,8 @@ export type GoalContext = {
   /** What she told us about herself, shared by every desire. */
   /** Her own answers about this desire from onboarding (city and home, the day it arrives, ...). */
   background?: string;
+  /** What she wants every script for this desire to keep to (who the person is, their life, what to leave out). */
+  storySetting?: string;
   profile?: {
     /** The country and city she lives in, as she wrote it. */
     home?: string;

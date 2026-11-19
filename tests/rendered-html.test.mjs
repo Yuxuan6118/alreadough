@@ -462,7 +462,7 @@ test("opening questions: the flow follows her choices, adding a desire reuses th
   const ids = (slots) => slots.map((slot) => slot.id);
   // before she has picked a kind there are no kind-specific questions
   assert.deepEqual(wishModule("", true), ["wish", "category", "scene", "intensity", "pullback", "evidence"]);
-  assert.deepEqual(wishModule("relationship", true).slice(0, 5), ["wish", "category", "sp_name", "rel_state", "rel_close"]);
+  assert.deepEqual(wishModule("relationship", true).slice(0, 6), ["wish", "category", "sp_name", "rel_state", "rel_who", "rel_close"]);
   assert.deepEqual(wishModule("relationship", false), ["wish", "category", "sp_name", "rel_state", "scene", "intensity"]);
   // one "add another?" slot, after the last desire only; the tail appears once she is finished
   const one = ids(buildFlow(["wealth"], false));
@@ -690,7 +690,7 @@ test("the opening never carries real names or private details in examples, place
   // Example placeholders use generic situations and contain no private details.
   const { STEPS } = await import("../lib/onboarding-flow.ts");
   const withExamples = Object.values(STEPS).filter((step) => step.placeholder && /例如|比如|e\.g\.|For example/.test(step.placeholder.zh + step.placeholder.en)).map((step) => step.id);
-  assert.deepEqual(withExamples, ["country", "about", "wish", "rel_state", "rel_close"]);
+  assert.deepEqual(withExamples, ["country", "about", "wish", "rel_state", "rel_who", "rel_close"]);
   // the same question is not asked twice
   const { buildFlow } = await import("../lib/onboarding-flow.ts");
   const ids = buildFlow(["relationship"], true).map((slot) => slot.id);

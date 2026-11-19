@@ -406,6 +406,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .story-quota-note.is-out { color: var(--app-accent); }
 .story-quota-note button { min-height: 32px; border: 1px solid var(--app-accent); border-radius: 999px; padding: 0 12px; color: var(--app-accent); background: transparent; font-size: calc(12px * var(--fs, 1)); }
 .story-editor-modal .story-quota-note { margin: 18px 0 -8px; }
+.story-setting { margin-top: 12px; border: 1px solid var(--app-line); border-radius: var(--app-radius-control); padding: 10px 14px; background: color-mix(in srgb,var(--app-panel) 70%,transparent); }
+.story-setting summary { cursor: pointer; color: var(--app-ink); font-size: calc(13px * var(--fs, 1)); }
+.story-setting textarea { min-height: 110px; margin-top: 10px; font-family: var(--font-body); font-size: calc(14px * var(--fs, 1)); line-height: 1.7; }
+.story-setting small { display: block; margin-top: 6px; color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); line-height: 1.6; }
 .story-notes-tip { display: block; margin-top: 6px; color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); }
 /* the dough hops while a script is written: squash on landing, stretch on take-off, shadow shrinks in the air */
 .story-writing { justify-self: stretch; display: grid; justify-items: center; gap: 10px; margin: 6px 0 4px; padding: 6px 0 4px; color: var(--app-accent); text-align: center; }
