@@ -55,7 +55,8 @@ import ProfilePanel from "../components/ProfilePanel";
 import WishList, { type WishItem } from "../components/WishList";
 import ConfirmHost, { askConfirm, showUndo } from "../components/ConfirmHost";
 import SpaceNav from "../components/SpaceNav";
-import { AboutIcon, HelpIcon, LibraryIcon, LookIcon, MembershipIcon, PetIcon, SyncIcon, ThoughtsIcon, WishesIcon } from "../components/SpaceIcons";
+import { AboutIcon, HelpIcon, LettersIcon, LibraryIcon, LookIcon, MembershipIcon, PetIcon, SyncIcon, ThoughtsIcon, WishesIcon } from "../components/SpaceIcons";
+import LettersPanel, { type AppLetter } from "../components/LettersPanel";
 import FontSizePanel from "../components/FontSizePanel";
 import StoryCoverPicker from "../components/StoryCoverPicker";
 import { STORY_CATEGORIES, STORY_CATEGORY_LABELS, storyCategoryFor, type StoryCategory } from "@/lib/story-prompt";
@@ -71,7 +72,7 @@ import { mergeSpaces } from "@/lib/space-merge";
 import DoughLineMark from "../components/DoughLineMark";
 import { CompanionIcon, DreamscapeIcon, HistoryIcon, ReviseIcon, StoriesIcon, VisionIcon } from "../components/NavIcons";
 
-type SpaceSection = "wishes" | "about" | "library" | "memory" | "membership" | "pet" | "look" | "sync" | "help";
+type SpaceSection = "wishes" | "about" | "library" | "memory" | "letters" | "membership" | "pet" | "look" | "sync" | "help";
 type View = "home" | "subliminal" | "story" | "revision" | "board" | "settings";
 type Lang = "zh" | "en";
 type Message = { id: string; role: "ai" | "user"; text: string; feedback?: "helpful" | "missed"; saved?: boolean; logId?: string; error?: boolean };
@@ -154,9 +155,13 @@ type Story = {
   scripted?: boolean;
   /** What the story is about (love, wealth, ...), which decides the rules the script is written with. */
   category?: StoryCategory;
+  /** The desire this script belongs to (its person, setting and details), or NO_STORY_GOAL. Older stories have none and are matched by category. */
+  goalId?: string;
 };
 type StoryCover = { image: string; credit?: string; source?: string };
-type StoryDraft = { title: string; city: string; subtitle: string; scene: string; anchor: string; category: StoryCategory | "" };
+type StoryDraft = { title: string; city: string; subtitle: string; scene: string; anchor: string; category: StoryCategory | ""; goalId: string; categoryTouched?: boolean };
+/** A script that belongs to no desire. */
+const NO_STORY_GOAL = "none";
 type AIResponse = {
   reply?: string;
   journeySummary?: string;
@@ -177,7 +182,7 @@ const splitThought = (text: string) => {
   return { thought, reading: rest.join(" ") };
 };
 
-const emptyStoryDraft: StoryDraft = { title: "", city: "", subtitle: "", scene: "", anchor: "", category: "" };
+const emptyStoryDraft: StoryDraft = { title: "", city: "", subtitle: "", scene: "", anchor: "", category: "", goalId: "" };
 const emptyMemoryDraft: MemoryDraft = { kind: "insight", title: "", detail: "", keywords: "" };
 const emptyStory: Story = {
   id: "empty",
@@ -382,6 +387,8 @@ export default function Home() {
   const [storyEditorOpen, setStoryEditorOpen] = useState(false);
   const [storyEditingId, setStoryEditingId] = useState<string | null>(null);
   const [storyDraft, setStoryDraft] = useState<StoryDraft>(emptyStoryDraft);
+  /** The kind options under "类型" in the story editor. */
+  const [storyKindOpen, setStoryKindOpen] = useState(false);
   /** Story whose ⋯ menu is open on its library card. */
   const [storyMenuId, setStoryMenuId] = useState<string | null>(null);
   /** Story whose cover is being changed. */
@@ -400,6 +407,21 @@ export default function Home() {
   const [conversationArchive, setConversationArchive] = useState<Conversation[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<SpaceSection | null>(null);
+  // 来信: letters from the founder. Which ones were read is remembered on this device only.
+  const [letters, setLetters] = useState<AppLetter[]>([]);
+  const [readLetters, setReadLetters] = useState<Set<string>>(() => new Set());
+  const [lettersUnreadOnOpen, setLettersUnreadOnOpen] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    try { setReadLetters(new Set(JSON.parse(readStored("already-letters-read-v1") || "[]") as string[])); } catch { /* fresh device */ }
+    fetch("/api/letters").then((response) => response.ok ? response.json() : null).then((data: { letters?: AppLetter[] } | null) => { if (data?.letters) setLetters(data.letters); }).catch(() => undefined);
+  }, []);
+  const unreadLetters = letters.filter((letter) => !readLetters.has(letter.id));
+  const openLetters = () => {
+    setLettersUnreadOnOpen(new Set(unreadLetters.map((letter) => letter.id)));
+    const next = new Set([...readLetters, ...letters.map((letter) => letter.id)]);
+    setReadLetters(next);
+    writeStored("already-letters-read-v1", JSON.stringify([...next].slice(-200)));
+  };
   const [memoryFilter, setMemoryFilter] = useState<MemoryKind | "all">("all");
   const [memoryEditorOpen, setMemoryEditorOpen] = useState(false);
   const [memoryEditingId, setMemoryEditingId] = useState<string | null>(null);
@@ -1134,7 +1156,9 @@ export default function Home() {
     memoryItems: { ...current.memoryItems, [lang]: current.memoryItems[lang].map((item) => item.id === id ? { ...item, pinned: !item.pinned } : item) },
   }));
 
-  const callCompanion = async (mode: "chat" | "revision" | "story", userInput: string, signal?: AbortSignal, recentOverride?: Message[], storyCategory?: StoryCategory) => {
+  const callCompanion = async (mode: "chat" | "revision" | "story", userInput: string, signal?: AbortSignal, recentOverride?: Message[], storyCategory?: StoryCategory, desireGoal?: GoalProfile) => {
+    // a script speaks for its own desire; everything else for the current one
+    const g = desireGoal || goal;
     const response = await fetch("/api/companion", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-already-session-id": sessionId },
@@ -1146,22 +1170,22 @@ export default function Home() {
         sessionId,
         ...(storyCategory ? { storyCategory } : {}),
         goal: {
-          wishCategory: goal.wishCategory,
-          coachMode: goal.coachMode,
-          companionName: goal.companionName,
-          spName: goal.spName,
-          spPronunciation: goal.spPronunciation,
-          desire: goal.desire[lang],
-          beliefs: goal.beliefs[lang],
-          journeySummary: goal.journeySummary[lang],
-          tone: goal.tone[lang],
-          status: goal.status,
-          canon: goal.canon[lang],
-          responsePreferences: goal.responsePreferences[lang],
-          acceptedSceneLedger: goal.acceptedSceneLedger[lang],
-          memoryItems: goal.memoryItems[lang],
-          background: goal.background[lang],
-          storySetting: goal.storySetting[lang],
+          wishCategory: g.wishCategory,
+          coachMode: g.coachMode,
+          companionName: g.companionName,
+          spName: g.spName,
+          spPronunciation: g.spPronunciation,
+          desire: g.desire[lang],
+          beliefs: g.beliefs[lang],
+          journeySummary: g.journeySummary[lang],
+          tone: g.tone[lang],
+          status: g.status,
+          canon: g.canon[lang],
+          responsePreferences: g.responsePreferences[lang],
+          acceptedSceneLedger: g.acceptedSceneLedger[lang],
+          memoryItems: g.memoryItems[lang],
+          background: g.background[lang],
+          storySetting: g.storySetting[lang],
           profile: { home: profile.country, about: profile.about, situation: profile.situation, people: profile.people.map((person) => ({ name: person.name, relation: person.relation })), neverInclude: profile.neverInclude },
         },
         recentMessages: (recentOverride || (mode === "chat" ? sessionMessages : messages)).filter((item) => !item.error).slice(-10),
@@ -1174,7 +1198,7 @@ export default function Home() {
     if (data.error === "MEMBERSHIP_LIMIT" || data.error === "MEMBERSHIP_SIGN_IN_REQUIRED") setMemberGate(data.error);
     if (!response.ok || !data.reply) throw new Error(data.message || data.error || "AI_REQUEST_FAILED");
     setAiConnected(data.model !== "desire-preserving-safety-route" ? true : aiConnected);
-    if (data.journeySummary) {
+    if (data.journeySummary && mode !== "story") {
       setGoal((current) => ({
         ...current,
         journeySummary: { ...current.journeySummary, [lang]: data.journeySummary || current.journeySummary[lang] },
@@ -1283,6 +1307,21 @@ export default function Home() {
     } finally { setIsTyping(false); }
   };
 
+  /** The desire a script belongs to: its own, else the first desire of the same kind, else the current one. Null for "no desire". */
+  const storyGoalFor = (story: Pick<Story, "goalId" | "category">): GoalProfile | null => {
+    if (story.goalId === NO_STORY_GOAL) return null;
+    const all = [goal, ...otherGoals];
+    return all.find((item) => item.id === story.goalId)
+      || (story.category ? all.find((item) => item.setupComplete && storyCategoryFor(item.wishCategory) === story.category) : undefined)
+      || goal;
+  };
+  /** A desire with only her own background left: used for a script that belongs to no desire. */
+  const neutralGoal = (): GoalProfile => ({ ...goal, spName: "", desire: { zh: "", en: "" }, background: { zh: "", en: "" }, storySetting: { zh: "", en: "" }, acceptedSceneLedger: { zh: [], en: [] } });
+  const updateStorySetting = (id: string, value: string) => {
+    if (id === goal.id) setGoal((current) => ({ ...current, storySetting: { ...current.storySetting, [lang]: value } }));
+    else setOtherGoals((items) => items.map((item) => item.id === id ? { ...item, storySetting: { ...item.storySetting, [lang]: value } } : item));
+  };
+
   /** Her keywords for a story: the scene notes she wrote, or the story text when there are none. */
   const storyNotes = (story: Story) => story.seed?.[lang] ?? story.text[lang].join("\n\n");
 
@@ -1309,7 +1348,8 @@ export default function Home() {
       : [["Title", story.title[lang]], ["Place", place], ["Mood", story.subtitle[lang]], ["Scene notes", notes], ["Anchor line", story.anchor[lang]]];
     const prompt = `${zh ? "把下面这些关键词扩写成我的完成态剧本。" : "Expand these keywords into my fulfilled-state script."}\n${fields.filter(([, value]) => value.trim()).map(([label, value]) => `${label}${zh ? "：" : ": "}${value.trim()}`).join("\n")}`;
     try {
-      const script = await callCompanion("story", prompt, undefined, undefined, story.category || storyCategoryFor(goal.wishCategory));
+      const desire = storyGoalFor(story);
+      const script = await callCompanion("story", prompt, undefined, undefined, story.category || storyCategoryFor(desire?.wishCategory), desire || neutralGoal());
       let paragraphs = script.split(/\n+/).map((item) => item.trim()).filter(Boolean);
       // the model sometimes returns one long block: break it into paragraphs of about three sentences
       if (paragraphs.length === 1 && paragraphs[0].length > 300) {
@@ -1322,10 +1362,10 @@ export default function Home() {
       const before = story;
       setStoryLibrary((items) => items.map((item) => item.id === story.id ? { ...item, seed: { zh: item.seed?.zh ?? "", en: item.seed?.en ?? "", [lang]: notes }, text: { ...item.text, [lang]: paragraphs }, scripted: true } : item));
       // the script is a scene she has accepted, so the companion treats it as already done
-      setGoal((current) => {
-        const compact = paragraphs.join("\n").slice(0, 900);
-        return { ...current, acceptedSceneLedger: { ...current.acceptedSceneLedger, [lang]: [compact, ...current.acceptedSceneLedger[lang]].slice(0, 8) } };
-      });
+      const compact = paragraphs.join("\n").slice(0, 900);
+      const addScene = (item: GoalProfile) => ({ ...item, acceptedSceneLedger: { ...item.acceptedSceneLedger, [lang]: [compact, ...item.acceptedSceneLedger[lang]].slice(0, 8) } });
+      if (desire && desire.id !== goal.id) setOtherGoals((items) => items.map((item) => item.id === desire.id ? addScene(item) : item));
+      else if (desire) setGoal(addScene);
       if (before.scripted) showUndo(zh ? "已经重写了这个剧本" : "Script rewritten", zh ? "撤销" : "Undo", () => setStoryLibrary((items) => items.map((item) => item.id === before.id ? { ...item, text: before.text } : item)));
     } catch (error) {
       const message = error instanceof Error ? error.message : "AI_REQUEST_FAILED";
@@ -1444,11 +1484,13 @@ export default function Home() {
   const openStoryEditor = (story?: Story) => {
     if (story) {
       setStoryEditingId(story.id);
-      setStoryDraft({ title: story.title[lang], city: story.city[lang], subtitle: story.subtitle[lang], scene: storyNotes(story), anchor: story.anchor[lang], category: story.category || storyCategoryFor(goal.wishCategory) });
+      const desire = storyGoalFor(story);
+      setStoryDraft({ title: story.title[lang], city: story.city[lang], subtitle: story.subtitle[lang], scene: storyNotes(story), anchor: story.anchor[lang], category: story.category || storyCategoryFor(desire?.wishCategory), goalId: desire?.id || NO_STORY_GOAL });
     } else {
       setStoryEditingId(null);
-      setStoryDraft(emptyStoryDraft);
+      setStoryDraft({ ...emptyStoryDraft, goalId: goal.id, category: storyCategoryFor(goal.wishCategory) });
     }
+    setStoryKindOpen(false);
     setStoryEditorOpen(true);
   };
 
@@ -1471,6 +1513,7 @@ export default function Home() {
           anchor: { ...story.anchor, [lang]: storyDraft.anchor.trim() },
           seed: { zh: story.seed?.zh ?? "", en: story.seed?.en ?? "", [lang]: notes },
           category,
+          goalId: storyDraft.goalId || goal.id,
           // a script stays until it is written again; her own text follows her edits
           text: story.scripted ? story.text : { ...story.text, [lang]: paragraphs },
           sample: false,
@@ -1489,6 +1532,7 @@ export default function Home() {
         anchor: { zh: lang === "zh" ? storyDraft.anchor.trim() : "", en: lang === "en" ? storyDraft.anchor.trim() : "" },
         seed: { zh: lang === "zh" ? notes : "", en: lang === "en" ? notes : "" },
         category,
+        goalId: storyDraft.goalId || goal.id,
         tone: ["nyc", "snow", "seoul"][storyLibrary.length % 3] as Story["tone"],
         createdAt: new Date().toISOString(),
       };
@@ -1749,6 +1793,7 @@ export default function Home() {
 
   /** One way into My space: from the list (phone) or straight to a section. On a wide screen the first section is already open. */
   const openSpace = (section?: SpaceSection) => {
+    if (section === "letters") openLetters();
     setSettingsSection(section ?? (typeof window !== "undefined" && window.matchMedia("(min-width: 1000px)").matches ? "wishes" : null));
     setView("settings");
     scrollSpaceToTop();
@@ -1762,7 +1807,7 @@ export default function Home() {
   return (
     <>
     <aside className={`swipe-sidebar${sidebarOpen ? " open" : ""}`} aria-label={lang === "zh" ? "侧边栏" : "Sidebar"} aria-hidden={!sidebarOpen} inert={!sidebarOpen} data-theme={dark ? "dark" : "light"}>
-      <header><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></header>
+      <header><button type="button" className="swipe-brand" onClick={() => { openSpace("letters"); moveSidebar(false); }} aria-label={lang === "zh" ? "来信" : "Letters"}><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" />{unreadLetters.length > 0 && <i className="brand-dot" />}</span><strong>Alrea<span className="brand-dough">Dough</span></strong></button></header>
       <button type="button" className="swipe-new" onClick={() => { beginNewConversation(); moveSidebar(false); }}><Plus size={18}/>{lang === "zh" ? "新对话" : "New conversation"}</button>
       <nav className="swipe-nav" aria-label={t.ariaNav}>
         {primaryNav.map((item) => {
@@ -1779,7 +1824,7 @@ export default function Home() {
     <main ref={setShellEl} className={`app-shell${sidebarOpen ? " drawer-open" : ""}`} data-theme={dark ? "dark" : "light"} data-lang={lang}><ConfirmHost />
       <div className="app-grain" aria-hidden="true" />
       <aside className="app-rail">
-        <button className="brand" onClick={() => navigate("home")} aria-label="AlreaDough home"><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></button>
+        <button className="brand" onClick={() => openSpace("letters")} aria-label={lang === "zh" ? (unreadLetters.length ? "有新来信" : "来信") : (unreadLetters.length ? "New letter" : "Letters")} title={unreadLetters.length ? (lang === "zh" ? "有一封来信" : "You have a letter") : undefined}><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" />{unreadLetters.length > 0 && <i className="brand-dot" />}</span><strong>Alrea<span className="brand-dough">Dough</span></strong></button>
         <button className="rail-new-chat" onClick={beginNewConversation}><Plus size={18}/><span>{lang === "zh" ? "新对话" : "New conversation"}</span></button>
         <button className="rail-history" onClick={() => setHistoryOpen(true)}><HistoryIcon size={26}/><span>{lang === "zh" ? "对话记录" : "Conversation history"}</span><small>{conversationArchive.length}</small></button>
         <nav className="rail-nav" aria-label={t.ariaNav}>
@@ -1796,7 +1841,7 @@ export default function Home() {
       <section className="app-stage">
       <header className="topbar">
         <button type="button" className="topbar-menu" onClick={() => moveSidebar(true)} aria-label={lang === "zh" ? "打开侧边栏" : "Open the sidebar"}><List size={22}/></button>
-        <button className="brand" onClick={() => setPetOpen((open) => !open)} aria-expanded={petOpen} aria-label={lang === "zh" ? "打开面团" : "Open the dough"}><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></button>
+        <button className="brand" onClick={() => unreadLetters.length ? openSpace("letters") : setPetOpen((open) => !open)} aria-expanded={unreadLetters.length ? undefined : petOpen} aria-label={unreadLetters.length ? (lang === "zh" ? "有新来信" : "New letter") : (lang === "zh" ? "打开面团" : "Open the dough")}><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" />{unreadLetters.length > 0 && <i className="brand-dot" />}</span><strong>Alrea<span className="brand-dough">Dough</span></strong></button>
         <div className="top-actions" aria-hidden="true" />
       </header>
 
@@ -1934,14 +1979,14 @@ export default function Home() {
       {view === "settings" && (() => {
         const shown: SpaceSection = settingsSection ?? "wishes";
         const zhText = lang === "zh";
-        const titles: Record<SpaceSection, string> = { wishes: zhText ? "我的愿望" : "My desires", about: zhText ? "关于我" : "About me", library: zhText ? "记忆库" : "Memory library", memory: zhText ? "背景与念头" : "Background and thoughts", membership: zhText ? "会员与用量" : "Membership and usage", pet: zhText ? "下载桌宠" : "Desktop pet", look: zhText ? "外观与语言" : "Look and language", sync: zhText ? "同步与数据" : "Sync and data", help: zhText ? "帮助与条款" : "Help and terms" };
+        const titles: Record<SpaceSection, string> = { wishes: zhText ? "我的愿望" : "My desires", about: zhText ? "关于我" : "About me", library: zhText ? "记忆库" : "Memory library", memory: zhText ? "背景与念头" : "Background and thoughts", letters: zhText ? "来信" : "Letters", membership: zhText ? "会员与用量" : "Membership and usage", pet: zhText ? "下载桌宠" : "Desktop pet", look: zhText ? "外观与语言" : "Look and language", sync: zhText ? "同步与数据" : "Sync and data", help: zhText ? "帮助与条款" : "Help and terms" };
         return <section className="full-view settings-view space">
           <div className={`space-layout${settingsSection ? " has-detail" : ""}`}>
             <SpaceNav
               title={zhText ? "我的空间" : "My space"}
               intro={zhText ? "愿望、记忆和设置都在这里。" : "Your desires, memory and settings live here."}
               active={settingsSection}
-              onSelect={(id) => { setSettingsSection(id as SpaceSection); scrollSpaceToTop(); }}
+              onSelect={(id) => { if (id === "letters") openLetters(); setSettingsSection(id as SpaceSection); scrollSpaceToTop(); }}
               groups={[
                 { title: zhText ? "我" : "Me", rows: [
                   { id: "wishes", icon: WishesIcon, label: titles.wishes, value: String(sortedGoals.length) },
@@ -1952,6 +1997,7 @@ export default function Home() {
                   { id: "memory", icon: ThoughtsIcon, label: titles.memory },
                 ] },
                 { title: zhText ? "应用" : "App", rows: [
+                  { id: "letters", icon: LettersIcon, label: titles.letters, value: unreadLetters.length ? (zhText ? `${unreadLetters.length} 封未读` : `${unreadLetters.length} unread`) : letters.length ? String(letters.length) : undefined },
                   // The iPhone app must not link to web checkout (App Store rules).
                   ...(Capacitor.isNativePlatform() ? [] : [{ id: "membership", icon: MembershipIcon, label: titles.membership, value: memberPlanLabel(member, lang) }]),
                   // a desktop pet is for computers; the phone app already has the dough on its home screen
@@ -2060,6 +2106,7 @@ export default function Home() {
                   </section>
                 </div>
               </div>}
+              {shown === "letters" && <div className="settings-section"><LettersPanel lang={lang} letters={letters} unread={lettersUnreadOnOpen} /></div>}
               {shown === "help" && <div className="settings-section profile-panel help-section">
                 <p className="setting-hint">{lang === "zh" ? "想反馈问题、举报内容，或查看规则说明，都在这里。" : "Send feedback, report content, or read how things work."}</p>
                 <div className="profile-cards">
@@ -2097,13 +2144,22 @@ export default function Home() {
       {storyEditorOpen && <div className="story-editor-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setStoryEditorOpen(false); }}>
         <form className="story-editor-modal" onSubmit={(event) => { event.preventDefault(); saveStory(true); }}>
           <header><div><p className="eyebrow">{storyEditingId ? (lang === "zh" ? "编辑剧本" : "EDIT SCRIPT") : (lang === "zh" ? "新的已实现时刻" : "A NEW FULFILLED MOMENT")}</p><h2>{storyEditingId ? (lang === "zh" ? "把这个剧本写成你的版本" : "Make this story yours") : (lang === "zh" ? "它已经发生在哪里？" : "Where has it already happened?")}</h2></div><button type="button" onClick={() => setStoryEditorOpen(false)} aria-label={lang === "zh" ? "关闭" : "Close"}>×</button></header>
-          <fieldset className="story-category-picker"><legend><span>{lang === "zh" ? "这个剧本关于什么" : "What is this script about"}</span><small>{lang === "zh" ? "写得越详细，剧本就越贴近你的新 3D。" : "The more detail you give, the closer the script comes to your new reality."}</small></legend><div>{STORY_CATEGORIES.map((id) => <button type="button" key={id} className={storyDraft.category === id ? "active" : ""} aria-pressed={storyDraft.category === id} onClick={() => setStoryDraft((draft) => ({ ...draft, category: id }))}>{STORY_CATEGORY_LABELS[id][lang]}</button>)}</div></fieldset>
+          {(() => {
+            const kindOf = (id: string) => { const item = [goal, ...otherGoals].find((entry) => entry.id === id); return item ? storyCategoryFor(item.wishCategory) : "other"; };
+            const pick = (id: string) => setStoryDraft((draft) => ({ ...draft, goalId: id, category: draft.categoryTouched ? draft.category : kindOf(id) }));
+            return <fieldset className="story-category-picker">
+              <legend><span>{lang === "zh" ? "这个剧本属于哪个愿望" : "Which desire is this script for"}</span><small>{lang === "zh" ? "写得越详细，剧本就越贴近你的新 3D。" : "The more detail you give, the closer the script comes to your new reality."}</small></legend>
+              <div>{sortedGoals.map((item) => <button type="button" key={item.id} className={storyDraft.goalId === item.id ? "active" : ""} aria-pressed={storyDraft.goalId === item.id} onClick={() => pick(item.id)}>{goalTitle(item, lang)}</button>)}<button type="button" className={storyDraft.goalId === NO_STORY_GOAL ? "active" : ""} aria-pressed={storyDraft.goalId === NO_STORY_GOAL} onClick={() => pick(NO_STORY_GOAL)}>{lang === "zh" ? "不属于任何愿望" : "No desire"}</button></div>
+              <div className="story-kind-line"><span>{lang === "zh" ? "类型：" : "Kind: "}{storyDraft.category ? STORY_CATEGORY_LABELS[storyDraft.category][lang] : ""}</span><button type="button" aria-expanded={storyKindOpen} onClick={() => setStoryKindOpen((open) => !open)}>{storyKindOpen ? (lang === "zh" ? "收起" : "Done") : (lang === "zh" ? "改" : "Change")}</button></div>
+              {storyKindOpen && <div className="story-kind-options">{STORY_CATEGORIES.map((id) => <button type="button" key={id} className={storyDraft.category === id ? "active" : ""} aria-pressed={storyDraft.category === id} onClick={() => setStoryDraft((draft) => ({ ...draft, category: id, categoryTouched: true }))}>{STORY_CATEGORY_LABELS[id][lang]}</button>)}</div>}
+            </fieldset>;
+          })()}
           <div className="story-editor-grid">
             <label><span>{lang === "zh" ? "剧本标题" : "SCRIPT TITLE"}</span><input value={storyDraft.title} onChange={(event) => setStoryDraft((draft) => ({ ...draft, title: event.target.value }))} maxLength={42} placeholder={lang === "zh" ? "例如：愿望实现后的普通一天" : "For example: An ordinary day after it came true"}/></label>
             <label><span>{lang === "zh" ? "地点" : "PLACE"}</span><input value={storyDraft.city} onChange={(event) => setStoryDraft((draft) => ({ ...draft, city: event.target.value }))} maxLength={32} placeholder={lang === "zh" ? "家里、校园、办公室、旅途中" : "Home, campus, work, or on a trip"}/></label>
           </div>
           <label><span>{lang === "zh" ? "一句氛围" : "MOOD IN ONE LINE"}</span><input value={storyDraft.subtitle} onChange={(event) => setStoryDraft((draft) => ({ ...draft, subtitle: event.target.value }))} maxLength={80} placeholder={lang === "zh" ? "这个时刻最真实的感受" : "How this moment feels"}/></label>
-          <label><span>{lang === "zh" ? "场景要点" : "SCENE NOTES"}</span><textarea value={storyDraft.scene} onChange={(event) => setStoryDraft((draft) => ({ ...draft, scene: event.target.value }))} placeholder={lang === "zh" ? "几个关键词或几句话就够。AI 会把它写成有真实地点、气味、声音和对话的完整剧本。" : "A few keywords or lines are enough. The AI writes them into a full script with a real place, smells, sounds, and dialogue."}/></label><details className="story-setting"{...(goal.storySetting[lang] ? { open: true } : {})}><summary>{lang === "zh" ? `人物与生活设定 · 「${goalTitle(goal, lang)}」的每篇剧本共用` : `People and life · shared by every script for “${goalTitle(goal, lang)}”`}</summary><textarea maxLength={MAX_STORY_SETTING} value={goal.storySetting[lang]} onChange={(event) => { const value = event.target.value; setGoal((current) => ({ ...current, storySetting: { ...current.storySetting, [lang]: value } })); }} placeholder={lang === "zh" ? "TA 是什么样的人：家境、职业、穿着、说话方式、小习惯。你们的生活：生活水平、品味、常去的地方。剧本里不想出现的：比如不要写他穿运动品牌。" : "Who they are: background, work, how they dress and talk, little habits. Your life together: how you live, your taste, places you go. What to leave out of scripts: for example, no sportswear on him."}/><small>{lang === "zh" ? "这里的设定跟着愿望走，不只用在这一篇：保存后，这个愿望下以后写的每一篇剧本都会照着写。如果某个人或某件事在所有愿望里都不想出现，请写在「关于我」的「不要提」里。" : "This belongs to the desire, not to this one script: once saved, every script you write for this desire follows it. Anyone or anything you never want in any desire goes in About me, Never mention."}</small></details>
+          <label><span>{lang === "zh" ? "场景要点" : "SCENE NOTES"}</span><textarea value={storyDraft.scene} onChange={(event) => setStoryDraft((draft) => ({ ...draft, scene: event.target.value }))} placeholder={lang === "zh" ? "几个关键词或几句话就够。AI 会把它写成有真实地点、气味、声音和对话的完整剧本。" : "A few keywords or lines are enough. The AI writes them into a full script with a real place, smells, sounds, and dialogue."}/></label>{(() => { const desire = [goal, ...otherGoals].find((item) => item.id === storyDraft.goalId); if (!desire) return null; return <details className="story-setting"{...(desire.storySetting[lang] ? { open: true } : {})}><summary>{lang === "zh" ? "人物与生活设定（这个愿望的所有剧本共用）" : "People and life (shared by every script for this desire)"}</summary><textarea maxLength={MAX_STORY_SETTING} value={desire.storySetting[lang]} onChange={(event) => updateStorySetting(desire.id, event.target.value)} placeholder={lang === "zh" ? "TA 是什么样的人：家境、职业、穿着、说话方式、小习惯。你们的生活：生活水平、品味、常去的地方。剧本里不想出现的：比如不要写他穿运动品牌。" : "Who they are: background, work, how they dress and talk, little habits. Your life together: how you live, your taste, places you go. What to leave out of scripts: for example, no sportswear on him."}/><small>{lang === "zh" ? "这个愿望的每一篇剧本都会用到这里的设定。哪里都不想看到的人和事，写在「关于我」的「不要提」里。" : "Every script for this desire uses this setting. People and things you never want to see anywhere go in About me, Never mention."}</small></details>; })()}
           <label><span>{lang === "zh" ? "锚定句" : "ANCHOR LINE"}</span><input value={storyDraft.anchor} onChange={(event) => setStoryDraft((draft) => ({ ...draft, anchor: event.target.value }))} maxLength={100} placeholder={lang === "zh" ? "例如：拥有它已经是我熟悉的日常。" : "For example: Having it is already part of my everyday life."}/></label>
           {storiesLeft !== null && <StoryQuotaNote lang={lang} left={storiesLeft} onUpgrade={Capacitor.isNativePlatform() ? undefined : () => { setStoryEditorOpen(false); setStoryReading(false); setView("settings"); setSettingsSection("membership"); }}/>}
           <footer><small>{lang === "zh" ? `${storyLibrary.length} / ${MAX_STORIES} 个剧本` : `${storyLibrary.length} / ${MAX_STORIES} stories`}</small><div><button type="button" className="outline-button" onClick={() => setStoryEditorOpen(false)}>{lang === "zh" ? "取消" : "Cancel"}</button><button type="button" className="outline-button" disabled={!storyDraft.title.trim() || !storyDraft.scene.trim() || !storyDraft.category} onClick={() => saveStory(false)}>{lang === "zh" ? "只保存" : "Save only"}</button><button type="submit" className="primary" disabled={!storyDraft.title.trim() || !storyDraft.scene.trim() || !storyDraft.category || Boolean(scriptingId) || storyQuotaOut}>{storyEditingId && storyLibrary.find((item) => item.id === storyEditingId)?.scripted ? (lang === "zh" ? "✶ 保存并重写剧本" : "✶ Save and rewrite") : (lang === "zh" ? "✶ 保存并写成剧本" : "✶ Save and write script")}</button></div></footer>

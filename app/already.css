@@ -408,6 +408,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .story-quota-note.is-out { color: var(--app-accent); }
 .story-quota-note button { min-height: 32px; border: 1px solid var(--app-accent); border-radius: 999px; padding: 0 12px; color: var(--app-accent); background: transparent; font-size: calc(12px * var(--fs, 1)); }
 .story-editor-modal .story-quota-note { margin: 18px 0 -8px; }
+.story-kind-line { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); }
+.story-kind-line button { border: 0; padding: 0; color: var(--app-accent); background: transparent; font-size: calc(13px * var(--fs, 1)); text-decoration: underline; text-underline-offset: 3px; }
+.story-category-picker .story-kind-options { margin-top: 8px; }
 .story-setting { margin-top: 12px; border: 1px solid var(--app-line); border-radius: var(--app-radius-control); padding: 10px 14px; background: color-mix(in srgb,var(--app-panel) 70%,transparent); }
 .story-setting summary { cursor: pointer; color: var(--app-ink); font-size: calc(13px * var(--fs, 1)); }
 .story-setting textarea { min-height: 110px; margin-top: 10px; font-family: var(--font-body); font-size: calc(14px * var(--fs, 1)); line-height: 1.7; }
