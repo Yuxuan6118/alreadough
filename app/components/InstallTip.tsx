@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Capacitor } from "@capacitor/core";
-import { Export, X } from "@phosphor-icons/react";
+import { DotsThree, DotsThreeVertical, Export, PlusSquare, X } from "@phosphor-icons/react";
 import { detectInstallMode, localDayKey, type InstallMode } from "@/lib/install-mode";
 import { readStored, writeStored } from "@/lib/safe-storage";
 
@@ -16,34 +16,47 @@ const SHOW_AFTER_MS = 8000;
 
 type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
 
+// The words in 「」 are exactly what the phone's own menu says, with the same little icon beside them,
+// so people can match what they see. Checked on iPhone Safari (iOS 26, Chinese): ··· → 共享 → 添加到主屏幕.
+type Glyph = "share" | "add" | "dots" | "kebab";
+const glyphs: Record<Glyph, ReactNode> = {
+  share: <Export size={13} weight="bold" />,
+  add: <PlusSquare size={13} weight="bold" />,
+  dots: <DotsThree size={13} weight="bold" />,
+  kebab: <DotsThreeVertical size={13} weight="bold" />,
+};
+function Key({ icon, children }: { icon?: Glyph; children: ReactNode }) {
+  return <span className="install-key">「{icon && <i aria-hidden="true">{glyphs[icon]}</i>}{children}」</span>;
+}
+
 const copy = {
   zh: {
     title: "把 AlreaDough 放到手机桌面",
-    android: "一点就能打开，像 App 一样全屏使用。",
+    android: <>一点就能打开，像 App 一样全屏使用。</>,
     install: "安装",
-    androidManual: "点浏览器右上角的菜单（⋮ 或 ≡），选「添加到主屏幕」或「安装应用」。",
-    iosSafari: "点底部的「分享」图标，再选「添加到主屏幕」。",
-    iosOther: (host: string) => `只有 Safari 可以安装到主屏幕。请用 Safari 打开 ${host}，再点「分享」→「添加到主屏幕」。`,
+    androidManual: <>点浏览器的菜单<Key icon="kebab">⋮</Key>或<Key>≡</Key>，选<Key>添加到主屏幕</Key>、<Key>添加到桌面</Key>或<Key>安装应用</Key>。</>,
+    iosSafari: <>点 Safari 的<Key icon="share">共享</Key>（看不到就先点底部的<Key icon="dots">···</Key>），再选<Key icon="add">添加到主屏幕</Key>。</>,
+    iosOther: (host: string) => <>只有 Safari 可以添加到主屏幕。请用 Safari 打开 {host}，点<Key icon="share">共享</Key>，再选<Key icon="add">添加到主屏幕</Key>。</>,
     copy: "复制网址",
     copied: "已复制",
-    wechatIos: "请点右上角「···」，选「在 Safari 打开」，再用 Safari 的「分享」→「添加到主屏幕」。",
-    wechatAndroid: "请点右上角「···」，选「在浏览器打开」，再添加到桌面。",
+    wechatIos: <>点右上角<Key icon="dots">···</Key>，选在 Safari 中打开，再点<Key icon="share">共享</Key>→<Key icon="add">添加到主屏幕</Key>。</>,
+    wechatAndroid: <>点右上角<Key icon="dots">···</Key>，选在浏览器中打开，再从浏览器菜单添加到桌面。</>,
     close: "关闭",
   },
   en: {
     title: "Put AlreaDough on your home screen",
-    android: "One tap to open, full screen like an app.",
+    android: <>One tap to open, full screen like an app.</>,
     install: "Install",
-    androidManual: "Open the browser menu (⋮ or ≡) and choose “Add to Home screen” or “Install app”.",
-    iosSafari: "Tap the Share icon at the bottom, then “Add to Home Screen”.",
-    iosOther: (host: string) => `Only Safari can add this to your home screen. Open ${host} in Safari, then tap Share → “Add to Home Screen”.`,
+    androidManual: <>Open the browser menu <Key icon="kebab">⋮</Key> or <Key>≡</Key> and choose <Key>Add to Home screen</Key> or <Key>Install app</Key>.</>,
+    iosSafari: <>Tap Safari&apos;s <Key icon="share">Share</Key> (if you can&apos;t see it, tap <Key icon="dots">···</Key> at the bottom first), then <Key icon="add">Add to Home Screen</Key>.</>,
+    iosOther: (host: string) => <>Only Safari can add this to your home screen. Open {host} in Safari, tap <Key icon="share">Share</Key>, then <Key icon="add">Add to Home Screen</Key>.</>,
     copy: "Copy link",
     copied: "Copied",
-    wechatIos: "Tap “···” at the top right, choose “Open in Safari”, then use Safari's Share → “Add to Home Screen”.",
-    wechatAndroid: "Tap “···” at the top right, choose “Open in browser”, then add it to your home screen.",
+    wechatIos: <>Tap <Key icon="dots">···</Key> at the top right, open the page in Safari, then tap <Key icon="share">Share</Key> → <Key icon="add">Add to Home Screen</Key>.</>,
+    wechatAndroid: <>Tap <Key icon="dots">···</Key> at the top right, open the page in your browser, then add it to your home screen from the browser menu.</>,
     close: "Close",
   },
-} as const;
+};
 
 type TipMode = InstallMode | "android-manual";
 
@@ -148,7 +161,7 @@ export default function InstallTip({ lang: forcedLang }: { lang?: "zh" | "en" })
       <span className="install-tip-icon" aria-hidden="true">{mode === "android" ? <img src="/already-app-icon.png" alt="" width={28} height={28}/> : <Export size={20}/>}</span>
       <div>
         <strong>{text.title}</strong>
-        <small>{body}</small>
+        <p className="install-tip-body">{body}</p>
       </div>
       {mode === "android" && <button className="install-tip-action" onClick={install}>{text.install}</button>}
       {mode === "ios-other" && <button className="install-tip-action" onClick={copyLink}>{copied ? text.copied : text.copy}</button>}
