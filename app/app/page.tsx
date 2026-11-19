@@ -224,13 +224,14 @@ const storyTitleFrom = (text: string, lang: Lang) => {
   if (!sentence) return lang === "zh" ? "来自陪伴者的故事" : "A story from my companion";
   return sentence.length > max ? `${sentence.slice(0, max).trim()}…` : sentence;
 };
-/** Repairs stories saved by older builds: a placeholder title in one language when the text is the same in both. */
+/** Repairs stories saved from chat by older builds: a placeholder title, or the first 24 characters cut mid-word. */
 const normalizeStory = (story: Story): Story => {
-  const sameText = story.text.zh.join("\n") === story.text.en.join("\n");
-  if (!sameText) return story;
   const title = { ...story.title };
-  if (PLACEHOLDER_STORY_TITLES.has(title.zh) && title.en && !PLACEHOLDER_STORY_TITLES.has(title.en)) title.zh = title.en;
-  if (PLACEHOLDER_STORY_TITLES.has(title.en) && title.zh && !PLACEHOLDER_STORY_TITLES.has(title.zh)) title.en = title.zh;
+  (["zh", "en"] as Lang[]).forEach((lang) => {
+    const first = story.text[lang][0] || "";
+    const cut = first.length > 24 && title[lang] === first.slice(0, 24);
+    if (first && (cut || PLACEHOLDER_STORY_TITLES.has(title[lang]))) title[lang] = storyTitleFrom(first, lang);
+  });
   return { ...story, title };
 };
 const storyDate = (story: Story, lang: Lang) => {
@@ -841,7 +842,9 @@ export default function Home() {
     if (!story) return;
     const storyLang: Lang = story.text[lang].length ? lang : lang === "zh" ? "en" : "zh";
     const place = ["我的生活", "MY LIFE"].includes(story.city[storyLang]) ? "" : story.city[storyLang];
-    const query = [story.title[storyLang], place, story.subtitle[storyLang] || story.text[storyLang][0] || ""].filter(Boolean).join(" ").slice(0, 110);
+    // a reply saved from chat opens on the old scene and ends on the new one, so look for the ending
+    const ending = story.anchor[storyLang] || story.subtitle[storyLang] || story.text[storyLang].at(-1) || "";
+    const query = [place, ending, story.title[storyLang]].filter(Boolean).join(" ").slice(0, 110);
     coverLookups.current.add(story.id);
     coverLookupRunning.current = true;
     fetch(`/api/images?q=${encodeURIComponent(query)}`)
@@ -1827,10 +1830,10 @@ export default function Home() {
         </header>
         <div className="story-hero">
           {currentStory.cover?.image ? <img src={currentStory.cover.image} alt=""/> : <span className={`story-fallback ${currentStory.tone}`} aria-hidden="true"/>}
-          <div className="story-hero-text">{storyMeta(currentStory, lang) && <small>{storyMeta(currentStory, lang)}</small>}<h1>{currentStory.title[lang]}</h1>{currentStory.subtitle[lang] && <p>{currentStory.subtitle[lang]}</p>}</div>
           {currentStory.cover?.credit && (currentStory.cover.source && /^https?:/.test(currentStory.cover.source) ? <a className="story-hero-credit" href={currentStory.cover.source} target="_blank" rel="noreferrer">{currentStory.cover.credit}</a> : <span className="story-hero-credit">{currentStory.cover.credit}</span>)}
         </div>
         <div className="story-sheet">
+          <header className="story-sheet-head">{storyMeta(currentStory, lang) && <small>{storyMeta(currentStory, lang)}</small>}<h1>{currentStory.title[lang]}</h1>{currentStory.subtitle[lang] && <p>{currentStory.subtitle[lang]}</p>}</header>
           <article className="story-body">{storyText.map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>)}{currentStory.anchor[lang] && <blockquote>{currentStory.anchor[lang]}</blockquote>}</article>
           <div className="story-expand"><button className="primary" onClick={makeStory} disabled={storyGenerating}>{storyGenerating ? t.generating : t.generateStory}</button></div>
           {aiError && <div className="ai-notice story-ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
