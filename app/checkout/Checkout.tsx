@@ -58,12 +58,6 @@ export default function Checkout({ initialLang }: { initialLang: Lang }) {
     if (method === "card" && !member.cardCheckoutAvailable && member.checkoutAvailable) setMethod("alipay");
   }, [member, method]);
 
-  function choosePlan(next: PaidPlan) {
-    setPlan(next);
-    const url = new URL(window.location.href);
-    url.searchParams.set("plan", next);
-    window.history.replaceState(window.history.state, "", url);
-  }
 
   async function act(path: string, body: Record<string, string> = {}) {
     setBusy(true); setError(""); setNotice("");
@@ -110,18 +104,8 @@ export default function Checkout({ initialLang }: { initialLang: Lang }) {
             <a className="checkout-primary" href="/app">{zh ? "回到 AlreaDough" : "Back to AlreaDough"}</a>
           </> : <>
             <h1>{selected.name[lang]}<span>{zh ? " 30 天" : " · 30 days"}</span></h1>
-            <p className="checkout-lead">{zh ? "一次购买 30 天，到期不会自动扣款。" : "One payment for 30 days. It never renews on its own."}</p>
+            <p className="checkout-lead">{zh ? `每 5 小时约 ${selected.session} 次，每周约 ${selected.week} 次。` : `About ${selected.session} replies per 5 hours and ${selected.week} per week.`}<br />{zh ? "一次购买 30 天，到期不会自动扣款。" : "One payment for 30 days. It never renews on its own."}</p>
 
-            <fieldset className="checkout-options">
-              <legend>{zh ? "方案" : "Plan"}</legend>
-              {PAID_PLANS.map((item) => (
-                <label key={item.id} className={plan === item.id ? "is-selected" : undefined}>
-                  <input type="radio" name="plan" checked={plan === item.id} onChange={() => choosePlan(item.id)} />
-                  <span className="option-text"><strong>{item.name[lang]}</strong><small>{zh ? `每 5 小时约 ${item.session} 次，每周约 ${item.week} 次` : `About ${item.session} per 5 hours, ${item.week} per week`}</small></span>
-                  <span className="option-price">¥{item.price}</span>
-                </label>
-              ))}
-            </fieldset>
 
             {!member ? <p className="checkout-quiet">{zh ? "正在读取账户…" : "Loading your account…"}</p>
             : !open ? <p className="checkout-quiet">{zh ? "购买入口暂未开放。" : "Purchases are not open yet."}</p>
@@ -148,7 +132,7 @@ export default function Checkout({ initialLang }: { initialLang: Lang }) {
                   <label className={method === "alipay" ? "is-selected" : undefined}>
                     <input type="radio" name="method" checked={method === "alipay"} onChange={() => setMethod("alipay")} />
                     <Wallet size={20} className="option-icon" />
-                    <span className="option-text"><strong>{zh ? "支付宝" : "Alipay"}</strong><small>{zh ? "扫码或打开支付宝" : "Scan or open Alipay"}</small></span>
+                    <span className="option-text"><strong>{zh ? "支付宝" : "Alipay"}</strong><small>{zh ? "用支付宝扫二维码" : "Scan the QR code with Alipay"}</small></span>
                     <span className="option-price">¥{selected.price}</span>
                   </label>
                 )}
@@ -168,7 +152,7 @@ export default function Checkout({ initialLang }: { initialLang: Lang }) {
               </button>
               <p className="checkout-note">
                 {renewing && membership?.periodEndMs ? (zh ? `会在现有有效期（到 ${date(membership.periodEndMs)}）之后再加 30 天。` : `Adds 30 days after your current period, which ends ${date(membership.periodEndMs)}. `) : null}
-                {method === "card" ? (zh ? "美元报价，实付币种和金额以收银台为准。" : "Priced in USD. The checkout page shows the final currency and amount.") : (zh ? "付款后自动开通。" : "Your plan starts as soon as the payment clears.")}
+                {method === "card" ? (zh ? "美元报价，实付币种和金额以收银台为准。" : "Priced in USD. The checkout page shows the final currency and amount.") : (zh ? "下一步会显示二维码，用手机支付宝扫码付款，付完自动开通。" : "Next you will see a QR code. Scan it with Alipay on your phone; your plan starts once it is paid.")}
               </p>
 
               {plan === "atelier" && !membership?.referralUsed && (showReferral ? (

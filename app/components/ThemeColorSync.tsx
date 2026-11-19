@@ -23,7 +23,8 @@ export default function ThemeColorSync() {
         meta.setAttribute("data-app-theme", "yes");
         document.head.appendChild(meta);
       }
-      meta.content = root.dataset.theme === "dark" ? DARK : LIGHT;
+      // light: read the page colour from CSS, since phones use a slightly deeper cream than desktop
+      meta.content = root.dataset.theme === "dark" ? DARK : getComputedStyle(root).getPropertyValue("--app-bg").trim() || LIGHT;
     };
     apply();
     const observer = new MutationObserver(apply);
