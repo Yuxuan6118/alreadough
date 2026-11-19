@@ -39,6 +39,8 @@ import {
   Flag,
   LockSimple,
   ShieldCheck,
+  DotsThree,
+  ImageSquare,
 } from "@phosphor-icons/react";
 import SubliminalStudio, { PracticeCheckIn, practiceStreak, todayKey } from "../components/SubliminalStudio";
 import Dreamscape from "../components/Dreamscape";
@@ -55,6 +57,7 @@ import ConfirmHost, { askConfirm, showUndo } from "../components/ConfirmHost";
 import SpaceNav from "../components/SpaceNav";
 import { AboutIcon, HelpIcon, LibraryIcon, LookIcon, MembershipIcon, PetIcon, SyncIcon, ThoughtsIcon, WishesIcon } from "../components/SpaceIcons";
 import FontSizePanel from "../components/FontSizePanel";
+import StoryCoverPicker from "../components/StoryCoverPicker";
 import type { ReflectionAnswers } from "@/lib/reflection";
 import { validateSpName } from "@/lib/name-policy";
 import { answersToSeeds, sharedMemories, splitLines, type GoalSeed, type MemorySeed, type OnboardingAnswers, type ProfileSeed } from "@/lib/onboarding-flow";
@@ -138,7 +141,12 @@ type Story = {
   anchor: Record<Lang, string>;
   tone: "nyc" | "snow" | "seoul";
   sample?: boolean;
+  /** The photo on the card. null = the person removed it, so no photo is looked up again. */
+  cover?: StoryCover | null;
+  /** When the story was saved (ISO). Older stories have none. */
+  createdAt?: string;
 };
+type StoryCover = { image: string; credit?: string; source?: string };
 type StoryDraft = { title: string; city: string; subtitle: string; scene: string; anchor: string };
 type AIResponse = {
   reply?: string;
@@ -207,6 +215,32 @@ const SYNC_BASE_KEY = "already-sync-base-v1";
 const MAX_STORIES = 30;
 /** Paragraphs kept per story; long enough for a full script. */
 const MAX_STORY_PARAGRAPHS = 20;
+/** Fallback titles older builds wrote into the language the story was not saved in. */
+const PLACEHOLDER_STORY_TITLES = new Set(["新的已实现时刻", "A fulfilled moment", "来自陪伴者的故事", "A story from my companion"]);
+/** A short title from the first sentence of a story, for stories saved straight from a chat reply. */
+const storyTitleFrom = (text: string, lang: Lang) => {
+  const sentence = text.split(/(?<=[。！？!?])|(?<=\.)\s/)[0]?.trim().replace(/[，,。.!！?？；;:：]+$/, "") || "";
+  const max = lang === "zh" ? 18 : 48;
+  if (!sentence) return lang === "zh" ? "来自陪伴者的故事" : "A story from my companion";
+  return sentence.length > max ? `${sentence.slice(0, max).trim()}…` : sentence;
+};
+/** Repairs stories saved by older builds: a placeholder title in one language when the text is the same in both. */
+const normalizeStory = (story: Story): Story => {
+  const sameText = story.text.zh.join("\n") === story.text.en.join("\n");
+  if (!sameText) return story;
+  const title = { ...story.title };
+  if (PLACEHOLDER_STORY_TITLES.has(title.zh) && title.en && !PLACEHOLDER_STORY_TITLES.has(title.en)) title.zh = title.en;
+  if (PLACEHOLDER_STORY_TITLES.has(title.en) && title.zh && !PLACEHOLDER_STORY_TITLES.has(title.zh)) title.en = title.zh;
+  return { ...story, title };
+};
+const storyDate = (story: Story, lang: Lang) => {
+  if (!story.createdAt) return "";
+  const date = new Date(story.createdAt);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US", { year: "numeric", month: "long", day: "numeric" });
+};
+/** Date and place under a story title; the default place ("我的生活") is left out. */
+const storyMeta = (story: Story, lang: Lang) => [storyDate(story, lang), ["我的生活", "MY LIFE"].includes(story.city[lang]) ? "" : story.city[lang]].filter(Boolean).join(" · ");
 const intensityLabels: Record<Lang, string[]> = {
   zh: ["有也不错", "想要", "很想要", "特别想要", "最想要"],
   en: ["Nice to have", "Want it", "Really want it", "Want it a lot", "Want it most"],
@@ -336,6 +370,14 @@ export default function Home() {
   const [storyEditorOpen, setStoryEditorOpen] = useState(false);
   const [storyEditingId, setStoryEditingId] = useState<string | null>(null);
   const [storyDraft, setStoryDraft] = useState<StoryDraft>(emptyStoryDraft);
+  /** Story whose ⋯ menu is open on its library card. */
+  const [storyMenuId, setStoryMenuId] = useState<string | null>(null);
+  /** Story whose cover is being changed. */
+  const [coverPickerId, setCoverPickerId] = useState<string | null>(null);
+  /** Stories whose photo lookup is running or failed this visit, so the lookup never loops. */
+  const coverLookups = useRef(new Set<string>());
+  const coverLookupRunning = useRef(false);
+  const [coverLookupTick, setCoverLookupTick] = useState(0);
   const [goal, setGoal] = useState<GoalProfile>(defaultGoal);
   const [goalArchive, setGoalArchive] = useState<GoalProfile[]>([]);
   const [otherGoals, setOtherGoals] = useState<GoalProfile[]>([]);
@@ -655,7 +697,7 @@ export default function Home() {
         setBeliefDraft((restoredGoal.beliefs[restoredLang] || []).join("\n"));
       }
       if (data.profile) setProfile(normalizeProfile(data.profile));
-      if (Array.isArray(data.storyLibrary)) setStoryLibrary((data.storyLibrary as Story[]).slice(0, MAX_STORIES));
+      if (Array.isArray(data.storyLibrary)) setStoryLibrary((data.storyLibrary as Story[]).slice(0, MAX_STORIES).map(normalizeStory));
       if (Array.isArray(data.goalArchive)) setGoalArchive((data.goalArchive as GoalProfile[]).slice(0, 20));
       if (Array.isArray(data.otherGoals)) setOtherGoals((data.otherGoals as Partial<GoalProfile>[]).filter((item) => item?.setupComplete && item.desire && item.beliefs && item.id).map(normalizeGoal).slice(0, MAX_GOALS));
       if (Array.isArray(data.messages)) setMessages(normalizeMessages(data.messages));
@@ -792,6 +834,28 @@ export default function Home() {
 
   const dateLabel = useMemo(() => new Intl.DateTimeFormat(lang === "zh" ? "zh-CN" : "en-US", { month: "long", day: "numeric", weekday: "long" }).format(new Date()), [lang]);
   const t = ui[lang];
+  // A story without a photo gets one licensed photo found from its own words: one lookup at a time, once per story per visit.
+  useEffect(() => {
+    if (!hydrated || view !== "story" || coverLookupRunning.current) return;
+    const story = storyLibrary.find((item) => item.cover === undefined && !coverLookups.current.has(item.id));
+    if (!story) return;
+    const storyLang: Lang = story.text[lang].length ? lang : lang === "zh" ? "en" : "zh";
+    const place = ["我的生活", "MY LIFE"].includes(story.city[storyLang]) ? "" : story.city[storyLang];
+    const query = [story.title[storyLang], place, story.subtitle[storyLang] || story.text[storyLang][0] || ""].filter(Boolean).join(" ").slice(0, 110);
+    coverLookups.current.add(story.id);
+    coverLookupRunning.current = true;
+    fetch(`/api/images?q=${encodeURIComponent(query)}`)
+      .then((response) => response.ok ? response.json() as Promise<{ results?: SearchImage[] }> : Promise.reject(new Error("search failed")))
+      .then((data) => {
+        const photo = data.results?.[0];
+        // no photo found: leave it, and look again on a later visit
+        if (photo) setStoryLibrary((items) => items.map((item) => item.id === story.id && item.cover === undefined ? { ...item, cover: { image: photo.image, credit: photo.credit, source: photo.source } } : item));
+        if (photo?.downloadLocation) fetch("/api/images", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ downloadLocation: photo.downloadLocation }) }).catch(() => null);
+      })
+      .catch(() => null) // try again on the next visit
+      .finally(() => { coverLookupRunning.current = false; setCoverLookupTick((tick) => tick + 1); });
+  }, [hydrated, view, storyLibrary, lang, coverLookupTick]);
+
   const currentStory = storyLibrary[Math.min(storyIndex, Math.max(0, storyLibrary.length - 1))] || emptyStory;
   const storyText = currentStory.text[lang];
   const spNameError = spNameDraft.trim() ? validateSpName(spNameDraft, lang) : "";
@@ -1163,13 +1227,15 @@ export default function Home() {
   const saveReplyAsStory = (message: Message) => {
     if (storyLibrary.length >= MAX_STORIES) { setView("story"); return; }
     const paragraphs = message.text.split(/\n+/).map((item) => item.trim()).filter(Boolean).slice(0, MAX_STORY_PARAGRAPHS);
-    const title = paragraphs[0]?.slice(0, 24) || (lang === "zh" ? "来自陪伴者的故事" : "A story from my companion");
+    // the reply is kept as written in both languages, so the title goes in both too
+    const title = storyTitleFrom(paragraphs[0] || "", lang);
     const created: Story = {
       id: crypto.randomUUID(),
-      title: { zh: lang === "zh" ? title : "新的已实现时刻", en: lang === "en" ? title : "A fulfilled moment" },
+      title: { zh: title, en: title },
       city: { zh: "我的生活", en: "MY LIFE" }, subtitle: { zh: "", en: "" },
       text: { zh: paragraphs, en: paragraphs },
-      anchor: { zh: "", en: "" }, tone: "snow",
+      anchor: { zh: "", en: "" }, tone: ["nyc", "snow", "seoul"][storyLibrary.length % 3] as Story["tone"],
+      createdAt: new Date().toISOString(),
     };
     setStoryLibrary((items) => [...items, created]);
     setMessages((items) => items.map((item) => item.id === message.id ? { ...item, saved: true } : item));
@@ -1222,6 +1288,7 @@ export default function Home() {
       text: { zh: lang === "zh" ? paragraphs : currentStory.text.zh, en: lang === "en" ? paragraphs : currentStory.text.en },
       anchor: { ...currentStory.anchor },
       tone: ["nyc", "snow", "seoul"][storyLibrary.length % 3] as Story["tone"],
+      createdAt: new Date().toISOString(),
     };
     setStoryLibrary((items) => [...items, created]);
     setGoal((current) => {
@@ -1335,6 +1402,15 @@ export default function Home() {
     setSurveyOpen(false);
   };
 
+  const setStoryCover = (id: string, cover: StoryCover | null) => {
+    setStoryLibrary((items) => items.map((story) => story.id === id ? { ...story, cover } : story));
+  };
+
+  /** Unsplash asks to be told when one of its photos is used. */
+  const reportPhotoUse = (downloadLocation?: string) => {
+    if (downloadLocation) fetch("/api/images", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ downloadLocation }) }).catch(() => null);
+  };
+
   const openStoryEditor = (story?: Story) => {
     if (story) {
       setStoryEditingId(story.id);
@@ -1369,6 +1445,7 @@ export default function Home() {
         text: { zh: lang === "zh" ? paragraphs : [fallback], en: lang === "en" ? paragraphs : [fallback] },
         anchor: { zh: lang === "zh" ? storyDraft.anchor.trim() : "", en: lang === "en" ? storyDraft.anchor.trim() : "" },
         tone: ["nyc", "snow", "seoul"][storyLibrary.length % 3] as Story["tone"],
+        createdAt: new Date().toISOString(),
       };
       setStoryLibrary((items) => [...items, created]);
       setStoryIndex(storyLibrary.length);
@@ -1718,25 +1795,64 @@ export default function Home() {
 
 
       {view === "story" && !storyReading && <section className="full-view story-library-view">
-        <div className="view-heading"><p className="eyebrow">{lang === "zh" ? "你的故事库" : "YOUR STORY LIBRARY"}</p><h1>{lang === "zh" ? "写下已经发生的生活" : "Write the life already lived"}</h1><p>{lang === "zh" ? "每个故事都是一个可以反复进入、随时编辑的完成态场景。" : "Each story is a fulfilled scene you can revisit and edit at any time."}</p></div>
+        <div className="view-heading"><p className="eyebrow">{lang === "zh" ? "你的故事库" : "YOUR STORY LIBRARY"}</p><h1>{lang === "zh" ? "写下已经发生的生活" : "Write the life already lived"}</h1><p>{lang === "zh" ? "每个故事都是一段你已经经历过的回忆，可以反复回来，也可以随时改写。" : "Each story is a memory you have already lived. Come back to it, or rewrite it, any time."}</p></div>
         <div className="story-library-meta"><span>{storyLibrary.length} / {MAX_STORIES}</span><small>{lang === "zh" ? `最多保存 ${MAX_STORIES} 个故事` : `Up to ${MAX_STORIES} saved stories`}</small></div>
-        <div className="story-library-grid">
-          {storyLibrary.map((story, index) => <article className="story-library-card" key={story.id}>
-            <button className={`story-card-cover ${story.tone}`} onClick={() => { setStoryIndex(index); setStoryReading(true); setGeneratedStory(""); }}><span>{story.city[lang]}</span><strong>{story.title[lang]}</strong></button>
-            <div><p>{story.subtitle[lang] || story.text[lang][0]}</p><div className="story-card-actions"><button onClick={() => openStoryEditor(story)}><PencilSimple size={17}/>{lang === "zh" ? "编辑" : "Edit"}</button><button onClick={() => deleteStory(story.id)}><Trash size={17}/>{lang === "zh" ? "删除" : "Delete"}</button></div></div>
+        <div className="story-grid">
+          {storyLibrary.map((story, index) => <article className="story-tile" key={story.id}>
+            <button type="button" className="story-tile-open" onClick={() => { setStoryIndex(index); setStoryReading(true); setGeneratedStory(""); setStoryMenuId(null); window.scrollTo({ top: 0 }); }}>
+              {story.cover?.image ? <img src={story.cover.image} alt="" loading="lazy" decoding="async"/> : <span className={`story-fallback ${story.tone}`} aria-hidden="true"/>}
+              <span className="story-tile-text">{storyMeta(story, lang) && <small>{storyMeta(story, lang)}</small>}<strong>{story.title[lang]}</strong></span>
+            </button>
+            <button type="button" className="story-tile-more" aria-label={lang === "zh" ? `${story.title[lang]}的更多操作` : `More for ${story.title[lang]}`} aria-expanded={storyMenuId === story.id} onClick={() => setStoryMenuId((id) => id === story.id ? null : story.id)}><DotsThree size={22} weight="bold"/></button>
+            {storyMenuId === story.id && <>
+              <button type="button" className="story-tile-scrim" aria-label={lang === "zh" ? "关闭菜单" : "Close menu"} onClick={() => setStoryMenuId(null)}/>
+              <div className="story-tile-menu" role="menu">
+                <button type="button" role="menuitem" onClick={() => { setStoryMenuId(null); openStoryEditor(story); }}><PencilSimple size={17}/>{lang === "zh" ? "编辑故事" : "Edit story"}</button>
+                <button type="button" role="menuitem" onClick={() => { setStoryMenuId(null); setCoverPickerId(story.id); }}><ImageSquare size={17}/>{lang === "zh" ? "换封面" : "Change cover"}</button>
+                <button type="button" role="menuitem" className="danger" onClick={() => { setStoryMenuId(null); deleteStory(story.id); }}><Trash size={17}/>{lang === "zh" ? "删除" : "Delete"}</button>
+              </div>
+            </>}
           </article>)}
-          {storyLibrary.length < MAX_STORIES && <button className="story-add-card" onClick={() => openStoryEditor()}><span><Plus size={28}/></span><strong>{lang === "zh" ? "添加新故事" : "Add a story"}</strong><small>{lang === "zh" ? "地点、场景和感受都由你决定" : "Choose the place, scene, and feeling"}</small></button>}
+          {storyLibrary.length < MAX_STORIES && <button type="button" className="story-tile-add" onClick={() => openStoryEditor()}><span><Plus size={26}/></span><strong>{lang === "zh" ? "添加新故事" : "Add a story"}</strong><small>{lang === "zh" ? "写下一段已经发生的回忆" : "Write down a memory already lived"}</small></button>}
         </div>
       </section>}
 
-      {view === "story" && storyReading && <section className="full-view story-view">
-        <div className={`story-cover ${currentStory.tone}`}><p>{currentStory.city[lang]}</p><h1>{currentStory.title[lang]}</h1><span>{currentStory.subtitle[lang]}</span></div>
-        <article className="story-body">{storyText.map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>)}{currentStory.anchor[lang] && <blockquote>{currentStory.anchor[lang]}</blockquote>}</article>
-        <div className="personal-story-action story-reader-actions"><button onClick={() => setStoryReading(false)}>{lang === "zh" ? "返回故事库" : "Back to stories"}</button><button onClick={() => openStoryEditor(currentStory)}><PencilSimple size={17}/>{lang === "zh" ? "编辑故事" : "Edit story"}</button><button className="primary" onClick={makeStory} disabled={storyGenerating}>{storyGenerating ? t.generating : t.generateStory}</button></div>
-        {aiError && <div className="ai-notice story-ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
-        {generatedStory && <article className="generated-story"><span>AI PERSONAL STORY</span>{generatedStory.split(/\n+/).filter(Boolean).map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>)}<button className="outline-button" onClick={acceptGeneratedStory} disabled={savedGeneratedStory === generatedStory || storyLibrary.length >= MAX_STORIES}>{savedGeneratedStory === generatedStory ? (lang === "zh" ? "已存成新故事 ✓" : "Saved as a new story ✓") : storyLibrary.length >= MAX_STORIES ? (lang === "zh" ? `故事库已满（${MAX_STORIES} 个）` : `Story library is full (${MAX_STORIES})`) : (lang === "zh" ? "存成一个新故事" : "Save as a new story")}</button></article>}
-        {storyLibrary.length > 1 && <div className="story-controls"><button onClick={() => { setStoryIndex((storyIndex - 1 + storyLibrary.length) % storyLibrary.length); setGeneratedStory(""); setAiError(""); }}>{t.previous}</button><button className="dark-button" onClick={() => { setStoryIndex((storyIndex + 1) % storyLibrary.length); setGeneratedStory(""); setAiError(""); }}>{t.next}</button></div>}
+      {view === "story" && storyReading && <section className="full-view story-reader">
+        <header className="story-reader-bar">
+          <button type="button" onClick={() => setStoryReading(false)}><ArrowLeft size={18}/>{lang === "zh" ? "故事库" : "Stories"}</button>
+          <div>
+            <button type="button" onClick={() => setCoverPickerId(currentStory.id)}><ImageSquare size={17}/><span>{lang === "zh" ? "换封面" : "Cover"}</span></button>
+            <button type="button" onClick={() => openStoryEditor(currentStory)}><PencilSimple size={17}/><span>{lang === "zh" ? "编辑" : "Edit"}</span></button>
+          </div>
+        </header>
+        <div className="story-hero">
+          {currentStory.cover?.image ? <img src={currentStory.cover.image} alt=""/> : <span className={`story-fallback ${currentStory.tone}`} aria-hidden="true"/>}
+          <div className="story-hero-text">{storyMeta(currentStory, lang) && <small>{storyMeta(currentStory, lang)}</small>}<h1>{currentStory.title[lang]}</h1>{currentStory.subtitle[lang] && <p>{currentStory.subtitle[lang]}</p>}</div>
+          {currentStory.cover?.credit && (currentStory.cover.source && /^https?:/.test(currentStory.cover.source) ? <a className="story-hero-credit" href={currentStory.cover.source} target="_blank" rel="noreferrer">{currentStory.cover.credit}</a> : <span className="story-hero-credit">{currentStory.cover.credit}</span>)}
+        </div>
+        <div className="story-sheet">
+          <article className="story-body">{storyText.map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>)}{currentStory.anchor[lang] && <blockquote>{currentStory.anchor[lang]}</blockquote>}</article>
+          <div className="story-expand"><button className="primary" onClick={makeStory} disabled={storyGenerating}>{storyGenerating ? t.generating : t.generateStory}</button></div>
+          {aiError && <div className="ai-notice story-ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
+          {generatedStory && <article className="generated-story"><span>{lang === "zh" ? "AI 展开的版本" : "AI-EXPANDED VERSION"}</span>{generatedStory.split(/\n+/).filter(Boolean).map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>)}<button className="outline-button" onClick={acceptGeneratedStory} disabled={savedGeneratedStory === generatedStory || storyLibrary.length >= MAX_STORIES}>{savedGeneratedStory === generatedStory ? (lang === "zh" ? "已存成新故事 ✓" : "Saved as a new story ✓") : storyLibrary.length >= MAX_STORIES ? (lang === "zh" ? `故事库已满（${MAX_STORIES} 个）` : `Story library is full (${MAX_STORIES})`) : (lang === "zh" ? "存成一个新故事" : "Save as a new story")}</button></article>}
+          {storyLibrary.length > 1 && <nav className="story-controls" aria-label={lang === "zh" ? "切换故事" : "Switch story"}><button onClick={() => { setStoryIndex((storyIndex - 1 + storyLibrary.length) % storyLibrary.length); setGeneratedStory(""); setAiError(""); window.scrollTo({ top: 0 }); }}>{t.previous}</button><button onClick={() => { setStoryIndex((storyIndex + 1) % storyLibrary.length); setGeneratedStory(""); setAiError(""); window.scrollTo({ top: 0 }); }}>{t.next}</button></nav>}
+        </div>
       </section>}
+
+      {coverPickerId && (() => {
+        const story = storyLibrary.find((item) => item.id === coverPickerId);
+        if (!story) return null;
+        return <StoryCoverPicker
+          lang={lang}
+          title={story.title[lang]}
+          initialQuery={[story.title[lang], ["我的生活", "MY LIFE"].includes(story.city[lang]) ? "" : story.city[lang]].filter(Boolean).join(" ")}
+          board={board.filter((item): item is BoardItem & { image: string } => Boolean(item.image)).map((item) => ({ image: item.image, title: item.title, source: item.source }))}
+          hasCover={Boolean(story.cover?.image)}
+          onPick={(cover, downloadLocation) => { setStoryCover(story.id, cover); reportPhotoUse(downloadLocation); setCoverPickerId(null); }}
+          onRemove={() => { setStoryCover(story.id, null); setCoverPickerId(null); }}
+          onClose={() => setCoverPickerId(null)}
+        />;
+      })()}
 
       {view === "revision" && <section className="full-view revision-view">
         <div className="view-heading"><p className="eyebrow">{lang === "zh" ? "转念" : "REFRAME"}</p><h1>{t.revisionTitle}</h1><p>{t.revisionCopy}</p></div>
