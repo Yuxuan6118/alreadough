@@ -58,6 +58,7 @@ import SpaceNav from "../components/SpaceNav";
 import { AboutIcon, HelpIcon, LibraryIcon, LookIcon, MembershipIcon, PetIcon, SyncIcon, ThoughtsIcon, WishesIcon } from "../components/SpaceIcons";
 import FontSizePanel from "../components/FontSizePanel";
 import StoryCoverPicker from "../components/StoryCoverPicker";
+import { STORY_CATEGORIES, STORY_CATEGORY_LABELS, storyCategoryFor, type StoryCategory } from "@/lib/story-prompt";
 import type { ReflectionAnswers } from "@/lib/reflection";
 import { validateSpName } from "@/lib/name-policy";
 import { answersToSeeds, sharedMemories, splitLines, type GoalSeed, type MemorySeed, type OnboardingAnswers, type ProfileSeed } from "@/lib/onboarding-flow";
@@ -149,9 +150,11 @@ type Story = {
   seed?: Record<Lang, string>;
   /** text holds the AI-written script, not her own notes. */
   scripted?: boolean;
+  /** What the story is about (love, wealth, ...), which decides the rules the script is written with. */
+  category?: StoryCategory;
 };
 type StoryCover = { image: string; credit?: string; source?: string };
-type StoryDraft = { title: string; city: string; subtitle: string; scene: string; anchor: string };
+type StoryDraft = { title: string; city: string; subtitle: string; scene: string; anchor: string; category: StoryCategory | "" };
 type AIResponse = {
   reply?: string;
   journeySummary?: string;
@@ -172,7 +175,7 @@ const splitThought = (text: string) => {
   return { thought, reading: rest.join(" ") };
 };
 
-const emptyStoryDraft: StoryDraft = { title: "", city: "", subtitle: "", scene: "", anchor: "" };
+const emptyStoryDraft: StoryDraft = { title: "", city: "", subtitle: "", scene: "", anchor: "", category: "" };
 const emptyMemoryDraft: MemoryDraft = { kind: "insight", title: "", detail: "", keywords: "" };
 const emptyStory: Story = {
   id: "empty",
@@ -445,6 +448,11 @@ export default function Home() {
   const [, setBetaStatus] = useState<BetaStatus | null>(null);
   // membership and usage: one fetch shared by the meter by the chat box, the out-of-usage notice, and My space
   const { member, refresh: refreshMember, gate: memberGate, setGate: setMemberGate } = useMemberStatus();
+  // This week's AI scripts. Null when membership is off or she is not signed in (then nothing is counted).
+  const storyQuota = member?.enabled && member.authenticated ? member.membership?.story ?? null : null;
+  const storyUnlimited = !!storyQuota && storyQuota.limit >= 1000;
+  const storiesLeft = storyQuota && !storyUnlimited ? Math.max(0, storyQuota.limit - storyQuota.used) : null;
+  const storyQuotaOut = storiesLeft === 0;
   const [surveyOpen, setSurveyOpen] = useState(false);
   const [surveyBefore, setSurveyBefore] = useState(0);
   const [surveyNow, setSurveyNow] = useState(0);
@@ -1120,7 +1128,7 @@ export default function Home() {
     memoryItems: { ...current.memoryItems, [lang]: current.memoryItems[lang].map((item) => item.id === id ? { ...item, pinned: !item.pinned } : item) },
   }));
 
-  const callCompanion = async (mode: "chat" | "revision" | "story", userInput: string, signal?: AbortSignal, recentOverride?: Message[]) => {
+  const callCompanion = async (mode: "chat" | "revision" | "story", userInput: string, signal?: AbortSignal, recentOverride?: Message[], storyCategory?: StoryCategory) => {
     const response = await fetch("/api/companion", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-already-session-id": sessionId },
@@ -1130,6 +1138,7 @@ export default function Home() {
         lang,
         userInput,
         sessionId,
+        ...(storyCategory ? { storyCategory } : {}),
         goal: {
           wishCategory: goal.wishCategory,
           coachMode: goal.coachMode,
@@ -1145,7 +1154,8 @@ export default function Home() {
           responsePreferences: goal.responsePreferences[lang],
           acceptedSceneLedger: goal.acceptedSceneLedger[lang],
           memoryItems: goal.memoryItems[lang],
-          profile: { about: profile.about, situation: profile.situation, people: profile.people.map((person) => ({ name: person.name, relation: person.relation })), neverInclude: profile.neverInclude },
+          background: goal.background[lang],
+          profile: { home: profile.country, about: profile.about, situation: profile.situation, people: profile.people.map((person) => ({ name: person.name, relation: person.relation })), neverInclude: profile.neverInclude },
         },
         recentMessages: (recentOverride || (mode === "chat" ? sessionMessages : messages)).filter((item) => !item.error).slice(-10),
         recentRevisions: revisions.slice(0, 4).map((item) => item.revised),
@@ -1272,20 +1282,27 @@ export default function Home() {
   /** Expands her keywords into a full fulfilled-state script and makes it the story's text. */
   const writeScript = async (story: Story) => {
     if (scriptingId) return;
-    setScriptingId(story.id); setAiError("");
     const zh = lang === "zh";
+    if (storyQuotaOut) { setAiError(zh ? "这周的剧本额度用完了，周一恢复。" : "This week's scripts are used up; they come back on Monday."); return; }
+    if (story.scripted) {
+      const left = storiesLeft === null ? "" : zh ? `（本周还剩 ${storiesLeft} 篇）` : ` (${storiesLeft} left this week)`;
+      const confirmed = await askConfirm({
+        title: zh ? "重新写一版？" : "Write it again?",
+        body: zh ? `重新写会用掉本周 1 篇剧本额度${left}。写好后，原来的版本可以撤销找回。` : `Writing it again uses 1 of this week's scripts${left}. You can undo to get the current version back.`,
+        confirmLabel: zh ? "重新写" : "Write again",
+        cancelLabel: zh ? "取消" : "Cancel",
+      });
+      if (!confirmed) return;
+    }
+    setScriptingId(story.id); setAiError("");
     const notes = storyNotes(story);
     const place = ["我的生活", "MY LIFE"].includes(story.city[lang]) ? "" : story.city[lang];
     const fields: Array<[string, string]> = zh
       ? [["标题", story.title[lang]], ["地点", place], ["氛围", story.subtitle[lang]], ["场景要点", notes], ["锚定句", story.anchor[lang]]]
       : [["Title", story.title[lang]], ["Place", place], ["Mood", story.subtitle[lang]], ["Scene notes", notes], ["Anchor line", story.anchor[lang]]];
-    // the model follows the request more closely than the system notes, so the two things it tends to skip are repeated here
-    const must = zh
-      ? "地点写到一个真实存在、叫得出名字的地方（比如具体哪个雪场、哪家酒店或餐厅），并写出至少两种闻到的气味。"
-      : "Name one real place that exists (the specific resort, hotel, or restaurant), and include at least two smells."
-    const prompt = `${zh ? "把下面这些关键词扩写成我的完成态剧本。" : "Expand these keywords into my fulfilled-state script."}${must}\n${fields.filter(([, value]) => value.trim()).map(([label, value]) => `${label}${zh ? "：" : ": "}${value.trim()}`).join("\n")}`;
+    const prompt = `${zh ? "把下面这些关键词扩写成我的完成态剧本。" : "Expand these keywords into my fulfilled-state script."}\n${fields.filter(([, value]) => value.trim()).map(([label, value]) => `${label}${zh ? "：" : ": "}${value.trim()}`).join("\n")}`;
     try {
-      const script = await callCompanion("story", prompt);
+      const script = await callCompanion("story", prompt, undefined, undefined, story.category || storyCategoryFor(goal.wishCategory));
       let paragraphs = script.split(/\n+/).map((item) => item.trim()).filter(Boolean);
       // the model sometimes returns one long block: break it into paragraphs of about three sentences
       if (paragraphs.length === 1 && paragraphs[0].length > 300) {
@@ -1420,7 +1437,7 @@ export default function Home() {
   const openStoryEditor = (story?: Story) => {
     if (story) {
       setStoryEditingId(story.id);
-      setStoryDraft({ title: story.title[lang], city: story.city[lang], subtitle: story.subtitle[lang], scene: storyNotes(story), anchor: story.anchor[lang] });
+      setStoryDraft({ title: story.title[lang], city: story.city[lang], subtitle: story.subtitle[lang], scene: storyNotes(story), anchor: story.anchor[lang], category: story.category || storyCategoryFor(goal.wishCategory) });
     } else {
       setStoryEditingId(null);
       setStoryDraft(emptyStoryDraft);
@@ -1429,7 +1446,8 @@ export default function Home() {
   };
 
   const saveStory = (andWrite = false) => {
-    if (!storyDraft.title.trim() || !storyDraft.scene.trim()) return;
+    if (!storyDraft.title.trim() || !storyDraft.scene.trim() || !storyDraft.category) return;
+    const category = storyDraft.category;
     const notes = storyDraft.scene.trim();
     const paragraphs = notes.split(/\n+/).map((item) => item.trim()).filter(Boolean).slice(0, MAX_STORY_PARAGRAPHS);
     let saved: Story | null = null;
@@ -1445,6 +1463,7 @@ export default function Home() {
           subtitle: { ...story.subtitle, [lang]: storyDraft.subtitle.trim() },
           anchor: { ...story.anchor, [lang]: storyDraft.anchor.trim() },
           seed: { zh: story.seed?.zh ?? "", en: story.seed?.en ?? "", [lang]: notes },
+          category,
           // a script stays until it is written again; her own text follows her edits
           text: story.scripted ? story.text : { ...story.text, [lang]: paragraphs },
           sample: false,
@@ -1462,6 +1481,7 @@ export default function Home() {
         text: { zh: lang === "zh" ? paragraphs : [fallback], en: lang === "en" ? paragraphs : [fallback] },
         anchor: { zh: lang === "zh" ? storyDraft.anchor.trim() : "", en: lang === "en" ? storyDraft.anchor.trim() : "" },
         seed: { zh: lang === "zh" ? notes : "", en: lang === "en" ? notes : "" },
+        category,
         tone: ["nyc", "snow", "seoul"][storyLibrary.length % 3] as Story["tone"],
         createdAt: new Date().toISOString(),
       };
@@ -1856,8 +1876,9 @@ export default function Home() {
           <article className={`story-body${scriptingId === currentStory.id ? " is-writing" : ""}`} aria-busy={scriptingId === currentStory.id}>{storyText.map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>)}{currentStory.anchor[lang] && !currentStory.scripted && <blockquote>{currentStory.anchor[lang]}</blockquote>}</article>
           <div className="story-expand">
             {scriptingId === currentStory.id && <p className="story-writing-note" role="status">{lang === "zh" ? "正在把你的关键词写成剧本，大约半分钟……" : "Writing your keywords into a script, about half a minute…"}</p>}
-            <button className={currentStory.scripted ? "outline-button" : "primary"} onClick={() => writeScript(currentStory)} disabled={Boolean(scriptingId)}>{scriptingId === currentStory.id ? (lang === "zh" ? "正在写……" : "Writing…") : currentStory.scripted ? (lang === "zh" ? "✶ 重新写一版" : "✶ Write it again") : (lang === "zh" ? "✶ 写成剧本" : "✶ Write it as a script")}</button>
+            <button className={currentStory.scripted ? "outline-button" : "primary"} onClick={() => writeScript(currentStory)} disabled={Boolean(scriptingId) || storyQuotaOut}>{scriptingId === currentStory.id ? (lang === "zh" ? "正在写……" : "Writing…") : currentStory.scripted ? (lang === "zh" ? "✶ 重新写一版" : "✶ Write it again") : (lang === "zh" ? "✶ 写成剧本" : "✶ Write it as a script")}</button>
           </div>
+          {storiesLeft !== null && <StoryQuotaNote lang={lang} left={storiesLeft} onUpgrade={Capacitor.isNativePlatform() ? undefined : () => { setStoryReading(false); setView("settings"); setSettingsSection("membership"); }}/>}
           {aiError && <div className="ai-notice story-ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
           {storyLibrary.length > 1 && <nav className="story-controls" aria-label={lang === "zh" ? "切换故事" : "Switch story"}><button onClick={() => { setStoryIndex((storyIndex - 1 + storyLibrary.length) % storyLibrary.length); setAiError(""); window.scrollTo({ top: 0 }); }}>{t.previous}</button><button onClick={() => { setStoryIndex((storyIndex + 1) % storyLibrary.length); setAiError(""); window.scrollTo({ top: 0 }); }}>{t.next}</button></nav>}
         </div>
@@ -2065,14 +2086,16 @@ export default function Home() {
       {storyEditorOpen && <div className="story-editor-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setStoryEditorOpen(false); }}>
         <form className="story-editor-modal" onSubmit={(event) => { event.preventDefault(); saveStory(true); }}>
           <header><div><p className="eyebrow">{storyEditingId ? (lang === "zh" ? "编辑故事" : "EDIT STORY") : (lang === "zh" ? "新的已实现时刻" : "A NEW FULFILLED MOMENT")}</p><h2>{storyEditingId ? (lang === "zh" ? "把这个故事写成你的版本" : "Make this story yours") : (lang === "zh" ? "它已经发生在哪里？" : "Where has it already happened?")}</h2></div><button type="button" onClick={() => setStoryEditorOpen(false)} aria-label={lang === "zh" ? "关闭" : "Close"}>×</button></header>
+          <fieldset className="story-category-picker"><legend>{lang === "zh" ? "这个故事关于什么" : "WHAT IS THIS STORY ABOUT"}</legend><div>{STORY_CATEGORIES.map((id) => <button type="button" key={id} className={storyDraft.category === id ? "active" : ""} aria-pressed={storyDraft.category === id} onClick={() => setStoryDraft((draft) => ({ ...draft, category: id }))}>{STORY_CATEGORY_LABELS[id][lang]}</button>)}</div></fieldset>
           <div className="story-editor-grid">
             <label><span>{lang === "zh" ? "故事标题" : "STORY TITLE"}</span><input value={storyDraft.title} onChange={(event) => setStoryDraft((draft) => ({ ...draft, title: event.target.value }))} maxLength={42} placeholder={lang === "zh" ? "例如：愿望实现后的普通一天" : "For example: An ordinary day after it came true"}/></label>
             <label><span>{lang === "zh" ? "地点" : "PLACE"}</span><input value={storyDraft.city} onChange={(event) => setStoryDraft((draft) => ({ ...draft, city: event.target.value }))} maxLength={32} placeholder={lang === "zh" ? "家里、校园、办公室、旅途中" : "Home, campus, work, or on a trip"}/></label>
           </div>
           <label><span>{lang === "zh" ? "一句氛围" : "MOOD IN ONE LINE"}</span><input value={storyDraft.subtitle} onChange={(event) => setStoryDraft((draft) => ({ ...draft, subtitle: event.target.value }))} maxLength={80} placeholder={lang === "zh" ? "这个时刻最真实的感受" : "How this moment feels"}/></label>
-          <label><span>{lang === "zh" ? "场景要点" : "SCENE NOTES"}</span><textarea value={storyDraft.scene} onChange={(event) => setStoryDraft((draft) => ({ ...draft, scene: event.target.value }))} placeholder={lang === "zh" ? "几个关键词或几句话就够。AI 会把它写成有真实地点、气味、声音和对话的完整剧本。" : "A few keywords or lines are enough. The AI writes them into a full script with a real place, smells, sounds, and dialogue."}/></label>
+          <label><span>{lang === "zh" ? "场景要点" : "SCENE NOTES"}</span><textarea value={storyDraft.scene} onChange={(event) => setStoryDraft((draft) => ({ ...draft, scene: event.target.value }))} placeholder={lang === "zh" ? "几个关键词或几句话就够。AI 会把它写成有真实地点、气味、声音和对话的完整剧本。" : "A few keywords or lines are enough. The AI writes them into a full script with a real place, smells, sounds, and dialogue."}/><small className="story-notes-tip">{lang === "zh" ? "写得越详细，剧本就越贴近你的新 3D。" : "The more detail you give, the closer the script comes to your new reality."}</small></label>
           <label><span>{lang === "zh" ? "锚定句" : "ANCHOR LINE"}</span><input value={storyDraft.anchor} onChange={(event) => setStoryDraft((draft) => ({ ...draft, anchor: event.target.value }))} maxLength={100} placeholder={lang === "zh" ? "例如：拥有它已经是我熟悉的日常。" : "For example: Having it is already part of my everyday life."}/></label>
-          <footer><small>{lang === "zh" ? `${storyLibrary.length} / ${MAX_STORIES} 个故事` : `${storyLibrary.length} / ${MAX_STORIES} stories`}</small><div><button type="button" className="outline-button" onClick={() => setStoryEditorOpen(false)}>{lang === "zh" ? "取消" : "Cancel"}</button><button type="button" className="outline-button" disabled={!storyDraft.title.trim() || !storyDraft.scene.trim()} onClick={() => saveStory(false)}>{lang === "zh" ? "只保存" : "Save only"}</button><button type="submit" className="primary" disabled={!storyDraft.title.trim() || !storyDraft.scene.trim() || Boolean(scriptingId)}>{storyEditingId && storyLibrary.find((item) => item.id === storyEditingId)?.scripted ? (lang === "zh" ? "✶ 保存并重写剧本" : "✶ Save and rewrite") : (lang === "zh" ? "✶ 保存并写成剧本" : "✶ Save and write script")}</button></div></footer>
+          {storiesLeft !== null && <StoryQuotaNote lang={lang} left={storiesLeft} onUpgrade={Capacitor.isNativePlatform() ? undefined : () => { setStoryEditorOpen(false); setStoryReading(false); setView("settings"); setSettingsSection("membership"); }}/>}
+          <footer><small>{lang === "zh" ? `${storyLibrary.length} / ${MAX_STORIES} 个故事` : `${storyLibrary.length} / ${MAX_STORIES} stories`}</small><div><button type="button" className="outline-button" onClick={() => setStoryEditorOpen(false)}>{lang === "zh" ? "取消" : "Cancel"}</button><button type="button" className="outline-button" disabled={!storyDraft.title.trim() || !storyDraft.scene.trim() || !storyDraft.category} onClick={() => saveStory(false)}>{lang === "zh" ? "只保存" : "Save only"}</button><button type="submit" className="primary" disabled={!storyDraft.title.trim() || !storyDraft.scene.trim() || !storyDraft.category || Boolean(scriptingId) || storyQuotaOut}>{storyEditingId && storyLibrary.find((item) => item.id === storyEditingId)?.scripted ? (lang === "zh" ? "✶ 保存并重写剧本" : "✶ Save and rewrite") : (lang === "zh" ? "✶ 保存并写成剧本" : "✶ Save and write script")}</button></div></footer>
         </form>
       </div>}
 
@@ -2098,4 +2121,11 @@ export default function Home() {
     </main>
     </>
   );
+}
+
+/** Scripts left this week; when none are left, when they come back and a way to upgrade (not in the iPhone app). */
+function StoryQuotaNote({ lang, left, onUpgrade }: { lang: Lang; left: number; onUpgrade?: () => void }) {
+  const zh = lang === "zh";
+  if (left > 0) return <p className="story-quota-note">{zh ? `本周还能写 ${left} 篇剧本` : `${left} script${left === 1 ? "" : "s"} left this week`}</p>;
+  return <p className="story-quota-note is-out">{zh ? "本周剧本额度用完了，周一恢复。你仍然可以自己写好场景，只保存。" : "This week's scripts are used up; they come back on Monday. You can still write the scene yourself and save it."}{onUpgrade && <button type="button" onClick={onUpgrade}>{zh ? "升级会员" : "Upgrade"}</button>}</p>;
 }

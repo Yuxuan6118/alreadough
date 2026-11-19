@@ -7,6 +7,7 @@ import { beginBetaRequest, combineTokenUsage, finishMemberRequest, recordConvers
 import { cleanReply, coachSpecificityRetryNote, contrastRetryNote, dropStockSentences, exitReply, hasContrastFrame, hasStockCoachLine, isErrorEcho, isExitIntent } from "@/lib/reply-guards";
 import { readClientInfo } from "@/lib/client-info";
 import { OPENAI_BASE_URL, chatContent, chatUsage, type ChatCompletion } from "@/lib/openai-base";
+import { STORY_CATEGORIES, buildStoryMessages, storyCategoryFor, storyProblems, type StoryCategory } from "@/lib/story-prompt";
 
 const requestWindows = new Map<string, { startedAt: number; count: number }>();
 const REQUEST_WINDOW_MS = 60_000;
@@ -53,7 +54,39 @@ function isPayload(value: unknown): value is CompanionRequest {
     && Array.isArray(body.goal.beliefs)
     && (body.goal.memoryItems === undefined || Array.isArray(body.goal.memoryItems))
     && Array.isArray(body.recentMessages)
-    && Array.isArray(body.recentRevisions);
+    && Array.isArray(body.recentRevisions)
+    && (body.storyCategory === undefined || (STORY_CATEGORIES as readonly string[]).includes(body.storyCategory));
+}
+
+/**
+ * A story script: its own short prompt, a plain-text reply, the automatic checks, and at most one rewrite
+ * when a check fails (the rewrite is kept only if it passes more checks).
+ */
+async function writeStoryScript(payload: CompanionRequest, model: string, apiKey: string) {
+  const category = (payload.storyCategory as StoryCategory | undefined) || storyCategoryFor(payload.goal.wishCategory);
+  const messages = buildStoryMessages(payload, category);
+  const person = category === "love" ? payload.goal.spName : "";
+  const call = async (extra: Array<{ role: "assistant" | "user"; content: string }> = []) => {
+    const response = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model, messages: [...messages, ...extra], temperature: 0.85, enable_thinking: false }),
+    });
+    const data = await response.json() as ChatCompletion;
+    return { ok: response.ok, text: chatContent(data).trim(), usage: chatUsage(data) };
+  };
+  const first = await call();
+  if (!first.ok || !first.text) return { ...first, retried: false };
+  const notes = storyProblems(first.text, payload.lang, category, person);
+  if (!notes.length) return { ...first, retried: false };
+  try {
+    const second = await call([{ role: "assistant", content: first.text }, { role: "user", content: (payload.lang === "zh" ? "按下面几点改写整篇，只输出改好的剧本：\n" : "Rewrite the whole script fixing these points; output only the script:\n") + notes.join("\n") }]);
+    const usage = combineTokenUsage(first.usage, second.usage);
+    const better = second.ok && second.text && storyProblems(second.text, payload.lang, category, person).length < notes.length;
+    return { ok: true, text: better ? second.text : first.text, usage, retried: true };
+  } catch {
+    return { ...first, retried: false };
+  }
 }
 
 export function GET() {
@@ -126,6 +159,7 @@ export async function POST(request: Request) {
       SIGN_IN_REQUIRED: { zh: "无法识别这台设备，请刷新页面后再试。", en: "This device could not be identified. Please refresh and try again." },
       MEMBERSHIP_SIGN_IN_REQUIRED: { zh: "请先到会员页用邮箱登录，然后继续对话。", en: "Sign in with email on the membership page, then continue chatting." },
       MEMBERSHIP_LIMIT: { zh: "当前会员用量已经用完，可到会员页查看恢复时间或升级。", en: "Your current allowance is used up. Check the membership page for its reset time or upgrade." },
+      STORY_LIMIT: { zh: "这周的剧本额度用完了，周一恢复。", en: "This week's scripts are used up; they come back on Monday." },
       AI_PAUSED: { zh: "AI 暂时不可用，请稍后再试。", en: "AI is temporarily unavailable. Please try again shortly." },
       // No per-person cap codes here on purpose — nobody is ever told "you're out for today."
       // BETA_BUDGET_PAUSED is a site-wide cost circuit breaker, not a personal limit.
@@ -135,6 +169,25 @@ export async function POST(request: Request) {
   }
 
   const startedAt = Date.now();
+
+  if (payload.mode === "story") {
+    try {
+      const story = await writeStoryScript(payload, model, apiKey);
+      await settleBetaRequest(gate.ticket, story.usage, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: story.ok, latencyMs: Date.now() - startedAt });
+      if (!story.ok || !story.text) {
+        await finishMemberRequest(gate.ticket, null, false);
+        return json({ error: "AI_REQUEST_FAILED", message: payload.lang === "zh" ? "AI 暂时没有连接成功，请稍后再试。" : "AI could not connect. Please try again shortly." }, 502);
+      }
+      const reply = cleanReply(story.text, { mode: "story", name: payload.goal.companionName });
+      const logId = await recordConversation(gate.ticket, { lang: payload.lang, coachMode: payload.goal.coachMode, wishCategory: payload.goal.wishCategory, context: [], userText: payload.userInput, aiReply: reply, model });
+      await finishMemberRequest(gate.ticket, story.usage, true);
+      return json({ reply, logId, journeySummary: payload.goal.journeySummary, beliefObserved: "", memoryCandidates: [], model, usage: story.usage, retried: story.retried });
+    } catch (error) {
+      console.error("story script failed", String(error));
+      await finishMemberRequest(gate.ticket, null, false);
+      return json({ error: "AI_REQUEST_FAILED", message: payload.lang === "zh" ? "AI 暂时没有连接成功，请稍后再试。" : "AI could not connect. Please try again shortly." }, 502);
+    }
+  }
 
   let upstream: Response;
   try {

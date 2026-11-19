@@ -12,7 +12,7 @@ type Method = "alipay" | "card";
 
 /** Card checkout (Waffo) is charged in USD; keep in step with WAFFO_PRICE_CENTS in lib/waffo.ts. */
 const CARD_PRICE: Record<PaidPlan, string> = { deep: "US$6.49", atelier: "US$22.99" };
-const PAID_PLANS = MEMBER_PLANS.filter((plan) => plan.price > 0) as unknown as { id: PaidPlan; name: Record<Lang, string>; price: number; session: number; week: number }[];
+const PAID_PLANS = MEMBER_PLANS.filter((plan) => plan.price > 0) as unknown as { id: PaidPlan; name: Record<Lang, string>; price: number; session: number; week: number; stories: number }[];
 
 /**
  * The one place where a purchase happens. The pricing page and the in-app membership panel both link here
@@ -104,7 +104,7 @@ export default function Checkout({ initialLang }: { initialLang: Lang }) {
             <a className="checkout-primary" href="/app">{zh ? "回到 AlreaDough" : "Back to AlreaDough"}</a>
           </> : <>
             <h1>{selected.name[lang]}<span>{zh ? " 30 天" : " · 30 days"}</span></h1>
-            <p className="checkout-lead">{zh ? `每 5 小时约 ${selected.session} 次，每周约 ${selected.week} 次。` : `About ${selected.session} replies per 5 hours and ${selected.week} per week.`}<br />{zh ? "一次购买 30 天，到期不会自动扣款。" : "One payment for 30 days. It never renews on its own."}</p>
+            <p className="checkout-lead">{zh ? `每 5 小时约 ${selected.session} 次，每周约 ${selected.week} 次；${selected.id === "atelier" ? "剧本几乎不限（每周 70 篇）" : `每周 ${selected.stories} 篇 AI 剧本`}。` : `About ${selected.session} replies per 5 hours and ${selected.week} per week; ${selected.id === "atelier" ? "scripts almost unlimited (70 a week)" : `${selected.stories} AI scripts a week`}.`}<br />{zh ? "一次购买 30 天，到期不会自动扣款。" : "One payment for 30 days. It never renews on its own."}</p>
 
 
             {!member ? <p className="checkout-quiet">{zh ? "正在读取账户…" : "Loading your account…"}</p>

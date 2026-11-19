@@ -9,6 +9,10 @@ export const MEMBER_LIMITS: Record<MemberPlan, { fiveHours: number; week: number
   deep: { fiveHours: 60, week: 400 },
   atelier: { fiveHours: 200, week: 1500 },
 };
+/** Story scripts a week, counted apart from chat. Every plan writes with the same model; only the count differs. */
+export const STORY_LIMITS: Record<MemberPlan, number> = { soft: 3, deep: 15, atelier: 70 };
+/** Every new account has Dough Atelier for its first seven days. */
+const welcomeMs = 7 * 24 * 60 * 60 * 1000;
 const fiveHoursMs = 5 * 60 * 60 * 1000;
 const monthMs = 30 * 24 * 60 * 60 * 1000;
 const referralMs = 7 * 24 * 60 * 60 * 1000;
@@ -39,6 +43,7 @@ export async function ensureMembershipTables() {
     env.DB.prepare("CREATE INDEX IF NOT EXISTS member_orders_account ON member_orders (account_id, created_at_ms)"),
     env.DB.prepare("CREATE TABLE IF NOT EXISTS member_usage (account_id TEXT PRIMARY KEY NOT NULL, five_start_ms INTEGER NOT NULL, five_units INTEGER NOT NULL DEFAULT 0, week_start_ms INTEGER NOT NULL, week_units INTEGER NOT NULL DEFAULT 0)"),
     env.DB.prepare("CREATE TABLE IF NOT EXISTS member_referrals (account_id TEXT PRIMARY KEY NOT NULL, code TEXT NOT NULL, redeemed_at_ms INTEGER NOT NULL)"),
+    env.DB.prepare("CREATE TABLE IF NOT EXISTS member_story_usage (account_id TEXT PRIMARY KEY NOT NULL, week_start_ms INTEGER NOT NULL, count INTEGER NOT NULL DEFAULT 0)"),
   ]).then(() => undefined).catch((error: unknown) => { membershipTablesReady = null; throw error; });
   return membershipTablesReady;
 }
@@ -46,19 +51,23 @@ export async function ensureMembershipTables() {
 type StateRow = { plan: MemberPlan; periodEndMs: number | null; trialEndMs: number | null };
 export async function memberState(accountId: string, now = Date.now()) {
   await ensureMembershipTables();
-  const [row, referralRow] = await Promise.all([
+  const [row, referralRow, accountRow] = await Promise.all([
     env.DB.prepare("SELECT plan, period_end_ms AS periodEndMs, trial_end_ms AS trialEndMs FROM member_state WHERE account_id = ?").bind(accountId).first() as Promise<StateRow | null>,
     env.DB.prepare("SELECT redeemed_at_ms AS redeemedAtMs FROM member_referrals WHERE account_id = ?").bind(accountId).first<{ redeemedAtMs: number }>(),
+    env.DB.prepare("SELECT MIN(created_at) AS createdAt FROM member_accounts WHERE account_id = ?").bind(accountId).first<{ createdAt: number | null }>().catch(() => null),
   ]);
   const paid = !!row?.periodEndMs && row.periodEndMs > now && (row.plan === "deep" || row.plan === "atelier");
   const trial = !paid && !!row?.trialEndMs && row.trialEndMs > now;
   // The invitation is a temporary overlay: Atelier while it lasts, then the account's own plan again.
   const referralEndMs = referralRow ? referralRow.redeemedAtMs + referralMs : null;
   const referral = !!referralEndMs && referralEndMs > now;
-  const ownPlan: MemberPlan = paid ? row!.plan : trial ? "deep" : "soft";
+  // A new account's first seven days are Dough Atelier, unless a paid plan already covers them.
+  const welcomeEndMs = accountRow?.createdAt ? accountRow.createdAt + welcomeMs : null;
+  const welcome = !paid && !!welcomeEndMs && welcomeEndMs > now;
+  const ownPlan: MemberPlan = paid ? row!.plan : welcome ? "atelier" : trial ? "deep" : "soft";
   const plan: MemberPlan = referral ? "atelier" : ownPlan;
-  return { plan, trial, referral, referralUsed: !!referralRow, referralEndMs: referral ? referralEndMs : null,
-    periodEndMs: paid ? row!.periodEndMs : trial ? row!.trialEndMs : null };
+  return { plan, trial: trial || welcome, welcome, referral, referralUsed: !!referralRow, referralEndMs: referral ? referralEndMs : null,
+    periodEndMs: paid ? row!.periodEndMs : welcome ? welcomeEndMs : trial ? row!.trialEndMs : null };
 }
 
 export async function createMemberOrder(accountId: string, plan: PaidPlan) {
@@ -134,11 +143,36 @@ export async function finishMemberUnit(accountId: string, units: number, succeed
     WHERE account_id = ?`).bind(five, delta, week, delta, accountId).run();
 }
 
+/** Stories written this week and the plan's weekly allowance. */
+export async function storyUsage(accountId: string, plan: MemberPlan, now = Date.now()) {
+  await ensureMembershipTables();
+  const row = await env.DB.prepare("SELECT week_start_ms AS weekStart, count FROM member_story_usage WHERE account_id = ?").bind(accountId).first<{ weekStart: number; count: number }>();
+  return { used: row?.weekStart === weekWindow(now) ? row.count : 0, limit: isUnlimitedAccount(accountId) ? 1_000_000 : STORY_LIMITS[plan], resetMs: weekWindow(now) + 7 * 86_400_000 };
+}
+
+/** Takes one story from this week's allowance; false when it is used up. A rewrite she asks for is a new story. */
+export async function reserveStory(accountId: string, now = Date.now()) {
+  const state = await memberState(accountId, now);
+  const limit = isUnlimitedAccount(accountId) ? 1_000_000 : STORY_LIMITS[state.plan];
+  const week = weekWindow(now);
+  await env.DB.prepare("INSERT OR IGNORE INTO member_story_usage (account_id, week_start_ms) VALUES (?, ?)").bind(accountId, week).run();
+  const result = await env.DB.prepare(`UPDATE member_story_usage SET
+    count = CASE WHEN week_start_ms = ? THEN count + 1 ELSE 1 END, week_start_ms = ?
+    WHERE account_id = ? AND (week_start_ms != ? OR count < ?)`).bind(week, week, accountId, week, limit).run();
+  return !!result.meta.changes;
+}
+
+/** Gives the story back when the AI could not write it. */
+export async function releaseStory(accountId: string, now = Date.now()) {
+  const week = weekWindow(now);
+  await env.DB.prepare("UPDATE member_story_usage SET count = MAX(0, count - 1) WHERE account_id = ? AND week_start_ms = ?").bind(accountId, week).run();
+}
+
 export async function membershipForRequest(request: Request) {
   const accountId = await memberAccount(request);
   if (!accountId) return null;
   const [state, usage] = await Promise.all([memberState(accountId), memberUsage(accountId)]);
-  return { ...state, usage, limits: MEMBER_LIMITS[state.plan], unlimited: isUnlimitedAccount(accountId) };
+  return { ...state, usage, limits: MEMBER_LIMITS[state.plan], story: await storyUsage(accountId, state.plan), unlimited: isUnlimitedAccount(accountId) };
 }
 
 export function isReferralCode(value: unknown) {

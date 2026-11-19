@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { extractConversations, type ViewUser } from "./chat-view";
 import { readClientInfo } from "./client-info";
 import { memberAccount } from "./member-auth";
-import { finishMemberUnit, membershipEnabled, reserveMemberUnit, usageUnits } from "./membership";
+import { finishMemberUnit, membershipEnabled, releaseStory, reserveMemberUnit, reserveStory, usageUnits } from "./membership";
 
 export type BetaMode = "chat" | "revision" | "story";
 export type TokenUsage = { input_tokens?: number; output_tokens?: number; total_tokens?: number } | null;
@@ -117,7 +117,10 @@ export async function beginBetaRequest(request: Request, sessionId: string, mode
   const day = dayKey();
   const global = await env.DB.prepare("SELECT request_count, total_tokens FROM beta_global_daily WHERE usage_date = ?").bind(day).first<GlobalRow>();
   if ((global?.request_count || 0) >= LIMITS.globalRequests || (global?.total_tokens || 0) >= LIMITS.globalTokens) return { ok: false as const, code: "BETA_BUDGET_PAUSED" };
-  if (memberAccountId) {
+  // A story script is counted in its own weekly allowance, not in the chat allowance.
+  if (memberAccountId && mode === "story") {
+    if (!await reserveStory(memberAccountId)) return { ok: false as const, code: "STORY_LIMIT" };
+  } else if (memberAccountId) {
     const reservation = await reserveMemberUnit(memberAccountId);
     if (!reservation.ok) return { ok: false as const, code: "MEMBERSHIP_LIMIT" };
   }
@@ -147,7 +150,11 @@ export async function settleBetaRequest(ticket: BetaTicket, usage: TokenUsage, m
 /** Called once per user-visible answer, not once per upstream model call or internal rewrite. */
 export async function finishMemberRequest(ticket: BetaTicket, usage: TokenUsage, succeeded: boolean) {
   if (!ticket.memberAccountId || ticket.memberSettled) return;
-  await finishMemberUnit(ticket.memberAccountId, usageUnits(usage), succeeded);
+  if (ticket.mode === "story") {
+    if (!succeeded) await releaseStory(ticket.memberAccountId);
+  } else {
+    await finishMemberUnit(ticket.memberAccountId, usageUnits(usage), succeeded);
+  }
   ticket.memberSettled = true;
 }
 

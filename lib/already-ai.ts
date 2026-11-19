@@ -40,7 +40,11 @@ export type GoalContext = {
   acceptedSceneLedger?: string[];
   memoryItems?: MemoryItemContext[];
   /** What she told us about herself, shared by every desire. */
+  /** Her own answers about this desire from onboarding (city and home, the day it arrives, ...). */
+  background?: string;
   profile?: {
+    /** The country and city she lives in, as she wrote it. */
+    home?: string;
     about?: string;
     situation?: string;
     people?: Array<{ name: string; relation?: string }>;
@@ -64,6 +68,8 @@ export type CompanionRequest = {
   recentRevisions: string[];
   /** Country the request comes from (set by the server, never by the client); used for local crisis lines. */
   country?: string | null;
+  /** Story scripts only: the category the person picked, which decides the rule block sent with the request. */
+  storyCategory?: string;
 };
 
 const zhInstructions = `你是 AlreaDough 的 Belief Companion，一位温柔、坚定、细腻的单一愿望显化陪练。

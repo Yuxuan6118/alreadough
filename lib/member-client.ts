@@ -4,10 +4,11 @@
 export type MemberPlanId = "soft" | "deep" | "atelier";
 type Lang = "zh" | "en";
 
+// stories: scripts a week, mirroring STORY_LIMITS (server)
 export const MEMBER_PLANS = [
-  { id: "soft", name: { zh: "轻揉", en: "Soft Start" }, price: 0, session: 15, week: 60 },
-  { id: "deep", name: { zh: "醒发", en: "Deep Practice" }, price: 39, session: 60, week: 400 },
-  { id: "atelier", name: { zh: "丰盛工坊", en: "Dough Atelier" }, price: 149, session: 200, week: 1500 },
+  { id: "soft", name: { zh: "轻揉", en: "Soft Start" }, price: 0, session: 15, week: 60, stories: 3 },
+  { id: "deep", name: { zh: "醒发", en: "Deep Practice" }, price: 39, session: 60, week: 400, stories: 15 },
+  { id: "atelier", name: { zh: "丰盛工坊", en: "Dough Atelier" }, price: 149, session: 200, week: 1500, stories: 70 },
 ] as const;
 
 export type MemberUsage = { fiveUnits: number; weekUnits: number; fiveResetMs: number; weekResetMs: number };
@@ -20,6 +21,10 @@ export type Membership = {
   periodEndMs: number | null;
   usage: MemberUsage;
   limits: { fiveHours: number; week: number };
+  /** Story scripts this week: used, the plan's allowance, and when it resets (Monday). */
+  story?: { used: number; limit: number; resetMs: number };
+  /** The new account's first seven days of Dough Atelier. */
+  welcome?: boolean;
   unlimited?: boolean;
 };
 export type MemberStatus = {

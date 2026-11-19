@@ -217,11 +217,12 @@ export default function MembershipPanel({ lang, member, onRefresh }: { lang: Lan
         <section className="profile-card member-plan">
           <div className="member-plan-top">
             <span className="member-plan-label">{zh ? "当前方案" : "Current plan"}</span>
-            <div className="member-plan-chips">{membership.trial && <span className="wish-chip">{zh ? "试用中" : "Trial"}</span>}{membership.referral && <span className="wish-chip">{zh ? "邀请体验" : "Invitation"}</span>}{membership.unlimited && <span className="wish-chip is-current">{zh ? "创始人 · 不限用量" : "Founder · unlimited"}</span>}</div>
+            <div className="member-plan-chips">{membership.trial && <span className="wish-chip">{membership.welcome ? (zh ? "新用户体验" : "Welcome week") : (zh ? "试用中" : "Trial")}</span>}{membership.referral && <span className="wish-chip">{zh ? "邀请体验" : "Invitation"}</span>}{membership.unlimited && <span className="wish-chip is-current">{zh ? "创始人 · 不限用量" : "Founder · unlimited"}</span>}</div>
           </div>
           <strong className="member-plan-title">{current?.name[lang]}</strong>
           <p className="profile-sub member-plan-meta">
             {membership.referralEndMs ? (zh ? `丰盛工坊体验到 ${date(membership.referralEndMs)}，之后回到原来的方案。` : `Dough Atelier until ${date(membership.referralEndMs)}, then back to your own plan.`)
+              : membership.welcome && membership.periodEndMs ? (zh ? `新用户免费体验丰盛工坊到 ${date(membership.periodEndMs)}，之后回到轻揉，体验期写的剧本都会保留。` : `Your first week of Dough Atelier lasts until ${date(membership.periodEndMs)}, then you are back on Soft Start. Scripts you write now stay yours.`)
               : membership.periodEndMs ? (zh ? `有效期到 ${date(membership.periodEndMs)}，到期不会自动扣款。` : `Active until ${date(membership.periodEndMs)}. It does not renew automatically.`)
               : (zh ? `免费方案：每 5 小时约 ${current?.session} 次、每周约 ${current?.week} 次普通对话。` : `Free plan: about ${current?.session} replies per 5 hours and ${current?.week} per week.`)}
           </p>
@@ -231,6 +232,7 @@ export default function MembershipPanel({ lang, member, onRefresh }: { lang: Lan
           <h3>{zh ? "用量" : "Usage"}</h3>
           {membership.unlimited && <p className="profile-sub">{zh ? "创始人账户不受限制。下面按当前方案的额度显示，方便你看到用户看到的样子。" : "Founder account, no limit. Shown against the plan's allowance so you can see what members see."}</p>}
           <UsageBars membership={membership} lang={lang} />
+          {membership.story && <p className="profile-sub member-story-usage">{zh ? `本周 AI 剧本：已写 ${membership.story.used} 篇，` + (membership.story.limit >= 1000 ? "不限。" : `还能写 ${Math.max(0, membership.story.limit - membership.story.used)} 篇，${resetLabel(membership.story.resetMs, lang)} 恢复。`) : `AI scripts this week: ${membership.story.used} written, ` + (membership.story.limit >= 1000 ? "no limit." : `${Math.max(0, membership.story.limit - membership.story.used)} left; resets ${resetLabel(membership.story.resetMs, lang)}.`)}</p>}
           <small className="profile-sub">{zh ? "一条普通回复算 1 次，特别长的对话会多算一些。用量会按时间自动恢复。" : "One normal reply counts once; very long conversations count a little more. Allowances refill on their own."}</small>
         </section>
 
@@ -239,7 +241,7 @@ export default function MembershipPanel({ lang, member, onRefresh }: { lang: Lan
           <p className="profile-sub">{zh ? "支付宝或银行卡付款。一次购买 30 天，到期不会自动扣款。" : "Pay with Alipay or card. Each purchase covers 30 days and never renews on its own."}</p>
           <ul>
             {paidPlans.map((plan) => <li key={plan.id} className={plan.id === membership.plan ? "current" : ""}>
-              <div><strong>{plan.name[lang]}{plan.id === membership.plan && <span className="wish-chip is-current">{zh ? "当前" : "Current"}</span>}</strong><span className="member-price">¥{plan.price}<small> / {zh ? "30 天" : "30 days"}</small></span><small>{zh ? `每 5 小时约 ${plan.session} 次 · 每周约 ${plan.week} 次` : `About ${plan.session} per 5 hours · ${plan.week} per week`}</small></div>
+              <div><strong>{plan.name[lang]}{plan.id === membership.plan && <span className="wish-chip is-current">{zh ? "当前" : "Current"}</span>}</strong><span className="member-price">¥{plan.price}<small> / {zh ? "30 天" : "30 days"}</small></span><small>{zh ? `每 5 小时约 ${plan.session} 次 · 每周约 ${plan.week} 次 · ` + (plan.id === "atelier" ? "剧本几乎不限" : `每周 ${plan.stories} 篇剧本`) : `About ${plan.session} per 5 hours · ${plan.week} per week · ` + (plan.id === "atelier" ? "scripts almost unlimited" : `${plan.stories} scripts a week`)}</small></div>
               <a className={plan.id === "deep" && membership.plan === "soft" ? "wish-primary member-buy-link" : "profile-topic-plus member-buy-link"} href={`${zh ? "/checkout" : "/en/checkout"}?plan=${plan.id}`}>{plan.id === membership.plan && membership.periodEndMs && !membership.referral ? (zh ? "续 30 天" : "Add 30 days") : (zh ? "购买" : "Buy")}</a>
             </li>)}
           </ul>
