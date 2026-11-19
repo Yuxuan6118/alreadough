@@ -2,7 +2,7 @@
 // with inline styles only; fonts fall back to the reader's system serif / sans.
 
 const SITE = "https://alreadough.com";
-const LOGO = `${SITE}/brand/alreadough-line-mark-512.png`;
+const LOGO = `${SITE}/brand/alreadough-line-mark-mail.png`;
 
 const escapeHtml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
