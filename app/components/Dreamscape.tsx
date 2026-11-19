@@ -236,7 +236,7 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
         const base = await loadAffirmations();
         texts = next === "night" ? [...base, ...base] : base;
       }
-      if (!texts.length) { setMessage(t("还没有故事可以听，先去“故事”里写一个。", "There is no story to listen to yet. Write one in Stories first.")); setScreen("home"); return; }
+      if (!texts.length) { setMessage(t("还没有剧本可以听，先去“剧本”里写一个。", "There is no story to listen to yet. Write one in Stories first.")); setScreen("home"); return; }
       setItems(texts);
       const unique = Array.from(new Set(texts));
       setPreparing({ done: 0, total: unique.length });
@@ -324,7 +324,7 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
       <section className="dream dream-player">
         <header className="dream-player-head">
           <button type="button" className="dream-back" onClick={leavePlayer} aria-label={t("返回", "Back")}><ArrowLeft size={22} /></button>
-          <h1>{mode === "story" ? (story?.title || t("我的故事", "My story")) : mode === "night" ? t("睡前声场", "Night soundscape") : t("我的肯定语", "My affirmations")}</h1>
+          <h1>{mode === "story" ? (story?.title || t("我的剧本", "My story")) : mode === "night" ? t("睡前声场", "Night soundscape") : t("我的肯定语", "My affirmations")}</h1>
           <span>{voice.has && useMine ? t("用你的声音", "In your voice") : t("默认声音", "Default voice")}</span>
         </header>
         <div className="dream-stage">
@@ -377,7 +377,7 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
             : <button type="button" className="dream-row accent" onClick={() => setScreen("record")}><span>{t("录下我的声音", "Record my voice")}</span><small>{t("约 45 秒", "About 45 seconds")}</small></button>}
         </li>
         <li><button type="button" className="dream-row" onClick={() => void begin("affirm")}><span>{t("我的肯定语", "My affirmations")}</span><small>{t("约 1 分钟", "About 1 minute")}</small></button></li>
-        <li><button type="button" className="dream-row" onClick={() => void begin("story")} disabled={!story}><span>{t("我的故事", "My story")}</span><small>{story ? t("读给我听", "Read to me") : t("还没有故事", "No story yet")}</small></button></li>
+        <li><button type="button" className="dream-row" onClick={() => void begin("story")} disabled={!story}><span>{t("我的剧本", "My story")}</span><small>{story ? t("读给我听", "Read to me") : t("还没有剧本", "No story yet")}</small></button></li>
       </ul>
       <div className="dream-links">
         {voice.has && <button type="button" className="dream-record-link" onClick={() => setScreen("record")}><Microphone size={16} />{t("重新录我的声音", "Record my voice again")}</button>}

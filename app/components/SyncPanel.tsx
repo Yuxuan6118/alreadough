@@ -33,7 +33,7 @@ const text = {
     statusSaved: "已同步",
     statusSaving: "同步中",
     statusOffline: "本机副本",
-    syncedCopy: "愿望、记忆、对话、故事和练习记录都已存到云端，改动会自动同步。",
+    syncedCopy: "愿望、记忆、对话、剧本和练习记录都已存到云端，改动会自动同步。",
     offlineCopy: "现在用的是这台设备上的副本，连上网后会自动继续同步。",
     otherTitle: "换成另一台设备的资料",
     otherCopy: "在那台设备上复制它的同步码，粘贴到这里。这台设备现有的内容会被替换。",

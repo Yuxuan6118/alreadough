@@ -105,7 +105,7 @@ export default function ProfilePanel({ lang, profile, onChange, name, onNameChan
 
         <section className="profile-card">
           <h3>{zh ? "不想被提的话题" : "Topics to leave alone"}</h3>
-          <p className="profile-sub">{zh ? "AlreaDough 不会主动提起，也不会写进场景和故事。" : "AlreaDough will not bring them up or write them into scenes and stories."}</p>
+          <p className="profile-sub">{zh ? "AlreaDough 不会主动提起，也不会写进场景和剧本。" : "AlreaDough will not bring them up or write them into scenes and stories."}</p>
           {profile.neverInclude.length > 0 && <div className="profile-topics">{profile.neverInclude.map((topic) => (
             <span key={topic} className="profile-topic">{topic}<button type="button" aria-label={zh ? `移除「${topic}」` : `Remove “${topic}”`} onClick={() => { patch({ neverInclude: profile.neverInclude.filter((item) => item !== topic) }); showUndo(zh ? `已移除「${topic}」` : `Removed “${topic}”`, zh ? "撤销" : "Undo", () => onChange({ ...profile })); }}><X size={13} /></button></span>
           ))}</div>}
