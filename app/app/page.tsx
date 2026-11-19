@@ -1873,9 +1873,9 @@ export default function Home() {
         </div>
         <div className="story-sheet">
           <header className="story-sheet-head">{storyMeta(currentStory, lang) && <small>{storyMeta(currentStory, lang)}</small>}<h1>{currentStory.title[lang]}</h1>{currentStory.subtitle[lang] && <p>{currentStory.subtitle[lang]}</p>}</header>
+          {scriptingId === currentStory.id && <StoryWritingLoader lang={lang}/>}
           <article className={`story-body${scriptingId === currentStory.id ? " is-writing" : ""}`} aria-busy={scriptingId === currentStory.id}>{storyText.map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>)}{currentStory.anchor[lang] && !currentStory.scripted && <blockquote>{currentStory.anchor[lang]}</blockquote>}</article>
           <div className="story-expand">
-            {scriptingId === currentStory.id && <p className="story-writing-note" role="status">{lang === "zh" ? "正在把你的关键词写成剧本，大约半分钟……" : "Writing your keywords into a script, about half a minute…"}</p>}
             <button className={currentStory.scripted ? "outline-button" : "primary"} onClick={() => writeScript(currentStory)} disabled={Boolean(scriptingId) || storyQuotaOut}>{scriptingId === currentStory.id ? (lang === "zh" ? "正在写……" : "Writing…") : currentStory.scripted ? (lang === "zh" ? "✶ 重新写一版" : "✶ Write it again") : (lang === "zh" ? "✶ 写成剧本" : "✶ Write it as a script")}</button>
           </div>
           {storiesLeft !== null && <StoryQuotaNote lang={lang} left={storiesLeft} onUpgrade={Capacitor.isNativePlatform() ? undefined : () => { setStoryReading(false); setView("settings"); setSettingsSection("membership"); }}/>}
@@ -2128,4 +2128,12 @@ function StoryQuotaNote({ lang, left, onUpgrade }: { lang: Lang; left: number; o
   const zh = lang === "zh";
   if (left > 0) return <p className="story-quota-note">{zh ? `本周还能写 ${left} 篇剧本` : `${left} script${left === 1 ? "" : "s"} left this week`}</p>;
   return <p className="story-quota-note is-out">{zh ? "本周剧本额度用完了，周一恢复。你仍然可以自己写好场景，只保存。" : "This week's scripts are used up; they come back on Monday. You can still write the scene yourself and save it."}{onUpgrade && <button type="button" onClick={onUpgrade}>{zh ? "升级会员" : "Upgrade"}</button>}</p>;
+}
+
+/** While a script is being written: the line-drawn dough hops in place above a soft shadow. */
+function StoryWritingLoader({ lang }: { lang: Lang }) {
+  return <div className="story-writing" role="status">
+    <span className="story-writing-dough" aria-hidden="true"><DoughLineMark/><i/></span>
+    <p>{lang === "zh" ? "正在把你的关键词写成剧本，大约半分钟……" : "Writing your keywords into a script, about half a minute…"}</p>
+  </div>;
 }
