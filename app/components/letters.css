@@ -1,0 +1,20 @@
+/* 来信: same tokens as My space, the letter card echoes the email (dough mark, serif title, signature). */
+.letters { display: grid; gap: 14px; }
+.letter { border: 1px solid var(--app-line); border-radius: 22px; background: var(--app-panel); overflow: hidden; }
+.letter-head { width: 100%; display: flex; align-items: center; gap: 14px; padding: 18px 20px; border: 0; background: transparent; color: var(--app-ink); text-align: left; cursor: pointer; }
+.letter-mark { width: 34px; height: 34px; flex: none; color: var(--app-accent); }
+.letter-title { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.letter-title strong { font-family: var(--font-display); font-weight: 500; font-size: calc(19px * var(--fs, 1)); line-height: 1.35; }
+.letter-title small { color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); }
+.letter-dot, .brand-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--app-accent); box-shadow: 0 0 0 2px var(--app-bg); flex: none; }
+.letter-body { padding: 4px 24px 24px 68px; }
+.letter-body p { margin: 0 0 16px; font-size: calc(16px * var(--fs, 1)); line-height: 1.85; color: var(--app-ink); text-wrap: pretty; }
+.letter-body .letter-sign { margin: 22px 0 0; font-family: var(--font-display); color: var(--app-accent); }
+.letters-empty { display: grid; justify-items: center; gap: 14px; padding: 48px 16px; color: var(--app-muted); text-align: center; }
+.letters-empty-mark { width: 48px; height: 48px; color: var(--app-accent); opacity: .7; }
+.letters-empty p { margin: 0; max-width: 320px; line-height: 1.7; }
+/* the rose dot on the logo when a letter is unread */
+.brand-mark { position: relative; }
+.brand-mark .brand-dot { position: absolute; top: -1px; right: -2px; }
+@media (max-width: 640px) { .letter-body { padding: 0 20px 22px; } }
+.swipe-brand { display: flex; align-items: center; gap: 10px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }

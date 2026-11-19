@@ -6,8 +6,9 @@ import { readStored, writeStored } from "@/lib/safe-storage";
 import "../beta.css";
 
 type Send = { audience: string; subject: string; recipients: number; delivered: number; createdAt: number };
-type Stats = { ready: boolean; total: number; subscribed: number; sends: Send[] };
-type Result = { recipients: number; delivered: number; failure: string | null };
+type Letter = { id: string; subject: string; body: string; createdAt: number };
+type Stats = { ready: boolean; total: number; subscribed: number; sends: Send[]; letters: Letter[] };
+type Result = { recipients: number; delivered: number; failure: string | null; posted?: boolean };
 
 const FOUNDER_KEY_STORAGE = "already-founder-key";
 const TEST_EMAIL_STORAGE = "already-founder-test-email";
@@ -24,6 +25,8 @@ export default function FounderMailPage() {
   const [testEmail, setTestEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  const [toEmail, setToEmail] = useState(true);
+  const [toInbox, setToInbox] = useState(true);
 
   /* eslint-disable react-hooks/set-state-in-effect -- one-time read of the founder key from storage on mount */
   useEffect(() => {
@@ -43,7 +46,10 @@ export default function FounderMailPage() {
 
   async function send(audience: "test" | "all") {
     if (!stats || busy) return;
-    if (audience === "all" && !window.confirm(`发给全部 ${stats.subscribed} 位订阅用户？发出后无法撤回。`)) return;
+    if (audience === "all") {
+      const parts = [toEmail ? `给 ${stats.subscribed} 位订阅用户发邮件` : "", toInbox ? "放进所有人的站内信" : ""].filter(Boolean).join("，并");
+      if (!window.confirm(`${parts}？邮件发出后无法撤回。`)) return;
+    }
     setBusy(true);
     setNotice("");
     if (audience === "test") writeStored(TEST_EMAIL_STORAGE, testEmail.trim());
@@ -51,14 +57,20 @@ export default function FounderMailPage() {
       const response = await fetch("/api/beta/mail", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ audience, subject, body, testEmail, confirmCount: stats.subscribed }),
+        body: JSON.stringify({ audience, subject, body, testEmail, confirmCount: stats.subscribed, email: toEmail, inbox: toInbox }),
       });
       const data = await response.json().catch(() => ({})) as Partial<Result> & { error?: string };
       if (!response.ok) setNotice(data.error === "COUNT_MISMATCH" ? "订阅人数刚刚变了，页面已刷新，请再确认一次。" : `没有发出：${data.error || response.status}`);
       else if (data.failure) setNotice(`发出 ${data.delivered}/${data.recipients} 封后中断：${data.failure}`);
-      else setNotice(`已发出 ${data.delivered} 封。`);
+      else setNotice([audience === "test" || toEmail ? `邮件已发出 ${data.delivered} 封` : "", data.posted ? "已放进站内信" : ""].filter(Boolean).join("，") + "。");
     } catch { setNotice("网络中断，没有确认是否发出。"); }
     setBusy(false);
+    load();
+  }
+
+  async function removeLetter(item: Letter) {
+    if (!window.confirm(`从站内信撤下《${item.subject}》？已经读过的人也看不到了。`)) return;
+    await fetch(`/api/beta/mail?letter=${item.id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
     load();
   }
 
@@ -77,10 +89,18 @@ export default function FounderMailPage() {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end", marginTop: 18 }}>
           <label style={{ flex: "1 1 260px" }}><small>测试收件地址</small><input style={field} type="email" value={testEmail} placeholder="先发给自己看看" onChange={(e) => setTestEmail(e.target.value)} /></label>
           <button style={button} disabled={busy || !stats.ready || !testEmail.trim()} onClick={() => send("test")}>{busy ? "发送中…" : "只发给这个地址"}</button>
-          <button style={{ ...button, background: "transparent", color: "#73504a" }} disabled={busy || !stats.ready || stats.subscribed === 0} onClick={() => send("all")}>发给全部 {stats.subscribed} 人</button>
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 18, alignItems: "center", marginTop: 22, paddingTop: 18, borderTop: "1px solid #eadccf" }}>
+          <label style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={toEmail} onChange={(e) => setToEmail(e.target.checked)} />发邮件（{stats.subscribed} 人）</label>
+          <label style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={toInbox} onChange={(e) => setToInbox(e.target.checked)} />放进站内信（所有打开 App 的人）</label>
+          <button style={{ ...button, background: "transparent", color: "#73504a" }} disabled={busy || (!toEmail && !toInbox) || (toEmail && (!stats.ready || stats.subscribed === 0))} onClick={() => send("all")}>发给全部人</button>
         </div>
         {notice && <p style={{ marginTop: 16 }}>{notice}</p>}
       </section>
+      {stats.letters.length > 0 && <section style={box}>
+        <small>站内信</small>
+        {stats.letters.map((item) => <p key={item.id} style={{ margin: "12px 0 0", display: "flex", gap: 12, alignItems: "center" }}><span style={{ flex: 1 }}>{new Date(item.createdAt).toLocaleString("zh-CN", { hour12: false })} · {item.subject}</span><button style={{ ...button, padding: "6px 14px", background: "transparent", color: "#73504a" }} onClick={() => removeLetter(item)}>撤下</button></p>)}
+      </section>}
       {stats.sends.length > 0 && <section style={box}>
         <small>发信记录</small>
         {stats.sends.map((item) => <p key={item.createdAt} style={{ margin: "12px 0 0" }}>{new Date(item.createdAt).toLocaleString("zh-CN", { hour12: false })} · {item.audience === "all" ? "全体" : "测试"} · {item.subject} · {item.delivered}/{item.recipients}</p>)}

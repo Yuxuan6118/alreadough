@@ -27,6 +27,7 @@ export async function ensureMailTables() {
   if (ready) return ready;
   ready = env.DB.batch([
     env.DB.prepare("CREATE TABLE IF NOT EXISTS mail_contacts (email TEXT PRIMARY KEY NOT NULL, account_id TEXT, subscribed INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)"),
+    env.DB.prepare("CREATE TABLE IF NOT EXISTS letters (id TEXT PRIMARY KEY NOT NULL, subject TEXT NOT NULL, body TEXT NOT NULL, created_at INTEGER NOT NULL)"),
     env.DB.prepare("CREATE TABLE IF NOT EXISTS mail_sends (id TEXT PRIMARY KEY NOT NULL, audience TEXT NOT NULL, subject TEXT NOT NULL, recipients INTEGER NOT NULL, delivered INTEGER NOT NULL, created_at INTEGER NOT NULL)"),
   ]).then(() => undefined).catch((error: unknown) => { ready = null; throw error; });
   return ready;
@@ -141,4 +142,26 @@ export async function sendLetter(audience: Audience, subject: string, body: stri
   await env.DB.prepare("INSERT INTO mail_sends (id, audience, subject, recipients, delivered, created_at) VALUES (?, ?, ?, ?, ?, ?)")
     .bind(crypto.randomUUID(), audience, subject, recipients.length, delivered, Date.now()).run();
   return { recipients: recipients.length, delivered, failure };
+}
+
+// 站内信: the same letter, kept on the site for everyone who opens the app. Read state lives on each device.
+export type Letter = { id: string; subject: string; body: string; createdAt: number };
+
+export async function postLetter(subject: string, body: string) {
+  await ensureMailTables();
+  const letter: Letter = { id: crypto.randomUUID(), subject, body, createdAt: Date.now() };
+  await env.DB.prepare("INSERT INTO letters (id, subject, body, created_at) VALUES (?, ?, ?, ?)").bind(letter.id, subject, body, letter.createdAt).run();
+  return letter;
+}
+
+export async function listLetters(limit = 50): Promise<Letter[]> {
+  await ensureMailTables();
+  const rows = await env.DB.prepare("SELECT id, subject, body, created_at AS createdAt FROM letters ORDER BY created_at DESC LIMIT ?").bind(limit).all<Letter>();
+  return rows.results as Letter[];
+}
+
+export async function deleteLetter(id: string) {
+  await ensureMailTables();
+  const result = await env.DB.prepare("DELETE FROM letters WHERE id = ?").bind(id).run();
+  return Boolean(result.meta.changes);
 }

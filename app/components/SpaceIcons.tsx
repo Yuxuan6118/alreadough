@@ -169,3 +169,14 @@ export function HelpIcon({ size }: Props) {
     </Svg>
   );
 }
+
+/** 来信: an envelope with the dough's dot eyes on its flap. */
+export function LettersIcon({ size }: Props) {
+  return (
+    <Svg size={size}>
+      <path d="M4.5 6.5H19.5C20.3 6.5 20.8 7 20.8 7.8V16.7C20.8 17.5 20.3 18 19.5 18H4.5C3.7 18 3.2 17.5 3.2 16.7V7.8C3.2 7 3.7 6.5 4.5 6.5Z" />
+      <path d="M3.8 7.4L12 13.2L20.2 7.4" />
+      <Eyes a={9.4} b={14.6} y={15.4} r={0.95} />
+    </Svg>
+  );
+}

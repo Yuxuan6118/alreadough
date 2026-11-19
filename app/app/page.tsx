@@ -411,10 +411,12 @@ export default function Home() {
   const [letters, setLetters] = useState<AppLetter[]>([]);
   const [readLetters, setReadLetters] = useState<Set<string>>(() => new Set());
   const [lettersUnreadOnOpen, setLettersUnreadOnOpen] = useState<Set<string>>(() => new Set());
+  /* eslint-disable react-hooks/set-state-in-effect -- one-time read of device storage and the letters list on mount */
   useEffect(() => {
     try { setReadLetters(new Set(JSON.parse(readStored("already-letters-read-v1") || "[]") as string[])); } catch { /* fresh device */ }
     fetch("/api/letters").then((response) => response.ok ? response.json() : null).then((data: { letters?: AppLetter[] } | null) => { if (data?.letters) setLetters(data.letters); }).catch(() => undefined);
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
   const unreadLetters = letters.filter((letter) => !readLetters.has(letter.id));
   const openLetters = () => {
     setLettersUnreadOnOpen(new Set(unreadLetters.map((letter) => letter.id)));
