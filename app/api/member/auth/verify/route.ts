@@ -13,6 +13,6 @@ export async function POST(request: Request) {
     const result = await response.json() as { user?: { id?: string; email?: string; email_confirmed_at?: string } };
     const user = result.user;
     if (!user?.id || !user.email_confirmed_at || user.email?.toLowerCase() !== email) return memberJson({ error: "INVALID_CODE" }, 400);
-    return memberJson({ authenticated: true }, 200, await createMemberSession(user.id));
+    return memberJson({ authenticated: true }, 200, await createMemberSession(user.id, user.email));
   } catch { return memberJson({ error: "AUTH_UNAVAILABLE" }, 503); }
 }

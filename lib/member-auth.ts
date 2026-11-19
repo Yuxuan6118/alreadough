@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { rememberContact } from "./mailing";
 
 const cookieName = "__Host-alreadough";
 const sessionMs = 30 * 24 * 60 * 60 * 1000;
@@ -66,12 +67,13 @@ export async function revokeMemberSession(request: Request) {
   }
 }
 
-export async function createMemberSession(providerId: string) {
+export async function createMemberSession(providerId: string, email?: string | null) {
   await ensureMemberAuthTables();
   const accountId = `app:${providerId}`;
   await env.DB.prepare("INSERT OR IGNORE INTO member_accounts (provider_id, account_id, created_at) VALUES (?, ?, ?)").bind(providerId, accountId, Date.now()).run();
   const account = await env.DB.prepare("SELECT account_id AS accountId FROM member_accounts WHERE provider_id = ?").bind(providerId).first<{ accountId: string }>();
   if (!account) throw new Error("ACCOUNT_CREATE_FAILED");
+  await rememberContact(email, account.accountId);
   const token = Array.from(crypto.getRandomValues(new Uint8Array(32)), byte => byte.toString(16).padStart(2, "0")).join("");
   await env.DB.prepare("INSERT INTO member_sessions (token_hash, account_id, expires_at) VALUES (?, ?, ?)")
     .bind(await sha256(token), account.accountId, Date.now() + sessionMs).run();

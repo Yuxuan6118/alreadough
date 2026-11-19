@@ -53,9 +53,9 @@ export async function GET(request: Request) {
       console.error("google sign-in exchange refused", { status: response.status });
       return back("/app?login=failed");
     }
-    const data = await response.json() as { user?: { id?: string } };
+    const data = await response.json() as { user?: { id?: string; email?: string } };
     if (!data.user?.id) return back("/app?login=failed");
-    return back("/app", await createMemberSession(data.user.id));
+    return back("/app", await createMemberSession(data.user.id, data.user.email));
   } catch (error) {
     console.error("google sign-in failed", { error: String(error).slice(0, 200) });
     return back("/app?login=failed");
