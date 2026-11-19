@@ -1873,10 +1873,9 @@ export default function Home() {
         </div>
         <div className="story-sheet">
           <header className="story-sheet-head">{storyMeta(currentStory, lang) && <small>{storyMeta(currentStory, lang)}</small>}<h1>{currentStory.title[lang]}</h1>{currentStory.subtitle[lang] && <p>{currentStory.subtitle[lang]}</p>}</header>
-          {scriptingId === currentStory.id && <StoryWritingLoader lang={lang}/>}
           <article className={`story-body${scriptingId === currentStory.id ? " is-writing" : ""}`} aria-busy={scriptingId === currentStory.id}>{storyText.map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>)}{currentStory.anchor[lang] && !currentStory.scripted && <blockquote>{currentStory.anchor[lang]}</blockquote>}</article>
           <div className="story-expand">
-            <button className={currentStory.scripted ? "outline-button" : "primary"} onClick={() => writeScript(currentStory)} disabled={Boolean(scriptingId) || storyQuotaOut}>{scriptingId === currentStory.id ? (lang === "zh" ? "正在写……" : "Writing…") : currentStory.scripted ? (lang === "zh" ? "✶ 重新写一版" : "✶ Write it again") : (lang === "zh" ? "✶ 写成剧本" : "✶ Write it as a script")}</button>
+            {scriptingId === currentStory.id ? <StoryWritingLoader lang={lang}/> : <button className={currentStory.scripted ? "outline-button" : "primary"} onClick={() => writeScript(currentStory)} disabled={Boolean(scriptingId) || storyQuotaOut}>{scriptingId === currentStory.id ? (lang === "zh" ? "正在写……" : "Writing…") : currentStory.scripted ? (lang === "zh" ? "✶ 重新写一版" : "✶ Write it again") : (lang === "zh" ? "✶ 写成剧本" : "✶ Write it as a script")}</button>}
           </div>
           {storiesLeft !== null && <StoryQuotaNote lang={lang} left={storiesLeft} onUpgrade={Capacitor.isNativePlatform() ? undefined : () => { setStoryReading(false); setView("settings"); setSettingsSection("membership"); }}/>}
           {aiError && <div className="ai-notice story-ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
@@ -2132,7 +2131,10 @@ function StoryQuotaNote({ lang, left, onUpgrade }: { lang: Lang; left: number; o
 
 /** While a script is being written: the line-drawn dough hops in place above a soft shadow. */
 function StoryWritingLoader({ lang }: { lang: Lang }) {
-  return <div className="story-writing" role="status">
+  const ref = useRef<HTMLDivElement>(null);
+  // once, when it appears: she sees the dough whether she pressed at the top or the bottom of a long script
+  useEffect(() => { ref.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }, []);
+  return <div className="story-writing" role="status" ref={ref}>
     <span className="story-writing-dough" aria-hidden="true"><DoughLineMark/><i/></span>
     <p>{lang === "zh" ? "正在把你的关键词写成剧本，大约半分钟……" : "Writing your keywords into a script, about half a minute…"}</p>
   </div>;

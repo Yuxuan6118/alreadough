@@ -408,7 +408,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .story-editor-modal .story-quota-note { margin: 18px 0 -8px; }
 .story-notes-tip { display: block; margin-top: 6px; color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); }
 /* the dough hops while a script is written: squash on landing, stretch on take-off, shadow shrinks in the air */
-.story-writing { display: grid; justify-items: center; gap: 10px; margin: 0 0 26px; padding: 6px 0 4px; color: var(--app-accent); text-align: center; }
+.story-writing { justify-self: stretch; display: grid; justify-items: center; gap: 10px; margin: 6px 0 4px; padding: 6px 0 4px; color: var(--app-accent); text-align: center; }
 .story-writing p { margin: 0; color: var(--app-muted); font-size: calc(14px * var(--fs, 1)); }
 .story-writing-dough { position: relative; width: 52px; height: 74px; }
 .story-writing-dough svg { position: absolute; left: 0; bottom: 8px; width: 52px; height: 52px; transform-origin: 50% 100%; animation: dough-hop 1.05s cubic-bezier(.4,0,.4,1) infinite; }
