@@ -43,7 +43,8 @@ export const metadata: Metadata = {
       { url: "/favicon.ico?v=2", sizes: "any" },
     ],
     shortcut: "/already-tab-icon-192.png?v=2",
-    apple: [{ url: "/apple-touch-icon.png?v=3", sizes: "180x180", type: "image/png" }],
+    // 180 for the home screen; the large one is for the iPhone share sheet, which draws a small icon inset on white.
+    apple: [{ url: "/apple-touch-icon.png?v=3", sizes: "180x180", type: "image/png" }, { url: "/already-app-icon.png?v=3", sizes: "1024x1024", type: "image/png" }],
   },
   openGraph: {
     title: "AlreaDough | Your living desire space",
