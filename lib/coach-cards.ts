@@ -65,6 +65,16 @@ const usedMarkers: Record<string, RegExp> = {
   s_feed: /刷到|帖子/,
   s_play_role: /演/,
   s_anchor: /短句|锚/,
+  r_doing_release: /手动|这份努力/,
+  r_one_question: /想要控制还是想要认同/,
+  r_stuck_milestone: /里程碑/,
+  r_numb_goal: /毫无波澜|无感/,
+  r_forever: /永远在这里|一直都在的位置/,
+  a_dwell: /待几秒|待一整天/,
+  a_accept: /接受就够|一个亿/,
+  s_getting_better: /越来越.{0,6}了|就太好了|万一我/,
+  s_write_result: /写结果|真心祝福/,
+  s_own_words: /平时说话|跟朋友说/,
 };
 // A let-go invitation in either of the last two replies means this turn must not ask again.
 const letGoInvite = /愿不愿意|能不能(放下|松开|允许)|松开一点|willing to (let|loosen)|could you let/i;
@@ -128,6 +138,23 @@ export const coachCards: CoachCard[] = [
     zh: { idea: "释放的时候情绪反而冒出来、更强了，说明释放已经开始了。情绪是一层一层出来的，冒出来的是新的一层。", how: "她说越释放越难受、情绪又回来了时用。" },
     en: { idea: "If feelings rise and get stronger while releasing, the release has started. Feelings come up in layers; what rises is the next one.", how: "Use when she says releasing makes it worse or it keeps coming back." } },
 
+  // added 2026-11-20 (batch 5) from Chinese teachers' guided sessions and replies on Xiaohongshu
+  { id: "r_doing_release", coach: "release", triggers: ["越想放", "越放越紧", "努力释放", "很努力", "用力", "trying so hard"],
+    zh: { idea: "卡住往往是在努力「做」释放。一直盯着它，就像一直盯着呼吸，呼吸就变成手动的了。看到这份努力：这份努力本身就是想要控制，要放的是它。", how: "她越想放越紧、说自己很努力还是放不掉时用。点出她的用力，不讲道理。" },
+    en: { idea: "Getting stuck often means trying to do the releasing. Watch your breath closely and it turns manual. Notice the effort: the effort itself is wanting control, and that is what to let go.", how: "Use when she tries harder and gets tighter. Point to the effort; don't lecture." } },
+  { id: "r_one_question", coach: "release", triggers: ["带我释放", "引导我", "陪我释放", "好乱", "很多感受", "一团", "guide me"],
+    zh: { idea: "带一个卡住的人释放时，一次只问一句很短的话：现在是什么感受？想要控制还是想要认同？它离开了吗？她说没走，不解释，接着问下一层。", how: "她要你带她释放，或感受很多、很乱时用。整条回复就是一个短问题，不铺垫，不总结。" },
+    en: { idea: "When guiding someone who is stuck, ask one very short question at a time: what are you feeling now? Wanting control or approval? Did it leave? If she says no, don't explain; ask about the next layer.", how: "Use when she asks you to guide her, or feels many things at once. The whole reply is one short question." } },
+  { id: "r_stuck_milestone", coach: "release", triggers: ["一直卡", "卡了好久", "卡很久", "卡了几个月", "退步", "学不会", "stuck for"],
+    zh: { idea: "释放情绪练熟了，常常会卡进「想要释放」，想让感受快点走。卡住是一个里程碑：从这里开始转去放那个想要，不是失败，也不是退步。", how: "她说卡了很久、觉得自己学不会时用。" },
+    en: { idea: "Once releasing feelings gets familiar, people often get caught in wanting to release, wanting the feeling gone fast. Being stuck is a milestone: from here, let go of that wanting. It isn't failure or going backwards.", how: "Use when she has been stuck a long time or thinks she can't learn it." } },
+  { id: "r_numb_goal", coach: "release", triggers: ["没动力", "不想释放", "毫无波澜", "无所谓了", "提不起劲", "no motivation"],
+    zh: { idea: "想到目标突然毫无波澜、不想再释放，不一定是放下了，可能是更深一层的灰心冒了出来。看着这个「无感」，看看自己想对它做什么。", how: "她之前一直在释放，突然对目标没感觉、不想动时用。" },
+    en: { idea: "Suddenly feeling nothing about the goal and not wanting to release isn't necessarily letting go; a deeper layer of giving up may have surfaced. Look at the numbness and notice what she wants to do about it.", how: "Use when she had been releasing and now feels flat about the goal." } },
+  { id: "r_forever", coach: "release", triggers: ["什么时候才", "一直这样", "走不掉", "赶不走", "永远", "forever", "won't go away"],
+    zh: { idea: "允许这种感觉永远在这里。站到它可能一直都在的位置，不急着送走它，它反而会走。", how: "她急着让感受离开、问它什么时候才走时用。" },
+    en: { idea: "Allow this feeling to be here forever. Stand where it might always stay, stop hurrying it out, and it tends to leave.", how: "Use when she is in a rush for the feeling to go." } },
+
   // ---- assumption ----
   { id: "a_i_am", coach: "assumption", triggers: ["会不会", "以后", "将来", "希望", "will i", "someday"],
     zh: { idea: "「我是」比「我会」更有力。说「我会有」等于先承认了「我现在没有」。", how: "她用将来时、可能性的口气说愿望时用。帮她把一句话换成现在时，就一句。" },
@@ -189,6 +216,14 @@ export const coachCards: CoachCard[] = [
     zh: { idea: "不是去想终点，是站在终点去想：已经拥有的她，今天会关心什么？没车的人在想怎么攒钱，有车的人在关心油价。", how: "她问该怎么想、怎么假设时用。帮她说出拥有之后会在意的一件小事。" },
     en: { idea: "Not thinking of the end, but thinking from it: what does the version who has it care about today? Someone without a car saves for one; someone with a car watches fuel prices.", how: "Use when she asks what to think. Help her name one small thing she'd care about once she has it." } },
 
+  // added 2026-11-20 (batch 5)
+  { id: "a_dwell", coach: "assumption", triggers: ["动摇", "又怀疑", "白做", "前功尽弃", "没坚持住", "摇摆", "wavered"],
+    zh: { idea: "没有人能一点都不动摇。区别只在负面念头冒出来以后，在里面待几秒还是待一整天：慌一下又回到想要的画面，主导的就还是想要的那个。", how: "她说又动摇了、是不是白做了时用。" },
+    en: { idea: "No one never wavers. The difference is how long she stays once the fearful thought shows up, a few seconds or a whole day. A moment of panic and back to the scene she wants, and the wanted one still leads.", how: "Use when she says she wavered and fears it undid everything." } },
+  { id: "a_accept", coach: "assumption", triggers: ["不相信", "信不了", "做不到相信", "很难相信", "can't believe"],
+    zh: { idea: "不用逼自己相信，接受就够了。就算真的突然有了一个亿，人也要花一段时间才习惯；对新的自己也一样，用平常心对待，不需要一步到位。", how: "她说怎么都信不了、站不到终点时用。" },
+    en: { idea: "She doesn't need to force belief; accepting is enough. Even someone who suddenly got rich would need time to get used to it. The new self is the same: take it calmly, no need to arrive in one step.", how: "Use when she says she can't believe it or can't stand in the end." } },
+
   // ---- subconscious ----
   { id: "s_familiar", coach: "subconscious", triggers: ["重复", "念多少", "多少遍", "坚持念", "how many times", "repeat"],
     zh: { idea: "一句话念熟了，就不再陌生，心里也就不急着反驳它。重复的用处是让它变熟，不是凑一个数字。", how: "她问要念多少遍、要不要狂念时用。把重点从次数挪到「念着顺不顺」。" },
@@ -229,6 +264,16 @@ export const coachCards: CoachCard[] = [
   { id: "s_anchor", coach: "subconscious", triggers: ["慌", "一下子", "突然", "怎么稳住", "panic", "suddenly"],
     zh: { idea: "给自己一个三四个字的短句当锚，比如「已完成」「旧剧本下线」，慌的时候一句话就能回到状态。", how: "她需要一个随时能用的东西时用。帮她起一个她自己喜欢的短句，不照搬现成口号。" },
     en: { idea: "A three- or four-word anchor phrase, like it's done or old script off, brings her back in one breath when panic hits.", how: "Use when she needs something to grab at any moment. Help her coin her own phrase." } },
+  // added 2026-11-20 (batch 5)
+  { id: "s_getting_better", coach: "subconscious", triggers: ["念不进去", "提醒自己没有", "越念越", "心虚", "像骗自己", "feels like a lie"],
+    zh: { idea: "「我已经……」念着反而提醒自己还没有时，可以改成「我越来越……了」，或者「如果能……就太好了」「万一我真的……了呢」，轻一点，念得进去。", how: "她说肯定语念着心虚、越念越觉得没有时用。帮她把她自己的那句改一版。" },
+    en: { idea: "If \"I already...\" keeps reminding her she doesn't, try \"I'm getting more and more...\", or \"it would be so nice if...\", or \"what if I really...\". Lighter, and it goes in.", how: "Use when an affirmation feels like a lie. Rewrite her own line once." } },
+  { id: "s_write_result", coach: "subconscious", triggers: ["同意", "接受我们", "支持我", "赶走", "不要再", "措辞", "wording"],
+    zh: { idea: "肯定语写结果，不写别人同意或改变的过程：不写「爸妈同意了」，写「全家人都真心祝福我们」。也只写想要的状态，不提要赶走的东西：不写「负面想法都飘走」，写「我能让自己放松」。", how: "她的句子里有别人点头的过程，或有她不想要的东西时用。直接给改好的一句。" },
+    en: { idea: "Write the result, not someone agreeing or changing: not \"my parents agreed\" but \"my whole family blesses us\". Name only the state she wants, not what to get rid of: not \"negative thoughts float away\" but \"I can let myself relax\".", how: "Use when her line contains someone's approval or the thing she doesn't want. Give the rewritten line." } },
+  { id: "s_own_words", coach: "subconscious", triggers: ["照抄", "别人的肯定语", "怎么说", "说法", "不像我", "my own words"],
+    zh: { idea: "照自己平时说话的样子写。没负债了，你会怎么跟朋友说？那句话就是肯定语。要有「我」，只念一个数字不算。", how: "她照抄别人的句子、觉得别扭时用。" },
+    en: { idea: "Write it the way she normally talks. Once the debt is gone, how would she tell a friend? That sentence is the affirmation. It needs an \"I\"; a bare number isn't one.", how: "Use when she copies someone else's lines and they feel off." } },
 ];
 
 function hash(text: string) {
@@ -253,6 +298,15 @@ const shortExamples: ShortExample[] = [
   { coach: "release", triggers: ["堵", "又回来", "又冒出来"], user: "胸口那种堵，放走了一会儿又回来了。", reply: "那是新冒出来的一层，接着放就行。" },
   { coach: "release", triggers: ["没感觉", "不耐烦", "没效果", "二十分钟"], user: "释放了二十分钟，一点感觉都没有，有点不耐烦。", reply: "你想快点学会吗？这个「想快」背后是什么感觉？就放它。" },
   { coach: "release", triggers: ["怕不成功", "害怕失败", "怕失败", "怕不成"], user: "成功过几次，现在特别怕不成功。", reply: "你已经知道自己在怕什么了，那就把这份怕放掉。" },
+  // added 2026-11-20 (batch 5)
+  { coach: "assumption", triggers: ["瘦腿", "腿粗", "身材", "瘦下来"], user: "我想瘦腿。", reply: "你的腿本来就是你想要的样子。" },
+  { coach: "assumption", triggers: ["期中", "期末", "今晚就考", "学不懂", "还没学会"], user: "今晚就期中考了，我还没学懂。", reply: "站在考完的那一头，过程不用你管。" },
+  { coach: "any", triggers: ["事与愿违", "反着来", "没戏反而", "越确定越"], user: "我越确定的事越落空，觉得没戏的反而成了。", reply: "那就每次跟自己说一句「没戏了」，反正能成就行。" },
+  { coach: "assumption", triggers: ["好几天", "没反馈", "没动静", "怎么还没"], user: "坚持好几天了，怎么还没反馈？", reply: "这句「怎么还没」，就是在等现实先点头。" },
+  { coach: "release", triggers: ["好难", "太难了", "做不到"], user: "释放好难。", reply: "把「好难」这个念头也放掉。" },
+  { coach: "release", triggers: ["没走", "还在", "放不掉"], user: "我问了能不能放下，它没走，还在。", reply: "好，再看它一眼。现在是想要控制，还是想要认同？" },
+  { coach: "release", triggers: ["再见到", "又有情绪", "还是生气", "又难受"], user: "我以为放下了，再见到他又有情绪。", reply: "还没放完，没关系，接着放就行。" },
+  { coach: "subconscious", triggers: ["同意", "爸妈", "家里人", "结婚"], user: "我想写「爸妈同意我们结婚」。", reply: "写结果就好：「全家人都真心祝福我们的婚姻。」" },
 ];
 
 export function shortExamplesBlock(lang: CompanionLang, coach: CoachMode, request: string) {
