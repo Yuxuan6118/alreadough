@@ -182,8 +182,11 @@ export function WriteLineIcon({ size }: Props) {
   return (
     <Svg size={size}>
       <defs><Mask id={m}><path d={PEN} fill="black" stroke="black" strokeWidth="3" /></Mask></defs>
-      <g mask={`url(#${m})`}><Dough tx={-1.2} ty={1.6} s={0.84} /></g>
-      <path d={PEN} />
+      {/* The dough + pen drawing sits half a unit left and low; this centres its outline in the tile. */}
+      <g transform="translate(0.5 -0.5)">
+        <g mask={`url(#${m})`}><Dough tx={-1.2} ty={1.6} s={0.84} /></g>
+        <path d={PEN} />
+      </g>
     </Svg>
   );
 }
