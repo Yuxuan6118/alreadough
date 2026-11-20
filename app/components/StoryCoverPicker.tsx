@@ -1,14 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { MagnifyingGlass, X } from "@phosphor-icons/react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { ImageSquare, MagnifyingGlass, Trash, UploadSimple, X } from "@phosphor-icons/react";
+import { saveLocalCover } from "@/lib/cover-store";
+
+// phones and tablets open the photo library; computers open a file window
+const subscribe = () => () => {};
+const isTouch = () => window.matchMedia("(pointer: coarse)").matches;
 
 type Lang = "zh" | "en";
 type Cover = { image: string; credit?: string; source?: string };
 type SearchImage = { title: string; image: string; source: string; credit: string; downloadLocation?: string };
 type BoardPhoto = { image: string; title: string; source: string };
 
-/** Choose a story's cover: a licensed photo from search, or one already kept on the vision board. */
+/** Choose a story's cover: her own photo (kept on this device), a licensed photo from search, or one from the vision board. */
 export default function StoryCoverPicker({ lang, title, initialQuery, board, hasCover, onPick, onRemove, onClose }: {
   lang: Lang;
   title: string;
@@ -26,6 +31,20 @@ export default function StoryCoverPicker({ lang, title, initialQuery, board, has
   // opens already searching for the story's own words
   const [searching, setSearching] = useState(Boolean(initialQuery.trim()));
   const [error, setError] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const fileInput = useRef<HTMLInputElement>(null);
+  const touch = useSyncExternalStore(subscribe, isTouch, () => false);
+  const uploadLabel = touch ? (zh ? "从相册选" : "From photos") : (zh ? "从电脑上传" : "Upload a photo");
+
+  const upload = async (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { setUploadError(zh ? "请选择一张图片。" : "Please choose an image."); return; }
+    setUploading(true); setUploadError("");
+    try { onPick({ image: await saveLocalCover(file) }); }
+    catch { setUploadError(zh ? "这张图片读不出来，换一张试试。" : "Couldn't read that image. Try another one."); }
+    finally { setUploading(false); }
+  };
 
   const runSearch = (q: string) => fetch(`/api/images?q=${encodeURIComponent(q)}`)
     .then((response) => response.ok ? response.json() as Promise<{ results?: SearchImage[] }> : Promise.reject(new Error("search failed")))
@@ -51,29 +70,42 @@ export default function StoryCoverPicker({ lang, title, initialQuery, board, has
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const uploadTile = <button type="button" className="cover-upload-tile" onClick={() => fileInput.current?.click()} disabled={uploading}>
+    <span><UploadSimple size={22}/></span>
+    <strong>{uploading ? (zh ? "正在放进来……" : "Adding…") : uploadLabel}</strong>
+    <small>{zh ? "只存在这台设备上" : "Stays on this device"}</small>
+  </button>;
+  const grid = (items: Array<{ key: string; image: string; label: string; pick: () => void }>) => <div className="cover-picker-grid">
+    {uploadTile}
+    {items.map((item) => <button type="button" key={item.key} onClick={item.pick}><img src={item.image} alt="" loading="lazy"/><small>{item.label}</small></button>)}
+  </div>;
+
   return <div className="story-editor-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <section className="story-editor-modal cover-picker" role="dialog" aria-modal="true" aria-labelledby="cover-picker-title">
-      <header>
-        <div><p className="eyebrow">{zh ? "换封面" : "CHANGE COVER"}</p><h2 id="cover-picker-title">{title}</h2></div>
+      <header className="cover-picker-head">
+        <div><h2 id="cover-picker-title">{hasCover ? (zh ? "换封面" : "Change cover") : (zh ? "加封面" : "Add a cover")}</h2><p>{title}</p></div>
         <button type="button" onClick={onClose} aria-label={zh ? "关闭" : "Close"}><X size={18}/></button>
       </header>
+      <input ref={fileInput} type="file" accept="image/*" hidden onChange={(event) => { void upload(event.target.files?.[0]); event.target.value = ""; }}/>
       <div className="cover-picker-tabs" role="tablist">
-        <button type="button" role="tab" aria-selected={tab === "search"} className={tab === "search" ? "active" : ""} onClick={() => setTab("search")}>{zh ? "搜索照片" : "Search photos"}</button>
-        <button type="button" role="tab" aria-selected={tab === "board"} className={tab === "board" ? "active" : ""} onClick={() => setTab("board")}>{zh ? `我的愿景 · ${board.length}` : `My vision · ${board.length}`}</button>
+        <button type="button" role="tab" aria-selected={tab === "search"} className={tab === "search" ? "active" : ""} onClick={() => setTab("search")}><MagnifyingGlass size={15}/> {zh ? "搜索照片" : "Search photos"}</button>
+        <button type="button" role="tab" aria-selected={tab === "board"} className={tab === "board" ? "active" : ""} onClick={() => setTab("board")}><ImageSquare size={15}/> {zh ? `我的愿景 · ${board.length}` : `My vision · ${board.length}`}</button>
       </div>
+      {uploadError && <p className="cover-picker-note is-error" role="alert">{uploadError}</p>}
       {tab === "search" ? <>
         <form className="cover-picker-search" onSubmit={(event) => { event.preventDefault(); search(); }}>
+          <MagnifyingGlass size={18} aria-hidden="true"/>
           <input value={query} onChange={(event) => setQuery(event.target.value)} maxLength={120} placeholder={zh ? "描述你想要的画面" : "Describe the picture you want"} aria-label={zh ? "搜索照片" : "Search photos"}/>
-          <button type="submit" disabled={searching} aria-label={zh ? "搜索" : "Search"}><MagnifyingGlass size={18}/></button>
+          <button type="submit" disabled={searching || !query.trim()}>{searching ? (zh ? "搜索中" : "Searching") : (zh ? "搜索" : "Search")}</button>
         </form>
         {error && <p className="cover-picker-note">{error}</p>}
-        {searching && !results.length ? <p className="cover-picker-note">{zh ? "正在找照片……" : "Finding photos…"}</p> : <div className="cover-picker-grid">
-          {results.map((item) => <button type="button" key={item.source} onClick={() => onPick({ image: item.image, credit: item.credit, source: item.source }, item.downloadLocation)}><img src={item.image} alt={item.title} loading="lazy"/><small>{item.credit}</small></button>)}
-        </div>}
-      </> : board.length ? <div className="cover-picker-grid">
-        {board.map((item, index) => <button type="button" key={`${index}-${item.source}`} onClick={() => onPick({ image: item.image, source: item.source })}><img src={item.image} alt={item.title} loading="lazy"/><small>{item.title}</small></button>)}
-      </div> : <p className="cover-picker-note">{zh ? "愿景里还没有收藏的图片。在「愿景」里收藏的照片会出现在这里。" : "Nothing on your vision board yet. Photos you keep in Vision show up here."}</p>}
-      {hasCover && <footer><button type="button" className="outline-button" onClick={onRemove}>{zh ? "不用封面" : "Remove cover"}</button></footer>}
+        {searching && !results.length && <p className="cover-picker-note">{zh ? "正在找照片……" : "Finding photos…"}</p>}
+        {grid(results.map((item) => ({ key: item.source, image: item.image, label: item.credit, pick: () => onPick({ image: item.image, credit: item.credit, source: item.source }, item.downloadLocation) })))}
+      </> : <>
+        {!board.length && <p className="cover-picker-note">{zh ? "愿景里还没有收藏的图片。在「愿景」里收藏的照片会出现在这里。" : "Nothing on your vision board yet. Photos you keep in Vision show up here."}</p>}
+        {grid(board.map((item, index) => ({ key: `${index}-${item.source}`, image: item.image, label: item.title, pick: () => onPick({ image: item.image, source: item.source }) })))}
+      </>}
+      {hasCover && <footer className="cover-picker-foot"><button type="button" className="wish-delete" onClick={onRemove}><Trash size={16}/> {zh ? "不用封面，换成面团印花" : "No photo, use the dough print"}</button></footer>}
     </section>
   </div>;
 }

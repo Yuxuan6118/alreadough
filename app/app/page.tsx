@@ -41,6 +41,8 @@ import {
   ShieldCheck,
   DotsThree,
   ImageSquare,
+  Sparkle,
+  ArrowRight,
 } from "@phosphor-icons/react";
 import SubliminalStudio, { PracticeCheckIn, practiceStreak, todayKey } from "../components/SubliminalStudio";
 import Dreamscape from "../components/Dreamscape";
@@ -50,6 +52,8 @@ import { AiNote, BreakReminder, ReportButton, ReportDialog, SiteRecord } from ".
 import MembershipPanel, { memberPlanLabel, UsageBanner, UsageMeter, useMemberStatus } from "../components/MembershipPanel";
 import DesktopPetPanel from "../components/DesktopPetPanel";
 import SyncPanel from "../components/SyncPanel";
+import StoryCoverImage from "../components/StoryCoverImage";
+import { COVER_DB, deleteLocalCover } from "@/lib/cover-store";
 import GuidedOnboarding from "../components/GuidedOnboarding";
 import ProfilePanel from "../components/ProfilePanel";
 import WishList, { type WishItem } from "../components/WishList";
@@ -749,7 +753,12 @@ export default function Home() {
       if (data.profile) setProfile(normalizeProfile(data.profile));
       if (Array.isArray(data.storyLibrary)) setStoryLibrary((data.storyLibrary as Story[]).slice(0, MAX_STORIES).map(normalizeStory));
       if (Array.isArray(data.goalArchive)) setGoalArchive((data.goalArchive as GoalProfile[]).slice(0, 20));
-      if (Array.isArray(data.otherGoals)) setOtherGoals((data.otherGoals as Partial<GoalProfile>[]).filter((item) => item?.setupComplete && item.desire && item.beliefs && item.id).map(normalizeGoal).slice(0, MAX_GOALS));
+      if (Array.isArray(data.otherGoals)) {
+        // a merge of two devices can list the current desire among the others too: keep each desire once
+        const currentId = (data.goal as { id?: string } | undefined)?.id;
+        const seen = new Set<string>(currentId ? [currentId] : []);
+        setOtherGoals((data.otherGoals as Partial<GoalProfile>[]).filter((item) => item?.setupComplete && item.desire && item.beliefs && item.id && !seen.has(item.id) && Boolean(seen.add(item.id))).map(normalizeGoal).slice(0, MAX_GOALS));
+      }
       if (Array.isArray(data.messages)) setMessages(normalizeMessages(data.messages));
       if (typeof data.conversationId === "string") setConversationId(data.conversationId);
       if (Array.isArray(data.conversationArchive)) setConversationArchive((data.conversationArchive as Conversation[]).slice(0, 30).map((item) => ({ ...item, messages: normalizeMessages(item.messages) })));
@@ -1485,6 +1494,9 @@ export default function Home() {
   };
 
   const setStoryCover = (id: string, cover: StoryCover | null) => {
+    // an uploaded photo it replaces is only on this device; free that space
+    const old = storyLibrary.find((story) => story.id === id)?.cover?.image;
+    if (old !== cover?.image) void deleteLocalCover(old);
     setStoryLibrary((items) => items.map((story) => story.id === id ? { ...story, cover } : story));
   };
 
@@ -1750,7 +1762,7 @@ export default function Home() {
     } else setOtherGoals((items) => items.map((item) => item.id === id ? { ...item, ...next, spName: next.spName !== undefined ? next.spName.trim() : item.spName } : item));
   };
 
-  const sortedGoals = [goal, ...otherGoals].filter((item) => item.setupComplete).sort((a, b) => b.intensity - a.intensity);
+  const sortedGoals = [goal, ...otherGoals].filter((item, index, all) => item.setupComplete && all.findIndex((entry) => entry.id === item.id) === index).sort((a, b) => b.intensity - a.intensity);
 
   const goalMenuItems = (<>{sortedGoals.map((item) => <button type="button" className={item.id === goal.id ? "selected" : ""} key={item.id} onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); if (item.id !== goal.id) switchGoal(item.id); }}><span><strong>{goalTitle(item, lang)}</strong><small>{lang === "zh" ? wishCategories.find((entry) => entry.id === item.wishCategory)?.zh : wishCategories.find((entry) => entry.id === item.wishCategory)?.en} · {intensityLabels[lang][item.intensity - 1]}</small></span>{item.id === goal.id && <Check size={17} weight="bold"/>}</button>)}<button type="button" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); addGoal(); }}><span><strong>{lang === "zh" ? "添加愿望" : "Add a desire"}</strong><small>{lang === "zh" ? "新开一张愿望卡，各有各的记忆" : "A new card with its own memory"}</small></span><Plus size={17}/></button></>);
   const coachMenuItems = (<>{coachModes.map((coach) => <button type="button" className={goal.coachMode === coach.id ? "selected" : ""} key={coach.id} onClick={(event) => { setGoal((current) => ({ ...current, coachMode: coach.id })); event.currentTarget.closest("details")?.removeAttribute("open"); }}><span><strong>{lang === "zh" ? coach.zh : coach.en}</strong><small>{lang === "zh" ? coach.zhDescription : coach.enDescription}</small></span>{goal.coachMode === coach.id && <Check size={17} weight="bold"/>}</button>)}</>);
@@ -1906,7 +1918,7 @@ export default function Home() {
         <div className="story-grid">
           {storyLibrary.map((story, index) => <article className="story-tile" key={story.id}>
             <button type="button" className="story-tile-open" onClick={() => { setStoryIndex(index); setStoryReading(true); setStoryMenuId(null); window.scrollTo({ top: 0 }); }}>
-              {story.cover?.image ? <img src={story.cover.image} alt="" loading="lazy" decoding="async"/> : <span className={`story-fallback ${story.tone}`} aria-hidden="true"/>}
+              <StoryCoverImage image={story.cover?.image} tone={story.tone} lazy/>
               <span className="story-tile-text">{storyMeta(story, lang) && <small>{storyMeta(story, lang)}</small>}<strong>{story.title[lang]}</strong></span>
             </button>
             <button type="button" className="story-tile-more" aria-label={lang === "zh" ? `${story.title[lang]}的更多操作` : `More for ${story.title[lang]}`} aria-expanded={storyMenuId === story.id} onClick={() => setStoryMenuId((id) => id === story.id ? null : story.id)}><DotsThree size={22} weight="bold"/></button>
@@ -1924,26 +1936,37 @@ export default function Home() {
       </section>}
 
       {view === "story" && storyReading && <section className="full-view story-reader">
+        {/* Pinned while reading, so back and edit are one tap away at any point of a long script. */}
         <header className="story-reader-bar">
-          <button type="button" onClick={() => setStoryReading(false)}><ArrowLeft size={18}/>{lang === "zh" ? "剧本库" : "Scripts"}</button>
-          <div>
-            <button type="button" onClick={() => setCoverPickerId(currentStory.id)}><ImageSquare size={17}/><span>{lang === "zh" ? "换封面" : "Cover"}</span></button>
-            <button type="button" onClick={() => openStoryEditor(currentStory)}><PencilSimple size={17}/><span>{lang === "zh" ? "编辑" : "Edit"}</span></button>
-          </div>
+          <button type="button" className="story-bar-back" onClick={() => setStoryReading(false)}><ArrowLeft size={20}/><span>{lang === "zh" ? "剧本库" : "Scripts"}</span></button>
+          <button type="button" className="story-bar-edit" onClick={() => openStoryEditor(currentStory)}><PencilSimple size={18}/><span>{lang === "zh" ? "编辑剧本" : "Edit"}</span></button>
         </header>
         <div className="story-hero">
-          {currentStory.cover?.image ? <img src={currentStory.cover.image} alt=""/> : <span className={`story-fallback ${currentStory.tone}`} aria-hidden="true"/>}
+          <StoryCoverImage image={currentStory.cover?.image} tone={currentStory.tone}/>
+          <button type="button" className="story-cover-change" onClick={() => setCoverPickerId(currentStory.id)}><ImageSquare size={18}/><span>{currentStory.cover?.image ? (lang === "zh" ? "换封面" : "Change cover") : (lang === "zh" ? "加封面" : "Add a cover")}</span></button>
           {currentStory.cover?.credit && (currentStory.cover.source && /^https?:/.test(currentStory.cover.source) ? <a className="story-hero-credit" href={currentStory.cover.source} target="_blank" rel="noreferrer">{currentStory.cover.credit}</a> : <span className="story-hero-credit">{currentStory.cover.credit}</span>)}
         </div>
-        <div className="story-sheet">
-          <header className="story-sheet-head">{storyMeta(currentStory, lang) && <small>{storyMeta(currentStory, lang)}</small>}<h1>{currentStory.title[lang]}</h1>{currentStory.subtitle[lang] && <p>{currentStory.subtitle[lang]}</p>}</header>
-          <article className={`story-body${scriptingId === currentStory.id ? " is-writing" : ""}`} aria-busy={scriptingId === currentStory.id}>{storyText.map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>)}{currentStory.anchor[lang] && !currentStory.scripted && <blockquote>{currentStory.anchor[lang]}</blockquote>}</article>
-          <div className="story-expand">
-            {scriptingId === currentStory.id ? <StoryWritingLoader lang={lang}/> : <button className={currentStory.scripted ? "outline-button" : "primary"} onClick={() => writeScript(currentStory)} disabled={Boolean(scriptingId) || storyQuotaOut}>{scriptingId === currentStory.id ? (lang === "zh" ? "正在写……" : "Writing…") : currentStory.scripted ? (lang === "zh" ? "✶ 重新写一版" : "✶ Write it again") : (lang === "zh" ? "✶ 写成剧本" : "✶ Write it as a script")}</button>}
+        <div className="story-stack">
+          <header className="story-card story-sheet-head">{storyMeta(currentStory, lang) && <small>{storyMeta(currentStory, lang)}</small>}<h1>{currentStory.title[lang]}</h1>{currentStory.subtitle[lang] && <p>{currentStory.subtitle[lang]}</p>}</header>
+          <article className={`story-card story-body${scriptingId === currentStory.id ? " is-writing" : ""}`} aria-busy={scriptingId === currentStory.id}>{storyText.map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>)}{currentStory.anchor[lang] && !currentStory.scripted && <blockquote>{currentStory.anchor[lang]}</blockquote>}</article>
+          <div className="story-card story-expand">
+            <div className="story-expand-text">
+              <strong>{currentStory.scripted ? (lang === "zh" ? "想换一种写法？" : "Want a different version?") : (lang === "zh" ? "把这段回忆写成剧本" : "Turn this memory into a script")}</strong>
+              <small>{currentStory.scripted ? (lang === "zh" ? "AlreaDough 会按这段回忆重新写一版，原来的会被替换。" : "AlreaDough writes a fresh version from this memory; it replaces the current one.") : (lang === "zh" ? "AlreaDough 会把它展开成一段可以反复读的完整场景。" : "AlreaDough expands it into a full scene you can come back to.")}</small>
+              {storiesLeft !== null && <StoryQuotaNote lang={lang} left={storiesLeft} onUpgrade={Capacitor.isNativePlatform() ? undefined : () => { setStoryReading(false); setView("settings"); setSettingsSection("membership"); }}/>}
+            </div>
+            {scriptingId === currentStory.id ? <StoryWritingLoader lang={lang}/> : <button type="button" className={currentStory.scripted ? "profile-topic-plus" : "wish-primary"} onClick={() => writeScript(currentStory)} disabled={Boolean(scriptingId) || storyQuotaOut}><Sparkle size={16}/> {currentStory.scripted ? (lang === "zh" ? "重新写一版" : "Write it again") : (lang === "zh" ? "写成剧本" : "Write it as a script")}</button>}
           </div>
-          {storiesLeft !== null && <StoryQuotaNote lang={lang} left={storiesLeft} onUpgrade={Capacitor.isNativePlatform() ? undefined : () => { setStoryReading(false); setView("settings"); setSettingsSection("membership"); }}/>}
           {aiError && <div className="ai-notice story-ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
-          {storyLibrary.length > 1 && <nav className="story-controls" aria-label={lang === "zh" ? "切换剧本" : "Switch story"}><button onClick={() => { setStoryIndex((storyIndex - 1 + storyLibrary.length) % storyLibrary.length); setAiError(""); window.scrollTo({ top: 0 }); }}>{t.previous}</button><button onClick={() => { setStoryIndex((storyIndex + 1) % storyLibrary.length); setAiError(""); window.scrollTo({ top: 0 }); }}>{t.next}</button></nav>}
+          {storyLibrary.length > 1 && (() => {
+            const prev = storyLibrary[(storyIndex - 1 + storyLibrary.length) % storyLibrary.length];
+            const next = storyLibrary[(storyIndex + 1) % storyLibrary.length];
+            const go = (index: number) => { setStoryIndex(index); setAiError(""); window.scrollTo({ top: 0 }); };
+            return <nav className="story-controls" aria-label={lang === "zh" ? "切换剧本" : "Switch story"}>
+              <button type="button" className="story-card" onClick={() => go((storyIndex - 1 + storyLibrary.length) % storyLibrary.length)}><small><ArrowLeft size={14}/> {lang === "zh" ? "上一个" : "Previous"}</small><strong>{prev.title[lang]}</strong></button>
+              <button type="button" className="story-card" onClick={() => go((storyIndex + 1) % storyLibrary.length)}><small>{lang === "zh" ? "下一个" : "Next"} <ArrowRight size={14}/></small><strong>{next.title[lang]}</strong></button>
+            </nav>;
+          })()}
         </div>
       </section>}
 
@@ -2114,7 +2137,7 @@ export default function Home() {
                   <section className="profile-card data-danger">
                     <h3>{lang === "zh" ? "清除全部数据" : "Clear everything"}</h3>
                     <p className="profile-sub">{lang === "zh" ? "云端和这台设备上的愿望、对话、记忆、剧本、照片与音频都会删除，不能恢复。需要的话先导出一份。" : "Desires, conversations, memories, stories, photos and audio in the cloud and on this device are deleted and cannot be recovered. Export a copy first if you want one."}</p>
-                    <div className="data-actions"><button type="button" className="data-danger-button" onClick={async () => { if (await askConfirm({ title: t.confirm, body: lang === "zh" ? "愿望、对话、记忆、剧本和本机的照片与音频都会删除，不能恢复。" : "Desires, conversations, memories, stories, and this device's photos and audio will be deleted. This can't be undone.", confirmLabel: lang === "zh" ? "全部清除" : "Clear everything", cancelLabel: lang === "zh" ? "取消" : "Cancel" })) { void fetch("/api/space", { method: "DELETE", headers: { "x-already-session-id": sessionId } }); removeStored("already-private-state-v5"); removeStored(SYNC_BASE_KEY); syncBaseRef.current = null; removeStored("already-practice-checkins-v1"); removeStored("already-subliminal-v1"); removeStored("already-vision-project-v1"); indexedDB.deleteDatabase("already-private-audio-v1"); indexedDB.deleteDatabase("already-private-vision-v1"); removeStored("already-opening-v1"); setProfile(emptyProfile); setOtherGoals([]); setGoal({ ...defaultGoal }); setGoalArchive([]); setConversationArchive([]); setConversationId(""); setSpNameDraft(""); setBeliefDraft(""); setStoryLibrary([]); setMessages([]); setRevisions([]); setCheckIns([]); setBoard([]); setView("home"); setOnboardingStep(0); } }}><Trash size={16} /> {lang === "zh" ? "清除全部数据" : "Clear everything"}</button></div>
+                    <div className="data-actions"><button type="button" className="data-danger-button" onClick={async () => { if (await askConfirm({ title: t.confirm, body: lang === "zh" ? "愿望、对话、记忆、剧本和本机的照片与音频都会删除，不能恢复。" : "Desires, conversations, memories, stories, and this device's photos and audio will be deleted. This can't be undone.", confirmLabel: lang === "zh" ? "全部清除" : "Clear everything", cancelLabel: lang === "zh" ? "取消" : "Cancel" })) { void fetch("/api/space", { method: "DELETE", headers: { "x-already-session-id": sessionId } }); removeStored("already-private-state-v5"); removeStored(SYNC_BASE_KEY); syncBaseRef.current = null; removeStored("already-practice-checkins-v1"); removeStored("already-subliminal-v1"); removeStored("already-vision-project-v1"); indexedDB.deleteDatabase("already-private-audio-v1"); indexedDB.deleteDatabase("already-private-vision-v1"); indexedDB.deleteDatabase(COVER_DB); removeStored("already-opening-v1"); setProfile(emptyProfile); setOtherGoals([]); setGoal({ ...defaultGoal }); setGoalArchive([]); setConversationArchive([]); setConversationId(""); setSpNameDraft(""); setBeliefDraft(""); setStoryLibrary([]); setMessages([]); setRevisions([]); setCheckIns([]); setBoard([]); setView("home"); setOnboardingStep(0); } }}><Trash size={16} /> {lang === "zh" ? "清除全部数据" : "Clear everything"}</button></div>
                   </section>
                 </div>
               </div>}
