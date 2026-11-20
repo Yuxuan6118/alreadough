@@ -82,7 +82,3 @@
 }
 
 /* 已拆分搜索: the split queries as quiet chips */
-.space-page .image-search-plan { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.space-page .image-search-plan small { color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); }
-.space-page .image-search-plan > div { display: flex; flex-wrap: wrap; gap: 6px; }
-.space-page .image-search-plan span { display: inline-flex; align-items: center; min-height: 24px; padding: 0 10px; border-radius: 999px; color: var(--app-muted); background: color-mix(in srgb, var(--app-ink) 5%, transparent); font-size: calc(12px * var(--fs, 1)); }

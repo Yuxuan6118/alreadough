@@ -57,7 +57,7 @@ async function searchPexels(query: string): Promise<RawImage[]> {
   const response = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=8`, { headers: { Authorization: key }, next: { revalidate: 3600 } });
   if (!response.ok) return [];
   const data = await response.json() as { photos?: Array<{ id: number; alt?: string; url: string; photographer: string; src: { large: string } }> };
-  return (data.photos || []).map((photo) => ({ id: `pexels-${photo.id}`, title: photo.alt || query, image: photo.src.large, source: photo.url, credit: `${photo.photographer} / Pexels`, license: "Pexels License", provider: "Pexels", query }));
+  return (data.photos || []).map((photo) => ({ id: `pexels-${photo.id}`, title: photo.alt || "", image: photo.src.large, source: photo.url, credit: `${photo.photographer} / Pexels`, license: "Pexels License", provider: "Pexels", query }));
 }
 
 async function searchUnsplash(query: string): Promise<RawImage[]> {
@@ -66,7 +66,7 @@ async function searchUnsplash(query: string): Promise<RawImage[]> {
   const response = await fetch(`https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=8&content_filter=high`, { headers: { Authorization: `Client-ID ${key}` }, next: { revalidate: 3600 } });
   if (!response.ok) return [];
   const data = await response.json() as { results?: Array<{ id: string; alt_description?: string; description?: string; links: { html: string; download_location: string }; urls: { regular: string }; user: { name: string } }> };
-  return (data.results || []).map((photo) => ({ id: `unsplash-${photo.id}`, title: photo.alt_description || photo.description || query, image: photo.urls.regular, source: `${photo.links.html}?utm_source=alreadough&utm_medium=referral`, credit: `${photo.user.name} / Unsplash`, license: "Unsplash License", provider: "Unsplash", query, downloadLocation: photo.links.download_location }));
+  return (data.results || []).map((photo) => ({ id: `unsplash-${photo.id}`, title: photo.alt_description || photo.description || "", image: photo.urls.regular, source: `${photo.links.html}?utm_source=alreadough&utm_medium=referral`, credit: `${photo.user.name} / Unsplash`, license: "Unsplash License", provider: "Unsplash", query, downloadLocation: photo.links.download_location }));
 }
 
 async function searchCommons(query: string): Promise<RawImage[]> {
@@ -79,7 +79,7 @@ async function searchCommons(query: string): Promise<RawImage[]> {
     const license = info?.extmetadata?.LicenseShortName?.value || "";
     const commercial = /(CC0|CC BY|Creative Commons Attribution|Public domain)/i.test(license) && !/(NC|ND|NonCommercial|NoDerivatives)/i.test(license);
     if (!info?.thumburl || !info.descriptionurl || !commercial) return [];
-    return [{ id: `commons-${page.pageid || info.thumburl}`, title: (page.title || query).replace(/^File:/, "").replace(/\.[^.]+$/, ""), image: info.thumburl, source: info.descriptionurl, credit: `${stripHtml(info.extmetadata?.Artist?.value) || "Wikimedia contributor"} / Wikimedia Commons`, license, provider: "Wikimedia Commons", query }];
+    return [{ id: `commons-${page.pageid || info.thumburl}`, title: (page.title || "").replace(/^File:/, "").replace(/\.[^.]+$/, ""), image: info.thumburl, source: info.descriptionurl, credit: `${stripHtml(info.extmetadata?.Artist?.value) || "Wikimedia contributor"} / Wikimedia Commons`, license, provider: "Wikimedia Commons", query }];
   }).slice(0, 8);
 }
 
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
     const searches = await Promise.all(plan.queries.flatMap((searchQuery) => [searchPexels(searchQuery), searchUnsplash(searchQuery)]));
     let results = dedupeAndRank(searches, plan.queries);
     if (results.length < 8) results = dedupeAndRank([...searches, ...await Promise.all(plan.queries.slice(0, 3).map(searchCommons))], plan.queries);
-    return NextResponse.json({ results, plan, providers: [...new Set(results.map((item) => item.provider))], policy: "commercial-license-filtered" });
+    return NextResponse.json({ results: results.map(({ query: _q, score: _s, ...item }) => item) });
   } catch { return NextResponse.json({ results: [], error: "IMAGE_SEARCH_UNAVAILABLE" }, { status: 502 }); }
 }
 

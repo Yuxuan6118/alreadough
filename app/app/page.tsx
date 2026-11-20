@@ -175,7 +175,6 @@ type AIResponse = {
   message?: string;
 };
 type SearchImage = { title: string; image: string; source: string; credit: string; license: string; provider: string; downloadLocation?: string };
-type ImageSearchPlan = { original: string; translated: string; queries: string[] };
 type BetaStatus = { authenticated: boolean; enabled?: boolean; totalRequests?: number; totalTokens?: number };
 
 /** The reframe reply is the new thought on its first line, optionally followed by one short new reading. */
@@ -482,7 +481,6 @@ export default function Home() {
   const [imageResults, setImageResults] = useState<SearchImage[]>([]);
   const [imageSearching, setImageSearching] = useState(false);
   const [imageSearchError, setImageSearchError] = useState("");
-  const [imageSearchPlan, setImageSearchPlan] = useState<ImageSearchPlan | null>(null);
   const [savedPulse, setSavedPulse] = useState(false);
   const [goalSavedPulse, setGoalSavedPulse] = useState(false);
   const [acknowledged, setAcknowledged] = useState<boolean | null>(null);
@@ -1449,14 +1447,13 @@ export default function Home() {
   const searchRealImages = async (suggested?: string) => {
     const query = (suggested || imageQuery).trim();
     if (!query) return;
-    setImageQuery(query); setImageSearching(true); setImageSearchError(""); setImageSearchPlan(null);
+    setImageQuery(query); setImageSearching(true); setImageSearchError("");
     try {
       const response = await fetch(`/api/images?q=${encodeURIComponent(query)}`);
       if (!response.ok) throw new Error("search failed");
-      const data = await response.json() as { results?: SearchImage[]; plan?: ImageSearchPlan };
+      const data = await response.json() as { results?: SearchImage[] };
       const results = data.results || [];
       setImageResults(results);
-      setImageSearchPlan(data.plan || null);
       if (!results.length) setImageSearchError(lang === "zh" ? "这组关键词暂时没有找到合适的真实照片，换一个更宽泛的描述试试。" : "No suitable real photos appeared for that phrase. Try a broader description.");
     } catch {
       setImageSearchError(lang === "zh" ? "授权照片搜索暂时没有连接成功，请稍后再试，或使用“用我的照片制作”。" : "Licensed-photo search could not connect. Try again later or use Create from My Photos.");
@@ -2071,13 +2068,12 @@ export default function Home() {
           <section className="profile-card">
             <div className="space-search"><input value={imageQuery} onChange={(e) => setImageQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) searchRealImages(); }} placeholder={t.searchPlaceholder} aria-label={t.realPhotos}/><button type="button" className="wish-primary" onClick={() => searchRealImages()} disabled={imageSearching}>{imageSearching ? t.searching : t.search}</button></div>
             <div className="wish-pills">{suggestions.map((term) => <button type="button" key={term} onClick={() => searchRealImages(term)}>{term}</button>)}</div>
-            {imageSearchPlan && <div className="image-search-plan"><small>{lang === "zh" ? "已拆分搜索" : "Searched separately"}</small><div>{imageSearchPlan.queries.map((query) => <span key={query}>{query}</span>)}</div></div>}
             {imageSearchError && <p className="search-error">{imageSearchError}</p>}
           </section>
           {imageResults.length > 0 && <div className="search-results">{imageResults.map((item) => { const saved = board.some((entry) => entry.source === item.source); return <article key={item.source}><img src={item.image} alt={item.title}/><div><strong>{item.title}</strong><small>{item.credit} · {item.license}</small><button type="button" className={saved ? "saved" : ""} onClick={() => collectSearchImage(item)} disabled={saved}>{saved ? (lang === "zh" ? "已收进我的愿景" : "Saved") : t.collect}</button></div></article>; })}</div>}
         </div>}
         {boardMode === "mine" && <VisionCanvasStudio lang={lang}/>}
-        {boardMode === "collected" && (board.length ? <div className="moodboard">{board.map((item, index) => <article className={`board-card card-${index % 4}`} key={item.id}>{item.image ? <img src={item.image} alt={item.title}/> : <div className="board-placeholder"/>}<div><h3>{item.title}</h3>{/^https?:/.test(item.source) ? <a href={item.source} target="_blank" rel="noreferrer">{t.source}</a> : <span>{item.source}</span>}<button onClick={() => setBoard((items) => items.filter((entry) => entry.id !== item.id))} aria-label={`${lang === "zh" ? "删除" : "Delete "}${item.title}`}>×</button></div></article>)}</div> : <div className="profile-cards"><section className="profile-card"><p className="setting-empty">{lang === "zh" ? "在「寻梦灵感」里点「收进我的愿景」，喜欢的画面会收在这里。" : "Pictures you save from Discover Dreamscapes will gather here."}</p><div className="space-card-actions"><button type="button" className="space-outline" onClick={() => setBoardMode("licensed")}>{lang === "zh" ? "去寻梦灵感" : "Go discover"}</button></div></section></div>)}
+        {boardMode === "collected" && (board.length ? <div className="moodboard">{board.map((item, index) => <article className={`board-card card-${index % 4}`} key={item.id}>{item.image ? <img src={item.image} alt={item.title}/> : <div className="board-placeholder"/>}<div><h3>{item.title}</h3>{/^https?:/.test(item.source) ? <a href={item.source} target="_blank" rel="noreferrer">{t.source}</a> : <span>{item.source}</span>}<button onClick={() => setBoard((items) => items.filter((entry) => entry.id !== item.id))} aria-label={`${lang === "zh" ? "删除" : "Delete "}${item.title}`}>×</button></div></article>)}</div> : <div className="profile-cards"><section className="profile-card"><p className="setting-empty">{lang === "zh" ? "在「寻梦灵感」里点「收进我的愿景」，喜欢的画面会收在这里。" : "Pictures you save from Discover Dreamscapes will gather here."}</p></section></div>)}
       </SpacePage>}
 
       {view === "settings" && (() => {
