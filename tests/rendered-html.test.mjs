@@ -595,7 +595,7 @@ test("my space: one way in from the drawer and the rail, no avatar menu, memory 
   assert.doesNotMatch(page, /view === "memory"/);
   assert.doesNotMatch(page, /id: "reflect"|ReflectionPanel/);
   // nothing is shown twice: the journey summary and the memory list live only in 记忆库
-  assert.equal((page.match(/\{goal\.journeySummary\[lang\] \|\| \(/g) || []).length, 1);
+  assert.equal((page.match(/goal\.journeySummary\[lang\][^|\n]*\|\| \(/g) || []).length, 1);
   assert.doesNotMatch(page, /打开完整记忆库|不限制对话、重写与故事的次数|每次对话只加载当前选中的这一张愿望卡/);
 });
 
