@@ -458,8 +458,12 @@ test("opening questions: the flow follows her choices, adding a desire reuses th
   const ids = (slots) => slots.map((slot) => slot.id);
   // before she has picked a kind there are no kind-specific questions
   assert.deepEqual(wishModule("", true), ["wish", "category", "scene", "intensity", "pullback", "evidence"]);
-  assert.deepEqual(wishModule("relationship", true).slice(0, 6), ["wish", "category", "sp_name", "rel_state", "rel_who", "rel_close"]);
-  assert.deepEqual(wishModule("relationship", false), ["wish", "category", "sp_name", "rel_state", "scene", "intensity"]);
+  assert.deepEqual(wishModule("relationship", true).slice(0, 7), ["wish", "category", "rel_kind", "sp_name", "rel_state", "rel_who", "rel_close"]);
+  assert.deepEqual(wishModule("relationship", false), ["wish", "category", "rel_kind", "sp_name", "rel_state", "scene", "intensity"]);
+  // family and friends take their own path, without the romantic questions
+  assert.deepEqual(wishModule("relationship", true, "family").slice(0, 6), ["wish", "category", "rel_kind", "rel_person", "rel_state", "rel_together"]);
+  assert.deepEqual(wishModule("relationship", false, "friend"), ["wish", "category", "rel_kind", "rel_person", "rel_state", "scene", "intensity"]);
+  assert.deepEqual(wishModule("relationship", true, "love").slice(0, 7), wishModule("relationship", true).slice(0, 7));
   // one "add another?" slot, after the last desire only; the tail appears once she is finished
   const one = ids(buildFlow(["wealth"], false));
   assert.equal(one.filter((id) => id === "more").length, 1);
@@ -474,7 +478,7 @@ test("opening questions: the flow follows her choices, adding a desire reuses th
   assert.equal(before.findIndex((slot) => slot.id === "more"), after.findIndex((slot) => slot.wish === 1 && slot.id === "wish"));
   // every step id in every flow exists and has a prompt in both languages
   for (const kind of ["relationship", "wealth", "self", "lifestyle", "other"]) {
-    for (const slot of buildFlow([kind, kind], true)) {
+    for (const slot of [...buildFlow([kind, kind], true), ...buildFlow([kind, kind], true, ["family", "friend"])]) {
       assert.ok(STEPS[slot.id], `missing step ${slot.id}`);
       assert.ok(STEPS[slot.id].prompt.zh && STEPS[slot.id].prompt.en);
     }
@@ -494,6 +498,16 @@ test("opening questions: the flow follows her choices, adding a desire reuses th
   assert.equal(newRelationship.spName, "");
   assert.match(newRelationship.background, /想遇见一个愿意坦诚沟通的人/);
   assert.doesNotMatch(newRelationship.background, /旧称呼|旧关系/);
+  answers.wishes[0] = { ...emptyWish(), wish: "和妈妈和好", kind: "relationship", specifics: { relationship_kind: "family", rel_person: "妈妈", rel_state: "最近常吵架", rel_together: "周末一起吃饭", sp_name: "旧称呼", rel_close: "牵手" } };
+  assert.equal(canAdvance("rel_kind", answers, 0), true);
+  const family = answersToSeeds(answers, "zh").goals[0];
+  assert.equal(family.spName, "", "family is never written as a romantic SP");
+  assert.match(family.background, /家人/);
+  assert.match(family.background, /妈妈/);
+  assert.match(family.background, /周末一起吃饭/);
+  assert.doesNotMatch(family.background, /旧称呼|牵手/);
+  answers.wishes[0] = { ...emptyWish(), wish: "建立稳定的关系", kind: "relationship", specifics: { relationship_target: "new", new_rel_state: "想遇见一个愿意坦诚沟通的人" } };
+  assert.equal(canAdvance("rel_kind", answers, 0), false, "she says who it is with first");
   answers.wishes[0].scene = "";
   // answers become one card per desire and a single profile
   answers.name = "安安";

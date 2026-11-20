@@ -9,7 +9,9 @@
 
 export type OnboardingLang = "zh" | "en";
 export type WishKind = "relationship" | "wealth" | "self" | "lifestyle" | "other";
-export type StepType = "text" | "long" | "category" | "scale" | "people" | "info" | "style" | "more";
+/** Who a relationship desire is with; family and friends skip the romantic questions. */
+export type RelationKind = "love" | "family" | "friend";
+export type StepType = "text" | "long" | "category" | "relkind" | "scale" | "people" | "info" | "style" | "more";
 
 export type StepDef = {
   id: string;
@@ -50,11 +52,19 @@ export const STEPS: Record<string, StepDef> = {
   wish: step({ id: "wish", type: "long", optional: false, reply: true,
     prompt: { zh: "你最想先显化的是什么？", en: "What do you most want to manifest first?" },
     hint: { zh: "不用写得完美，就用你自己的话。放开想，不用现实。", en: "No need to word it perfectly. Say it your way, and don't be realistic." },
-    placeholder: { zh: "比如：考到理想成绩、拿到心仪的 Offer、和TA复联复合。", en: "For example: Reach my target exam score, get an offer for a job I’m excited about, or reconnect with them and get back together." } }),
+    placeholder: { zh: "比如：考到理想成绩、拿到心仪的 Offer、和TA复联复合、瘦到理想体重。", en: "For example: Reach my target exam score, get an offer for a job I’m excited about, reconnect with them and get back together, or reach the weight I want." } }),
   category: step({ id: "category", type: "category", optional: false, reply: false,
     prompt: { zh: "它更接近哪一类？", en: "Which kind is it closest to?" } }),
 
   // relationship
+  rel_kind: step({ id: "rel_kind", type: "relkind", optional: false, reply: false,
+    prompt: { zh: "是哪一位？", en: "Who is it with?" } }),
+  rel_person: step({ id: "rel_person", type: "text", optional: true, reply: false, short: true,
+    prompt: { zh: "TA 是谁？", en: "Who are they?" },
+    placeholder: { zh: "比如：妈妈、室友小林", en: "For example: my mom, my roommate Lin" } }),
+  rel_together: step({ id: "rel_together", type: "long", optional: true, reply: false,
+    prompt: { zh: "你们理想中是怎么相处的？", en: "How do the two of you get along, ideally?" },
+    placeholder: { zh: "比如：周末一起吃饭，有事愿意先告诉我，意见不同也能好好说。", en: "For example: We have dinner together on weekends, they tell me things first, and we can disagree and still talk kindly." } }),
   sp_name: step({ id: "sp_name", type: "text", optional: true, reply: false, short: true,
     prompt: { zh: "你已经有特定对象，还是想遇见新的人？", en: "Is there a specific person, or would you like to meet someone new?" } }),
   rel_state: step({ id: "rel_state", type: "long", optional: true, reply: false,
@@ -72,7 +82,7 @@ export const STEPS: Record<string, StepDef> = {
   // wealth and work
   wealth_form: step({ id: "wealth_form", type: "long", optional: true, reply: false,
     prompt: { zh: "它具体是什么形态？", en: "What exactly does it look like?" },
-    hint: { zh: "收入数字、offer、项目、客户、一间公司。", en: "An income figure, an offer, a project, a client, a company." } }),
+    hint: { zh: "收入数字、offer、项目、客户、一间公司、分数、录取通知。", en: "An income figure, an offer, a project, a client, a company, a score, an acceptance letter." } }),
   wealth_when: step({ id: "wealth_when", type: "long", optional: true, reply: false,
     prompt: { zh: "它出现的那一天，你在哪里、谁第一个知道？", en: "The day it arrives: where are you, and who knows first?" } }),
 
@@ -100,7 +110,8 @@ export const STEPS: Record<string, StepDef> = {
     hint: { zh: "它会决定愿望卡的先后顺序。", en: "It sets the order of your desire cards." } }),
   pullback: step({ id: "pullback", type: "long", optional: true, reply: true,
     prompt: { zh: "哪些想法或经历会让你对这个愿望动摇？", en: "What thoughts or experiences make you doubt this desire?" },
-    hint: { zh: "可以写它在什么情况下出现、你当时怎么想，以及你想怎么回应。", en: "Describe when it comes up, what you think in that moment, and how you want to respond." } }),
+    hint: { zh: "可以写它在什么情况下出现、你当时怎么想，以及你想怎么回应。", en: "Describe when it comes up, what you think in that moment, and how you want to respond." },
+    placeholder: { zh: "比如：几个月了 3D 还没变化；刷到别人上岸的帖子就慌；越想要越着急。", en: "For example: Months have passed and nothing has changed yet; I panic when I see someone else's success post; the more I want it, the more anxious I get." } }),
   evidence: step({ id: "evidence", type: "long", optional: true, reply: false,
     prompt: { zh: "有哪些小变化，让你觉得自己正在靠近这个愿望？", en: "What small changes make you feel closer to this desire?" } }),
   more: step({ id: "more", type: "more", optional: false, reply: false,
@@ -119,7 +130,7 @@ export const STEPS: Record<string, StepDef> = {
 };
 
 const WISH_SPECIFICS: Record<WishKind, string[]> = {
-  relationship: ["sp_name", "rel_state", "rel_who", "rel_close"],
+  relationship: ["rel_kind", "sp_name", "rel_state", "rel_who", "rel_close"],
   wealth: ["wealth_form", "wealth_when"],
   self: ["self_who", "self_body"],
   lifestyle: ["life_where", "life_morning"],
@@ -129,10 +140,13 @@ const WISH_SPECIFICS: Record<WishKind, string[]> = {
 export const HEAD_STEPS = ["welcome", "name", "country", "about", "note"];
 export const TAIL_STEPS = ["people", "never", "situation"];
 
+/** Family and friends: who they are, where things stand, how they get along; no romantic questions. */
+const CLOSE_PEOPLE = ["rel_kind", "rel_person", "rel_state", "rel_together"];
+
 /** Steps for one desire. The first desire gets the full set; extra desires get a shorter one. */
-export function wishModule(kind: WishKind | "", full: boolean): string[] {
-  const specifics = kind ? WISH_SPECIFICS[kind] : [];
-  if (!full) return ["wish", "category", ...specifics.slice(0, kind === "relationship" ? 2 : 1), "scene", "intensity"];
+export function wishModule(kind: WishKind | "", full: boolean, relation: RelationKind | "" = ""): string[] {
+  const specifics = !kind ? [] : kind === "relationship" && (relation === "family" || relation === "friend") ? CLOSE_PEOPLE : WISH_SPECIFICS[kind];
+  if (!full) return ["wish", "category", ...specifics.slice(0, kind === "relationship" ? 3 : 1), "scene", "intensity"];
   return ["wish", "category", ...specifics, "scene", "intensity", "pullback", "evidence"];
 }
 
@@ -144,10 +158,10 @@ export type FlowSlot = { wish: number | null; id: string };
  * `finished` flips true once she answers "that's all" at the last "add another?".
  * Adding a desire removes that "add another?" slot and puts the new desire's steps in its place.
  */
-export function buildFlow(kinds: Array<WishKind | "">, finished: boolean): FlowSlot[] {
+export function buildFlow(kinds: Array<WishKind | "">, finished: boolean, relations: Array<RelationKind | ""> = []): FlowSlot[] {
   const slots: FlowSlot[] = HEAD_STEPS.map((id) => ({ wish: null, id }));
   kinds.forEach((kind, index) => {
-    for (const id of wishModule(kind, index === 0)) slots.push({ wish: index, id });
+    for (const id of wishModule(kind, index === 0, relations[index] || "")) slots.push({ wish: index, id });
     // "add another?" is asked once, after the last desire so far
     if (index === kinds.length - 1) slots.push({ wish: index, id: "more" });
   });
@@ -162,11 +176,20 @@ export function minimumLength(kind: WishKind): number {
 
 export const WISH_KIND_OPTIONS: Array<{ id: WishKind; zh: string; en: string; zhHint: string; enHint: string }> = [
   { id: "relationship", zh: "关系与特定对象", en: "Relationships", zhHint: "爱情、友情、家庭或一位特定的人", enHint: "Love, friendship, family or one specific person" },
-  { id: "wealth", zh: "金钱与事业", en: "Money and career", zhHint: "收入、工作、项目或机会", enHint: "Income, work, a project or an opportunity" },
-  { id: "self", zh: "自我与状态", en: "Self", zhHint: "自我概念、身体感受或个人成长", enHint: "Self-image, how your body feels, growth" },
+  { id: "wealth", zh: "金钱与事业", en: "Money and career", zhHint: "收入、工作、考试、项目或机会", enHint: "Income, work, exams, a project or an opportunity" },
+  { id: "self", zh: "自我与状态", en: "Self", zhHint: "自我概念、外貌身材、身体感受或个人成长", enHint: "Self-image, looks and body shape, how your body feels, growth" },
   { id: "lifestyle", zh: "生活与体验", en: "Life and experiences", zhHint: "居住、旅行、物品或生活方式", enHint: "Where you live, travel, things, a way of living" },
   { id: "other", zh: "其他愿望", en: "Something else", zhHint: "用你自己的方式定义它", enHint: "Define it your own way" },
 ];
+
+export const RELATION_KIND_OPTIONS: Array<{ id: RelationKind; zh: string; en: string }> = [
+  { id: "love", zh: "恋人或喜欢的人", en: "A partner or someone I like" },
+  { id: "family", zh: "家人", en: "Family" },
+  { id: "friend", zh: "朋友", en: "A friend" },
+];
+
+/** Family or friend: the relationship questions take the non-romantic path. */
+export const isCloseRelation = (wish: WishAnswers) => wish.kind === "relationship" && (wish.specifics.relationship_kind === "family" || wish.specifics.relationship_kind === "friend");
 
 export type OnboardingPerson = { id: string; name: string; relation: string };
 
@@ -217,9 +240,11 @@ export function splitLines(value: string, max = 20): string[] {
 export function wishBackground(wish: WishAnswers, lang: OnboardingLang): string {
   const zh = lang === "zh";
   const labels: Record<string, [string, string]> = {
+    rel_person: ["TA 是谁", "Who they are"],
     sp_name: ["TA 的称呼", "What they call them"],
     rel_state: ["TA 是谁，现在的状态", "Who they are and where things stand"],
     rel_close: ["想要的亲密", "The closeness they want"],
+    rel_together: ["理想中的相处", "How they want to get along"],
     wealth_form: ["具体的形态", "What it looks like"],
     wealth_when: ["它出现的那一天", "The day it arrives"],
     self_who: ["想成为的人", "Who they want to be"],
@@ -229,8 +254,12 @@ export function wishBackground(wish: WishAnswers, lang: OnboardingLang): string 
     other_moment: ["它已经发生的那一刻", "The moment it has happened"],
   };
   const lines: string[] = [];
+  const close = isCloseRelation(wish);
+  if (close) lines.push(zh ? `这段关系是：${wish.specifics.relationship_kind === "family" ? "家人" : "朋友"}` : `This relationship is with: ${wish.specifics.relationship_kind === "family" ? "family" : "a friend"}`);
   const meetingSomeoneNew = wish.specifics.relationship_target === "new";
   for (const [id, [zhLabel, enLabel]] of Object.entries(labels)) {
+    // answers left over from the other path (she changed who it is with) are not hers any more
+    if (close ? ["sp_name", "rel_who", "rel_close"].includes(id) : ["rel_person", "rel_together"].includes(id)) continue;
     if (meetingSomeoneNew && id === "sp_name") continue;
     if (meetingSomeoneNew && id === "rel_state") {
       const description = clean(wish.specifics.new_rel_state);
@@ -248,6 +277,8 @@ export function wishBackground(wish: WishAnswers, lang: OnboardingLang): string 
 
 /** The name of the person a relationship desire is about, if she gave one. */
 export function wishPersonName(wish: WishAnswers): string {
+  // family and friends are not a romantic "SP"; who they are goes into the background instead
+  if (isCloseRelation(wish)) return "";
   return wish.specifics.relationship_target === "new" ? "" : clean(wish.specifics.sp_name);
 }
 
@@ -257,6 +288,7 @@ export function canAdvance(stepId: string, answers: OnboardingAnswers, wishIndex
   if (!def) return false;
   const wish = wishIndex === null ? null : answers.wishes[wishIndex];
   if (stepId === "sp_name" && wish?.specifics.relationship_target === "new") return true;
+  if (def.type === "relkind") return Boolean(wish?.specifics.relationship_kind);
   switch (def.type) {
     case "category": return Boolean(wish && wish.kind);
     case "people": return answers.people.some((person) => person.name.trim());
@@ -330,7 +362,7 @@ export function answersToSeeds(answers: OnboardingAnswers, lang: OnboardingLang)
       beliefs: clean(wish.pullback) ? [clean(wish.pullback)] : [],
       spName: wish.kind === "relationship" ? wishPersonName(wish) : "",
       // "what kind of person are they" goes into this desire's story setting
-      storySetting: wish.kind === "relationship" ? clean(wish.specifics.rel_who).slice(0, MAX_STORY_SETTING) : "",
+      storySetting: wish.kind === "relationship" && !isCloseRelation(wish) ? clean(wish.specifics.rel_who).slice(0, MAX_STORY_SETTING) : "",
       intensity: Math.min(5, Math.max(1, Math.round(wish.intensity || 3))),
       memories: [...wishMemories(wish, lang), ...shared].slice(0, 40),
     }));

@@ -11,12 +11,15 @@ import {
   canAdvance,
   emptyAnswers,
   emptyWish,
+  isCloseRelation,
+  RELATION_KIND_OPTIONS,
   stepAnswer,
   wishModule,
   wishPersonName,
   type FlowSlot,
   type OnboardingAnswers,
   type OnboardingLang,
+  type RelationKind,
   type StepDef,
 } from "@/lib/onboarding-flow";
 
@@ -97,10 +100,11 @@ export default function GuidedOnboarding({ lang, sessionId, mode, initialName = 
   }, [mode, ready, answers, pos, finished]);
 
   const kinds = answers.wishes.map((wish) => wish.kind);
-  const kindsKey = kinds.join("|");
+  const relations = answers.wishes.map((wish) => (wish.specifics.relationship_kind || "") as RelationKind | "");
+  const kindsKey = `${kinds.join("|")}/${relations.join("|")}`;
   const flow: FlowSlot[] = useMemo(() => {
-    if (mode === "extra") return wishModule(kinds[0] || "", false).map((id) => ({ wish: 0, id }));
-    return buildFlow(kinds, finished);
+    if (mode === "extra") return wishModule(kinds[0] || "", false, relations[0] || "").map((id) => ({ wish: 0, id }));
+    return buildFlow(kinds, finished, relations);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, finished, kindsKey]);
 
@@ -240,7 +244,9 @@ export default function GuidedOnboarding({ lang, sessionId, mode, initialName = 
   const progress = Math.round(((index + 1) / flow.length) * 100);
   const placeholder = slot.id === "rel_state" && meetingSomeoneNew
     ? (zh ? "比如：温柔坦诚、说到做到、尊重边界。希望我们彼此信任，有话直说，也给彼此留一点自己的空间。" : "For example: Kind, honest, dependable, and respectful of boundaries. I’d like us to trust each other, speak openly, and make room for our own lives.")
-    : def.placeholder?.[lang];
+    : slot.id === "rel_state" && wish && isCloseRelation(wish)
+      ? (zh ? "比如：最近常吵架、很久没联系、住得很远，或者关系还不错，想更亲近。" : "For example: We argue a lot lately, we haven't talked in a long time, we live far apart, or we get along fine and I want to be closer.")
+      : def.placeholder?.[lang];
 
   const body = (() => {
     switch (def.type) {
@@ -259,6 +265,8 @@ export default function GuidedOnboarding({ lang, sessionId, mode, initialName = 
       case "long":
         // eslint-disable-next-line jsx-a11y/no-autofocus -- each step asks one thing; its field takes the focus
         return <textarea autoFocus rows={slot.id === "never" ? 4 : 5} maxLength={1200} value={currentText()} onChange={(event) => setCurrentText(event.target.value)} placeholder={placeholder} />;
+      case "relkind":
+        return <div className="option-card-grid category-grid">{RELATION_KIND_OPTIONS.map((option) => <button key={option.id} type="button" aria-pressed={wish?.specifics.relationship_kind === option.id} className={wish?.specifics.relationship_kind === option.id ? "selected" : ""} onClick={() => wish && setWish({ specifics: { ...wish.specifics, relationship_kind: option.id, ...(option.id === "love" ? {} : { relationship_target: "" }) } })}><strong>{zh ? option.zh : option.en}</strong></button>)}</div>;
       case "category":
         return <div className="option-card-grid category-grid">{WISH_KIND_OPTIONS.map((option) => <button key={option.id} type="button" className={wish?.kind === option.id ? "selected" : ""} onClick={() => setWish({ kind: option.id })}><strong>{zh ? option.zh : option.en}</strong><small>{zh ? option.zhHint : option.enHint}</small></button>)}</div>;
       case "scale":
