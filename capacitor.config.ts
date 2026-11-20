@@ -24,7 +24,7 @@ const config: CapacitorConfig = {
       launchAutoHide: false,
       backgroundColor: "#F3F1ED",
       showSpinner: false,
-      fadeOutDuration: 280,
+      launchFadeOutDuration: 280,
     },
     StatusBar: {
       style: "DARK",

@@ -1,5 +1,9 @@
 import { chatContent, helperCompletion } from "@/lib/openai-base";
 import { NextRequest, NextResponse } from "next/server";
+import { claimDaily, requestOwner, tooMany, unauthorized } from "@/lib/request-owner";
+
+/** Photo searches a day per account: far above real use, low enough that nobody can drain the shared search quotas. */
+const DAILY_SEARCHES = 200;
 
 type LicensedImage = { id: string; title: string; image: string; source: string; credit: string; license: string; provider: string; query: string; score: number; downloadLocation?: string };
 type SearchPlan = { original: string; translated: string; queries: string[] };
@@ -96,6 +100,9 @@ function dedupeAndRank(groups: RawImage[][], queries: string[]) {
 export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get("q")?.trim().slice(0, 120);
   if (!query) return NextResponse.json({ results: [] });
+  const owner = await requestOwner(request);
+  if (!owner) return unauthorized();
+  if (!(await claimDaily(owner, "image-search", DAILY_SEARCHES))) return tooMany();
   try {
     const plan = await buildSearchPlan(query);
     const searches = await Promise.all(plan.queries.flatMap((searchQuery) => [searchPexels(searchQuery), searchUnsplash(searchQuery)]));
@@ -106,6 +113,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!(await requestOwner(request))) return unauthorized();
   const key = process.env.UNSPLASH_ACCESS_KEY;
   const body = await request.json().catch(() => ({})) as { downloadLocation?: string };
   if (!key || !body.downloadLocation?.startsWith("https://api.unsplash.com/")) return NextResponse.json({ ok: true });

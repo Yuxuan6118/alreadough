@@ -1,5 +1,5 @@
-import { betaStatus, requestIdentity } from "@/lib/beta-guard";
-import { getVoice, recordEnroll, removeVoice, saveVoice, usageFor } from "@/lib/voice-db";
+import { betaStatus } from "@/lib/beta-guard";
+import { getVoice, voiceOwner, recordEnroll, removeVoice, saveVoice, usageFor } from "@/lib/voice-db";
 import { VOICE_LIMITS, checkSample } from "@/lib/voice-limits";
 import { VOICE_MODEL, createVoice, deleteVoice } from "@/lib/voice-service";
 
@@ -10,7 +10,7 @@ function json(data: unknown, status = 200) {
 }
 
 export async function GET(request: Request) {
-  const userId = requestIdentity(request);
+  const userId = await voiceOwner(request);
   if (!userId) return json({ authenticated: false }, 401);
   const voice = await getVoice(userId);
   const used = await usageFor(userId);
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const userId = requestIdentity(request);
+  const userId = await voiceOwner(request);
   if (!userId) return json({ error: "SIGN_IN_REQUIRED" }, 401);
   const status = await betaStatus(request);
   if (!status.authenticated || !status.enabled) return json({ error: "AI_PAUSED" }, 429);
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const userId = requestIdentity(request);
+  const userId = await voiceOwner(request);
   if (!userId) return json({ error: "SIGN_IN_REQUIRED" }, 401);
   const deleted = await removeVoice(userId);
   return json({ deleted }, deleted ? 200 : 502);

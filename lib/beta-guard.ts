@@ -35,38 +35,6 @@ type GlobalRow = { request_count: number; total_tokens: number };
 
 export type BetaTicket = { userId: string; userHash: string; day: string; mode: BetaMode; memberAccountId?: string; memberSettled?: boolean };
 
-let betaTablesReady: Promise<void> | null = null;
-
-export function ensureBetaTables() {
-  if (betaTablesReady) return betaTablesReady;
-  betaTablesReady = createBetaTables().catch((error) => {
-    betaTablesReady = null; // allow the next request to retry
-    throw error;
-  });
-  return betaTablesReady;
-}
-
-async function createBetaTables() {
-  const statements = [
-    `CREATE TABLE IF NOT EXISTS beta_users (user_id TEXT PRIMARY KEY NOT NULL, started_at TEXT NOT NULL, expires_at TEXT NOT NULL, total_requests INTEGER NOT NULL DEFAULT 0, total_tokens INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, last_seen_at TEXT NOT NULL)`,
-    `CREATE TABLE IF NOT EXISTS beta_usage_daily (user_id TEXT NOT NULL, usage_date TEXT NOT NULL, request_count INTEGER NOT NULL DEFAULT 0, chat_requests INTEGER NOT NULL DEFAULT 0, revision_requests INTEGER NOT NULL DEFAULT 0, story_requests INTEGER NOT NULL DEFAULT 0, input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0, total_tokens INTEGER NOT NULL DEFAULT 0, failed_requests INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL, PRIMARY KEY (user_id, usage_date))`,
-    `CREATE TABLE IF NOT EXISTS beta_global_daily (usage_date TEXT PRIMARY KEY NOT NULL, request_count INTEGER NOT NULL DEFAULT 0, total_tokens INTEGER NOT NULL DEFAULT 0, failed_requests INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL)`,
-    `CREATE TABLE IF NOT EXISTS beta_events (id TEXT PRIMARY KEY NOT NULL, user_hash TEXT NOT NULL, event_type TEXT NOT NULL, mode TEXT, wish_category TEXT, coach_mode TEXT, prompt_version TEXT, feedback TEXT, rating_before INTEGER, rating_after INTEGER, input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0, total_tokens INTEGER NOT NULL DEFAULT 0, latency_ms INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL)`,
-    `CREATE TABLE IF NOT EXISTS beta_settings (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL, updated_at TEXT NOT NULL)`,
-    `CREATE INDEX IF NOT EXISTS beta_events_created_idx ON beta_events(created_at)`,
-    `CREATE INDEX IF NOT EXISTS beta_events_user_idx ON beta_events(user_hash, created_at)`,
-    // Beta conversation samples (users are told up front that beta chats are kept to improve the AI).
-    `CREATE TABLE IF NOT EXISTS beta_conversations (id TEXT PRIMARY KEY NOT NULL, user_hash TEXT NOT NULL, created_at TEXT NOT NULL, mode TEXT NOT NULL, coach_mode TEXT, wish_category TEXT, lang TEXT, context TEXT, user_text TEXT NOT NULL, ai_reply TEXT NOT NULL, model TEXT, feedback TEXT, feedback_at TEXT)`,
-    `CREATE INDEX IF NOT EXISTS beta_conversations_created_idx ON beta_conversations(created_at)`,
-    // One row per device: coarse location + device type + visit counts. No IP address, no fingerprint.
-    `CREATE TABLE IF NOT EXISTS beta_profiles (user_hash TEXT PRIMARY KEY NOT NULL, first_seen_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, visits INTEGER NOT NULL DEFAULT 1, country TEXT, region TEXT, city TEXT, timezone TEXT, lang TEXT, device TEXT, os TEXT, browser TEXT)`,
-    // User reports of AI replies and content (the complaint channel). Only a device hash, the reason, and a short excerpt.
-    `CREATE TABLE IF NOT EXISTS beta_reports (id TEXT PRIMARY KEY NOT NULL, user_hash TEXT NOT NULL, reason TEXT NOT NULL, detail TEXT, reply_excerpt TEXT, lang TEXT, status TEXT NOT NULL DEFAULT 'new', created_at TEXT NOT NULL, handled_at TEXT)`,
-    `CREATE INDEX IF NOT EXISTS beta_reports_created_idx ON beta_reports(created_at)`,
-  ];
-  for (const sql of statements) await env.DB.prepare(sql).run();
-}
-
 function dayKey(date = new Date()) { return date.toISOString().slice(0, 10); }
 function isoAfterDays(days: number) { const date = new Date(); date.setUTCDate(date.getUTCDate() + days); return date.toISOString(); }
 function modeColumn(mode: BetaMode) { return `${mode}_requests`; }
@@ -77,9 +45,6 @@ async function sha256(value: string) {
 }
 
 export function requestIdentity(request: Request, sessionId?: string) {
-  // Back-compat: honour a platform-authenticated id when one is present.
-  const platformId = request.headers.get("oai-authenticated-user-id");
-  if (platformId) return platformId;
   // Account-free beta: identity is the device session id the client generates and
   // persists locally, sent as a header (and as the sessionId arg on some routes).
   const device = (request.headers.get("x-already-session-id") || sessionId || "").trim();
@@ -88,7 +53,6 @@ export function requestIdentity(request: Request, sessionId?: string) {
 }
 
 export async function betaStatus(request: Request, sessionId?: string) {
-  await ensureBetaTables();
   const userId = requestIdentity(request, sessionId);
   if (!userId) return { authenticated: false as const };
   const now = new Date().toISOString();
@@ -159,7 +123,6 @@ export async function finishMemberRequest(ticket: BetaTicket, usage: TokenUsage,
 }
 
 export async function recordAnonymousEvent(request: Request, sessionId: string, event: { eventType: string; mode?: string; wishCategory?: string; coachMode?: string; feedback?: string; ratingBefore?: number; ratingAfter?: number }) {
-  await ensureBetaTables();
   const userId = requestIdentity(request, sessionId);
   if (!userId) return false;
   const allowedTypes = new Set(["reply_feedback", "state_rating", "practice_checkin", "beta_survey"]);
@@ -174,7 +137,6 @@ export async function recordAnonymousEvent(request: Request, sessionId: string, 
 }
 
 export async function founderSnapshot() {
-  await ensureBetaTables();
   const day = dayKey();
   const today = await env.DB.prepare("SELECT request_count, total_tokens, failed_requests FROM beta_global_daily WHERE usage_date = ?").bind(day).first<{ request_count: number; total_tokens: number; failed_requests: number }>();
   const users = await env.DB.prepare("SELECT COUNT(*) AS count FROM beta_users").first<{ count: number }>();
@@ -207,7 +169,6 @@ export async function recordConversation(ticket: BetaTicket, entry: { lang: stri
 export async function markConversationFeedback(request: Request, sessionId: string, logId: string, feedback: string) {
   const userId = requestIdentity(request, sessionId);
   if (!userId || !["helpful", "missed"].includes(feedback) || !/^[0-9a-f-]{36}$/.test(logId)) return false;
-  await ensureBetaTables();
   const result = await env.DB.prepare("UPDATE beta_conversations SET feedback = ?, feedback_at = ? WHERE id = ? AND user_hash = ?").bind(feedback, new Date().toISOString(), logId, await sha256(userId)).run();
   return Boolean(result.meta?.changes);
 }
@@ -215,7 +176,6 @@ export async function markConversationFeedback(request: Request, sessionId: stri
 type ConversationRow = { id: string; user_hash: string; created_at: string; mode: string; coach_mode: string | null; wish_category: string | null; lang: string | null; context: string | null; user_text: string; ai_reply: string; model: string | null; feedback: string | null };
 
 export async function listConversations(limit = 500) {
-  await ensureBetaTables();
   const rows = await env.DB.prepare("SELECT id, user_hash, created_at, mode, coach_mode, wish_category, lang, context, user_text, ai_reply, model, feedback FROM beta_conversations ORDER BY created_at DESC LIMIT ?").bind(Math.max(1, Math.min(2000, limit))).all<ConversationRow>();
   return (rows.results || []).map(({ user_hash, ...row }: ConversationRow) => ({ ...row, user: user_hash.slice(0, 8), context: row.context ? JSON.parse(row.context) as Array<{ role: string; text: string }> : [] }));
 }
@@ -243,7 +203,6 @@ export async function touchProfile(request: Request, sessionId?: string) {
   try {
     const userId = requestIdentity(request, sessionId);
     if (!userId) return;
-    await ensureBetaTables();
     const info = readClientInfo(request.headers, (request as unknown as { cf?: Record<string, unknown> }).cf);
     const now = new Date().toISOString();
     await env.DB.prepare("INSERT INTO beta_profiles (user_hash, first_seen_at, last_seen_at, visits, country, region, city, timezone, lang, device, os, browser) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_hash) DO UPDATE SET last_seen_at = excluded.last_seen_at, visits = visits + 1, country = COALESCE(excluded.country, country), region = COALESCE(excluded.region, region), city = COALESCE(excluded.city, city), timezone = COALESCE(excluded.timezone, timezone), lang = COALESCE(excluded.lang, lang), device = excluded.device, os = excluded.os, browser = excluded.browser")
@@ -257,7 +216,6 @@ type ProfileRow = { user_hash: string; first_seen_at: string; last_seen_at: stri
 
 /** One row per device with usage so far. The label matches the 8-char user label in the chat viewer. */
 export async function listProfiles(limit = 500) {
-  await ensureBetaTables();
   const rows = await env.DB.prepare(`SELECT p.*,
       (SELECT COUNT(*) FROM beta_conversations c WHERE c.user_hash = p.user_hash) AS turns,
       (SELECT COUNT(DISTINCT substr(c.created_at, 1, 10)) FROM beta_conversations c WHERE c.user_hash = p.user_hash) AS active_days,
@@ -270,14 +228,12 @@ export async function listProfiles(limit = 500) {
 }
 
 export async function setBetaEnabled(enabled: boolean) {
-  await ensureBetaTables();
   await env.DB.prepare("INSERT INTO beta_settings (key, value, updated_at) VALUES ('ai_enabled', ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at").bind(String(enabled), new Date().toISOString()).run();
 }
 
 const REPORT_REASONS = new Set(["illegal", "sexual", "violence", "minors", "harassment", "self_harm", "other"]);
 
 export async function recordReport(request: Request, sessionId: string, report: { reason: string; detail?: string; replyExcerpt?: string; lang?: string }) {
-  await ensureBetaTables();
   const userId = requestIdentity(request, sessionId);
   if (!userId) return { ok: false as const, code: "SIGN_IN_REQUIRED" };
   if (!REPORT_REASONS.has(report.reason)) return { ok: false as const, code: "INVALID_REASON" };
@@ -294,13 +250,11 @@ export async function recordReport(request: Request, sessionId: string, report: 
 type ReportRow = { id: string; user_hash: string; reason: string; detail: string | null; reply_excerpt: string | null; lang: string | null; status: string; created_at: string; handled_at: string | null };
 
 export async function listReports(limit = 200) {
-  await ensureBetaTables();
   const rows = await env.DB.prepare("SELECT id, user_hash, reason, detail, reply_excerpt, lang, status, created_at, handled_at FROM beta_reports ORDER BY created_at DESC LIMIT ?").bind(Math.max(1, Math.min(500, limit))).all<ReportRow>();
   return (rows.results || []).map((row: ReportRow) => ({ id: row.id, user: row.user_hash.slice(0, 8), reason: row.reason, detail: row.detail, replyExcerpt: row.reply_excerpt, lang: row.lang, status: row.status, createdAt: row.created_at, handledAt: row.handled_at }));
 }
 
 export async function setReportStatus(id: string, status: "new" | "handled") {
-  await ensureBetaTables();
   const result = await env.DB.prepare("UPDATE beta_reports SET status = ?, handled_at = ? WHERE id = ?").bind(status, status === "handled" ? new Date().toISOString() : null, id).run();
   return Boolean(result.meta?.changes);
 }
@@ -315,7 +269,6 @@ export { LIMITS };
 export async function deleteBetaRecords(request: Request) {
   const userId = requestIdentity(request);
   if (!userId) return { deleted: false as const };
-  await ensureBetaTables();
   const userHash = await sha256(userId);
   await env.DB.batch([
     env.DB.prepare("DELETE FROM beta_conversations WHERE user_hash = ?").bind(userHash),

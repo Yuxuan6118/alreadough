@@ -1,5 +1,5 @@
-import { betaStatus, requestIdentity } from "@/lib/beta-guard";
-import { getVoice, refundChars, reserveChars } from "@/lib/voice-db";
+import { betaStatus } from "@/lib/beta-guard";
+import { getVoice, voiceOwner, refundChars, reserveChars } from "@/lib/voice-db";
 import { checkSpeakText } from "@/lib/voice-limits";
 import { DEFAULT_VOICE, synthesize } from "@/lib/voice-service";
 
@@ -10,7 +10,7 @@ function json(data: unknown, status = 200) {
 }
 
 export async function POST(request: Request) {
-  const userId = requestIdentity(request);
+  const userId = await voiceOwner(request);
   if (!userId) return json({ error: "SIGN_IN_REQUIRED" }, 401);
   const status = await betaStatus(request);
   if (!status.authenticated || !status.enabled) return json({ error: "AI_PAUSED" }, 429);

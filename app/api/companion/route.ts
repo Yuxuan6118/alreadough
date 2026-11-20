@@ -3,11 +3,16 @@ import {
   desirePreservingSafetyReply,
   type CompanionRequest,
 } from "@/lib/already-ai";
-import { beginBetaRequest, combineTokenUsage, finishMemberRequest, recordConversation, settleBetaRequest } from "@/lib/beta-guard";
+import { beginBetaRequest, combineTokenUsage, type TokenUsage, finishMemberRequest, recordConversation, settleBetaRequest } from "@/lib/beta-guard";
 import { cleanReply, coachSpecificityRetryNote, contrastRetryNote, dropStockSentences, exitReply, hasContrastFrame, hasStockCoachLine, isErrorEcho, isExitIntent } from "@/lib/reply-guards";
 import { readClientInfo } from "@/lib/client-info";
 import { OPENAI_BASE_URL, chatContent, chatUsage, type ChatCompletion } from "@/lib/openai-base";
 import { STORY_CATEGORIES, buildStoryMessages, storyCategoryFor, storyProblems, type StoryCategory } from "@/lib/story-prompt";
+
+/** How long one model call may take before the request gives up (a stuck upstream would otherwise hold the Worker open). */
+const CHAT_TIMEOUT_MS = 45_000;
+const REWRITE_TIMEOUT_MS = 30_000;
+const STORY_TIMEOUT_MS = 90_000;
 
 const requestWindows = new Map<string, { startedAt: number; count: number }>();
 const REQUEST_WINDOW_MS = 60_000;
@@ -72,6 +77,7 @@ async function writeStoryScript(payload: CompanionRequest, model: string, apiKey
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model, messages: [...messages, ...extra], temperature: 0.85, enable_thinking: false }),
+      signal: AbortSignal.timeout(STORY_TIMEOUT_MS),
     });
     const data = await response.json() as ChatCompletion;
     return { ok: response.ok, text: chatContent(data).trim(), usage: chatUsage(data) };
@@ -207,6 +213,7 @@ export async function POST(request: Request) {
         // and this is a warm conversational turn, not a hard reasoning problem.
         enable_thinking: false,
       }),
+      signal: AbortSignal.timeout(CHAT_TIMEOUT_MS),
     });
   } catch (err) {
     console.error("companion upstream fetch threw", { base: OPENAI_BASE_URL, model, err: String(err), stack: (err as Error)?.stack });
@@ -218,7 +225,7 @@ export async function POST(request: Request) {
   let data: ChatCompletion;
   try { data = await upstream.json() as ChatCompletion; }
   catch { await finishMemberRequest(gate.ticket, null, false); return json({ error: "AI_REQUEST_FAILED" }, 502); }
-  let billedUsage = chatUsage(data);
+  let billedUsage: TokenUsage = chatUsage(data);
   await settleBetaRequest(gate.ticket, chatUsage(data), { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: upstream.ok, latencyMs: Date.now() - startedAt });
   const outputText = chatContent(data).trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
   if (!upstream.ok || !outputText) {
@@ -256,6 +263,7 @@ export async function POST(request: Request) {
             temperature: 0.5,
             enable_thinking: false,
           }),
+          signal: AbortSignal.timeout(REWRITE_TIMEOUT_MS),
         });
         const retryData = await retry.json() as ChatCompletion;
         billedUsage = combineTokenUsage(billedUsage, chatUsage(retryData));

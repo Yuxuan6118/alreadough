@@ -417,7 +417,7 @@ export default function Home() {
   /* eslint-disable react-hooks/set-state-in-effect -- one-time read of device storage and the letters list on mount */
   useEffect(() => {
     try { setReadLetters(new Set(JSON.parse(readStored("already-letters-read-v1") || "[]") as string[])); } catch { /* fresh device */ }
-    fetch("/api/letters").then((response) => response.ok ? response.json() : null).then((data: { letters?: AppLetter[] } | null) => { if (data?.letters) setLetters(data.letters); }).catch(() => undefined);
+    fetch("/api/letters").then((response) => response.ok ? response.json() as Promise<{ letters?: AppLetter[] }> : null).then((data: { letters?: AppLetter[] } | null) => { if (data?.letters) setLetters(data.letters); }).catch(() => undefined);
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
   // Phones and iPads (touch, no hover) get the dough as its own page in My space; computers have the floating pet.
@@ -446,6 +446,8 @@ export default function Home() {
   const [cloudReady, setCloudReady] = useState(false);
   // Version of the cloud copy this device last loaded or saved. Saves are sent on top of it, so a stale device can't overwrite newer work.
   const cloudRevisionRef = useRef<number | null>(null);
+  /** Which space (account) the cloud copy and the agreed copy belong to, as the short tag /api/space returns. */
+  const spaceOwnerRef = useRef<string | null>(null);
   const restoreSpaceRef = useRef<((data: Record<string, unknown>) => void) | null>(null);
   // The copy this device last agreed with the cloud, and what it holds now. A newer cloud copy is merged
   // against these three ways (see lib/space-merge), so work done here is never dropped by another device's save.
@@ -774,8 +776,8 @@ export default function Home() {
     const activeSession = getDeviceSessionId();
     setSessionId(activeSession);
     try {
-      const base = JSON.parse(readStored(SYNC_BASE_KEY) || "null") as { sessionId?: string; space?: Record<string, unknown> } | null;
-      if (base?.sessionId === activeSession && base.space) syncBaseRef.current = base.space;
+      const base = JSON.parse(readStored(SYNC_BASE_KEY) || "null") as { owner?: string; space?: Record<string, unknown> } | null;
+      if (base?.owner && base.space) { syncBaseRef.current = base.space; spaceOwnerRef.current = base.owner; }
     } catch { /* no agreed copy yet: the first merge keeps everything from both sides */ }
     try {
       const saved = readStored("already-private-state-v5");
@@ -787,9 +789,11 @@ export default function Home() {
       setAcknowledged(readStored("already-acknowledged-v3") === "yes");
       setHydrated(true);
       fetch("/api/space", { cache: "no-store", headers: { "x-already-session-id": activeSession } })
-        .then(async (response) => ({ response, data: await response.json() as { space?: Record<string, unknown> | null; revision?: number } }))
+        .then(async (response) => ({ response, data: await response.json() as { space?: Record<string, unknown> | null; revision?: number; owner?: string } }))
         .then(({ response, data }) => {
-          if (response.ok) cloudRevisionRef.current = data.space ? data.revision ?? 0 : 0;
+          // The agreed copy only counts when it was agreed with this same space (same account); otherwise the first merge keeps everything from both sides.
+          if (response.ok && spaceOwnerRef.current !== data.owner) syncBaseRef.current = null;
+          if (response.ok) { spaceOwnerRef.current = data.owner ?? null; cloudRevisionRef.current = data.space ? data.revision ?? 0 : 0; }
           if (response.ok && data.space) applyCloudSpace(data.space, data.revision ?? 0);
           setSyncStatus(response.ok ? "saved" : "offline");
         })
@@ -838,7 +842,7 @@ export default function Home() {
     const merged = local ? mergeSpaces(syncBaseRef.current, local, cloud) : cloud;
     cloudRevisionRef.current = revision;
     syncBaseRef.current = cloud;
-    writeStored(SYNC_BASE_KEY, JSON.stringify({ sessionId: getDeviceSessionId(), revision, space: cloud }));
+    writeStored(SYNC_BASE_KEY, JSON.stringify({ owner: spaceOwnerRef.current, revision, space: cloud }));
     restoreSpaceRef.current?.(merged);
   };
 
@@ -882,7 +886,7 @@ export default function Home() {
           if (response.ok && typeof data.revision === "number") {
             cloudRevisionRef.current = data.revision;
             syncBaseRef.current = JSON.parse(JSON.stringify(space));
-            writeStored(SYNC_BASE_KEY, JSON.stringify({ sessionId, revision: data.revision, space }));
+            writeStored(SYNC_BASE_KEY, JSON.stringify({ owner: spaceOwnerRef.current, revision: data.revision, space }));
           }
           setSyncStatus(response.ok ? "saved" : "offline");
         })
@@ -961,7 +965,7 @@ export default function Home() {
     setQuote(nextQuote);
     writeStored("already-quote-recent-v1", JSON.stringify([nextQuote.id, ...recentQuotes.filter((id) => id !== nextQuote.id)].slice(0, 30)));
     const cached = readStored("already-region-v1");
-    const refresh = fetch("/api/region", { cache: "no-store" }).then((response) => response.json()).then((data: { country?: string | null }) => {
+    const refresh = fetch("/api/region", { cache: "no-store" }).then((response) => response.json() as Promise<{ country?: string | null }>).then((data: { country?: string | null }) => {
       const country = typeof data.country === "string" ? data.country : "";
       writeStored("already-region-v1", country);
       return country || null;
@@ -1836,7 +1840,6 @@ export default function Home() {
         mode={adding ? "extra" : "first"}
         initialName={goal.companionName}
         maxWishes={Math.max(1, MAX_GOALS - otherGoals.length)}
-        syncSlot={<details className="onboarding-sync"><summary>{lang === "zh" ? "已经在另一台设备用过？用同步码继续" : "Already used it on another device? Continue with a sync code"}</summary><SyncPanel enterOnly lang={lang} sessionId={sessionId} syncStatus={syncStatus} hasLocalData={false} /></details>}
         onCancel={replaying ? () => setReplaying(false) : adding ? cancelAddGoal : undefined}
         onComplete={replaying ? finishReplay : adding ? finishExtraWish : finishGuidedOpening}
       />
@@ -2192,7 +2195,7 @@ export default function Home() {
               </div>}
               {shown === "sync" && <div className="settings-section profile-panel data-section">
                 <div className="profile-cards">
-                  <SyncPanel lang={lang} sessionId={sessionId} syncStatus={syncStatus} hasLocalData={goal.setupComplete} />
+                  <SyncPanel lang={lang} syncStatus={syncStatus} />
                   <section className="profile-card">
                     <h3>{lang === "zh" ? "导出我的数据" : "Export my data"}</h3>
                     <p className="profile-sub">{lang === "zh" ? "下载一个压缩包：解压后双击里面的 index.html，就能在浏览器里查看、搜索你的愿望、对话、记忆和剧本；原始数据也一起附上（JSON 格式）。私密照片和录音不在里面。" : "Download a .zip: unzip it and open index.html to read and search your desires, conversations, memories and stories in a browser. The raw data comes along as JSON. Private photos and audio are not included."}</p>

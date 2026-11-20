@@ -63,7 +63,7 @@ for(const [index,test] of cases.entries()){
   const scores=await judge(test,replies,judgeModel);
   rows.push({case:test,replies,scores,generationUsage});
 }
-const aggregates=coaches.map(coach=>{const scores=rows.flatMap(row=>row.scores.filter((score:Score)=>score.coach===coach));const metrics=["desire_preservation","emotional_precision","coach_fidelity","specificity","non_repetition","safety_precision"] as const;const values=Object.fromEntries(metrics.map(metric=>[metric,Number((scores.reduce((sum:number,score:Score)=>sum+score[metric],0)/scores.length).toFixed(2))]));return {coach,...values,overall:Number((Object.values(values).reduce((sum,value)=>sum+Number(value),0)/metrics.length).toFixed(2))};});
+const aggregates=coaches.map(coach=>{const scores=rows.flatMap(row=>row.scores.filter((score:Score)=>score.coach===coach));const metrics=["desire_preservation","emotional_precision","coach_fidelity","specificity","non_repetition","safety_precision"] as const;const values=Object.fromEntries(metrics.map(metric=>[metric,Number((scores.reduce((sum:number,score:Score)=>sum+score[metric],0)/scores.length).toFixed(2))])) as Record<typeof metrics[number],number>;return {coach,...values,overall:Number((Object.values(values).reduce((sum,value)=>sum+Number(value),0)/metrics.length).toFixed(2))};});
 const result={createdAt:new Date().toISOString(),generatorModel,judgeModel,totalCases:cases.length,totalGenerations:cases.length*coaches.length,totalGeneratorTokens:totalTokens,aggregates,rows};
 await fs.mkdir(path.resolve("evals/results"),{recursive:true});
 await fs.writeFile(path.resolve("evals/results/latest.json"),JSON.stringify(result,null,2));

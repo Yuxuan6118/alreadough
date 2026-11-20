@@ -256,18 +256,6 @@ test("self-reflection only counts words she wrote more than once, and flags dang
   assert.equal(mentionsSelfHarm("我担心他不回消息"), false);
 });
 
-test("sync code: accepts a pasted device id in any tidy-up form and rejects everything else", async () => {
-  const { normalizeSyncCode, isShareableSyncCode } = await import("../lib/sync-code.ts");
-  const id = "3f1c9a2e-7b44-4c1d-9e0a-5d2b8c6f1a77";
-  assert.equal(normalizeSyncCode(id), id);
-  assert.equal(normalizeSyncCode("  " + id.toUpperCase() + "\n"), id, "case and surrounding space are forgiven");
-  assert.equal(normalizeSyncCode("我的同步码是 " + id + " 谢谢"), id, "a code inside a sentence is found");
-  assert.equal(normalizeSyncCode("d-1793499713000-abc123xyz"), "d-1793499713000-abc123xyz", "fallback ids are accepted");
-  for (const bad of ["", "hello", "local-beta", "3f1c9a2e-7b44-4c1d-9e0a", "12345678"]) assert.equal(normalizeSyncCode(bad), null, bad);
-  assert.equal(isShareableSyncCode(id), true);
-  assert.equal(isShareableSyncCode("local-beta"), false, "the pre-load placeholder is never shown as a code");
-});
-
 test("install tip: only Safari is told to add to the home screen; other iPhone browsers are sent to Safari; once per day key", async () => {
   const { detectInstallMode, localDayKey } = await import("../lib/install-mode.ts");
   const safari = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";

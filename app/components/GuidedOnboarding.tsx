@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import DoughHop from "./DoughHop";
 import { ArrowLeft, X } from "@phosphor-icons/react";
 import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
@@ -28,7 +28,6 @@ type Props = {
   /** "first": the whole opening. "extra": one more desire, short. */
   mode: "first" | "extra";
   /** shown under the name question, for continuing on another device */
-  syncSlot?: ReactNode;
   initialName?: string;
   maxWishes?: number;
   onCancel?: () => void;
@@ -69,7 +68,7 @@ function Typed({ text }: { text: string }) {
   return <p className="onboard-reply" aria-live="polite">{text.slice(0, shown)}</p>;
 }
 
-export default function GuidedOnboarding({ lang, sessionId, mode, syncSlot, initialName = "", maxWishes = 8, onCancel, onComplete }: Props) {
+export default function GuidedOnboarding({ lang, sessionId, mode, initialName = "", maxWishes = 8, onCancel, onComplete }: Props) {
   const zh = lang === "zh";
   const [answers, setAnswers] = useState<OnboardingAnswers>(() => ({ ...emptyAnswers(), name: initialName }));
   const [pos, setPos] = useState(0);
@@ -297,7 +296,6 @@ export default function GuidedOnboarding({ lang, sessionId, mode, syncSlot, init
           : def.prompt[lang]}</h1>
         {def.hint && <p className="guided-hint">{def.hint[lang]}</p>}
         {body}
-        {slot.id === "name" && syncSlot}
         {thinking && <p className="onboard-reply onboard-thinking" role="status" aria-label={zh ? "正在想" : "Thinking"}><DoughHop size="sm"/></p>}
         {replyHere && <Typed text={replyHere} />}
       </div>

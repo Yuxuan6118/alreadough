@@ -103,15 +103,6 @@
 /* 同步与数据 */
 .sync-card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .sync-card-top .wish-chip { gap: 5px; }
-.sync-block { display: grid; gap: 8px; padding: 16px; border-radius: 14px; background: color-mix(in srgb, var(--app-ink) 3%, transparent); }
-.sync-block > strong { color: var(--app-ink); font-size: calc(15px * var(--fs, 1)); font-weight: 600; }
-.sync-block > small { color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); line-height: 1.6; }
-.sync-block > small.sync-warning { margin: 0; color: var(--app-accent); }
-.sync-block .sync-code { display: block; margin-top: 4px; background: var(--app-panel); }
-.sync-block .sync-code-row { margin: 4px 0 0; gap: 4px; }
-.sync-block .profile-topic-add { margin-top: 4px; }
-.sync-block .sync-message { margin: 0; color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); line-height: 1.6; }
-.settings-view .sync-block .profile-topic-add input { background: transparent; }
 .data-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .data-danger { border-color: color-mix(in srgb, #b4474f 28%, var(--app-line)); }
 .data-danger h3 { color: #b4474f !important; }

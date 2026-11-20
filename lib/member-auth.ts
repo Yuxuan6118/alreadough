@@ -4,21 +4,9 @@ import { rememberContact } from "./mailing";
 const cookieName = "__Host-alreadough";
 const sessionMs = 30 * 24 * 60 * 60 * 1000;
 const noStore = { "Cache-Control": "no-store" };
-let authTablesReady: Promise<void> | null = null;
 
 export function memberAuthReady() {
   return Boolean(process.env.SUPABASE_AUTH_URL && process.env.SUPABASE_AUTH_KEY && process.env.AUTH_EMAIL_ENABLED === "1");
-}
-
-export async function ensureMemberAuthTables() {
-  if (authTablesReady) return authTablesReady;
-  authTablesReady = env.DB.batch([
-    env.DB.prepare("CREATE TABLE IF NOT EXISTS member_accounts (provider_id TEXT PRIMARY KEY NOT NULL, account_id TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL)"),
-    env.DB.prepare("CREATE TABLE IF NOT EXISTS member_sessions (token_hash TEXT PRIMARY KEY NOT NULL, account_id TEXT NOT NULL, expires_at INTEGER NOT NULL)"),
-    env.DB.prepare("CREATE INDEX IF NOT EXISTS member_sessions_expiry ON member_sessions (expires_at)"),
-    env.DB.prepare("CREATE TABLE IF NOT EXISTS member_auth_limits (key TEXT PRIMARY KEY NOT NULL, window_start INTEGER NOT NULL, count INTEGER NOT NULL)"),
-  ]).then(() => undefined).catch((error: unknown) => { authTablesReady = null; throw error; });
-  return authTablesReady;
 }
 
 export async function sha256(value: string) {
@@ -53,7 +41,6 @@ function tokenFrom(request: Request) {
 export async function memberAccount(request: Request) {
   const token = tokenFrom(request);
   if (!token) return null;
-  await ensureMemberAuthTables();
   const row = await env.DB.prepare("SELECT account_id AS accountId FROM member_sessions WHERE token_hash = ? AND expires_at > ?")
     .bind(await sha256(token), Date.now()).first<{ accountId: string }>();
   return row?.accountId || null;
@@ -62,13 +49,11 @@ export async function memberAccount(request: Request) {
 export async function revokeMemberSession(request: Request) {
   const token = tokenFrom(request);
   if (token) {
-    await ensureMemberAuthTables();
     await env.DB.prepare("DELETE FROM member_sessions WHERE token_hash = ?").bind(await sha256(token)).run();
   }
 }
 
 export async function createMemberSession(providerId: string, email?: string | null) {
-  await ensureMemberAuthTables();
   const accountId = `app:${providerId}`;
   await env.DB.prepare("INSERT OR IGNORE INTO member_accounts (provider_id, account_id, created_at) VALUES (?, ?, ?)").bind(providerId, accountId, Date.now()).run();
   const account = await env.DB.prepare("SELECT account_id AS accountId FROM member_accounts WHERE provider_id = ?").bind(providerId).first<{ accountId: string }>();
@@ -81,21 +66,25 @@ export async function createMemberSession(providerId: string, email?: string | n
 }
 
 export async function claimAuthLimit(request: Request, email: string, action: "send" | "verify") {
-  await ensureMemberAuthTables();
   const ip = request.headers.get("cf-connecting-ip") || "unknown";
-  const rules = action === "send"
+  const rules: Array<[string, number, number]> = action === "send"
     ? [[`email:${email}`, 60_000, 1], [`email-day:${email}`, 86_400_000, 10], [`ip:${ip}`, 3_600_000, 20]]
     : [[`email:${email}`, 600_000, 10], [`ip:${ip}`, 600_000, 40]];
   for (const [label, windowMs, max] of rules) {
-    const key = await sha256(`${action}:${label}`);
-    const result = await env.DB.prepare(`INSERT INTO member_auth_limits (key, window_start, count) VALUES (?, ?, 1)
-      ON CONFLICT(key) DO UPDATE SET window_start = excluded.window_start,
-      count = CASE WHEN member_auth_limits.window_start = excluded.window_start THEN member_auth_limits.count + 1 ELSE 1 END
-      WHERE member_auth_limits.window_start != excluded.window_start OR member_auth_limits.count < ?`)
-      .bind(key, Math.floor(Date.now() / Number(windowMs)), max).run();
-    if (!result.meta.changes) return false;
+    if (!(await claimWindow(`${action}:${label}`, windowMs, max))) return false;
   }
   return true;
+}
+
+/** Counts one use of `label` in the current fixed window; false once `max` uses were already counted. */
+export async function claimWindow(label: string, windowMs: number, max: number) {
+  const key = await sha256(label);
+  const result = await env.DB.prepare(`INSERT INTO member_auth_limits (key, window_start, count) VALUES (?, ?, 1)
+    ON CONFLICT(key) DO UPDATE SET window_start = excluded.window_start,
+    count = CASE WHEN member_auth_limits.window_start = excluded.window_start THEN member_auth_limits.count + 1 ELSE 1 END
+    WHERE member_auth_limits.window_start != excluded.window_start OR member_auth_limits.count < ?`)
+    .bind(key, Math.floor(Date.now() / windowMs), max).run();
+  return Boolean(result.meta.changes);
 }
 
 /** Google sign-in goes through the same Supabase project; it is offered only once the provider is set up there. */
@@ -121,7 +110,5 @@ export function base64Url(bytes: Uint8Array) {
 }
 
 export async function supabaseOtp(path: "otp" | "verify", body: Record<string, unknown>) {
-  const base = new URL(process.env.SUPABASE_AUTH_URL || "");
-  if (base.protocol !== "https:" || base.username || base.password || base.search || base.hash) throw new Error("AUTH_CONFIG_INVALID");
-  return fetch(`${base.origin}/auth/v1/${path}`, { method: "POST", headers: { apikey: process.env.SUPABASE_AUTH_KEY || "", "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(15_000) });
+  return fetch(`${supabaseAuthOrigin()}/auth/v1/${path}`, { method: "POST", headers: { apikey: process.env.SUPABASE_AUTH_KEY || "", "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(15_000) });
 }

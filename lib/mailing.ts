@@ -7,7 +7,6 @@ import { letterHtml } from "./mail-template";
 
 const FROM = "AlreaDough <hello@alreadough.com>";
 const SITE = "https://alreadough.com";
-let ready: Promise<void> | null = null;
 
 function base64Url(bytes: Uint8Array) {
   let text = "";
@@ -23,22 +22,11 @@ function unsubscribeSecret() {
   return (process.env.MAIL_UNSUBSCRIBE_SECRET || process.env.BETA_FOUNDER_SECRET || "").trim();
 }
 
-export async function ensureMailTables() {
-  if (ready) return ready;
-  ready = env.DB.batch([
-    env.DB.prepare("CREATE TABLE IF NOT EXISTS mail_contacts (email TEXT PRIMARY KEY NOT NULL, account_id TEXT, subscribed INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)"),
-    env.DB.prepare("CREATE TABLE IF NOT EXISTS letters (id TEXT PRIMARY KEY NOT NULL, subject TEXT NOT NULL, body TEXT NOT NULL, created_at INTEGER NOT NULL)"),
-    env.DB.prepare("CREATE TABLE IF NOT EXISTS mail_sends (id TEXT PRIMARY KEY NOT NULL, audience TEXT NOT NULL, subject TEXT NOT NULL, recipients INTEGER NOT NULL, delivered INTEGER NOT NULL, created_at INTEGER NOT NULL)"),
-  ]).then(() => undefined).catch((error: unknown) => { ready = null; throw error; });
-  return ready;
-}
-
 /** Called on every sign-in. Keeps an earlier unsubscribe in place. Never throws: mail must not block login. */
 export async function rememberContact(email: string | null | undefined, accountId: string) {
   const address = email?.trim().toLowerCase();
   if (!address || !address.includes("@")) return;
   try {
-    await ensureMailTables();
     const now = Date.now();
     await env.DB.prepare(`INSERT INTO mail_contacts (email, account_id, subscribed, created_at, updated_at) VALUES (?, ?, 1, ?, ?)
       ON CONFLICT(email) DO UPDATE SET account_id = excluded.account_id, updated_at = excluded.updated_at`)
@@ -73,25 +61,21 @@ export async function verifyUnsubscribe(e: string | null, t: string | null) {
 }
 
 export async function unsubscribe(email: string) {
-  await ensureMailTables();
   const now = Date.now();
   await env.DB.prepare(`INSERT INTO mail_contacts (email, account_id, subscribed, created_at, updated_at) VALUES (?, NULL, 0, ?, ?)
     ON CONFLICT(email) DO UPDATE SET subscribed = 0, updated_at = excluded.updated_at`).bind(email, now, now).run();
 }
 
 export async function audienceStats() {
-  await ensureMailTables();
   const row = await env.DB.prepare("SELECT COUNT(*) AS total, COALESCE(SUM(subscribed), 0) AS subscribed FROM mail_contacts").first<{ total: number; subscribed: number }>();
   const sends = await env.DB.prepare("SELECT audience, subject, recipients, delivered, created_at AS createdAt FROM mail_sends ORDER BY created_at DESC LIMIT 20").all();
   return { total: row?.total || 0, subscribed: row?.subscribed || 0, sends: sends.results };
 }
 
 async function subscribedEmails() {
-  await ensureMailTables();
   const rows = await env.DB.prepare("SELECT email FROM mail_contacts WHERE subscribed = 1 ORDER BY created_at").all<{ email: string }>();
   return rows.results.map((row: { email: string }) => row.email);
 }
-
 
 async function letter(to: string, subject: string, body: string) {
   const link = await unsubscribeUrl(to);
@@ -140,7 +124,6 @@ export async function sendLetter(audience: Audience, subject: string, body: stri
     }
     if (i + 100 < recipients.length) await new Promise(resolve => setTimeout(resolve, 600)); // Resend allows ~2 requests/s
   }
-  await ensureMailTables();
   await env.DB.prepare("INSERT INTO mail_sends (id, audience, subject, recipients, delivered, created_at) VALUES (?, ?, ?, ?, ?, ?)")
     .bind(crypto.randomUUID(), audience, subject || body.split("\n")[0].slice(0, 60), recipients.length, delivered, Date.now()).run();
   return { recipients: recipients.length, delivered, failure };
@@ -150,20 +133,17 @@ export async function sendLetter(audience: Audience, subject: string, body: stri
 export type Letter = { id: string; subject: string; body: string; createdAt: number };
 
 export async function postLetter(subject: string, body: string) {
-  await ensureMailTables();
   const letter: Letter = { id: crypto.randomUUID(), subject, body, createdAt: Date.now() };
   await env.DB.prepare("INSERT INTO letters (id, subject, body, created_at) VALUES (?, ?, ?, ?)").bind(letter.id, subject, body, letter.createdAt).run();
   return letter;
 }
 
 export async function listLetters(limit = 50): Promise<Letter[]> {
-  await ensureMailTables();
   const rows = await env.DB.prepare("SELECT id, subject, body, created_at AS createdAt FROM letters ORDER BY created_at DESC LIMIT ?").bind(limit).all<Letter>();
   return rows.results as Letter[];
 }
 
 export async function deleteLetter(id: string) {
-  await ensureMailTables();
   const result = await env.DB.prepare("DELETE FROM letters WHERE id = ?").bind(id).run();
   return Boolean(result.meta.changes);
 }

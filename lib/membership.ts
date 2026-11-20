@@ -21,7 +21,6 @@ const REFERRAL_CODES = new Set(["20260910"]);
 /** Accounts with no allowance at all (the founder's own account, for testing). */
 const UNLIMITED_ACCOUNTS = new Set(["app:d4b537ab-a8d5-4feb-936d-e1596d083750"]);
 export function isUnlimitedAccount(accountId: string) { return UNLIMITED_ACCOUNTS.has(accountId); }
-let membershipTablesReady: Promise<void> | null = null;
 
 export function membershipEnabled() {
   return process.env.MEMBERSHIP_ENABLED === "1" && memberAuthReady();
@@ -35,22 +34,8 @@ export function weekWindow(now: number) {
 }
 export function fiveHourWindow(now: number) { return Math.floor(now / fiveHoursMs) * fiveHoursMs; }
 
-export async function ensureMembershipTables() {
-  if (membershipTablesReady) return membershipTablesReady;
-  membershipTablesReady = env.DB.batch([
-    env.DB.prepare("CREATE TABLE IF NOT EXISTS member_state (account_id TEXT PRIMARY KEY NOT NULL, plan TEXT NOT NULL DEFAULT 'soft', period_end_ms INTEGER, trial_end_ms INTEGER, updated_at_ms INTEGER NOT NULL)"),
-    env.DB.prepare("CREATE TABLE IF NOT EXISTS member_orders (order_id TEXT PRIMARY KEY NOT NULL, account_id TEXT NOT NULL, plan TEXT NOT NULL, amount_fen INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'pending', provider_trade_no TEXT, created_at_ms INTEGER NOT NULL, paid_at_ms INTEGER)"),
-    env.DB.prepare("CREATE INDEX IF NOT EXISTS member_orders_account ON member_orders (account_id, created_at_ms)"),
-    env.DB.prepare("CREATE TABLE IF NOT EXISTS member_usage (account_id TEXT PRIMARY KEY NOT NULL, five_start_ms INTEGER NOT NULL, five_units INTEGER NOT NULL DEFAULT 0, week_start_ms INTEGER NOT NULL, week_units INTEGER NOT NULL DEFAULT 0)"),
-    env.DB.prepare("CREATE TABLE IF NOT EXISTS member_referrals (account_id TEXT PRIMARY KEY NOT NULL, code TEXT NOT NULL, redeemed_at_ms INTEGER NOT NULL)"),
-    env.DB.prepare("CREATE TABLE IF NOT EXISTS member_story_usage (account_id TEXT PRIMARY KEY NOT NULL, week_start_ms INTEGER NOT NULL, count INTEGER NOT NULL DEFAULT 0)"),
-  ]).then(() => undefined).catch((error: unknown) => { membershipTablesReady = null; throw error; });
-  return membershipTablesReady;
-}
-
 type StateRow = { plan: MemberPlan; periodEndMs: number | null; trialEndMs: number | null };
 export async function memberState(accountId: string, now = Date.now()) {
-  await ensureMembershipTables();
   const [row, referralRow, accountRow] = await Promise.all([
     env.DB.prepare("SELECT plan, period_end_ms AS periodEndMs, trial_end_ms AS trialEndMs FROM member_state WHERE account_id = ?").bind(accountId).first() as Promise<StateRow | null>,
     env.DB.prepare("SELECT redeemed_at_ms AS redeemedAtMs FROM member_referrals WHERE account_id = ?").bind(accountId).first<{ redeemedAtMs: number }>(),
@@ -71,7 +56,6 @@ export async function memberState(accountId: string, now = Date.now()) {
 }
 
 export async function createMemberOrder(accountId: string, plan: PaidPlan) {
-  await ensureMembershipTables();
   const orderId = Array.from(crypto.getRandomValues(new Uint8Array(16)), x => x.toString(16).padStart(2, "0")).join("");
   const amountFen = MEMBER_PRICE_FEN[plan];
   await env.DB.prepare("INSERT INTO member_orders (order_id, account_id, plan, amount_fen, created_at_ms) VALUES (?, ?, ?, ?, ?)")
@@ -81,29 +65,36 @@ export async function createMemberOrder(accountId: string, plan: PaidPlan) {
 
 export type MemberOrder = { orderId: string; accountId: string; plan: PaidPlan; amountFen: number; status: string };
 export async function readMemberOrder(orderId: string) {
-  await ensureMembershipTables();
   return env.DB.prepare("SELECT order_id AS orderId, account_id AS accountId, plan, amount_fen AS amountFen, status FROM member_orders WHERE order_id = ?")
     .bind(orderId).first<MemberOrder>();
 }
 
-/** D1 batches are one transaction. The entitlement SELECT only sees pending orders, so repeated or concurrent callbacks cannot extend twice. */
+/**
+ * D1 batches are one transaction. The entitlement SELECT only sees pending orders, so repeated or concurrent callbacks cannot extend twice.
+ * Days still left on a paid plan are kept at their value: switching plans converts them by price (20 days of
+ * Dough Atelier become about 76 days of Deep Practice, 20 days of Deep Practice about 5 of Atelier), then the 30 bought days are added.
+ * With no paid days left, an unexpired trial still counts, as before.
+ */
 export async function grantPaidOrder(order: MemberOrder, providerTradeNo: string) {
-  await ensureMembershipTables();
   const now = Date.now();
+  const price = (column: string) => `(CASE ${column} WHEN 'atelier' THEN ${MEMBER_PRICE_FEN.atelier} ELSE ${MEMBER_PRICE_FEN.deep} END)`;
   await env.DB.batch([
     env.DB.prepare(`INSERT INTO member_state (account_id, plan, period_end_ms, updated_at_ms)
-      SELECT account_id, plan, ?, ? FROM member_orders WHERE order_id = ? AND status = 'pending'
+      SELECT account_id, plan, ? + ?, ? FROM member_orders WHERE order_id = ? AND status = 'pending'
       ON CONFLICT(account_id) DO UPDATE SET plan = excluded.plan,
-      period_end_ms = MAX(?, COALESCE(member_state.period_end_ms, 0), COALESCE(member_state.trial_end_ms, 0)) + ?,
+      period_end_ms = CASE
+        WHEN member_state.plan IN ('deep', 'atelier') AND COALESCE(member_state.period_end_ms, 0) > ?
+          THEN ? + ? + CAST((member_state.period_end_ms - ?) * ${price("member_state.plan")} / ${price("excluded.plan")} AS INTEGER)
+        ELSE MAX(?, COALESCE(member_state.trial_end_ms, 0)) + ?
+      END,
       updated_at_ms = excluded.updated_at_ms`)
-      .bind(now + monthMs, now, order.orderId, now, monthMs),
+      .bind(now, monthMs, now, order.orderId, now, now, monthMs, now, now, monthMs),
     env.DB.prepare("UPDATE member_orders SET status = 'paid', provider_trade_no = ?, paid_at_ms = ? WHERE order_id = ? AND status = 'pending'")
       .bind(providerTradeNo, now, order.orderId),
   ]);
 }
 
 export async function memberUsage(accountId: string, now = Date.now()) {
-  await ensureMembershipTables();
   const row = await env.DB.prepare("SELECT five_start_ms AS fiveStart, five_units AS fiveUnits, week_start_ms AS weekStart, week_units AS weekUnits FROM member_usage WHERE account_id = ?")
     .bind(accountId).first<{ fiveStart: number; fiveUnits: number; weekStart: number; weekUnits: number }>();
   return { fiveUnits: row?.fiveStart === fiveHourWindow(now) ? row.fiveUnits : 0, weekUnits: row?.weekStart === weekWindow(now) ? row.weekUnits : 0,
@@ -145,7 +136,6 @@ export async function finishMemberUnit(accountId: string, units: number, succeed
 
 /** Stories written this week and the plan's weekly allowance. */
 export async function storyUsage(accountId: string, plan: MemberPlan, now = Date.now()) {
-  await ensureMembershipTables();
   const row = await env.DB.prepare("SELECT week_start_ms AS weekStart, count FROM member_story_usage WHERE account_id = ?").bind(accountId).first<{ weekStart: number; count: number }>();
   return { used: row?.weekStart === weekWindow(now) ? row.count : 0, limit: isUnlimitedAccount(accountId) ? 1_000_000 : STORY_LIMITS[plan], resetMs: weekWindow(now) + 7 * 86_400_000 };
 }
@@ -184,7 +174,6 @@ export function isReferralCode(value: unknown) {
  * changes, so when the seven days end the account is back on its own plan (free, or its paid period).
  */
 export async function redeemReferral(accountId: string, code: string) {
-  await ensureMembershipTables();
   const now = Date.now();
   try {
     await env.DB.prepare("INSERT INTO member_referrals (account_id, code, redeemed_at_ms) VALUES (?, ?, ?)").bind(accountId, code.trim(), now).run();

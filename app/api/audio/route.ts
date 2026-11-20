@@ -1,5 +1,9 @@
 import { chatContent, helperCompletion } from "@/lib/openai-base";
 import { NextRequest, NextResponse } from "next/server";
+import { claimDaily, requestOwner, tooMany, unauthorized } from "@/lib/request-owner";
+
+/** Sound searches a day per account. */
+const DAILY_SEARCHES = 200;
 
 type OpenverseAudio = {
   id: string; title: string; url: string; foreign_landing_url: string;
@@ -93,6 +97,9 @@ async function searchFreesound(query: string) {
 }
 
 export async function GET(request: NextRequest) {
+  const owner = await requestOwner(request);
+  if (!owner) return unauthorized();
+  if (!(await claimDaily(owner, "sound-search", DAILY_SEARCHES))) return tooMany();
   const raw = request.nextUrl.searchParams.get("q")?.trim().slice(0, 80) || "rain";
   const queries = await translateAmbientQuery(raw);
   const searches = queries.flatMap((query) => [searchOpenverse(query), searchFreesound(query)]);
