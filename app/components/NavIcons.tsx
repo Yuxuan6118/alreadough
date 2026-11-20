@@ -165,3 +165,25 @@ export function DreamscapeIcon({ size, weight }: Props) {
     </Frame>
   );
 }
+
+const PERSONA_BOX: Box = [2.04, 4.1, 18.66, 15.26];
+/** TA: two doughs the same size, side by side, a small heart between them. */
+export function PersonaIcon({ size, weight }: Props) {
+  const active = weight === "fill";
+  const sw = (n: number) => n / fitScale(PERSONA_BOX);
+  const m = useMaskId("persona");
+  const right = { tx: 9, ty: 7.6, s: 0.56 };
+  return (
+    <Frame size={size} box={PERSONA_BOX}>
+      <mask id={m} maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
+        <rect width="24" height="24" fill="white" stroke="none" />
+        <g transform={`translate(${right.tx} ${right.ty}) scale(${right.s})`}>
+          <path d={BODY} fill="black" stroke="black" strokeWidth={sw(2.4) / right.s} />
+        </g>
+      </mask>
+      <g mask={`url(#${m})`}><Dough tx={0.3} ty={7} s={0.56} fill={active ? FILL : "none"} /></g>
+      <Dough {...right} fill={active ? FILL : "none"} />
+      <path d="M12 7.6C10 6.4 9.6 5 10.6 4.4C11.2 4.1 11.7 4.4 12 4.9C12.3 4.4 12.8 4.1 13.4 4.4C14.4 5 14 6.4 12 7.6Z" strokeWidth={sw(1.3)} fill={active ? FILL : "none"} />
+    </Frame>
+  );
+}

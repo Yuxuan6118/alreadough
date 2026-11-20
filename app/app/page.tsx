@@ -70,7 +70,8 @@ import DoughLineMark from "../components/DoughLineMark";
 import DoughHop from "../components/DoughHop";
 import DoughPageIcon from "../components/DoughPageIcon";
 import { CopyrightIcon, PricingIcon, PrivacyIcon, ReportIcon, SafetyIcon, TermsIcon } from "../components/HelpIcons";
-import { CompanionIcon, DreamscapeIcon, HistoryIcon, ReviseIcon, StoriesIcon, VisionIcon } from "../components/NavIcons";
+import { CompanionIcon, DreamscapeIcon, HistoryIcon, PersonaIcon, ReviseIcon, StoriesIcon, VisionIcon } from "../components/NavIcons";
+import PersonaStudio from "../components/PersonaStudio";
 
 import { type SpaceSection, type View, type Lang, type Message, type Conversation, type BoardItem, type Revision, type MemoryKind, type MemoryItem, type MemoryDraft, type GoalProfile, type Profile, emptyProfile, normalizeProfile, type Story, type StoryCover, type StoryDraft, NO_STORY_GOAL, type AIResponse, type SearchImage, type BetaStatus, splitThought, emptyStoryDraft, emptyMemoryDraft, emptyStory, defaultGoal, MAX_BELIEFS, MAX_GOALS, SYNC_BASE_KEY, SPACE_OWNER_KEY, discardDeviceSpace, isDiscardingSpace, clearDeviceSpace, MAX_STORIES, MAX_STORY_PARAGRAPHS, storyTitleFrom, normalizeStory, storyMeta, intensityLabels, normalizeGoal, MAX_BACKGROUND, MAX_MEMORIES, nextLocalId, memoryKinds, sameBelief, parseBeliefs, seedJourneySummary, normalizeMessages, conversationTitle, SurveyScale, wishCategories, goalTitle, coachModes, ui } from "./model";
 
@@ -690,6 +691,8 @@ export default function Home() {
     { id: "board" as View, label: t.nav[3], icon: VisionIcon },
     { id: "subliminal" as View, label: t.nav[4], icon: DreamscapeIcon },
   ];
+  // TA sits in the sidebar and rail only; the phone's bottom bar keeps its five.
+  const sideNav = [...primaryNav, { id: "persona" as View, label: "TA", icon: PersonaIcon }];
 
   const goalFromSeed = (seed: GoalSeed, base: GoalProfile): GoalProfile => ({
     ...base,
@@ -1539,7 +1542,7 @@ export default function Home() {
       <header><button type="button" className="swipe-brand" onClick={() => { openLetters(); moveSidebar(false); }} aria-label={lang === "zh" ? "来信" : "Letters"}><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" />{unreadLetters.length > 0 && <i className="brand-dot" />}</span><strong>Alrea<span className="brand-dough">Dough</span></strong></button></header>
       <button type="button" className="swipe-new" onClick={() => { beginNewConversation(); moveSidebar(false); }}><Plus size={18}/>{lang === "zh" ? "新对话" : "New conversation"}</button>
       <nav className="swipe-nav" aria-label={t.ariaNav}>
-        {primaryNav.map((item) => {
+        {sideNav.map((item) => {
           const Icon = item.icon;
           return <button type="button" key={item.id} className={view === item.id ? "active" : ""} onClick={() => { navigate(item.id); moveSidebar(false); }}><Icon size={28} weight={view === item.id ? "fill" : "regular"}/><span>{item.label}</span></button>;
         })}
@@ -1557,7 +1560,7 @@ export default function Home() {
         <button className="rail-new-chat" onClick={beginNewConversation}><Plus size={18}/><span>{lang === "zh" ? "新对话" : "New conversation"}</span></button>
         <button className="rail-history" onClick={() => setHistoryOpen(true)}><HistoryIcon size={26}/><span>{lang === "zh" ? "对话记录" : "Conversation history"}</span><small>{allConversations.length}</small></button>
         <nav className="rail-nav" aria-label={t.ariaNav}>
-          {primaryNav.map((item) => {
+          {sideNav.map((item) => {
             const Icon = item.icon;
             return <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => navigate(item.id)}><Icon size={26} weight={view === item.id ? "fill" : "regular"}/><span>{item.label}</span></button>;
           })}
@@ -1743,6 +1746,8 @@ export default function Home() {
           </section>
         </div>}
       </SpacePage>}
+
+      {view === "persona" && <PersonaStudio lang={lang} sessionId={sessionId} herName={goal.companionName} onOpenMembership={Capacitor.isNativePlatform() ? undefined : () => openSpace("membership")} />}
 
       {view === "board" && <SpacePage
         className="vision-space"

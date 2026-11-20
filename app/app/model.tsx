@@ -8,7 +8,7 @@ import { type ProfileSeed } from "@/lib/onboarding-flow";
 import { removeStored } from "@/lib/safe-storage";
 
 export type SpaceSection = "wishes" | "about" | "library" | "memory" | "dough" | "membership" | "pet" | "look" | "sync" | "help";
-export type View = "home" | "subliminal" | "story" | "revision" | "board" | "settings";
+export type View = "home" | "subliminal" | "story" | "revision" | "board" | "persona" | "settings";
 export type Lang = "zh" | "en";
 export type Message = { id: string; role: "ai" | "user"; text: string; feedback?: "helpful" | "missed"; saved?: boolean; logId?: string; error?: boolean };
 export type Conversation = { id: string; title: string; createdAt: string; messages: Message[]; goalId?: string };
