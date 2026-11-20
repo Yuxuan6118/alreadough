@@ -1,5 +1,6 @@
 import type { CoachMode, CompanionLang } from "./already-ai";
 import { playbook, type PlaybookSituation } from "./coach-playbook-data.ts";
+import { slangBlock } from "./slang-glossary.ts";
 
 // Situation playbook: when her message matches a common situation (he is not replying, 3D contradicts the
 // assumption, she has stopped believing, money or exams, a crisis...), the companion gets the concrete moves
@@ -62,7 +63,9 @@ const rules: Record<CompanionLang, string> = {
 
 export function coachCorpusInstructions(lang: CompanionLang, coach: CoachMode, request: string, previousUser: string, localCrisisLine = "") {
   const situations = matchSituations(request, previousUser);
-  if (!situations.length) return rules[lang];
+  const slang = slangBlock(lang, `${request}\n${previousUser}`);
+  const tail = slang ? `\n\n${slang}` : "";
+  if (!situations.length) return rules[lang] + tail;
   const seed = hash(request);
   const blocks = situations.map((situation) => {
     if (lang === "en") {
@@ -85,5 +88,5 @@ export function coachCorpusInstructions(lang: CompanionLang, coach: CoachMode, r
       : `Her local help: ${localCrisisLine || "use her local crisis line and emergency number; never give another country's numbers."}`);
   }
   const heading = lang === "zh" ? "situation_playbook（本轮处境的参考）：" : "situation_playbook (reference for this turn):";
-  return `${rules[lang]}\n\n${heading}\n${blocks.join("\n\n")}`;
+  return `${rules[lang]}\n\n${heading}\n${blocks.join("\n\n")}${tail}`;
 }

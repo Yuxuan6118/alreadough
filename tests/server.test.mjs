@@ -177,3 +177,20 @@ test("crisis: the words readers really use reach the crisis path; everyday venti
   assert.equal(lines.status, 422);
   assert.equal((await lines.json()).error, "CRISIS_PAUSE");
 });
+
+test("slang: the companion is told what 💐, a, kdy, md, sp and 3D mean only when she used them", async () => {
+  const { slangNotes, slangBlock } = await import("../lib/slang-glossary.ts");
+  const notes = slangNotes("我💐sp三个月了，每天a kdy，md 也在做，可 3d 一点没动").join("\n");
+  for (const word of ["显化", "肯定语", "mental diet", "特定的人", "眼前的现实"]) assert.match(notes, new RegExp(word));
+  assert.equal(slangBlock("zh", "我今天心情很好，想去散步"), "", "no shorthand, nothing added");
+  assert.equal(slangNotes("I have a dream about my spa day").length, 0, "English words are not mistaken for shorthand");
+  assert.equal(slangBlock("en", "💐"), "");
+});
+
+test("crisis: everyday 控制不住 (anxiety, crying) is not an emergency; 控制不住 with self-harm is", async () => {
+  const { desirePreservingSafetyReply } = await import("../lib/already-ai.ts");
+  assert.equal(desirePreservingSafetyReply("申请季结果很差，我现在每天控制不住的焦虑难过", "zh", "小愿"), null);
+  assert.equal(desirePreservingSafetyReply("我现在控制不住地一直哭", "zh", "小愿"), null);
+  assert.ok(desirePreservingSafetyReply("我现在控制不住想伤害自己", "zh", "小愿"));
+  assert.ok(desirePreservingSafetyReply("我准备今晚去死", "zh", "小愿"));
+});

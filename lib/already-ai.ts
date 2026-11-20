@@ -324,7 +324,7 @@ export function buildInput(payload: CompanionRequest) {
 
 export function desirePreservingSafetyReply(input: string, lang: CompanionLang, name: string, country?: string | null) {
   const urgent = lang === "zh"
-    ? /(我要|想要|准备|打算).{0,8}(自杀|去死|杀了他|杀人|伤害自己|伤害他)|现在.{0,5}(有危险|控制不住)/i
+    ? /(我要|想要|准备|打算).{0,8}(自杀|去死|杀了他|杀人|伤害自己|伤害他)|现在.{0,5}有危险|控制不住.{0,6}(伤害|自杀|去死|割|跳楼|杀)/i
     : /(i am going to|i'm going to|i want to|i plan to).{0,12}(kill myself|die|kill him|kill her|hurt myself|hurt them)|immediate danger/i;
   if (urgent.test(input)) {
     return lang === "zh"
