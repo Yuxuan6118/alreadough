@@ -1,4 +1,4 @@
-import { OPENAI_BASE_URL, chatContent, type ChatCompletion } from "@/lib/openai-base";
+import { chatContent, helperCompletion } from "@/lib/openai-base";
 import { NextRequest, NextResponse } from "next/server";
 
 type OpenverseAudio = {
@@ -43,28 +43,17 @@ function isAmbientOnly(item: OpenverseAudio) {
 async function translateAmbientQuery(raw: string) {
   if (!chinesePattern.test(raw)) return [raw];
   if (queryMap[raw]) return queryMap[raw];
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return ["nature ambience field recording"];
-
   try {
-    const response = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      cache: "no-store",
-      signal: AbortSignal.timeout(8_000),
-      body: JSON.stringify({
-        model: process.env.OPENAI_SEARCH_MODEL || process.env.OPENAI_CHAT_MODEL || "deepseek-v4-flash-0731",
-        messages: [
-          { role: "system", content: 'Turn the Chinese search for an environmental sound into 2 to 4 short English search queries for a sound-effects library: first the plainest English name of the sound (1 to 2 words), then closely related words a sound library would use (for example 火 -> fireplace, campfire, fire crackling). If it names several sound sources, give each its own query. Describe only sound sources. Never add speech, voices, people, songs, music, podcasts, vehicles, or ASMR. Return only JSON: {"queries": string[]}.' },
-          { role: "user", content: raw },
-        ],
-        response_format: { type: "json_object" },
-        enable_thinking: false,
-        max_tokens: 120,
-      }),
+    const data = await helperCompletion({
+      messages: [
+        { role: "system", content: 'Turn the Chinese search for an environmental sound into 2 to 4 short English search queries for a sound-effects library: first the plainest English name of the sound (1 to 2 words), then closely related words a sound library would use (for example 火 -> fireplace, campfire, fire crackling). If it names several sound sources, give each its own query. Describe only sound sources. Never add speech, voices, people, songs, music, podcasts, vehicles, or ASMR. Return only JSON: {"queries": string[]}.' },
+        { role: "user", content: raw },
+      ],
+      response_format: { type: "json_object" },
+      enable_thinking: false,
+      max_tokens: 120,
     });
-    if (!response.ok) throw new Error("translation failed");
-    const data = await response.json() as ChatCompletion;
+    if (!data) throw new Error("translation failed");
     const parsed = JSON.parse(chatContent(data).trim().replace(/^```(?:json)?\s*|\s*```$/g, "") || "{}") as { queries?: string[] };
     const queries = (parsed.queries || []).map((query) => query.trim().slice(0, 80)).filter(Boolean).slice(0, 4);
     return queries.length ? queries : ["nature ambience field recording"];

@@ -1,4 +1,4 @@
-import { OPENAI_BASE_URL, chatContent, type ChatCompletion } from "@/lib/openai-base";
+import { chatContent, helperCompletion } from "@/lib/openai-base";
 import { NextRequest, NextResponse } from "next/server";
 
 type LicensedImage = { id: string; title: string; image: string; source: string; credit: string; license: string; provider: string; query: string; score: number; downloadLocation?: string };
@@ -30,11 +30,7 @@ async function buildSearchPlan(original: string): Promise<SearchPlan> {
   const fallback = fallbackPlan(original);
   if (!hasChinese(original) || !process.env.OPENAI_API_KEY) return fallback;
   try {
-    const response = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: process.env.OPENAI_SEARCH_MODEL || process.env.OPENAI_CHAT_MODEL || "deepseek-v4-flash-0731",
+    const data = await helperCompletion({
         messages: [
           { role: "system", content: 'Turn a Chinese vision-board search into concise English photo-search queries. Preserve distinct subjects, places, people, actions, and mood. Produce 3-5 separate queries, not one comma-stuffed sentence. At least one query should target candid personal phone-photo aesthetics with words such as candid, everyday, diary, snapshot, natural light, or photo dump. Never add celebrity names or copyrighted platform names. Return only JSON: {"translated": string, "queries": string[]}.' },
           { role: "user", content: original },
@@ -42,10 +38,9 @@ async function buildSearchPlan(original: string): Promise<SearchPlan> {
         response_format: { type: "json_object" },
         enable_thinking: false,
         max_tokens: 300,
-      }),
     });
-    if (!response.ok) return fallback;
-    const parsed = JSON.parse(chatContent(await response.json() as ChatCompletion).trim().replace(/^```(?:json)?\s*|\s*```$/g, "") || "{}") as { translated?: string; queries?: string[] };
+    if (!data) return fallback;
+    const parsed = JSON.parse(chatContent(data).trim().replace(/^```(?:json)?\s*|\s*```$/g, "") || "{}") as { translated?: string; queries?: string[] };
     const queries = (parsed.queries || []).map((item) => item.trim().slice(0, 100)).filter(Boolean).slice(0, 5);
     return queries.length < 3 ? fallback : { original, translated: parsed.translated?.trim() || queries[0], queries: [...new Set(queries)] };
   } catch { return fallback; }
