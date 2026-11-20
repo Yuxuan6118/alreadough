@@ -662,7 +662,7 @@ function RecordScreen({ lang, headers, onBack, onDone }: RecordProps) {
           <p>{t(`这段录音约 ${Math.round(recorded?.seconds || 0)} 秒。`, `This recording is about ${Math.round(recorded?.seconds || 0)} seconds.`)}</p>
           <label className="dream-consent-check"><input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} /><span>{method === "import"
             ? t("我确认这段声音是我本人的，或我已取得声音权利人的明确授权。因上传和使用这段声音产生的一切责任由我本人承担，与 AlreaDough 无关。我同意把这段音频发给语音服务商来生成声音，之后可以随时删除。", "I confirm this is my own voice, or that I have the voice owner's explicit permission. I alone am responsible for uploading and using it; AlreaDough is not. I agree to send this audio to a voice provider to create the voice, and I can delete it anytime.")
-            : t("我同意把这段录音发给语音服务商来生成我的声音，之后可以随时删除。", "I agree to send this recording to a voice provider to create my voice, and I can delete it anytime.")}</span></label>
+            : t("我同意把这段录音发给语音服务商来生成我的声音，之后可以随时删除。", "I agree to send this recording to a voice provider to create my voice, and I can delete it anytime.")} <a href={zh ? "/terms#custom-voice" : "/terms#custom-voice-en"} target="_blank" rel="noreferrer">{t("声音授权条款", "Voice terms")}</a></span></label>
           {error && <p className="dream-message" role="alert">{error}</p>}
         </div>
         <div className="dream-recorder">

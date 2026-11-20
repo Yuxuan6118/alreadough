@@ -24,7 +24,21 @@ export default function TermsPage() {
           <li><strong>涉及未成年人的内容：</strong>任何将未满 18 岁的人性化的内容，以及诱导、引诱或危害未成年人的内容。</li>
         </ul>
         <p><strong>对儿童性剥削与性虐待内容（CSAM）零容忍。</strong>任何描绘、宣扬或请求儿童性剥削的内容，一经发现立即删除，相关账户永久封禁，并依法向有关机构报告，例如美国国家失踪与受虐儿童中心（NCMEC）及执法部门。</p>
-        <p>你也不得上传未经本人同意的他人声音、图像或个人信息，用于生成定制声音或任何内容。系统会拒绝生成上述内容，但无法拦截所有情况。违反本条的内容将按下文“举报与处理”进行处理。</p>
+        <p>你也不得上传未经本人同意的他人声音、图像或个人信息，用于生成定制声音或任何内容。系统会拒绝生成上述内容，但无法拦截所有情况。违反本条的内容将按下文“举报与处理”进行处理。声音的具体规则见下文“定制声音与声音授权”。</p>
+        <h2 id="custom-voice">定制声音与声音授权</h2>
+        <p>本节适用于你为生成定制声音而录制、上传或导入的音频（下称“声音样本”），以及由此生成的声音和用它读出的音频（下称“定制声音”）。</p>
+        <p><strong>你的保证。</strong>每次提交声音样本，你都向 AlreaDough 保证：</p>
+        <ul>
+          <li>声音样本是你本人的声音；或者你已取得声音权利人明确的同意，同意范围包括把样本发送给语音服务商生成声音，以及在 AlreaDough 内用该声音朗读内容；</li>
+          <li>声音权利人已年满 18 周岁；</li>
+          <li>你能够在我们要求时提供上述同意的证明；</li>
+          <li>声音样本不含其他人的声音、背景人声或你无权使用的内容。</li>
+        </ul>
+        <p><strong>使用范围。</strong>定制声音只用于你本人在 AlreaDough 内收听自己的练习内容。你不得用定制声音或它读出的音频冒充他人，不得对外发布、转发、出售，也不得用于欺诈、骚扰、诽谤、色情、误导他人或任何违法用途。由定制声音读出的音频属于人工智能合成内容。</p>
+        <p><strong>责任承担。</strong>声音样本的来源、授权和使用由你本人负责。你违反本节，导致任何第三方向 AlreaDough 提出主张、投诉或索赔，或导致有关部门作出处理的，由你自行承担责任，并赔偿 AlreaDough 因此遭受的损失，包括合理的律师费。在法律允许的范围内，AlreaDough 不对你上传的声音样本的合法性及你对定制声音的使用承担责任。</p>
+        <p><strong>我们的做法。</strong>提交声音样本前，我们会请你确认上述保证。声音样本只发送给语音服务商用于生成你的定制声音，不用于训练模型，也不向其他用户公开。我们可以要求你提供授权证明；你无法提供，或我们有理由认为样本未经授权时，可以删除相关定制声音、停用你的定制声音功能，并按“举报与处理”采取进一步措施。我们会依法配合有关部门的调查。</p>
+        <p><strong>撤回与删除。</strong>你可以随时在声音设置中删除定制声音，删除时我们会同时删除语音服务商处的对应声音。声音权利人撤回同意时，你应立即删除对应的定制声音。</p>
+        <p><strong>声音被冒用时。</strong>如果你认为自己的声音在未经同意的情况下被用来生成定制声音，请发邮件至<a href={`mailto:${SITE_RECORD.contactEmail}`}>{SITE_RECORD.contactEmail}</a>，附上能证明你身份的材料和情况说明。我们会在 3 个工作日内处理；核实后会删除相关定制声音，并告诉你处理结果。</p>
         <h2>AI 与可用性</h2>
         <p>AI 可能出现错误、遗漏或不合适的表达。测试期间，功能可能调整，服务可能暂时中断。重要决定不应只依赖模型输出。有关允许的用途及违法请求的处理方式，见<a href="/trust">AI 与安全说明</a>。</p>
         <h2 id="reporting">举报与处理</h2>
@@ -57,7 +71,21 @@ export default function TermsPage() {
             <li><strong>Content involving minors:</strong> any content that sexualizes anyone under 18, or that grooms, solicits, or endangers minors.</li>
           </ul>
           <p className="legal-en"><strong>Zero tolerance for child sexual abuse material (CSAM).</strong> Any content that depicts, promotes, or solicits the sexual exploitation of children is removed immediately, the account is permanently banned, and we report it to the relevant authorities as required by law, such as the National Center for Missing &amp; Exploited Children (NCMEC) and law enforcement.</p>
-          <p className="legal-en">You also may not upload another person&apos;s voice, image, or personal information without their consent, whether to create a custom voice or for any other content. The system refuses to generate these categories but cannot catch every case. Violations are handled as described under Reporting and enforcement.</p>
+          <p className="legal-en">You also may not upload another person&apos;s voice, image, or personal information without their consent, whether to create a custom voice or for any other content. The system refuses to generate these categories but cannot catch every case. Violations are handled as described under Reporting and enforcement. Voice-specific rules are set out under Custom voices and voice permission.</p>
+          <h3 id="custom-voice-en">Custom voices and voice permission</h3>
+          <p className="legal-en">This section covers audio you record, upload, or import to create a custom voice (a &ldquo;voice sample&rdquo;), and the voice created from it together with any audio it reads aloud (a &ldquo;custom voice&rdquo;).</p>
+          <p className="legal-en"><strong>Your promises.</strong> Each time you submit a voice sample, you promise AlreaDough that:</p>
+          <ul className="legal-en">
+            <li>the sample is your own voice, or the person whose voice it is has given you explicit permission covering sending it to a voice provider to create a voice and using that voice to read content inside AlreaDough;</li>
+            <li>that person is 18 or older;</li>
+            <li>you can show proof of that permission when we ask; and</li>
+            <li>the sample contains no other voices, background speech, or material you have no right to use.</li>
+          </ul>
+          <p className="legal-en"><strong>Permitted use.</strong> A custom voice is only for you to listen to your own practice content inside AlreaDough. You may not use a custom voice, or audio it reads aloud, to impersonate anyone, and you may not publish, share, or sell it, or use it for fraud, harassment, defamation, sexual content, misleading others, or anything unlawful. Audio read by a custom voice is AI-generated content.</p>
+          <p className="legal-en"><strong>Responsibility.</strong> You alone are responsible for where a voice sample comes from, the permission behind it, and how you use the custom voice. If your breach of this section leads to any claim, complaint, or demand against AlreaDough, or to action by an authority, you are responsible for it and will compensate AlreaDough for resulting losses, including reasonable legal fees. To the extent the law allows, AlreaDough is not responsible for the lawfulness of voice samples you submit or for your use of a custom voice.</p>
+          <p className="legal-en"><strong>What we do.</strong> Before you submit a voice sample, we ask you to confirm these promises. A sample is sent to a voice provider only to create your custom voice; it is not used to train models and is never shown to other users. We may ask you for proof of permission. If you cannot provide it, or we have reason to believe a sample was submitted without permission, we may delete the custom voice, turn off custom voices for your account, and take further action under Reporting and enforcement. We cooperate with lawful investigations.</p>
+          <p className="legal-en"><strong>Withdrawal and deletion.</strong> You can delete a custom voice at any time in the voice settings; we then also delete the matching voice at the voice provider. If the voice&apos;s owner withdraws permission, you must delete that custom voice right away.</p>
+          <p className="legal-en"><strong>If your voice was used without permission.</strong> Email <a href={`mailto:${SITE_RECORD.contactEmail}`}>{SITE_RECORD.contactEmail}</a> with proof of identity and a description of what happened. We handle these within 3 business days, delete the custom voice once verified, and tell you the outcome.</p>
           <h3 id="reporting-en">Reporting and enforcement</h3>
           <p className="legal-en"><strong>How to report.</strong> Use the Report button below any AI reply, or &ldquo;Report content or send feedback&rdquo; in My Space. You can also email <a href={`mailto:${SITE_RECORD.contactEmail}`}>{SITE_RECORD.contactEmail}</a> describing the content and why you are reporting it.</p>
           <p className="legal-en"><strong>What happens next.</strong> Each report enters a review queue and is reviewed by a person on the AlreaDough team. We look at the reported content and any context needed to decide whether it breaks these Terms or the <a href="/en/trust">AI &amp; Safety Notice</a>, and we record the outcome. If you reported by email, we reply with the outcome.</p>

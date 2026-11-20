@@ -309,3 +309,4 @@
 .app-shell .subliminal-view .sub-editor fieldset.delivery-cards button:not(.selected) { color: var(--app-ink) !important; background: var(--app-panel) !important; border-color: var(--app-line) !important; }
 .app-shell .subliminal-view .sub-editor fieldset.delivery-cards button:not(.selected) small, .app-shell .subliminal-view .sub-editor fieldset.delivery-cards button:not(.selected) i { color: var(--app-muted); }
 .app-shell .subliminal-view .sub-editor fieldset.delivery-cards button:not(.selected):hover { border-color: color-mix(in srgb, var(--app-accent) 45%, var(--app-line)) !important; }
+.dream-consent-check a { color: var(--app-accent); text-underline-offset: 3px; }
