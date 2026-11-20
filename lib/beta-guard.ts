@@ -95,7 +95,7 @@ export async function beginBetaRequest(request: Request, sessionId: string, mode
   return { ok: true as const, ticket: { userId, userHash: await sha256(userId), day, mode, memberAccountId: memberAccountId || undefined } satisfies BetaTicket };
 }
 
-export async function settleBetaRequest(ticket: BetaTicket, usage: TokenUsage, metadata: { wishCategory?: string; coachMode?: string; success: boolean; latencyMs: number }) {
+export async function settleBetaRequest(ticket: BetaTicket, usage: TokenUsage, metadata: { wishCategory?: string; coachMode?: string; success: boolean; latencyMs: number; /** Which product feature made the call (persona, affirm, onboarding…); shown per feature in the founder cockpit. */ feature?: string }) {
   const input = Math.max(0, usage?.input_tokens || 0), output = Math.max(0, usage?.output_tokens || 0), total = Math.max(0, usage?.total_tokens || input + output);
   const now = new Date().toISOString();
   await env.DB.prepare("UPDATE beta_usage_daily SET input_tokens = input_tokens + ?, output_tokens = output_tokens + ?, total_tokens = total_tokens + ?, failed_requests = failed_requests + ?, updated_at = ? WHERE user_id = ? AND usage_date = ?").bind(input, output, total, metadata.success ? 0 : 1, now, ticket.userId, ticket.day).run();
@@ -108,7 +108,7 @@ export async function settleBetaRequest(ticket: BetaTicket, usage: TokenUsage, m
     await env.DB.prepare("UPDATE beta_users SET total_requests = MAX(total_requests - 1, 0) WHERE user_id = ?").bind(ticket.userId).run();
     await env.DB.prepare("UPDATE beta_global_daily SET request_count = MAX(request_count - 1, 0), updated_at = ? WHERE usage_date = ?").bind(now, ticket.day).run();
   }
-  await env.DB.prepare("INSERT INTO beta_events (id, user_hash, event_type, mode, wish_category, coach_mode, prompt_version, input_tokens, output_tokens, total_tokens, latency_ms, created_at) VALUES (?, ?, 'ai_response', ?, ?, ?, 'v1', ?, ?, ?, ?, ?)").bind(crypto.randomUUID(), ticket.userHash, ticket.mode, metadata.wishCategory || null, metadata.coachMode || null, input, output, total, metadata.latencyMs, now).run();
+  await env.DB.prepare("INSERT INTO beta_events (id, user_hash, event_type, mode, wish_category, coach_mode, prompt_version, input_tokens, output_tokens, total_tokens, latency_ms, created_at) VALUES (?, ?, 'ai_response', ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(crypto.randomUUID(), ticket.userHash, ticket.mode, metadata.wishCategory || null, metadata.coachMode || null, metadata.feature || "v1", input, output, total, metadata.latencyMs, now).run();
 }
 
 /** Called once per user-visible answer, not once per upstream model call or internal rewrite. */

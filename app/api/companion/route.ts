@@ -205,7 +205,7 @@ export async function POST(request: Request) {
       const data = await upstream.json() as ChatCompletion;
       const usage = chatUsage(data);
       const lines = upstream.ok ? affirmLines(chatContent(data), payload.lang) : [];
-      await settleBetaRequest(gate.ticket, usage, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: lines.length > 0, latencyMs: Date.now() - startedAt });
+      await settleBetaRequest(gate.ticket, usage, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, feature: "affirm", success: lines.length > 0, latencyMs: Date.now() - startedAt });
       await finishMemberRequest(gate.ticket, lines.length ? usage : null, lines.length > 0);
       return lines.length ? json({ reply: lines.join("\n") }) : failed();
     } catch (error) {

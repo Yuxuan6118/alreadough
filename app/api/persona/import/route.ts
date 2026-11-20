@@ -71,7 +71,7 @@ export async function POST(request: Request) {
   const usage = data ? chatUsage(data) : null;
   let parsed: Record<string, unknown> | null = null;
   try { parsed = ok && data ? JSON.parse(chatContent(data).trim().replace(/^```(?:json)?\s*|\s*```$/g, "")) : null; } catch { parsed = null; }
-  await settleBetaRequest(gate.ticket, usage, { success: !!parsed, latencyMs: Date.now() - startedAt });
+  await settleBetaRequest(gate.ticket, usage, { success: !!parsed, latencyMs: Date.now() - startedAt, feature: "persona_import" });
   await finishMemberRequest(gate.ticket, usage, !!parsed);
   if (!parsed) return personaError("AI_REQUEST_FAILED", lang, 502);
 

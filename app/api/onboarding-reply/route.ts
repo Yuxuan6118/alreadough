@@ -62,14 +62,14 @@ export async function POST(request: Request) {
       }),
     });
     const data = await upstream.json() as ChatCompletion;
-    await settleBetaRequest(gate.ticket, chatUsage(data), { success: upstream.ok, latencyMs: Date.now() - startedAt });
+    await settleBetaRequest(gate.ticket, chatUsage(data), { success: upstream.ok, latencyMs: Date.now() - startedAt, feature: "onboarding" });
     if (!upstream.ok) { await finishMemberRequest(gate.ticket, null, false); return json({ reply: "" }); }
     const reply = sanitizeOnboardingReply(chatContent(data), lang, name);
     const accepted = reply && !hasContrastFrame(reply) ? reply : "";
     await finishMemberRequest(gate.ticket, chatUsage(data), !!accepted);
     return json({ reply: accepted });
   } catch {
-    await settleBetaRequest(gate.ticket, null, { success: false, latencyMs: Date.now() - startedAt }).catch(() => undefined);
+    await settleBetaRequest(gate.ticket, null, { success: false, latencyMs: Date.now() - startedAt, feature: "onboarding" }).catch(() => undefined);
     await finishMemberRequest(gate.ticket, null, false).catch(() => undefined);
     return json({ reply: "" });
   }

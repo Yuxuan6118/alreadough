@@ -65,7 +65,7 @@ export async function POST(request: Request) {
   }
   if (!upstream.ok || !upstream.body) {
     console.error("persona upstream failed", upstream.status, await upstream.text().catch(() => ""));
-    await settleBetaRequest(gate.ticket, null, { success: false, latencyMs: Date.now() - startedAt });
+    await settleBetaRequest(gate.ticket, null, { success: false, latencyMs: Date.now() - startedAt, feature: "persona" });
     await finishMemberRequest(gate.ticket, null, false);
     return personaError("AI_REQUEST_FAILED", lang, 502);
   }
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
       } catch (error) {
         console.error("persona stream broke", String(error));
       } finally {
-        await settleBetaRequest(gate.ticket, usage, { success: wrote, latencyMs: Date.now() - startedAt }).catch(() => undefined);
+        await settleBetaRequest(gate.ticket, usage, { success: wrote, latencyMs: Date.now() - startedAt, feature: "persona" }).catch(() => undefined);
         await finishMemberRequest(gate.ticket, usage, wrote).catch(() => undefined);
         controller.close();
       }
