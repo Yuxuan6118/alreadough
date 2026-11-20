@@ -517,15 +517,14 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
         <h1>{t("潜音", "Dreamscape")}</h1>
         <p>{t("今晚听自己的声音。", "Tonight, listen to your own voice.")}</p>
       </header>
-      <button type="button" className="dream-orb dream-orb-button" onClick={() => void begin("night")} aria-label={t("开始睡前潜音", "Start the night soundscape")}>
-        <i aria-hidden="true" />
+      <div className="dream-orb" aria-hidden="true">
+        <i />
         <Image src={DOUGH} alt="" width={1536} height={1024} sizes="240px" priority />
-      </button>
+      </div>
       <button type="button" className="dream-start" onClick={() => void begin("night")}><Play size={20} weight="fill" />{t("开始睡前潜音", "Start the night soundscape")}</button>
       {message && <p className="dream-message" role="status">{message}</p>}
       <div className="affirm-head">
         <h2>{t("我的肯定语", "My affirmations")}</h2>
-        <button type="button" className="affirm-play-all" onClick={() => void begin("affirm")} disabled={!lines.filter(Boolean).length} aria-label={t("听一遍我的肯定语", "Hear my affirmations once")}><Play size={16} weight="fill" />{t("听一遍", "Play")}</button>
       </div>
       {affirmations === null
         ? <p className="affirm-seeding" role="status"><DoughHop size="sm" /></p>
@@ -545,7 +544,7 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
       <div className="dream-links">
         {source === "self" && selfDone.size > 0 && <button type="button" className="dream-record-link" onClick={() => setScreen("selfread")}><Microphone size={16} />{t(`逐句读 · 已读 ${lines.filter((line) => selfDone.has(line)).length}/${lines.length}`, `Read line by line · ${lines.filter((line) => selfDone.has(line)).length}/${lines.length} read`)}</button>}
         {source === "self" && selfDone.size > 0 && <button type="button" className="dream-record-link muted" onClick={() => void removeSelf()}>{t("删除我读的录音", "Delete my readings")}</button>}
-        {source !== "self" && voice.has && <button type="button" className="dream-record-link" onClick={() => setScreen("record")}><Microphone size={16} />{t("重新录我的声音", "Record my voice again")}</button>}
+        {source !== "self" && voice.has && <button type="button" className="dream-record-link" onClick={() => setScreen("record")}><Microphone size={16} />{t("换一段声音", "Use a different voice sample")}</button>}
         {source !== "self" && voice.has && <button type="button" className="dream-record-link muted" onClick={() => void removeVoice()}>{t("删除我的声音", "Delete my voice")}</button>}
         <button type="button" className="dream-record-link muted" onClick={onOpenStudio}>{t("高级：潜音工作台", "Advanced: studio")}</button>
       </div>
@@ -563,6 +562,9 @@ function RecordScreen({ lang, headers, onBack, onDone }: RecordProps) {
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState("");
   const [recorded, setRecorded] = useState<{ wav: Uint8Array; seconds: number; url: string } | null>(null);
+  const [method, setMethod] = useState<"script" | "free" | "import">("script");
+  const [agreed, setAgreed] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -614,6 +616,22 @@ function RecordScreen({ lang, headers, onBack, onDone }: RecordProps) {
   };
   const stop = () => { if (recorderRef.current?.state === "recording") recorderRef.current.stop(); };
 
+  // a file she already has: only its first 30 seconds are used (a short, clean sample clones better than a long one)
+  const importFile = async (file: File | undefined) => {
+    if (!file) return;
+    setError("");
+    try {
+      const { wav, seconds: length } = await recordingToWav(file, 30);
+      if (length < VOICE_LIMITS.minSampleSeconds) { setError(errorText("SAMPLE_TOO_SHORT", zh)); return; }
+      const url = URL.createObjectURL(new Blob([wav.buffer as ArrayBuffer], { type: "audio/wav" }));
+      setRecorded({ wav, seconds: length, url });
+      setAgreed(false);
+      setPhase("review");
+    } catch {
+      setError(t("这个文件读不出来，换成 MP3、M4A 或 WAV 再试。", "That file couldn't be read. Try an MP3, M4A or WAV."));
+    }
+  };
+
   const send = async () => {
     if (!recorded) return;
     setPhase("sending");
@@ -630,6 +648,9 @@ function RecordScreen({ lang, headers, onBack, onDone }: RecordProps) {
     }
   };
 
+  const methods = ([["script", t("读一段稿子", "Read a script")], ["free", t("随便说说", "Just talk")], ["import", t("导入音频", "Import audio")]] as const);
+  const methodPicker = <div className="dream-method" role="radiogroup" aria-label={t("怎么给声音", "How to give a voice sample")}>{methods.map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={method === value} className={method === value ? "on" : ""} onClick={() => { if (phase !== "recording") { setMethod(value); setError(""); } }}>{label}</button>)}</div>;
+
   if (phase === "review" || phase === "sending") {
     return (
       <section className="dream dream-record">
@@ -638,33 +659,56 @@ function RecordScreen({ lang, headers, onBack, onDone }: RecordProps) {
           {/* eslint-disable-next-line jsx-a11y/media-has-caption -- her own voice sample, played back to her; there is nothing to caption */}
           {recorded && <audio controls src={recorded.url} aria-label={t("你刚录的声音", "Your recording")} />}
           <p>{t(`这段录音约 ${Math.round(recorded?.seconds || 0)} 秒。`, `This recording is about ${Math.round(recorded?.seconds || 0)} seconds.`)}</p>
-          <p className="dream-consent">{t("我同意将这段录音发送给语音服务商，用于生成自定义声音。我可以在声音设置中删除该声音。", "I agree to send this recording to a voice provider to create my custom voice. I can delete the voice in its settings.")}</p>
+          <label className="dream-consent-check"><input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} /><span>{method === "import"
+            ? t("这是我自己的声音，或者声音的主人已经同意我用它生成声音。我同意把这段音频发给语音服务商来生成声音，之后可以随时删除。", "This is my own voice, or its owner has agreed to let me make a voice from it. I agree to send this audio to a voice provider to create the voice, and I can delete it anytime.")
+            : t("我同意把这段录音发给语音服务商来生成我的声音，之后可以随时删除。", "I agree to send this recording to a voice provider to create my voice, and I can delete it anytime.")}</span></label>
           {error && <p className="dream-message" role="alert">{error}</p>}
         </div>
         <div className="dream-recorder">
-          <button type="button" className="dream-start" onClick={() => void send()} disabled={phase === "sending"}>{phase === "sending" ? <span className="dough-loading"><DoughHop size="xs"/>{t("正在生成，请稍等", "Creating your voice")}</span> : t("同意并生成我的声音", "Agree and create my voice")}</button>
-          <button type="button" className="dream-record-link" onClick={() => { setRecorded(null); setPhase("idle"); setSeconds(0); }} disabled={phase === "sending"}>{t("重新读一遍", "Read it again")}</button>
+          <button type="button" className="dream-start" onClick={() => void send()} disabled={phase === "sending" || !agreed}>{phase === "sending" ? <span className="dough-loading"><DoughHop size="xs"/>{t("正在生成，请稍等", "Creating your voice")}</span> : t("生成声音", "Create the voice")}</button>
+          <button type="button" className="dream-record-link" onClick={() => { setRecorded(null); setPhase("idle"); setSeconds(0); setAgreed(false); }} disabled={phase === "sending"}>{method === "import" ? t("换一个文件", "Choose another file") : t("重新录一遍", "Record again")}</button>
         </div>
       </section>
     );
   }
 
+  const recorderControls = (
+    <div className="dream-recorder">
+      <button type="button" className="dream-record-button" onClick={phase === "recording" ? stop : () => void start()} aria-label={phase === "recording" ? t("停止录音", "Stop recording") : t("开始录音", "Start recording")}>{phase === "recording" ? <Stop size={28} weight="fill" /> : <Microphone size={30} weight="fill" />}</button>
+      <strong>{clock(seconds)}</strong>
+      {error && <p className="dream-message" role="alert">{error}</p>}
+    </div>
+  );
+
   return (
     <section className="dream dream-record">
       <header>
-        <div className="dream-player-head"><button type="button" className="dream-back" onClick={onBack} aria-label={t("返回", "Back")}><ArrowLeft size={22} /></button><h1>{t("读一遍给自己", "Read it to yourself")}</h1></div>
-        <p>{t("约 45 秒。找个安静的地方，用平时对自己说话的语气读，可以上下滑动看全文。", "About 45 seconds. Find a quiet place and read in the voice you use with yourself. Scroll to see all of it.")}</p>
+        <div className="dream-player-head"><button type="button" className="dream-back" onClick={onBack} aria-label={t("返回", "Back")}><ArrowLeft size={22} /></button><h1>{t("给一段声音", "Give a voice sample")}</h1></div>
+        {methodPicker}
       </header>
-      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrollable text must be focusable so it can be scrolled with the keyboard */}
-      <article className="dream-article" tabIndex={0} aria-label={t("要读的稿子，可以上下滑动", "The text to read, you can scroll it")}>
-        {lines.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
-      </article>
-      <div className="dream-recorder">
-        <button type="button" className="dream-record-button" onClick={phase === "recording" ? stop : () => void start()} aria-label={phase === "recording" ? t("停止录音", "Stop recording") : t("开始录音", "Start recording")}>{phase === "recording" ? <Stop size={28} weight="fill" /> : <Microphone size={30} weight="fill" />}</button>
-        <strong>{clock(seconds)}</strong>
+      {method === "script" && <>
+        <p className="dream-method-note">{t("用平时对自己说话的语气读，约 45 秒。", "Read in the voice you use with yourself, about 45 seconds.")}</p>
+        {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrollable text must be focusable so it can be scrolled with the keyboard */}
+        <article className="dream-article" tabIndex={0} aria-label={t("要读的稿子，可以上下滑动", "The text to read, you can scroll it")}>
+          {lines.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+        </article>
+        {recorderControls}
+      </>}
+      {method === "free" && <>
+        <p className="dream-method-note">{t("不用稿子，随便说 30–45 秒就好。不知道说什么，可以聊聊：", "No script. Just talk for 30–45 seconds. If you're not sure what to say, try:")}</p>
+        <ul className="dream-prompts">
+          <li>{t("今天过得怎么样，做了哪些事", "How today went and what you did")}</li>
+          <li>{t("最近让你开心的一件小事", "A small thing that made you happy lately")}</li>
+          <li>{t("你理想中的一个普通早晨", "An ordinary morning in the life you want")}</li>
+        </ul>
+        {recorderControls}
+      </>}
+      {method === "import" && <div className="dream-import">
+        <p className="dream-method-note">{t("选一段已有的人声，只有一个人在说话、背景安静的效果最好。会取开头的 30 秒。", "Pick a recording with one person speaking and a quiet background. The first 30 seconds are used.")}</p>
+        <input ref={fileRef} type="file" accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg,.webm,.flac" hidden onChange={(event) => { void importFile(event.target.files?.[0]); event.target.value = ""; }} />
+        <button type="button" className="dream-start" onClick={() => fileRef.current?.click()}>{t("选择音频文件", "Choose an audio file")}</button>
         {error && <p className="dream-message" role="alert">{error}</p>}
-        <p>{t("声音只属于你，随时可以在这里删除。", "The voice is only yours, and you can delete it here anytime.")}</p>
-      </div>
+      </div>}
     </section>
   );
 }

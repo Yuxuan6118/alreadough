@@ -259,3 +259,53 @@
   .sub-speed-presets { justify-content: flex-start; flex-wrap: wrap; }
 }
 .app-shell .subliminal-view .dreamscape-workspace { margin-top: 36px; }
+
+/* giving a voice sample: read a script, just talk, or import a file */
+.dream-method { display: flex; gap: 4px; margin-top: 14px; padding: 4px; border-radius: 14px; background: var(--app-panel-strong); }
+.dream-method button { flex: 1; min-height: 40px; border: 0; border-radius: 10px; background: transparent; color: var(--app-muted); font-size: calc(15px * var(--fs, 1)); cursor: pointer; transition: background-color .18s ease, color .18s ease; }
+.dream-method button.on { background: var(--app-panel); color: var(--app-ink); box-shadow: 0 1px 3px color-mix(in srgb, var(--app-ink) 14%, transparent); }
+.dream-method button:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 2px; }
+.dream-method-note { margin: 18px 0 10px; color: var(--app-muted); font-size: calc(15px * var(--fs, 1)); line-height: 1.65; }
+.dream-prompts { margin: 0 0 24px; padding-left: 1.2em; color: var(--app-ink); font: 400 calc(17px * var(--fs, 1))/1.9 var(--font-display); }
+.dream-import { display: grid; gap: 14px; }
+.dream-consent-check { display: flex; align-items: flex-start; gap: 10px; color: var(--app-ink); font-size: calc(15px * var(--fs, 1)); line-height: 1.65; text-align: left; cursor: pointer; }
+.dream-consent-check input { flex: none; width: 18px; height: 18px; margin-top: 4px; accent-color: var(--app-accent); }
+
+/* idle console: two lines from the subconscious-mind classics */
+.sub-quotes { flex: 1; display: grid; align-content: center; gap: 18px; }
+.sub-quotes figure { margin: 0; }
+.sub-quotes blockquote { margin: 0; color: var(--app-ink); font: 400 clamp(21px, 2.1vw, 27px)/1.5 var(--font-display); text-wrap: balance; }
+.sub-quotes figure + figure blockquote { color: color-mix(in srgb, var(--app-ink) 72%, var(--app-panel)); font-size: clamp(17px, 1.6vw, 20px); }
+.sub-quotes figcaption { margin-top: 6px; color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); }
+
+/* studio panels: readable text, controls sized to their words */
+.app-shell .subliminal-view .delivery-cards button small { font-size: calc(14px * var(--fs, 1)); }
+.app-shell .subliminal-view .delivery-cards button i { font-size: calc(13px * var(--fs, 1)); }
+.app-shell .subliminal-view .sub-editor fieldset.delivery-cards button.selected { color: var(--app-ink) !important; background: color-mix(in srgb, var(--app-accent) 12%, var(--app-panel)) !important; border-color: var(--app-accent) !important; box-shadow: inset 0 0 0 1px var(--app-accent); }
+.app-shell .subliminal-view .sub-editor fieldset.delivery-cards button.selected i { color: var(--app-accent); }
+.app-shell .subliminal-view .track-slider span, .app-shell .subliminal-view .track-slider b { font-size: calc(14px * var(--fs, 1)); }
+.app-shell .subliminal-view .track-fades { display: flex; flex-wrap: wrap; gap: 10px 24px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--app-line); }
+.app-shell .subliminal-view .fade-control { display: inline-flex !important; align-items: center; gap: 8px; margin: 0 !important; color: var(--app-muted); font-size: calc(15px * var(--fs, 1)); letter-spacing: 0 !important; }
+.app-shell .subliminal-view .fade-control span { color: var(--app-ink); }
+.app-shell .subliminal-view .fade-control input { width: 64px !important; min-height: 36px; margin: 0 !important; padding: 0 10px !important; border: 1px solid var(--app-line) !important; border-radius: 10px; background: var(--app-panel) !important; color: var(--app-ink); font: 400 calc(15px * var(--fs, 1))/1 var(--font-body); font-variant-numeric: tabular-nums; }
+.app-shell .subliminal-view .fade-control input:focus { outline: none; border-color: var(--app-accent) !important; }
+.app-shell .subliminal-view .fade-control b { font-weight: 400; font-size: calc(15px * var(--fs, 1)); color: var(--app-muted); }
+.app-shell .subliminal-view .sound-results { display: flex; flex-direction: column; gap: 0; margin: 4px 0 16px; border-top: 1px solid var(--app-line); }
+.app-shell .subliminal-view .sound-results article { min-height: 0; flex-direction: row; align-items: center; gap: 12px; padding: 10px 2px; border: 0; border-bottom: 1px solid var(--app-line); border-radius: 0; background: transparent; box-shadow: none; }
+.app-shell .subliminal-view .sound-results article.selected { background: color-mix(in srgb, var(--app-accent) 8%, transparent); box-shadow: none; }
+.app-shell .subliminal-view .sound-card-main { flex: 1; grid-template-columns: 36px minmax(0, 1fr); gap: 12px; }
+.app-shell .subliminal-view .sound-card-copy strong { font: 400 calc(16px * var(--fs, 1))/1.4 var(--font-body); }
+.app-shell .subliminal-view .sound-card-copy small { font-size: calc(13px * var(--fs, 1)); }
+.app-shell .subliminal-view .sound-choose { flex: none; margin: 0; min-height: 34px; padding: 0 14px; border: 1px solid var(--app-line); border-radius: 999px; font-size: calc(14px * var(--fs, 1)); }
+.app-shell .subliminal-view .sound-choose:hover { border-color: var(--app-accent); }
+.app-shell .subliminal-view .duration-inputs span, .app-shell .subliminal-view .background-play strong, .app-shell .subliminal-view .background-play small, .app-shell .subliminal-view .audio-rights span { font-size: calc(14px * var(--fs, 1)) !important; font-weight: 400; line-height: 1.6; letter-spacing: 0; color: var(--app-ink); }
+.app-shell .subliminal-view .background-play input, .app-shell .subliminal-view .audio-rights input { width: 18px !important; height: 18px; accent-color: var(--app-accent); }
+.app-shell .subliminal-view .sound-empty { display: block; margin: 4px 0 12px; color: var(--app-muted); font-size: calc(14px * var(--fs, 1)); }
+.app-shell .subliminal-view .sound-search { align-items: stretch; }
+.app-shell .subliminal-view .sound-search input { font-size: calc(16px * var(--fs, 1)); }
+.app-shell .subliminal-view .sound-search button { min-height: 0; padding: 0 20px; font-size: calc(15px * var(--fs, 1)); }
+.app-shell .subliminal-view .track-actions button, .app-shell .subliminal-view .track-actions label { min-height: 36px; padding: 0 14px; font-size: calc(14px * var(--fs, 1)); }
+.app-shell .subliminal-view .track-main > .track-copy strong { font-size: calc(17px * var(--fs, 1)); }
+.app-shell .subliminal-view .sub-editor fieldset.delivery-cards button:not(.selected) { color: var(--app-ink) !important; background: var(--app-panel) !important; border-color: var(--app-line) !important; }
+.app-shell .subliminal-view .sub-editor fieldset.delivery-cards button:not(.selected) small, .app-shell .subliminal-view .sub-editor fieldset.delivery-cards button:not(.selected) i { color: var(--app-muted); }
+.app-shell .subliminal-view .sub-editor fieldset.delivery-cards button:not(.selected):hover { border-color: color-mix(in srgb, var(--app-accent) 45%, var(--app-line)) !important; }

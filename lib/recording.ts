@@ -2,12 +2,13 @@
 
 import { encodeWav } from "./voice-limits";
 
-export async function recordingToWav(blob: Blob): Promise<{ wav: Uint8Array; seconds: number }> {
+/** Decode any recording or audio file to mono 24 kHz WAV; `maxSeconds` keeps only the start of a long file. */
+export async function recordingToWav(blob: Blob, maxSeconds = Infinity): Promise<{ wav: Uint8Array; seconds: number }> {
   const context = new AudioContext();
   try {
     const decoded = await context.decodeAudioData(await blob.arrayBuffer());
     const rate = 24000;
-    const offline = new OfflineAudioContext(1, Math.max(1, Math.ceil(decoded.duration * rate)), rate);
+    const offline = new OfflineAudioContext(1, Math.max(1, Math.ceil(Math.min(decoded.duration, maxSeconds) * rate)), rate);
     const source = offline.createBufferSource();
     source.buffer = decoded;
     source.connect(offline.destination);
