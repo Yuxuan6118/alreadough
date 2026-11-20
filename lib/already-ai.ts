@@ -219,7 +219,17 @@ export function buildInstructions(lang: CompanionLang, mode: CompanionMode, coac
   const editing = lang === "zh" && mode === "chat"
     ? `\n\n${zhChatEditing}\n原创语感参考，学节奏和怎么接入理论，别套用原句：${zhChatVoiceExample[coachMode]}`
     : "";
-  return `${base}\n\n${voice}\n\n${guidance[lang]}\n\n${modeNote}\n\n${coachCorpusInstructions(lang, coachMode, request, previousUser, crisisResources(lang, country))}\n\n${goalChoice}${chatReview}${editing}\n\n${jsonNote}`;
+  // She can switch the guidance method mid-conversation; earlier replies in the history may use another school.
+  const methodNames: Record<CompanionLang, Record<CoachMode, string>> = {
+    zh: { release: "释放法", assumption: "假设法则", subconscious: "潜意识引导" },
+    en: { release: "Release", assumption: "the Law of Assumption", subconscious: "subconscious reprogramming" },
+  };
+  const current = methodNames[lang][coachMode];
+  const others = (Object.keys(methodNames[lang]) as CoachMode[]).filter((key) => key !== coachMode).map((key) => methodNames[lang][key]);
+  const methodLock = mode !== "chat" ? "" : lang === "zh"
+    ? `\n\n本轮的引导方式是${current}。recent_conversation 里较早的回复可能用的是别的方法，那是她之前选的；这一轮只用${current}的概念回答，不提${others.join("、")}或其他流派的名字和术语。`
+    : `\n\nThis turn's guidance method is ${current}. Earlier replies in recent_conversation may use another method she chose before; answer this turn only with ${current} concepts and do not name ${others.join(", ")} or any other school, or use their terms.`;
+  return `${base}\n\n${voice}\n\n${guidance[lang]}\n\n${modeNote}\n\n${coachCorpusInstructions(lang, coachMode, request, previousUser, crisisResources(lang, country))}\n\n${goalChoice}${chatReview}${editing}${methodLock}\n\n${jsonNote}`;
 }
 
 /** Chat Completions messages for the companion turn (OpenAI-compatible providers). */
