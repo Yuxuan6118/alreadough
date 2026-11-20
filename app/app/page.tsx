@@ -73,6 +73,7 @@ import { CopyrightIcon, PricingIcon, PrivacyIcon, ReportIcon, SafetyIcon, TermsI
 import { CompanionIcon, DreamscapeIcon, HistoryIcon, PersonaIcon, ReviseIcon, StoriesIcon, VisionIcon } from "../components/NavIcons";
 import PersonaStudio from "../components/PersonaStudio";
 
+import { useSwipeDrawer } from "./useSwipeDrawer";
 import { type SpaceSection, type View, type Lang, type Message, type Conversation, type BoardItem, type Revision, type MemoryKind, type MemoryItem, type MemoryDraft, type GoalProfile, type Profile, emptyProfile, normalizeProfile, type Story, type StoryCover, type StoryDraft, NO_STORY_GOAL, type AIResponse, type SearchImage, type BetaStatus, splitThought, emptyStoryDraft, emptyMemoryDraft, emptyStory, defaultGoal, MAX_BELIEFS, MAX_GOALS, SYNC_BASE_KEY, SPACE_OWNER_KEY, discardDeviceSpace, isDiscardingSpace, clearDeviceSpace, MAX_STORIES, MAX_STORY_PARAGRAPHS, storyTitleFrom, normalizeStory, storyMeta, intensityLabels, normalizeGoal, MAX_BACKGROUND, MAX_MEMORIES, nextLocalId, memoryKinds, sameBelief, parseBeliefs, seedJourneySummary, normalizeMessages, conversationTitle, SurveyScale, wishCategories, goalTitle, coachModes, ui } from "./model";
 
 export default function Home() {
@@ -162,12 +163,7 @@ export default function Home() {
   const [plusSection, setPlusSection] = useState<"goal" | "coach" | null>(null);
   const [studioOpen, setStudioOpen] = useState(false);
   const [replaying, setReplaying] = useState(false);
-  const [shellEl, setShellEl] = useState<HTMLElement | null>(null);
-  /** The same element, for event handlers that move it (the state copy re-runs the effects that wire it up). */
-  const shellRef = useRef<HTMLElement | null>(null);
-  const attachShell = (node: HTMLElement | null) => { shellRef.current = node; setShellEl(node); };
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const sidebarOpenRef = useRef(false);
+  const { sidebarOpen, moveSidebar, attachShell } = useSwipeDrawer();
   const [aiError, setAiError] = useState("");
   const [chatInput, setChatInput] = useState("");
   const [oldScene, setOldScene] = useState("");
@@ -283,118 +279,6 @@ export default function Home() {
     };
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [view, messages.length, isTyping]);
-
-  // Side panel on phones, like ChatGPT and Claude: swipe right to pull it out (the page follows the finger and
-  // slides over), swipe left or tap the page to put it away. The panel lives outside the app shell and only the
-  // shell moves. While it moves the shell gets a plain inline transform (cheap, one write per frame) and the
-  // expensive effects (blur, grain) are switched off by the .drawer-moving class.
-  const drawerWidth = () => Math.min(window.innerWidth * 0.82, 330);
-  const shellTransform = (x: number) => (x > 0 ? `translate3d(${Math.round(x)}px, var(--vv-top, 0px), 0)` : "");
-  const DRAWER_EASE = "transform .32s cubic-bezier(.32,.72,0,1)";
-  const moveSidebar = (open: boolean) => {
-    const shell = shellRef.current;
-    if (shell) {
-      shell.classList.add("drawer-moving");
-      shell.style.transition = DRAWER_EASE;
-      window.setTimeout(() => { shell.style.transition = ""; shell.classList.remove("drawer-moving"); }, 360);
-    }
-    setSidebarOpen(open);
-  };
-  useEffect(() => {
-    sidebarOpenRef.current = sidebarOpen;
-    document.documentElement.style.setProperty("--drawer-w", `${Math.round(drawerWidth())}px`);
-    if (shellRef.current) shellRef.current.style.transform = shellTransform(sidebarOpen ? drawerWidth() : 0);
-  }, [sidebarOpen, shellEl]);
-  useEffect(() => {
-    const shell = shellEl;
-    if (!shell) return;
-    const phone = window.matchMedia("(max-width: 820px)");
-    let startX = 0, startY = 0, lastX = 0, lastT = 0, base = 0, velocity = 0, currentX = 0, frame = 0;
-    let decided = false, dragging = false, ignore = false;
-    const paint = () => { frame = 0; shell.style.transform = shellTransform(currentX); };
-    const setX = (x: number) => { currentX = x; if (!frame) frame = window.requestAnimationFrame(paint); };
-    const settle = (open: boolean) => {
-      if (frame) { window.cancelAnimationFrame(frame); frame = 0; }
-      shell.classList.add("drawer-moving");
-      shell.style.transition = DRAWER_EASE;
-      window.setTimeout(() => { shell.style.transition = ""; shell.classList.remove("drawer-moving"); }, 360);
-      currentX = open ? drawerWidth() : 0;
-      shell.style.transform = shellTransform(currentX);
-      setSidebarOpen(open);
-    };
-    // a swipe that begins in a field or a sideways-scrolling strip belongs to that control
-    const owned = (target: EventTarget | null) => {
-      let node = target as HTMLElement | null;
-      while (node && node !== shell) {
-        if (node.matches?.("textarea, input, select, [data-no-drawer]")) return true;
-        const style = getComputedStyle(node);
-        if ((style.overflowX === "auto" || style.overflowX === "scroll") && node.scrollWidth > node.clientWidth + 2) return true;
-        node = node.parentElement;
-      }
-      return false;
-    };
-    const onStart = (event: TouchEvent) => {
-      if (!phone.matches || event.touches.length !== 1) { ignore = true; return; }
-      const touch = event.touches[0];
-      startX = lastX = touch.clientX; startY = touch.clientY; lastT = Date.now();
-      decided = false; dragging = false; velocity = 0;
-      base = currentX = sidebarOpenRef.current ? drawerWidth() : 0;
-      ignore = !sidebarOpenRef.current && owned(event.target);
-    };
-    const onMove = (event: TouchEvent) => {
-      if (ignore) return;
-      const touch = event.touches[0];
-      const dx = touch.clientX - startX, dy = touch.clientY - startY;
-      if (!decided) {
-        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
-        decided = true;
-        const open = sidebarOpenRef.current;
-        dragging = Math.abs(dx) > Math.abs(dy) * 1.4 && ((!open && dx > 0) || (open && dx < 0));
-        if (dragging) { shell.style.transition = "none"; shell.classList.add("drawer-moving"); }
-      }
-      if (!dragging) return;
-      const now = Date.now();
-      velocity = (touch.clientX - lastX) / Math.max(1, now - lastT);
-      lastX = touch.clientX; lastT = now;
-      setX(Math.max(0, Math.min(drawerWidth(), base + dx)));
-    };
-    const onEnd = () => {
-      if (!dragging) return;
-      dragging = false;
-      settle(velocity > 0.4 ? true : velocity < -0.4 ? false : currentX > drawerWidth() / 2);
-    };
-    // while the panel is out, a tap on the page only puts the panel away
-    const onTap = (event: Event) => {
-      if (!sidebarOpenRef.current) return;
-      event.preventDefault();
-      event.stopPropagation();
-      settle(false);
-    };
-    shell.addEventListener("touchstart", onStart, { passive: true });
-    shell.addEventListener("touchmove", onMove, { passive: true });
-    shell.addEventListener("touchend", onEnd);
-    shell.addEventListener("touchcancel", onEnd);
-    shell.addEventListener("click", onTap, true);
-    // The panel is a sibling of the shell, not inside it, so a swipe that starts on the panel
-    // needs the same handlers; otherwise it only closes when the finger starts on the page.
-    const panel = document.querySelector<HTMLElement>(".swipe-sidebar");
-    panel?.addEventListener("touchstart", onStart, { passive: true });
-    panel?.addEventListener("touchmove", onMove, { passive: true });
-    panel?.addEventListener("touchend", onEnd);
-    panel?.addEventListener("touchcancel", onEnd);
-    return () => {
-      if (frame) window.cancelAnimationFrame(frame);
-      panel?.removeEventListener("touchstart", onStart);
-      panel?.removeEventListener("touchmove", onMove);
-      panel?.removeEventListener("touchend", onEnd);
-      panel?.removeEventListener("touchcancel", onEnd);
-      shell.removeEventListener("touchstart", onStart);
-      shell.removeEventListener("touchmove", onMove);
-      shell.removeEventListener("touchend", onEnd);
-      shell.removeEventListener("touchcancel", onEnd);
-      shell.removeEventListener("click", onTap, true);
-    };
-  }, [shellEl]);
 
   // Theme: read her saved pick (none = follow the phone) and keep listening to the phone's setting.
   useEffect(() => {
@@ -801,7 +685,6 @@ export default function Home() {
     setMessages([]);
     setConversationId(crypto.randomUUID());
   };
-
 
   const addMemoryCandidates = (candidates: NonNullable<AIResponse["memoryCandidates"]>) => {
     if (!candidates.length) return;
@@ -1482,7 +1365,6 @@ export default function Home() {
   const goalMenuItems = (<>{sortedGoals.map((item) => <button type="button" className={item.id === goal.id ? "selected" : ""} key={item.id} onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); if (item.id !== goal.id) switchGoal(item.id); }}><span><strong>{goalTitle(item, lang)}</strong><small>{lang === "zh" ? wishCategories.find((entry) => entry.id === item.wishCategory)?.zh : wishCategories.find((entry) => entry.id === item.wishCategory)?.en} · {intensityLabels[lang][item.intensity - 1]}</small></span>{item.id === goal.id && <Check size={17} weight="bold"/>}</button>)}<button type="button" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); addGoal(); }}><span><strong>{lang === "zh" ? "添加愿望" : "Add a desire"}</strong></span><Plus size={17}/></button></>);
   const coachMenuItems = (<>{coachModes.map((coach) => <button type="button" className={goal.coachMode === coach.id ? "selected" : ""} key={coach.id} onClick={(event) => { setGoal((current) => ({ ...current, coachMode: coach.id })); event.currentTarget.closest("details")?.removeAttribute("open"); }}><span><strong>{lang === "zh" ? coach.zh : coach.en}</strong><small>{lang === "zh" ? coach.zhDescription : coach.enDescription}</small></span>{goal.coachMode === coach.id && <Check size={17} weight="bold"/>}</button>)}</>);
 
-
   if (!hydrated) {
     return <main className="app-shell onboarding-shell" data-theme={dark ? "dark" : "light"} data-lang={lang}><div className="onboarding-loading" role="status" aria-label={lang === "zh" ? "正在打开 AlreaDough" : "Opening AlreaDough"}><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></div></main>;
   }
@@ -1625,7 +1507,6 @@ export default function Home() {
       </>}
 
       {memoryEditorOpen && <div className="memory-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setMemoryEditorOpen(false); }}><section className="memory-modal" role="dialog" aria-modal="true" aria-labelledby="memory-editor-title"><header><div><p className="eyebrow">{lang === "zh" ? "由你决定保留什么" : "YOU CHOOSE WHAT STAYS"}</p><h2 id="memory-editor-title">{memoryEditingId ? (lang === "zh" ? "编辑这条记忆" : "Edit this memory") : (lang === "zh" ? "添加一条记忆" : "Add a memory")}</h2></div><button onClick={() => setMemoryEditorOpen(false)} aria-label={lang === "zh" ? "关闭" : "Close"}>×</button></header><label><span>{lang === "zh" ? "类型" : "TYPE"}</span><select value={memoryDraft.kind} onChange={(event) => setMemoryDraft((current) => ({ ...current, kind: event.target.value as MemoryKind }))}>{memoryKinds.map((kind) => <option key={kind.id} value={kind.id}>{lang === "zh" ? kind.zh : kind.en}</option>)}</select></label><label><span>{lang === "zh" ? "标题" : "TITLE"}</span><input maxLength={80} value={memoryDraft.title} onChange={(event) => setMemoryDraft((current) => ({ ...current, title: event.target.value }))} placeholder={lang === "zh" ? "例如：我喜欢先被理解" : "For example: Meet the feeling first"}/></label><label><span>{lang === "zh" ? "具体内容" : "DETAIL"}</span><textarea maxLength={600} value={memoryDraft.detail} onChange={(event) => setMemoryDraft((current) => ({ ...current, detail: event.target.value }))} placeholder={lang === "zh" ? "写下以后对话中仍然有用的语境。" : "Write the context that will still matter later."}/></label><label><span>{lang === "zh" ? "检索词" : "KEYWORDS"}</span><input value={memoryDraft.keywords} onChange={(event) => setMemoryDraft((current) => ({ ...current, keywords: event.target.value }))} placeholder={lang === "zh" ? "用逗号分隔，最多 5 个" : "Comma-separated, up to 5"}/></label><footer><button className="outline-button" onClick={() => setMemoryEditorOpen(false)}>{lang === "zh" ? "取消" : "Cancel"}</button><button className="primary" disabled={!memoryDraft.title.trim() || !memoryDraft.detail.trim()} onClick={saveMemoryItem}>{lang === "zh" ? "保存到记忆库" : "Save to memory"}</button></footer></section></div>}
-
 
       {view === "story" && !storyReading && <section className="full-view story-library-view">
         <div className="view-heading"><p className="eyebrow">{lang === "zh" ? "你的剧本库" : "YOUR SCRIPT LIBRARY"}</p><h1>{lang === "zh" ? "写下已经发生的生活" : "Write the life already lived"}</h1></div>
@@ -1954,7 +1835,6 @@ export default function Home() {
       </div>}
 
       {view === "home" && <DoughPet lang={lang} checked={checkedToday} streak={streak} onCheckIn={() => recordCheckIn("chosen")}/>}
-
 
       <nav className="bottom-nav" aria-label={t.ariaNav}>
         {primaryNav.map((item) => {

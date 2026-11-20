@@ -59,7 +59,7 @@ export default function PersonaStudio({ lang, sessionId, herName, onOpenMembersh
   useEffect(() => {
     if (!sessionId || sessionId === "local-beta") return;
     fetch("/api/voice", { headers: { "x-already-session-id": sessionId } })
-      .then((r) => r.json()).then((d: { hasVoice?: boolean }) => setHasVoice(!!d.hasVoice)).catch(() => undefined);
+      .then((r) => r.json() as Promise<{ hasVoice?: boolean }>).then((d) => setHasVoice(!!d.hasVoice)).catch(() => undefined);
   }, [sessionId]);
 
   const persona = store.personas.find((p) => p.id === activeId) || null;
