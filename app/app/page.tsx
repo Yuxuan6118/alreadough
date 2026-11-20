@@ -1361,8 +1361,8 @@ export default function Home() {
     if (story.scripted) {
       const left = storiesLeft === null ? "" : zh ? `（本周还剩 ${storiesLeft} 篇）` : ` (${storiesLeft} left this week)`;
       const confirmed = await askConfirm({
-        title: zh ? "重新写一版？" : "Write it again?",
-        body: zh ? `重新写会用掉本周 1 篇剧本额度${left}。写好后，原来的版本可以撤销找回。` : `Writing it again uses 1 of this week's scripts${left}. You can undo to get the current version back.`,
+        title: zh ? "确定要重写吗？" : "Write it again?",
+        body: zh ? `重新写会额外用掉本周 1 篇剧本额度${left}。新版本会直接替换现在这篇，旧的版本不会保存，也找不回来。` : `Writing it again uses 1 more of this week's scripts${left}. The new version replaces this one, and the current version is not saved.`,
         confirmLabel: zh ? "重新写" : "Write again",
         cancelLabel: zh ? "取消" : "Cancel",
       });
@@ -1387,14 +1387,12 @@ export default function Home() {
       }
       paragraphs = paragraphs.filter(Boolean).slice(0, MAX_STORY_PARAGRAPHS);
       if (!paragraphs.length) throw new Error(zh ? "AI 这次没有写出内容，请再试一次。" : "The AI returned nothing this time. Please try again.");
-      const before = story;
       setStoryLibrary((items) => items.map((item) => item.id === story.id ? { ...item, seed: { zh: item.seed?.zh ?? "", en: item.seed?.en ?? "", [lang]: notes }, text: { ...item.text, [lang]: paragraphs }, scripted: true } : item));
       // the script is a scene she has accepted, so the companion treats it as already done
       const compact = paragraphs.join("\n").slice(0, 900);
       const addScene = (item: GoalProfile) => ({ ...item, acceptedSceneLedger: { ...item.acceptedSceneLedger, [lang]: [compact, ...item.acceptedSceneLedger[lang]].slice(0, 8) } });
       if (desire && desire.id !== goal.id) setOtherGoals((items) => items.map((item) => item.id === desire.id ? addScene(item) : item));
       else if (desire) setGoal(addScene);
-      if (before.scripted) showUndo(zh ? "已经重写了这个剧本" : "Script rewritten", zh ? "撤销" : "Undo", () => setStoryLibrary((items) => items.map((item) => item.id === before.id ? { ...item, text: before.text } : item)));
     } catch (error) {
       const message = error instanceof Error ? error.message : "AI_REQUEST_FAILED";
       setAiConnected(false); setAiError(message);
