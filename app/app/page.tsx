@@ -31,10 +31,8 @@ import {
   DownloadSimple,
   ArrowCounterClockwise,
   CaretRight,
-  DotsThree,
   ImageSquare,
   MagnifyingGlass,
-  ArrowRight,
 } from "@phosphor-icons/react";
 import SubliminalStudio, { PracticeCheckIn, practiceStreak, todayKey } from "../components/SubliminalStudio";
 import Dreamscape from "../components/Dreamscape";
@@ -44,7 +42,6 @@ import { AiNote, BreakReminder, ReportButton, ReportDialog, SiteRecord } from ".
 import MembershipPanel, { memberPlanLabel, UsageBanner, UsageMeter, useMemberStatus } from "../components/MembershipPanel";
 import DesktopPetPanel from "../components/DesktopPetPanel";
 import SyncPanel from "../components/SyncPanel";
-import StoryCoverImage from "../components/StoryCoverImage";
 import { deleteLocalCover } from "@/lib/cover-store";
 import GuidedOnboarding from "../components/GuidedOnboarding";
 import ProfilePanel from "../components/ProfilePanel";
@@ -66,16 +63,16 @@ import { buildExportZip, exportFileName } from "@/lib/export-archive";
 import { getDeviceSessionId } from "@/lib/device-session";
 import { mergeSpaces } from "@/lib/space-merge";
 import DoughHop from "../components/DoughHop";
-import DoughPageIcon from "../components/DoughPageIcon";
 import { CopyrightIcon, PricingIcon, PrivacyIcon, ReportIcon, SafetyIcon, TermsIcon } from "../components/HelpIcons";
 import { CompanionIcon, DreamscapeIcon, PersonaIcon, ReviseIcon, StoriesIcon, VisionIcon } from "../components/NavIcons";
 import PersonaStudio from "../components/PersonaStudio";
 
+import { StoryLibrary, StoryQuotaNote, StoryReader } from "./StoryViews";
 import { AppRail, SwipeSidebar } from "./AppNav";
 import { useBetaSurveyTimer } from "./useBetaSurveyTimer";
 import { useChatScroll } from "./useChatScroll";
 import { useSwipeDrawer } from "./useSwipeDrawer";
-import { type SpaceSection, type View, type Lang, type Message, type Conversation, type BoardItem, type Revision, type MemoryKind, type MemoryItem, type MemoryDraft, type GoalProfile, type Profile, emptyProfile, normalizeProfile, type Story, type StoryCover, type StoryDraft, NO_STORY_GOAL, type AIResponse, type SearchImage, type BetaStatus, splitThought, emptyStoryDraft, emptyMemoryDraft, emptyStory, defaultGoal, MAX_BELIEFS, MAX_GOALS, SYNC_BASE_KEY, SPACE_OWNER_KEY, discardDeviceSpace, isDiscardingSpace, clearDeviceSpace, MAX_STORIES, MAX_STORY_PARAGRAPHS, storyTitleFrom, normalizeStory, storyMeta, intensityLabels, normalizeGoal, MAX_BACKGROUND, MAX_MEMORIES, nextLocalId, memoryKinds, sameBelief, parseBeliefs, seedJourneySummary, normalizeMessages, conversationTitle, SurveyScale, wishCategories, goalTitle, coachModes, ui } from "./model";
+import { type SpaceSection, type View, type Lang, type Message, type Conversation, type BoardItem, type Revision, type MemoryKind, type MemoryItem, type MemoryDraft, type GoalProfile, type Profile, emptyProfile, normalizeProfile, type Story, type StoryCover, type StoryDraft, NO_STORY_GOAL, type AIResponse, type SearchImage, type BetaStatus, splitThought, emptyStoryDraft, emptyMemoryDraft, emptyStory, defaultGoal, MAX_BELIEFS, MAX_GOALS, SYNC_BASE_KEY, SPACE_OWNER_KEY, discardDeviceSpace, isDiscardingSpace, clearDeviceSpace, MAX_STORIES, MAX_STORY_PARAGRAPHS, storyTitleFrom, normalizeStory, intensityLabels, normalizeGoal, MAX_BACKGROUND, MAX_MEMORIES, nextLocalId, memoryKinds, sameBelief, parseBeliefs, seedJourneySummary, normalizeMessages, conversationTitle, SurveyScale, wishCategories, goalTitle, coachModes, ui } from "./model";
 
 export default function Home() {
   const [lang, setLang] = useState<Lang>("zh");
@@ -98,7 +95,6 @@ export default function Home() {
   /** The kind options under "类型" in the story editor. */
   const [storyKindOpen, setStoryKindOpen] = useState(false);
   /** Story whose ⋯ menu is open on its library card. */
-  const [storyMenuId, setStoryMenuId] = useState<string | null>(null);
   /** Story whose cover is being changed. */
   const [coverPickerId, setCoverPickerId] = useState<string | null>(null);
   /** Stories whose photo lookup is running or failed this visit, so the lookup never loops. */
@@ -443,7 +439,6 @@ export default function Home() {
   }, [hydrated, view, storyLibrary, lang, coverLookupTick]);
 
   const currentStory = storyLibrary[Math.min(storyIndex, Math.max(0, storyLibrary.length - 1))] || emptyStory;
-  const storyText = currentStory.text[lang];
   const spNameError = spNameDraft.trim() ? validateSpName(spNameDraft, lang) : "";
   const beliefCount = parseBeliefs(beliefDraft).length;
   const currentMemoryItems = goal.memoryItems[lang] || [];
@@ -1403,61 +1398,33 @@ export default function Home() {
 
       {memoryEditorOpen && <div className="memory-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setMemoryEditorOpen(false); }}><section className="memory-modal" role="dialog" aria-modal="true" aria-labelledby="memory-editor-title"><header><div><p className="eyebrow">{lang === "zh" ? "由你决定保留什么" : "YOU CHOOSE WHAT STAYS"}</p><h2 id="memory-editor-title">{memoryEditingId ? (lang === "zh" ? "编辑这条记忆" : "Edit this memory") : (lang === "zh" ? "添加一条记忆" : "Add a memory")}</h2></div><button onClick={() => setMemoryEditorOpen(false)} aria-label={lang === "zh" ? "关闭" : "Close"}>×</button></header><label><span>{lang === "zh" ? "类型" : "TYPE"}</span><select value={memoryDraft.kind} onChange={(event) => setMemoryDraft((current) => ({ ...current, kind: event.target.value as MemoryKind }))}>{memoryKinds.map((kind) => <option key={kind.id} value={kind.id}>{lang === "zh" ? kind.zh : kind.en}</option>)}</select></label><label><span>{lang === "zh" ? "标题" : "TITLE"}</span><input maxLength={80} value={memoryDraft.title} onChange={(event) => setMemoryDraft((current) => ({ ...current, title: event.target.value }))} placeholder={lang === "zh" ? "例如：我喜欢先被理解" : "For example: Meet the feeling first"}/></label><label><span>{lang === "zh" ? "具体内容" : "DETAIL"}</span><textarea maxLength={600} value={memoryDraft.detail} onChange={(event) => setMemoryDraft((current) => ({ ...current, detail: event.target.value }))} placeholder={lang === "zh" ? "写下以后对话中仍然有用的语境。" : "Write the context that will still matter later."}/></label><label><span>{lang === "zh" ? "检索词" : "KEYWORDS"}</span><input value={memoryDraft.keywords} onChange={(event) => setMemoryDraft((current) => ({ ...current, keywords: event.target.value }))} placeholder={lang === "zh" ? "用逗号分隔，最多 5 个" : "Comma-separated, up to 5"}/></label><footer><button className="outline-button" onClick={() => setMemoryEditorOpen(false)}>{lang === "zh" ? "取消" : "Cancel"}</button><button className="primary" disabled={!memoryDraft.title.trim() || !memoryDraft.detail.trim()} onClick={saveMemoryItem}>{lang === "zh" ? "保存到记忆库" : "Save to memory"}</button></footer></section></div>}
 
-      {view === "story" && !storyReading && <section className="full-view story-library-view">
-        <div className="view-heading"><p className="eyebrow">{lang === "zh" ? "你的剧本库" : "YOUR SCRIPT LIBRARY"}</p><h1>{lang === "zh" ? "写下已经发生的生活" : "Write the life already lived"}</h1></div>
-        <div className="story-library-meta"><span>{storyLibrary.length} / {MAX_STORIES}</span></div>
-        <div className="story-grid">
-          {storyLibrary.map((story, index) => <article className="story-tile" key={story.id}>
-            <button type="button" className="story-tile-open" onClick={() => { setStoryIndex(index); setStoryReading(true); setStoryMenuId(null); window.scrollTo({ top: 0 }); }}>
-              <StoryCoverImage image={story.cover?.image} tone={story.tone} lazy/>
-              <span className="story-tile-text">{storyMeta(story, lang) && <small>{storyMeta(story, lang)}</small>}<strong>{story.title[lang]}</strong></span>
-            </button>
-            <button type="button" className="story-tile-more" aria-label={lang === "zh" ? `${story.title[lang]}的更多操作` : `More for ${story.title[lang]}`} aria-expanded={storyMenuId === story.id} onClick={() => setStoryMenuId((id) => id === story.id ? null : story.id)}><DotsThree size={22} weight="bold"/></button>
-            {storyMenuId === story.id && <>
-              <button type="button" className="story-tile-scrim" aria-label={lang === "zh" ? "关闭菜单" : "Close menu"} onClick={() => setStoryMenuId(null)}/>
-              <div className="story-tile-menu" role="menu">
-                <button type="button" role="menuitem" onClick={() => { setStoryMenuId(null); openStoryEditor(story); }}><PencilSimple size={17}/>{lang === "zh" ? "编辑剧本" : "Edit story"}</button>
-                <button type="button" role="menuitem" onClick={() => { setStoryMenuId(null); setCoverPickerId(story.id); }}><ImageSquare size={17}/>{lang === "zh" ? "换封面" : "Change cover"}</button>
-                <button type="button" role="menuitem" className="danger" onClick={() => { setStoryMenuId(null); deleteStory(story.id); }}><Trash size={17}/>{lang === "zh" ? "删除" : "Delete"}</button>
-              </div>
-            </>}
-          </article>)}
-          {storyLibrary.length < MAX_STORIES && <button type="button" className="story-tile-add" onClick={() => openStoryEditor()}><span><Plus size={26}/></span><strong>{lang === "zh" ? "添加新剧本" : "Add a script"}</strong><small>{lang === "zh" ? "写下一段已经发生的回忆" : "Write down a memory already lived"}</small></button>}
-        </div>
-      </section>}
+      {view === "story" && !storyReading && <StoryLibrary
+        lang={lang}
+        stories={storyLibrary}
+        onOpen={(index) => { setStoryIndex(index); setStoryReading(true); window.scrollTo({ top: 0 }); }}
+        onEdit={(story) => openStoryEditor(story)}
+        onChangeCover={setCoverPickerId}
+        onDelete={deleteStory}
+      />}
 
-      {view === "story" && storyReading && <section className="full-view story-reader">
-        {/* Pinned while reading, so back and edit are one tap away at any point of a long script. */}
-        <header className="story-reader-bar">
-          <button type="button" className="story-bar-back" onClick={() => setStoryReading(false)}><ArrowLeft size={20}/><span>{lang === "zh" ? "剧本库" : "Scripts"}</span></button>
-          <button type="button" className="story-bar-edit" onClick={() => openStoryEditor(currentStory)}><PencilSimple size={18}/><span>{lang === "zh" ? "编辑剧本" : "Edit"}</span></button>
-        </header>
-        <div className="story-hero">
-          <StoryCoverImage image={currentStory.cover?.image} tone={currentStory.tone}/>
-          <button type="button" className="story-cover-change" onClick={() => setCoverPickerId(currentStory.id)}><ImageSquare size={18}/><span>{currentStory.cover?.image ? (lang === "zh" ? "换封面" : "Change cover") : (lang === "zh" ? "加封面" : "Add a cover")}</span></button>
-        </div>
-        <div className="story-stack">
-          <header className="story-card story-sheet-head">{storyMeta(currentStory, lang) && <small>{storyMeta(currentStory, lang)}</small>}<h1>{currentStory.title[lang]}</h1>{currentStory.subtitle[lang] && <p>{currentStory.subtitle[lang]}</p>}</header>
-          <article className={`story-card story-body${scriptingId === currentStory.id ? " is-writing" : ""}`} aria-busy={scriptingId === currentStory.id}>{storyText.map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>)}{currentStory.anchor[lang] && !currentStory.scripted && <blockquote>{currentStory.anchor[lang]}</blockquote>}</article>
-          <div className="story-card story-expand">
-            <div className="story-expand-text">
-              <strong>{currentStory.scripted ? (lang === "zh" ? "想换一种写法？" : "Want a different version?") : (lang === "zh" ? "把这段回忆写成剧本" : "Turn this memory into a script")}</strong>
-              {storiesLeft !== null && <StoryQuotaNote lang={lang} left={storiesLeft} onUpgrade={Capacitor.isNativePlatform() ? undefined : () => { setStoryReading(false); openSpace("membership"); }}/>}
-            </div>
-            {scriptingId === currentStory.id ? <StoryWritingLoader lang={lang}/> : <button type="button" className={currentStory.scripted ? "profile-topic-plus" : "wish-primary"} onClick={() => writeScript(currentStory)} disabled={Boolean(scriptingId) || storyQuotaOut}>{currentStory.scripted ? <DoughPageIcon size={16}/> : null} {currentStory.scripted ? (lang === "zh" ? "重新写一版" : "Write it again") : (lang === "zh" ? "写成剧本" : "Write it as a script")}</button>}
-          </div>
-          {aiError && <div className="ai-notice story-ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
-          {storyLibrary.length > 1 && (() => {
-            const prev = storyLibrary[(storyIndex - 1 + storyLibrary.length) % storyLibrary.length];
-            const next = storyLibrary[(storyIndex + 1) % storyLibrary.length];
-            const go = (index: number) => { setStoryIndex(index); setAiError(""); window.scrollTo({ top: 0 }); };
-            return <nav className="story-controls" aria-label={lang === "zh" ? "切换剧本" : "Switch story"}>
-              <button type="button" className="story-card" onClick={() => go((storyIndex - 1 + storyLibrary.length) % storyLibrary.length)}><small><ArrowLeft size={14}/> {lang === "zh" ? "上一个" : "Previous"}</small><strong>{prev.title[lang]}</strong></button>
-              <button type="button" className="story-card" onClick={() => go((storyIndex + 1) % storyLibrary.length)}><small>{lang === "zh" ? "下一个" : "Next"} <ArrowRight size={14}/></small><strong>{next.title[lang]}</strong></button>
-            </nav>;
-          })()}
-        </div>
-      </section>}
+      {view === "story" && storyReading && <StoryReader
+        lang={lang}
+        story={currentStory}
+        stories={storyLibrary}
+        index={storyIndex}
+        writing={scriptingId === currentStory.id}
+        busy={Boolean(scriptingId)}
+        storiesLeft={storiesLeft}
+        quotaOut={storyQuotaOut}
+        aiError={aiError}
+        aiErrorTitle={t.aiSetup}
+        onBack={() => setStoryReading(false)}
+        onEdit={() => openStoryEditor(currentStory)}
+        onChangeCover={() => setCoverPickerId(currentStory.id)}
+        onWrite={() => writeScript(currentStory)}
+        onGo={(index) => { setStoryIndex(index); setAiError(""); window.scrollTo({ top: 0 }); }}
+        onUpgrade={Capacitor.isNativePlatform() ? undefined : () => { setStoryReading(false); openSpace("membership"); }}
+      />}
 
       {coverPickerId && (() => {
         const story = storyLibrary.find((item) => item.id === coverPickerId);
@@ -1743,22 +1710,4 @@ export default function Home() {
     </main>
     </>
   );
-}
-
-/** Scripts left this week; when none are left, when they come back and a way to upgrade (not in the iPhone app). */
-function StoryQuotaNote({ lang, left, onUpgrade }: { lang: Lang; left: number; onUpgrade?: () => void }) {
-  const zh = lang === "zh";
-  if (left > 0) return <p className="story-quota-note">{zh ? `本周还能写 ${left} 篇剧本` : `${left} script${left === 1 ? "" : "s"} left this week`}</p>;
-  return <p className="story-quota-note is-out">{zh ? "本周剧本额度用完了，周一恢复。你仍然可以自己写好场景，只保存。" : "This week's scripts are used up; they come back on Monday. You can still write the scene yourself and save it."}{onUpgrade && <button type="button" onClick={onUpgrade}>{zh ? "升级会员" : "Upgrade"}</button>}</p>;
-}
-
-/** While a script is being written: the line-drawn dough hops in place above a soft shadow. */
-function StoryWritingLoader({ lang }: { lang: Lang }) {
-  const ref = useRef<HTMLDivElement>(null);
-  // once, when it appears: she sees the dough whether she pressed at the top or the bottom of a long script
-  useEffect(() => { ref.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }, []);
-  return <div className="story-writing" role="status" ref={ref}>
-    <DoughHop size="lg"/>
-    <p>{lang === "zh" ? "正在把你的关键词写成剧本，大约半分钟……" : "Writing your keywords into a script, about half a minute…"}</p>
-  </div>;
 }
