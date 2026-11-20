@@ -74,6 +74,7 @@ import { buildExportZip, exportFileName } from "@/lib/export-archive";
 import { getDeviceSessionId } from "@/lib/device-session";
 import { mergeSpaces } from "@/lib/space-merge";
 import DoughLineMark from "../components/DoughLineMark";
+import DoughPageIcon from "../components/DoughPageIcon";
 import { CompanionIcon, DreamscapeIcon, HistoryIcon, ReviseIcon, StoriesIcon, VisionIcon } from "../components/NavIcons";
 
 type SpaceSection = "wishes" | "about" | "library" | "memory" | "dough" | "membership" | "pet" | "look" | "sync" | "help";
@@ -1977,7 +1978,7 @@ export default function Home() {
               <small>{currentStory.scripted ? (lang === "zh" ? "AlreaDough 会按这段回忆重新写一版，原来的会被替换。" : "AlreaDough writes a fresh version from this memory; it replaces the current one.") : (lang === "zh" ? "AlreaDough 会把它展开成一段可以反复读的完整场景。" : "AlreaDough expands it into a full scene you can come back to.")}</small>
               {storiesLeft !== null && <StoryQuotaNote lang={lang} left={storiesLeft} onUpgrade={Capacitor.isNativePlatform() ? undefined : () => { setStoryReading(false); setView("settings"); setSettingsSection("membership"); }}/>}
             </div>
-            {scriptingId === currentStory.id ? <StoryWritingLoader lang={lang}/> : <button type="button" className={currentStory.scripted ? "profile-topic-plus" : "wish-primary"} onClick={() => writeScript(currentStory)} disabled={Boolean(scriptingId) || storyQuotaOut}><Sparkle size={16}/> {currentStory.scripted ? (lang === "zh" ? "重新写一版" : "Write it again") : (lang === "zh" ? "写成剧本" : "Write it as a script")}</button>}
+            {scriptingId === currentStory.id ? <StoryWritingLoader lang={lang}/> : <button type="button" className={currentStory.scripted ? "profile-topic-plus" : "wish-primary"} onClick={() => writeScript(currentStory)} disabled={Boolean(scriptingId) || storyQuotaOut}>{currentStory.scripted ? <DoughPageIcon size={16}/> : <Sparkle size={16}/>} {currentStory.scripted ? (lang === "zh" ? "重新写一版" : "Write it again") : (lang === "zh" ? "写成剧本" : "Write it as a script")}</button>}
           </div>
           {aiError && <div className="ai-notice story-ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
           {storyLibrary.length > 1 && (() => {
