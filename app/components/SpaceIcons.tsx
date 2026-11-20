@@ -175,16 +175,14 @@ export function DoughIcon({ size }: Props) {
   return <Svg size={size}><Dough tx={0} ty={0} s={1} /></Svg>;
 }
 
-const PEN = "M13 17.4L18.8 6.2C19.2 5.4 20.2 5.1 20.9 5.5C21.6 5.9 21.8 6.8 21.4 7.6L15.6 18.8L12.8 20.4Z";
-/** 转念 · 此刻这一句: the dough writing with a pen (picked by the founder 2026-11-20, T1). */
+/** 转念 · 此刻这一句: a sprout growing on the dough's head, a new thought coming up (picked by the founder 2026-11-20, O). */
 export function WriteLineIcon({ size }: Props) {
-  const m = useMaskId("write");
   return (
     <Svg size={size}>
-      <defs><Mask id={m}><path d={PEN} fill="black" stroke="black" strokeWidth="3" /></Mask></defs>
-      {/* The dough itself sits at the centre of the tile; the pen stays where it was, over its right side. */}
-      <g mask={`url(#${m})`}><Dough tx={1.92} ty={1.7} s={0.84} /></g>
-      <path d={PEN} />
+      <Dough tx={3.36} ty={5.78} s={0.72} />
+      <path d="M12 7.8V4.6" />
+      <path d="M12 5.6C10.2 5.6 8.8 4.5 8.6 2.8C10.5 2.8 11.8 3.8 12 5.6Z" strokeWidth={1.4} />
+      <path d="M12 4.8C12.2 3 13.5 1.9 15.4 1.9C15.2 3.6 13.8 4.8 12 4.8Z" strokeWidth={1.4} />
     </Svg>
   );
 }
