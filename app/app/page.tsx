@@ -168,7 +168,6 @@ type StoryDraft = { title: string; city: string; subtitle: string; scene: string
 const NO_STORY_GOAL = "none";
 type AIResponse = {
   reply?: string;
-  alternatives?: string[];
   journeySummary?: string;
   beliefObserved?: string;
   memoryCandidates?: Array<{ kind: MemoryKind; title: string; detail: string; keywords: string[] }>;
@@ -359,7 +358,7 @@ const ui = {
     day: "第 1 天", greeting: "欢迎回来", hero: <>你无须说服任何人。<br />回到你已经选择的故事里。</>, wish: "我的愿望", happened: "已经发生", start: "开始对话",
     newStory: "你的新剧本", moment: "今天想进入哪个时刻？", enter: "进入剧本", returnBelief: "快速回到信念", need: "此刻，你需要什么？", talk: "和陪伴者说说话", quiet: "让怀疑停止扩音", rewrite: "重写这一刻", accept: "接纳你选择的新版本",
     companion: "信念陪伴者", here: "我在这里", companionCopy: "把此刻冒出来的念头说出来。AI 会结合你的当前愿望、旧念头和最近的练习，陪你回到愿望已经实现的样子。", chatPlaceholder: "写下此刻冒出的念头……",
-    previous: "← 上一个", next: "下一个剧本 →", revisionTitle: "把这个念头转过来", revisionCopy: "把挡在愿望前面的那句话写下来。旧念头只需要出现一次，接纳后只留下新的那句。", oldLabel: "此刻冒出来的是哪一句？", oldPlaceholder: "", makeRevision: "✶ 帮我转这个念头", turning: "正在转这个念头……", chosen: "你的新念头", accepted: "已经接纳 ✓", acceptStory: "接纳这个新念头", history: "我的新念头", toDreamscape: "带入潜音", pickThought: "挑一句最像你会说的", editThought: "可以改成你自己的话", turnAgain: "再转一次",
+    previous: "← 上一个", next: "下一个剧本 →", revisionTitle: "把这个念头转过来", revisionCopy: "把挡在愿望前面的那句话写下来。旧念头只需要出现一次，接纳后只留下新的那句。", oldLabel: "此刻冒出来的是哪一句？", oldPlaceholder: "", makeRevision: "✶ 帮我转这个念头", turning: "正在转这个念头……", chosen: "你的新念头", accepted: "已经接纳 ✓", acceptStory: "接纳这个新念头", history: "我的新念头", toDreamscape: "带入潜音", editThought: "可以改成你自己的话", rephrase: "换个说法",
     boardTitle: "收藏你正在走进的生活", boardCopy: "从授权真实摄影中寻觅灵感，或用自己的照片编织专属愿景板。不会使用 AI 生成图片。", realPhotos: "寻梦灵感", photoCopy: "在可商用授权的真实摄影中，寻找属于你的生活画面", searchPlaceholder: "例如：冬日旅行、理想的新家", searching: "寻觅中", search: "开始寻梦", collect: "＋ 收进我的愿景", manual: "或者添加你已经喜欢的素材", nameScene: "为这个画面命名", pasteLink: "粘贴任意网站的来源链接或图片直链", addLink: "添加链接", local: "从本机添加", source: "查看来源 ↗",
     private: "我的空间", space: "我的已完成空间", privateCopy: "愿望、记忆、对话与练习支持跨设备同步", coreWish: "当前唯一愿望", tone: "陪伴语气", toneCopy: "温柔、坚定，不分析可能性，不用旧故事反驳新选择。", region: "使用范围", regionCopy: "提供中文与英文。", clear: "清除我的练习数据", confirm: "要清除云端与这台设备上保存的所有练习吗？", nav: ["陪伴", "剧本", "转念", "愿景", "潜音"], ariaSettings: "打开私人设定", ariaNav: "主导航", send: "发送", activeGoal: "当前愿望", beliefs: "限制性信念地图", memory: "AI 旅程摘要", saveGoal: "保存更改", savedGoal: "更改已保存", generating: "AI 正在写这个剧本……", generateStory: "✶ 让 AI 写成剧本", aiReady: "AI 已连接", aiSetup: "AI 暂时没有回应", trust: "AI 与安全说明",
   },
@@ -367,7 +366,7 @@ const ui = {
     day: "DAY 1", greeting: "Welcome back", hero: <>You do not need to convince anyone.<br />Return to the story you have already chosen.</>, wish: "MY DESIRE", happened: "ALREADY MINE", start: "Begin today’s practice",
     newStory: "YOUR NEW STORY", moment: "Which moment will you enter today?", enter: "Enter the story", returnBelief: "RETURN TO KNOWING", need: "What do you need right now?", talk: "Talk with your companion", quiet: "Turn down the volume of doubt", rewrite: "Revise this moment", accept: "Choose the version that belongs to you",
     companion: "BELIEF COMPANION · GLOBAL BETA", here: "I’m here", companionCopy: "Tell me the thought that is here right now. Your AI uses your active desire, your old thoughts, and your recent practice to bring you back to your desire already fulfilled.", chatPlaceholder: "Write the thought that just appeared…",
-    previous: "← Previous", next: "Next story →", revisionTitle: "Turn this thought around", revisionCopy: "Write down the line standing in front of your desire. The old thought only needs to appear once; once you accept, only the new one stays.", oldLabel: "Which thought just came up?", oldPlaceholder: "", makeRevision: "✶ Turn this thought for me", turning: "Turning this thought…", chosen: "YOUR NEW THOUGHT", accepted: "Accepted ✓", acceptStory: "Accept this new thought", history: "MY NEW THOUGHTS", toDreamscape: "Take to Dreamscape", pickThought: "PICK THE ONE THAT SOUNDS LIKE YOU", editThought: "Change it into your own words", turnAgain: "Turn it again",
+    previous: "← Previous", next: "Next story →", revisionTitle: "Turn this thought around", revisionCopy: "Write down the line standing in front of your desire. The old thought only needs to appear once; once you accept, only the new one stays.", oldLabel: "Which thought just came up?", oldPlaceholder: "", makeRevision: "✶ Turn this thought for me", turning: "Turning this thought…", chosen: "YOUR NEW THOUGHT", accepted: "Accepted ✓", acceptStory: "Accept this new thought", history: "MY NEW THOUGHTS", toDreamscape: "Take to Dreamscape", editThought: "Change it into your own words", rephrase: "Say it another way",
     boardTitle: "Collect the life you are entering", boardCopy: "Discover inspiration in licensed real photography, or weave a personal vision board from your own photos. No AI-generated imagery.", realPhotos: "Discover Dreamscapes", photoCopy: "Find the life you imagine through commercially licensed real photography", searchPlaceholder: "e.g. winter travel, dream home", searching: "Dreaming", search: "Discover", collect: "+ Keep in my vision", manual: "or add something you already love", nameScene: "Name this scene", pasteLink: "Paste any source link or direct image URL", addLink: "Add link", local: "Upload", source: "View source ↗",
     private: "PRIVATE SPACE · GLOBAL BETA", space: "My already-done space", privateCopy: "Your desire card, journey summary, chats, and revisions can sync across devices.", coreWish: "ONE ACTIVE DESIRE", tone: "COMPANION TONE", toneCopy: "Gentle and certain. It does not debate possibility or use the old story against your new choice.", region: "BETA REGION", regionCopy: "Available in Chinese and English.", clear: "Clear practice data on this device", confirm: "Clear all practice data saved on this device?", nav: ["Companion", "Scripts", "Reframe", "Vision", "Dreamscape"], ariaSettings: "Open private settings", ariaNav: "Main navigation", send: "Send", activeGoal: "ACTIVE GOAL", beliefs: "LIMITING-BELIEF MAP", memory: "AI JOURNEY SUMMARY", saveGoal: "Save active desire card", savedGoal: "Desire card saved", generating: "Your AI is writing this story…", generateStory: "✶ Let AI expand this story", aiReady: "LIVE AI", aiSetup: "AI isn’t responding right now", trust: "AI & Safety Notice",
   },
@@ -468,9 +467,7 @@ export default function Home() {
   const [oldScene, setOldScene] = useState("");
   const [rewritingBelief, setRewritingBelief] = useState("");
   const [newScene, setNewScene] = useState("");
-  // Reframe: the extra candidate thoughts, which one she picked, and her own (possibly edited) wording of it.
-  const [thoughtAlternatives, setThoughtAlternatives] = useState<string[]>([]);
-  const [pickedThought, setPickedThought] = useState(0);
+  // Reframe: her own (possibly edited) wording of the new thought.
   const [thoughtDraft, setThoughtDraft] = useState("");
   const [retiringOld, setRetiringOld] = useState(false);
   /** A new thought taken into Dreamscape; when empty, Dreamscape shows the latest accepted scene. */
@@ -510,7 +507,6 @@ export default function Home() {
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const requestControllerRef = useRef<AbortController | null>(null);
   const lastLogIdRef = useRef<string | undefined>(undefined);
-  const lastAlternativesRef = useRef<string[]>([]);
   const openedChatRef = useRef("");
   const lastMessageCountRef = useRef(0);
   const [showJump, setShowJump] = useState(false);
@@ -1184,7 +1180,7 @@ export default function Home() {
     memoryItems: { ...current.memoryItems, [lang]: current.memoryItems[lang].map((item) => item.id === id ? { ...item, pinned: !item.pinned } : item) },
   }));
 
-  const callCompanion = async (mode: "chat" | "revision" | "story", userInput: string, signal?: AbortSignal, recentOverride?: Message[], storyCategory?: StoryCategory, desireGoal?: GoalProfile) => {
+  const callCompanion = async (mode: "chat" | "revision" | "story", userInput: string, signal?: AbortSignal, recentOverride?: Message[], storyCategory?: StoryCategory, desireGoal?: GoalProfile, rephrase?: string) => {
     // a script speaks for its own desire; everything else for the current one
     const g = desireGoal || goal;
     const response = await fetch("/api/companion", {
@@ -1197,6 +1193,7 @@ export default function Home() {
         userInput,
         sessionId,
         ...(storyCategory ? { storyCategory } : {}),
+        ...(rephrase ? { rephrase: rephrase.slice(0, 600) } : {}),
         goal: {
           wishCategory: g.wishCategory,
           coachMode: g.coachMode,
@@ -1246,7 +1243,6 @@ export default function Home() {
       });
     }
     lastLogIdRef.current = typeof (data as { logId?: unknown }).logId === "string" ? (data as { logId: string }).logId : undefined;
-    lastAlternativesRef.current = Array.isArray(data.alternatives) ? data.alternatives.filter((item) => typeof item === "string" && item.trim()) : [];
     return data.reply;
   };
 
@@ -1325,14 +1321,13 @@ export default function Home() {
     }
   };
 
-  const makeRevision = async () => {
+  /** Turn the old thought; with `rephrase`, keep the same outcome and only say the last new thought another way. */
+  const makeRevision = async (rephrase?: string) => {
     if (!oldScene.trim() || isTyping) return;
     setIsTyping(true); setAiError("");
     try {
-      const reply = await callCompanion("revision", oldScene.trim());
+      const reply = await callCompanion("revision", oldScene.trim(), undefined, undefined, undefined, undefined, rephrase?.trim() || undefined);
       setNewScene(reply);
-      setThoughtAlternatives(lastAlternativesRef.current.slice(0, 2));
-      setPickedThought(0);
       setThoughtDraft(splitThought(reply).thought);
     } catch (error) {
       const message = error instanceof Error ? error.message : "AI_REQUEST_FAILED";
@@ -1444,12 +1439,12 @@ export default function Home() {
     setRewritingBelief("");
     // The short reading belongs to the first suggestion only; keep it when she took that one as written.
     const { thought, reading } = splitThought(newScene);
-    const revised = pickedThought === 0 && chosen === thought && reading ? `${chosen}\n${reading}` : chosen;
+    const revised = chosen === thought && reading ? `${chosen}\n${reading}` : chosen;
     // A new thought is kept with the other new thoughts (and reaches the AI as recentRevisions); it is not a scene, so it stays out of the accepted-scene ledger.
     setRevisions((items) => [{ id: nextLocalId(), old: oldScene, revised, date: new Date().toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US") }, ...items]);
     // The old thought fades out, then only the new one is left.
     setRetiringOld(true); setSavedPulse(true);
-    window.setTimeout(() => { setOldScene(""); setNewScene(""); setThoughtAlternatives([]); setThoughtDraft(""); setRetiringOld(false); }, 900);
+    window.setTimeout(() => { setOldScene(""); setNewScene(""); setThoughtDraft(""); setRetiringOld(false); }, 900);
     window.setTimeout(() => setSavedPulse(false), 1800);
   };
 
@@ -2019,26 +2014,22 @@ export default function Home() {
         <div className="view-heading"><p className="eyebrow">{lang === "zh" ? "转念" : "REFRAME"}</p><h1>{t.revisionTitle}</h1><p>{t.revisionCopy}</p></div>
         <label className="field-label">{t.oldLabel}</label>
         <textarea className={retiringOld ? "retiring" : ""} value={oldScene} onChange={(e) => setOldScene(e.target.value)} placeholder={t.oldPlaceholder} readOnly={retiringOld} />
-        <button className="primary" onClick={makeRevision} disabled={isTyping}>{isTyping ? t.turning : t.makeRevision}</button>
+        <button className="primary" onClick={() => makeRevision()} disabled={isTyping}>{isTyping ? t.turning : t.makeRevision}</button>
         {aiError && <div className="ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
         {newScene && (() => {
           const { thought, reading } = splitThought(newScene);
-          const options = [thought, ...thoughtAlternatives].filter((item, index, all) => item && all.indexOf(item) === index);
           return <div className={`revised-card${retiringOld ? " accepting" : ""}`}>
-            <span>{options.length > 1 ? t.pickThought : t.chosen}</span>
-            {options.length > 1 && <div className="thought-options" role="radiogroup" aria-label={t.pickThought}>
-              {options.map((option, index) => <button type="button" role="radio" aria-checked={pickedThought === index} key={option} className={pickedThought === index ? "selected" : ""} onClick={() => { setPickedThought(index); setThoughtDraft(option); }} disabled={retiringOld}>{option}</button>)}
-            </div>}
-            <label className="thought-edit-label" htmlFor="thought-draft">{t.editThought}</label>
-            <textarea id="thought-draft" className="thought-draft" rows={2} value={thoughtDraft} onChange={(e) => setThoughtDraft(e.target.value)} readOnly={retiringOld} />
-            {pickedThought === 0 && reading && thoughtDraft.trim() === thought && <small className="new-thought-reading">{reading}</small>}
+            <span>{t.chosen}</span>
+            <textarea id="thought-draft" className="thought-draft" rows={2} value={thoughtDraft} onChange={(e) => setThoughtDraft(e.target.value)} readOnly={retiringOld || isTyping} aria-label={t.editThought} />
+            <small className="thought-edit-label">{t.editThought}</small>
+            {reading && thoughtDraft.trim() === thought && <small className="new-thought-reading">{reading}</small>}
             <div className="revised-actions">
-              <button type="button" className="accept-thought" onClick={acceptRevision} disabled={!thoughtDraft.trim() || retiringOld}>{savedPulse ? t.accepted : t.acceptStory}</button>
-              <button type="button" onClick={makeRevision} disabled={isTyping || retiringOld}>{isTyping ? t.turning : t.turnAgain}</button>
+              <button type="button" className="accept-thought" onClick={acceptRevision} disabled={!thoughtDraft.trim() || retiringOld || isTyping}>{savedPulse ? t.accepted : t.acceptStory}</button>
+              <button type="button" onClick={() => makeRevision(thoughtDraft || thought)} disabled={isTyping || retiringOld}>{isTyping ? t.turning : t.rephrase}</button>
             </div>
           </div>;
         })()}
-        {revisions.length > 0 && <div className="revision-history"><p className="eyebrow">{t.history}</p>{revisions.slice(0, 8).map((item, index) => <div key={item.id} className={index === 0 && savedPulse ? "just-accepted" : undefined}><span>{item.date}</span><p>{splitThought(item.revised).thought}</p><button type="button" className="revision-to-dreamscape" onClick={() => { setFocusThought(splitThought(item.revised).thought); setStudioOpen(false); setView("subliminal"); }}><Waveform size={15}/>{t.toDreamscape}</button></div>)}</div>}
+        {revisions.length > 0 && <div className="revision-history"><p className="eyebrow">{t.history}</p>{revisions.slice(0, 8).map((item, index) => <div key={item.id} className={index === 0 && savedPulse ? "just-accepted" : undefined}><span>{item.date}</span><p>{splitThought(item.revised).thought}</p><div className="revision-item-actions"><button type="button" className="revision-to-dreamscape" onClick={() => { setFocusThought(splitThought(item.revised).thought); setStudioOpen(false); setView("subliminal"); }}><Waveform size={15}/>{t.toDreamscape}</button><button type="button" className="revision-delete" aria-label={lang === "zh" ? "删除这条新念头" : "Delete this new thought"} onClick={async () => { if (await askConfirm({ title: lang === "zh" ? "删除这条新念头？" : "Delete this new thought?", body: splitThought(item.revised).thought.slice(0, 120), confirmLabel: lang === "zh" ? "删除" : "Delete", cancelLabel: lang === "zh" ? "取消" : "Cancel" })) setRevisions((items) => items.filter((entry) => entry.id !== item.id)); }}><Trash size={15}/>{lang === "zh" ? "删除" : "Delete"}</button></div></div>)}</div>}
       </section>}
 
       {view === "board" && <section className="full-view board-view">

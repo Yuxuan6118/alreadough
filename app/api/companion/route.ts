@@ -55,6 +55,7 @@ function isPayload(value: unknown): value is CompanionRequest {
     && (body.goal.memoryItems === undefined || Array.isArray(body.goal.memoryItems))
     && Array.isArray(body.recentMessages)
     && Array.isArray(body.recentRevisions)
+    && (body.rephrase === undefined || (typeof body.rephrase === "string" && body.rephrase.length <= 600))
     && (body.storyCategory === undefined || (STORY_CATEGORIES as readonly string[]).includes(body.storyCategory));
 }
 
@@ -228,7 +229,6 @@ export async function POST(request: Request) {
   try {
     let result = JSON.parse(outputText) as {
       reply: string;
-      alternatives?: unknown;
       journey_summary: string;
       belief_observed: string;
       memory_candidates: Array<{
@@ -272,14 +272,6 @@ export async function POST(request: Request) {
     }
     if ((payload.mode === "chat" || payload.mode === "revision") && hasStockCoachLine(result.reply)) result.reply = dropStockSentences(result.reply);
     const reply = cleanReply(result.reply, { mode: payload.mode, name: payload.goal.companionName });
-    // Reframe: two more candidate thoughts so she can pick the one that sounds like her. One line each, no stock lines, no repeats.
-    const alternatives = payload.mode === "revision" && Array.isArray(result.alternatives)
-      ? result.alternatives
-        .filter((item): item is string => typeof item === "string")
-        .map((item) => cleanReply(item, { mode: "revision" }).split(/\n+/)[0].trim().slice(0, 200))
-        .filter((item, index, all) => item && !hasStockCoachLine(item) && !hasContrastFrame(item) && item !== reply.split(/\n+/)[0].trim() && all.indexOf(item) === index)
-        .slice(0, 2)
-      : [];
     // Beta: keep the conversation turn (not the desire card) so replies can be reviewed and improved.
     const logId = await recordConversation(gate.ticket, {
       lang: payload.lang,
@@ -293,7 +285,6 @@ export async function POST(request: Request) {
     await finishMemberRequest(gate.ticket, billedUsage, true);
     return json({
       reply,
-      ...(alternatives.length ? { alternatives } : {}),
       logId,
       journeySummary: result.journey_summary,
       beliefObserved: result.belief_observed,

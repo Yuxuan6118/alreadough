@@ -1,5 +1,5 @@
 import { coachCorpusInstructions } from "./coach-corpus";
-import { coachCardsBlock } from "./coach-cards";
+import { coachCardsBlock, revisionCardsBlock } from "./coach-cards";
 import { relationshipImagery } from "./reply-guards";
 import { crisisResources } from "./crisis-resources";
 
@@ -73,6 +73,8 @@ export type CompanionRequest = {
   country?: string | null;
   /** Story scripts only: the category the person picked, which decides the rule block sent with the request. */
   storyCategory?: string;
+  /** Reframe only: the new thought she wants said another way; the outcome stays, only the wording changes. */
+  rephrase?: string;
 };
 
 const zhInstructions = `你是 AlreaDough 的 Belief Companion，一位温柔、坚定、细腻的单一愿望显化陪练。
@@ -194,6 +196,8 @@ const zhChatVoiceExample: Record<CoachMode, string> = {
 };
 
 export function buildInstructions(lang: CompanionLang, mode: CompanionMode, coachMode: CoachMode = "assumption", request = "", previousUser = "", country: string | null = null, recentAssistant: string[] = []) {
+  // Reframe is Neville's revision, an Assumption practice: it runs on Assumption theory whatever method she picked for chat.
+  if (mode === "revision") coachMode = "assumption";
   const base = lang === "zh" ? zhInstructions : enInstructions;
   const modeNote = lang === "zh"
     ? {
@@ -207,8 +211,8 @@ export function buildInstructions(lang: CompanionLang, mode: CompanionMode, coac
         story: "Mode: script expansion. current_request holds her keywords: a title, a place, a mood, scene notes, and an anchor line; some may be empty. Expand them into one complete fulfilled-state script she can step inside as she reads. In this mode the points below override the general rules about length, props, only using what she mentioned, and writing scenes only on request.\n- First person, present tense, a day or moment after the desire is already real. No process, waiting, or lack.\n- Real, specific, checkable details. Set it in a place that exists: if she says skiing in Hokkaido, pick one real resort such as Niseko, Rusutsu, or Furano and use what is really there: the lifts, the powder, the runs, the town at the foot of the mountain. When the desire is about money, work, or lifestyle, use real brands, car models, hotels, and restaurants for what she wears, drives, stays in, and eats. Never invent places or brands; no real celebrities.\n- All five senses: colours and light, smells, voices and the ambient sound in the background, temperature and touch on the skin, tastes. Show what the people and things around her are doing so the scene is alive.\n- Relationship desires: the other person (the name in sp_reference) is present throughout. Write their gestures, dialogue, eye contact, and closeness, with natural spoken lines. Keep to what happens in this scene; invent no real-life history or personality for them.\n- Structure: a few moments moving forward in time, one picture each, 450 to 750 words in 6 to 10 paragraphs separated by blank lines. End on a concrete image or a line of dialogue: no reflection, no summary, no method talk, never the words manifest, assume, or 3D.\n- Use every keyword she gave. Let the anchor line appear once naturally, for example as a thought in her head; do not paste it as a closing slogan.\n- Check before you finish and add whatever is missing: the real place is named (down to the resort, street, hotel, or restaurant); in relationship desires the other person's name appears at least twice; at least two smells and three sounds, including ambient background sound; the last paragraph stops on an action, image, or line of dialogue, never a summing-up line like 'this is my everyday life' or 'this is what I know now'.\n- reply holds only the script itself, with no title or preface.",
       }[mode];
   const jsonNote = lang === "zh"
-    ? `严格只输出一个 JSON 对象，不要包裹在代码块里，不要有任何 JSON 以外的文字。结构：{"reply": string, "journey_summary": string, "belief_observed": string, "memory_candidates": [{"kind": "person"|"place"|"event"|"preference"|"insight", "title": string, "detail": string, "keywords": string[]}]}。memory_candidates 最多 2 条，没有就返回空数组。${mode === "revision" ? "转念模式额外加一个字段 \"alternatives\": string[]，放另外两句新念头，每句一行、不带解读。三句（reply 第一行和这两句）落在同一个卡点、遵守同样的规则，但说法明显不同：一句平静笃定，一句轻松口语，一句带着已经拥有时的感受；不要只换几个词。" : ""}`
-    : `Output exactly one JSON object, no code fences, no text outside the JSON. Shape: {"reply": string, "journey_summary": string, "belief_observed": string, "memory_candidates": [{"kind": "person"|"place"|"event"|"preference"|"insight", "title": string, "detail": string, "keywords": string[]}]}. At most 2 memory_candidates; use an empty array when there are none.${mode === "revision" ? " In Reframe mode also add \"alternatives\": string[] holding two more new thoughts, one line each, no reading. All three (the first line of reply plus these two) answer the same sticking point under the same rules but sound clearly different: one calm and certain, one light and casual, one carrying the feeling of already having it; do not just swap a few words." : ""}`;
+    ? `严格只输出一个 JSON 对象，不要包裹在代码块里，不要有任何 JSON 以外的文字。结构：{"reply": string, "journey_summary": string, "belief_observed": string, "memory_candidates": [{"kind": "person"|"place"|"event"|"preference"|"insight", "title": string, "detail": string, "keywords": string[]}]}。memory_candidates 最多 2 条，没有就返回空数组。`
+    : `Output exactly one JSON object, no code fences, no text outside the JSON. Shape: {"reply": string, "journey_summary": string, "belief_observed": string, "memory_candidates": [{"kind": "person"|"place"|"event"|"preference"|"insight", "title": string, "detail": string, "keywords": string[]}]}. At most 2 memory_candidates; use an empty array when there are none.`;
   const voice = lang === "zh" ? zhVoice : enVoice;
   const goalChoice = lang === "zh"
     ? "想象、肯定语、重写和故事都保留用户明确选定的愿望，包括具体的人、变化和结局。按她要求的情节写，勿用更泛的感受或另一个目标替代。完成态可以用现在时写在场景里；现实经历、行为建议和事实判断照其实际情况处理。情境库是参考，遇到要求缩小或替换愿望的示范时，以本规则为准。"
@@ -230,7 +234,7 @@ export function buildInstructions(lang: CompanionLang, mode: CompanionMode, coac
   const methodLock = mode !== "chat" ? "" : lang === "zh"
     ? `\n\n本轮的引导方式是${current}。recent_conversation 里较早的回复可能用的是别的方法，那是她之前选的；这一轮只用${current}的概念回答，不提${others.join("、")}或其他流派的名字和术语。`
     : `\n\nThis turn's guidance method is ${current}. Earlier replies in recent_conversation may use another method she chose before; answer this turn only with ${current} concepts and do not name ${others.join(", ")} or any other school, or use their terms.`;
-  const cards = mode === "chat" ? coachCardsBlock(lang, coachMode, request, previousUser, recentAssistant) : "";
+  const cards = mode === "chat" ? coachCardsBlock(lang, coachMode, request, previousUser, recentAssistant) : mode === "revision" ? revisionCardsBlock(lang, request) : "";
   return `${base}\n\n${voice}\n\n${guidance[lang]}${cards ? `\n\n${cards}` : ""}\n\n${modeNote}\n\n${coachCorpusInstructions(lang, coachMode, request, previousUser, crisisResources(lang, country))}\n\n${goalChoice}${chatReview}${editing}${methodLock}\n\n${jsonNote}`;
 }
 
@@ -238,9 +242,16 @@ export function buildInstructions(lang: CompanionLang, mode: CompanionMode, coac
 export function buildMessages(payload: CompanionRequest) {
   const previousUser = payload.recentMessages.slice().reverse().find((message) => message.role === "user" && message.text !== payload.userInput)?.text ?? "";
   return [
-    { role: "system" as const, content: buildInstructions(payload.lang, payload.mode, payload.goal.coachMode, payload.userInput, previousUser, payload.country ?? null, payload.recentMessages.filter((message) => message.role === "ai").map((message) => message.text)) },
+    { role: "system" as const, content: buildInstructions(payload.lang, payload.mode, payload.goal.coachMode, payload.userInput, previousUser, payload.country ?? null, payload.recentMessages.filter((message) => message.role === "ai").map((message) => message.text)) + (payload.mode === "revision" && payload.rephrase?.trim() ? `\n\n${rephraseNote(payload.lang)}` : "") },
     { role: "user" as const, content: buildInput(payload) },
   ];
+}
+
+/** Reframe, "say it another way": the same fulfilled outcome, worded more like her. */
+function rephraseNote(lang: CompanionLang) {
+  return lang === "zh"
+    ? "她想把上一句新念头（say_it_another_way）换个说法。结局一点不动：同样的人、同样的数字、同样是已经实现的状态，不降低、不打折，不改成「正在」「将来」「会」「决定」「愿意」这类还没到的说法。只换措辞，让它更像她平时会说的话：口语、具体，可以落在一个已经实现后的日常小画面上，用她旧念头里的词。不照搬上一句的句式。"
+    : "She wants the last new thought (say_it_another_way) said another way. The outcome does not move at all: the same people, the same numbers, the same already-fulfilled state, never scaled down and never turned into 'becoming', 'will', 'decide', or 'willing to'. Change only the wording so it sounds more like her everyday speech: plain, concrete, possibly one small everyday moment after it is real, using words from her old thought. Do not reuse the last line's shape.";
 }
 
 function clip(value: string | undefined | null, max: number) {
@@ -298,6 +309,7 @@ export function buildInput(payload: CompanionRequest) {
     ...(payload.goal.wishCategory === "relationship" ? { imagery_guidance: relationshipImagery(payload.lang) } : {}),
     recent_accepted_revisions: payload.recentRevisions.slice(0, 4).map((item) => clip(item, 900)),
     current_request: clip(payload.userInput, 4000),
+    ...(payload.mode === "revision" && payload.rephrase?.trim() ? { say_it_another_way: clip(payload.rephrase, 600) } : {}),
     response_language: payload.lang,
     response_mode: payload.mode,
   });

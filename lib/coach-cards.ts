@@ -298,3 +298,22 @@ export function coachCardsBlock(lang: CompanionLang, coach: CoachMode, request: 
     : "A recent reply already asked her to notice the tension and whether she is willing to loosen it. Do not ask again this turn or point her back to the body; meet the moment, write a scene, use another idea above, or answer briefly.");
   return parts.join("\n\n");
 }
+
+/**
+ * Reframe is Neville's revision, an Assumption practice, so it always draws on Assumption cards whatever guidance
+ * method she picked for chat. The first ones are the core of how a thought is turned.
+ */
+const revisionCardIds = ["a_i_am", "a_self_concept", "a_past_not_evidence", "a_if_already", "a_live_in_end", "a_doubt_story", "a_creating_absence"];
+
+/** Reframe: the method knowledge the new thought is written from. Cards her old thought points to come first, then the core ones. */
+export function revisionCardsBlock(lang: CompanionLang, request: string) {
+  const pool = revisionCardIds.map((id) => coachCards.find((card) => card.id === id)).filter((card): card is CoachCard => Boolean(card));
+  const text = request.toLowerCase();
+  const matched = pool.filter((card) => card.triggers.some((trigger) => text.includes(trigger.toLowerCase())));
+  const cards = [...matched, ...pool.filter((card) => !matched.includes(card))].slice(0, 3);
+  if (!cards.length) return "";
+  const lines = cards.map((card) => `- ${card[lang].idea}`);
+  return lang === "zh"
+    ? `写新念头时依据的流派知识（用这些道理决定这句话怎么写：现在时、从已经实现的身份出发、不拿过去当证据；道理本身不写进句子，不提导师名字和流派）：\n${lines.join("\n")}`
+    : `Method knowledge to write the new thought from (let these ideas decide how the line is built: present tense, spoken from the identity of having it, the past never taken as evidence; never put the idea itself in the line or name teachers or schools):\n${lines.join("\n")}`;
+}
