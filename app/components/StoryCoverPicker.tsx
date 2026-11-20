@@ -75,10 +75,10 @@ export default function StoryCoverPicker({ lang, title, initialQuery, board, has
     <strong>{uploading ? (zh ? "正在放进来……" : "Adding…") : uploadLabel}</strong>
     <small>{zh ? "只存在这台设备上" : "Stays on this device"}</small>
   </button>;
-  const grid = (items: Array<{ key: string; image: string; label: string; pick: () => void }>) => <div className="cover-picker-grid">
+  const grid = (items: Array<{ key: string; image: string; label: string; pick: () => void }>) => <div className="cover-picker-scroll"><div className="cover-picker-grid">
     {uploadTile}
-    {items.map((item) => <button type="button" key={item.key} onClick={item.pick}><img src={item.image} alt="" loading="lazy"/><small>{item.label}</small></button>)}
-  </div>;
+    {items.map((item) => <button type="button" key={item.key} onClick={item.pick}><img src={item.image} alt="" loading="lazy"/>{item.label && <small>{item.label}</small>}</button>)}
+  </div></div>;
 
   return <div className="story-editor-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <section className="story-editor-modal cover-picker" role="dialog" aria-modal="true" aria-labelledby="cover-picker-title">
@@ -100,7 +100,7 @@ export default function StoryCoverPicker({ lang, title, initialQuery, board, has
         </form>
         {error && <p className="cover-picker-note">{error}</p>}
         {searching && !results.length && <p className="cover-picker-note">{zh ? "正在找照片……" : "Finding photos…"}</p>}
-        {grid(results.map((item) => ({ key: item.source, image: item.image, label: item.credit, pick: () => onPick({ image: item.image, credit: item.credit, source: item.source }, item.downloadLocation) })))}
+        {grid(results.map((item) => ({ key: item.source, image: item.image, label: "", pick: () => onPick({ image: item.image, credit: item.credit, source: item.source }, item.downloadLocation) })))}
       </> : <>
         {!board.length && <p className="cover-picker-note">{zh ? "愿景里还没有收藏的图片。在「愿景」里收藏的照片会出现在这里。" : "Nothing on your vision board yet. Photos you keep in Vision show up here."}</p>}
         {grid(board.map((item, index) => ({ key: `${index}-${item.source}`, image: item.image, label: item.title, pick: () => onPick({ image: item.image, source: item.source }) })))}

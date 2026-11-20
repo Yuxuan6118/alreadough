@@ -1967,7 +1967,6 @@ export default function Home() {
         <div className="story-hero">
           <StoryCoverImage image={currentStory.cover?.image} tone={currentStory.tone}/>
           <button type="button" className="story-cover-change" onClick={() => setCoverPickerId(currentStory.id)}><ImageSquare size={18}/><span>{currentStory.cover?.image ? (lang === "zh" ? "换封面" : "Change cover") : (lang === "zh" ? "加封面" : "Add a cover")}</span></button>
-          {currentStory.cover?.credit && (currentStory.cover.source && /^https?:/.test(currentStory.cover.source) ? <a className="story-hero-credit" href={currentStory.cover.source} target="_blank" rel="noreferrer">{currentStory.cover.credit}</a> : <span className="story-hero-credit">{currentStory.cover.credit}</span>)}
         </div>
         <div className="story-stack">
           <header className="story-card story-sheet-head">{storyMeta(currentStory, lang) && <small>{storyMeta(currentStory, lang)}</small>}<h1>{currentStory.title[lang]}</h1>{currentStory.subtitle[lang] && <p>{currentStory.subtitle[lang]}</p>}</header>
