@@ -166,24 +166,28 @@ export function DreamscapeIcon({ size, weight }: Props) {
   );
 }
 
-const PERSONA_BOX: Box = [2.04, 4.1, 18.66, 15.26];
-/** TA: two doughs the same size, side by side, a small heart between them. */
+const PERSONA_BOX: Box = [3.2, 3.2, 17.6, 17.8];
+const HEART_DOUGH = "M13.4 4.5C14.2 3.7 15.3 3.2 16.5 3.2C18.7 3.2 20.1 4.9 20.1 7.3C20.1 10.7 16.9 13.7 12 16.7C7.1 13.7 3.9 10.7 3.9 7.3C3.9 4.9 5.3 3.2 7.5 3.2C8.7 3.2 9.8 3.7 10.6 4.5C11.2 5.1 11.6 5.4 12 5.4C12.4 5.4 12.8 5.1 13.4 4.5Z";
+const INFINITY = "M16.7 18.3C16.7 18.3 16.2 19.2 15.7 19.4C15.3 19.6 14.6 19.6 14.2 19.5C13.7 19.4 13.3 19.2 12.9 19.0C12.6 18.8 12.3 18.5 12.0 18.3C11.6 18.0 11.4 17.8 11.0 17.6C10.6 17.4 10.2 17.1 9.7 17.0C9.3 17.0 8.6 16.9 8.2 17.1C7.8 17.3 7.3 17.9 7.3 18.3C7.3 18.6 7.8 19.2 8.2 19.4C8.6 19.6 9.3 19.6 9.7 19.5C10.2 19.4 10.6 19.2 11.0 19.0C11.4 18.8 11.6 18.5 12.0 18.3C12.3 18.0 12.6 17.8 12.9 17.6C13.3 17.4 13.7 17.1 14.2 17.0C14.6 17.0 15.3 16.9 15.7 17.1C16.2 17.3 16.7 17.9 16.7 18.3Z";
+/** TA: a love letter — a heart-shaped dough peeks out of the envelope, sealed with a long, flat infinity. */
 export function PersonaIcon({ size, weight }: Props) {
   const active = weight === "fill";
   const sw = (n: number) => n / fitScale(PERSONA_BOX);
   const m = useMaskId("persona");
-  const right = { tx: 9, ty: 7.6, s: 0.56 };
   return (
     <Frame size={size} box={PERSONA_BOX}>
       <mask id={m} maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
         <rect width="24" height="24" fill="white" stroke="none" />
-        <g transform={`translate(${right.tx} ${right.ty}) scale(${right.s})`}>
-          <path d={BODY} fill="black" stroke="black" strokeWidth={sw(2.4) / right.s} />
-        </g>
+        <rect x="2" y="11.4" width="20" height="12" fill="black" stroke="none" />
       </mask>
-      <g mask={`url(#${m})`}><Dough tx={0.3} ty={7} s={0.56} fill={active ? FILL : "none"} /></g>
-      <Dough {...right} fill={active ? FILL : "none"} />
-      <path d="M12 7.6C10 6.4 9.6 5 10.6 4.4C11.2 4.1 11.7 4.4 12 4.9C12.3 4.4 12.8 4.1 13.4 4.4C14.4 5 14 6.4 12 7.6Z" strokeWidth={sw(1.3)} fill={active ? FILL : "none"} />
+      <g mask={`url(#${m})`}>
+        <path d={HEART_DOUGH} fill={active ? FILL : "none"} />
+        <circle cx="9.3" cy="8.9" r="1.05" fill="currentColor" stroke="none" />
+        <circle cx="14.7" cy="8.9" r="1.05" fill="currentColor" stroke="none" />
+      </g>
+      <rect x="3.2" y="11.4" width="17.6" height="9.6" rx="2" />
+      <path d="M3.6 12.2L12 15.6L20.4 12.2" />
+      <path d={INFINITY} strokeWidth={sw(1.1)} />
     </Frame>
   );
 }
