@@ -157,8 +157,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .message { max-width: 78%; padding: 15px 17px; border-radius: 16px; font-family: var(--font-display); font-size: calc(14px * var(--fs, 1)); line-height: 1.72; white-space: pre-wrap; }
 .message.ai { align-self: flex-start; border: 1px solid var(--app-line); border-bottom-left-radius: 5px; background: var(--app-panel); }
 .message.user { align-self: flex-end; border-bottom-right-radius: 5px; color: var(--app-accent-ink); background: var(--app-accent); }
-.message.typing { display: flex; gap: 5px; align-items: center; }
-.message.typing i { width: 5px; height: 5px; border-radius: 50%; background: var(--app-muted); }
+.message.typing { display: flex; gap: 5px; align-items: center; color: var(--app-accent); }
 .composer { position: sticky; bottom: 16px; display: grid; grid-template-columns: minmax(0,1fr) 48px; align-items: end; gap: 8px; padding: 10px; border: 1px solid var(--app-line); border-radius: 18px; background: color-mix(in srgb,var(--app-panel) 88%,transparent); backdrop-filter: blur(18px); box-shadow: var(--app-shadow); }
 .composer-main { min-width: 0; display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: end; }
 .composer input { min-width: 0; border: 0; padding: 0 9px; color: var(--app-ink); background: transparent; outline: 0; }
@@ -328,6 +327,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .onboarding-actions .outline-button,.onboarding-actions .primary { width: 100%; }
 .onboarding-actions button:disabled { opacity: .38; cursor: not-allowed; }
 .onboarding-loading { min-height: 100dvh; display: grid; place-items: center; align-content: center; gap: 12px; font: 500 calc(25px * var(--fs, 1))/1 var(--font-display); }
+/* while the app opens, the brand dough hops in place */
+.onboarding-loading .brand-mark { --d: 44px; width: 44px; height: 62px; align-items: end; }
+.onboarding-loading .brand-mark img { width: 44px; height: 44px; transform-origin: 50% 100%; animation: dough-bounce 1.05s cubic-bezier(.4,0,.4,1) infinite; }
 .goal-status select { width: 100%; margin: 8px 0; border: 1px solid color-mix(in srgb,var(--app-accent-ink) 20%,transparent); border-radius: var(--app-radius-control); padding: 10px 12px; color: var(--app-accent-ink); background: color-mix(in srgb,var(--app-panel) 20%,transparent); font: 500 calc(18px * var(--fs, 1))/1.2 var(--font-display); }
 .home-ai-welcome { text-align: center; }
 .home-ai-welcome h1 { margin: 0; font-family: var(--font-display); font-size: clamp(42px,6vw,72px); line-height: 1.04; font-weight: 500; letter-spacing: -.048em; }
@@ -455,22 +457,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .story-setting textarea { min-height: 110px; margin-top: 10px; font-family: var(--font-body); font-size: calc(14px * var(--fs, 1)); line-height: 1.7; }
 .story-setting small { display: block; margin-top: 6px; color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); line-height: 1.6; }
 .story-notes-tip { display: block; margin-top: 6px; color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); }
-/* the dough hops while a script is written: squash on landing, stretch on take-off, shadow shrinks in the air */
+/* the dough hops while a script is written (DoughHop, app/components/dough-hop.css) */
 .story-writing { justify-self: stretch; display: grid; justify-items: center; gap: 10px; margin: 6px 0 4px; padding: 6px 0 4px; color: var(--app-accent); text-align: center; }
 .story-writing p { margin: 0; color: var(--app-muted); font-size: calc(14px * var(--fs, 1)); }
-.story-writing-dough { position: relative; width: 52px; height: 74px; }
-.story-writing-dough svg { position: absolute; left: 0; bottom: 8px; width: 52px; height: 52px; transform-origin: 50% 100%; animation: dough-hop 1.05s cubic-bezier(.4,0,.4,1) infinite; }
-.story-writing-dough i { position: absolute; left: 8px; right: 8px; bottom: 2px; height: 7px; border-radius: 50%; background: currentColor; opacity: .22; animation: dough-hop-shadow 1.05s cubic-bezier(.4,0,.4,1) infinite; }
-@keyframes dough-hop {
-  0%, 100% { transform: translateY(0) scale(1.1, .9); }
-  14% { transform: translateY(0) scale(.94, 1.07); }
-  50% { transform: translateY(-20px) scale(1, 1); }
-  84% { transform: translateY(0) scale(.97, 1.03); }
-}
-@keyframes dough-hop-shadow {
-  0%, 14%, 84%, 100% { transform: scaleX(1); opacity: .22; }
-  50% { transform: scaleX(.55); opacity: .1; }
-}
 .story-body.is-writing { opacity: .45; transition: opacity .3s ease; }
 .story-reader .story-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .story-reader .story-controls button.story-card { width: auto; min-width: 0; display: grid; align-content: start; gap: 6px; padding: 18px 22px; border: 1px solid var(--app-line); border-radius: 22px; color: var(--app-ink); background: var(--app-panel); text-align: left; cursor: pointer; transition: border-color .2s ease; }
@@ -822,14 +811,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .primary:hover { transform: translateY(-2px); }
   .quick-grid > button:hover { transform: translateY(-3px); }
   .story-picker button, .primary, .quick-grid > button { transition: transform .25s cubic-bezier(.16,1,.3,1),background-color .25s ease,color .25s ease; }
-  .message.typing i { animation: typing-bubble 1.2s ease-in-out infinite; }
-  .message.typing i:nth-child(2) { animation-delay: .14s; }
-  .message.typing i:nth-child(3) { animation-delay: .28s; }
   .proof-specks i { animation: proof-speck 4.8s ease-in-out infinite; }
   .proof-specks i:nth-child(2) { animation-delay: 1.55s; }
   .proof-specks i:nth-child(3) { animation-delay: 3.1s; }
   @keyframes app-enter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-  @keyframes typing-bubble { 50% { opacity: .35; transform: translateY(-3px); } }
   @keyframes proof-speck { 0%,72%,100% { opacity: 0; transform: translateY(5px) scale(.7); } 82% { opacity: .72; } 94% { opacity: 0; transform: translateY(-18px) scale(1.08); } }
 }
 @media (prefers-reduced-motion: reduce) { .app-shell *, .app-shell *::before, .app-shell *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
@@ -1621,9 +1606,6 @@ html[data-theme="dark"].landscape-blocked::after { color: #f1e8e2; background: #
 .guided-actions .primary { flex: 1 1 auto; min-width: 0; }
 .onboard-reply { margin: 22px 0 0; padding: 14px 16px; border-left: 3px solid var(--app-accent); border-radius: 4px 14px 14px 4px; background: color-mix(in srgb, var(--app-panel) 80%, transparent); color: var(--app-ink); font-family: var(--font-display); font-size: calc(18px * var(--fs, 1)); line-height: 1.6; }
 .onboard-thinking { display: flex; gap: 6px; align-items: center; min-height: 24px; }
-.onboard-thinking i { width: 7px; height: 7px; border-radius: 50%; background: var(--app-muted); animation: onboard-dot 1s infinite ease-in-out; }
-.onboard-thinking i:nth-child(2) { animation-delay: .15s; } .onboard-thinking i:nth-child(3) { animation-delay: .3s; }
-@keyframes onboard-dot { 0%, 80%, 100% { opacity: .25; transform: scale(.8); } 40% { opacity: 1; transform: scale(1); } }
 .onboard-scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 20px; }
 .onboard-scale button { display: grid; gap: 4px; justify-items: center; padding: 12px 4px; border: 1px solid var(--app-line); border-radius: 14px; color: var(--app-ink); background: var(--app-panel); font-size: calc(12px * var(--fs, 1)); }
 .onboard-scale button b { font-size: calc(18px * var(--fs, 1)); font-weight: 650; }

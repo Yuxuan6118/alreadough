@@ -1,0 +1,29 @@
+/* the dough hops while something loads: squash on landing, stretch on take-off, shadow shrinks in the air.
+   --d is the dough's size; the box is taller by the hop height so nothing around it moves. */
+.dough-hop { --d: 52px; position: relative; display: inline-block; flex: none; width: var(--d); height: calc(var(--d) * 1.42); vertical-align: middle; }
+.dough-hop svg { position: absolute; left: 0; bottom: calc(var(--d) * .155); width: var(--d); height: var(--d); transform-origin: 50% 100%; animation: dough-bounce 1.05s cubic-bezier(.4,0,.4,1) infinite; }
+.dough-hop i { position: absolute; left: 15%; right: 15%; bottom: calc(var(--d) * .04); height: max(2px, calc(var(--d) * .135)); border-radius: 50%; background: currentColor; opacity: .22; animation: dough-bounce-shadow 1.05s cubic-bezier(.4,0,.4,1) infinite; }
+.dough-hop-lg { --d: 52px; }
+.dough-hop-md { --d: 36px; }
+.dough-hop-sm { --d: 24px; }
+.dough-hop-xs { --d: 15px; }
+/* small doughs hop quicker, like something light */
+.dough-hop-sm svg, .dough-hop-sm i { animation-duration: .9s; }
+.dough-hop-xs svg, .dough-hop-xs i { animation-duration: .8s; }
+@keyframes dough-bounce {
+  0%, 100% { transform: translateY(0) scale(1.1, .9); }
+  14% { transform: translateY(0) scale(.94, 1.07); }
+  50% { transform: translateY(calc(var(--d) * -.385)) scale(1, 1); }
+  84% { transform: translateY(0) scale(.97, 1.03); }
+}
+@keyframes dough-bounce-shadow {
+  0%, 14%, 84%, 100% { transform: scaleX(1); opacity: .22; }
+  50% { transform: scaleX(.55); opacity: .1; }
+}
+/* a loading line: dough, then the words */
+.dough-loading { display: inline-flex; align-items: center; gap: 8px; }
+.dough-loading.is-block { display: flex; flex-direction: column; justify-content: center; gap: 10px; text-align: center; }
+@media (prefers-reduced-motion: reduce) { .dough-hop svg, .dough-hop i { animation-duration: 2.4s; } }
+/* beside quiet text the dough wears the accent colour; inside a button it keeps the button's text colour */
+p.dough-loading > .dough-hop, .onboard-thinking > .dough-hop, .dream-status-dough { color: var(--app-accent, var(--co-accent, currentColor)); }
+.dough-loading.is-block { align-items: center; }

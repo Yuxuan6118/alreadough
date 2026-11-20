@@ -74,6 +74,7 @@ import { buildExportZip, exportFileName } from "@/lib/export-archive";
 import { getDeviceSessionId } from "@/lib/device-session";
 import { mergeSpaces } from "@/lib/space-merge";
 import DoughLineMark from "../components/DoughLineMark";
+import DoughHop from "../components/DoughHop";
 import DoughPageIcon from "../components/DoughPageIcon";
 import { CompanionIcon, DreamscapeIcon, HistoryIcon, ReviseIcon, StoriesIcon, VisionIcon } from "../components/NavIcons";
 
@@ -1798,7 +1799,7 @@ export default function Home() {
   ][onboardingStep];
 
   if (!hydrated) {
-    return <main className="app-shell onboarding-shell" data-theme={dark ? "dark" : "light"} data-lang={lang}><div className="onboarding-loading" aria-label={lang === "zh" ? "正在打开 AlreaDough" : "Opening AlreaDough"}><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></div></main>;
+    return <main className="app-shell onboarding-shell" data-theme={dark ? "dark" : "light"} data-lang={lang}><div className="onboarding-loading" role="status" aria-label={lang === "zh" ? "正在打开 AlreaDough" : "Opening AlreaDough"}><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" /></span><strong>Alrea<span className="brand-dough">Dough</span></strong></div></main>;
   }
 
   if (!acknowledged) {
@@ -1906,7 +1907,7 @@ export default function Home() {
             <button onClick={() => navigator.clipboard.writeText(message.text)} aria-label={lang === "zh" ? "复制" : "Copy"}><Copy size={15}/><span>{lang === "zh" ? "复制" : "Copy"}</span></button>
             {message.role === "user" ? <><button onClick={() => editUserMessage(index)}><NotePencil size={15}/><span>{lang === "zh" ? "编辑并重发" : "Edit and resend"}</span></button><button onClick={() => { setOldScene(message.text); setNewScene(""); setRewritingBelief(""); setView("revision"); }}><ArrowsClockwise size={15}/><span>{lang === "zh" ? "带去转念" : "Reframe this"}</span></button></> : <><button onClick={() => regenerateReply(index)}><ArrowClockwise size={15}/><span>{lang === "zh" ? "重新回答" : "Regenerate"}</span></button><button onClick={() => saveReplyAsStory(message)}><BookmarkSimple size={15}/><span>{message.saved ? (lang === "zh" ? "已保存" : "Saved") : (lang === "zh" ? "存为剧本" : "Save as story")}</span></button><button onClick={() => { setFocusThought(""); setGoal((current) => ({ ...current, acceptedSceneLedger: { ...current.acceptedSceneLedger, [lang]: [message.text.slice(0, 500), ...current.acceptedSceneLedger[lang]].slice(0, 8) } })); setView("subliminal"); }}><Waveform size={15}/><span>{lang === "zh" ? "带入潜音" : "Take to Dreamscape"}</span></button><button className={message.feedback === "helpful" ? "selected" : ""} onClick={() => feedbackReply(message, "helpful")}><ThumbsUp size={15}/><span>{lang === "zh" ? "懂我" : "Helpful"}</span></button><button className={message.feedback === "missed" ? "selected" : ""} onClick={() => feedbackReply(message, "missed")}><ThumbsDown size={15}/><span>{lang === "zh" ? "不适合" : "Not for me"}</span></button><ReportButton lang={lang} onClick={() => setReportTarget({ excerpt: message.text })}/></>}
           </div></div>)}
-          {isTyping && <div className="message ai typing"><i/><i/><i/></div>}
+          {isTyping && <div className="message ai typing" role="status" aria-label={lang === "zh" ? "正在回复" : "Replying"}><DoughHop size="xs"/></div>}
         </div>
         {aiError && <div className="ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
         <div className={`composer home-composer ${sessionMessages.length ? "is-active" : "is-empty"}`}><UsageBanner lang={lang} member={member} gate={memberGate} onOpen={() => openSpace("membership")} />{showJump && sessionMessages.length > 0 && <button type="button" className="scroll-bottom-button" onClick={() => scrollChatToBottom(true)} aria-label={lang === "zh" ? "回到最新消息" : "Jump to the latest message"}><ArrowDown size={18} weight="bold"/></button>}<details className="coach-model-menu composer-plus" onToggle={(event) => { if (!event.currentTarget.open) setPlusSection(null); }}><summary aria-label={lang === "zh" ? "更多选项" : "More options"}><Plus size={20}/></summary><div className="coach-model-popover plus-sections"><button type="button" className={`plus-section-head${plusSection === "goal" ? " open" : ""}`} aria-expanded={plusSection === "goal"} onClick={() => setPlusSection((current) => current === "goal" ? null : "goal")}><span><small>{lang === "zh" ? "现在聊哪个愿望" : "Which desire now"}</small><strong>{goalTitle(goal, lang)}</strong></span><CaretDown size={16}/></button>{plusSection === "goal" && goalMenuItems}<button type="button" className={`plus-section-head${plusSection === "coach" ? " open" : ""}`} aria-expanded={plusSection === "coach"} onClick={() => setPlusSection((current) => current === "coach" ? null : "coach")}><span><small>{lang === "zh" ? "引导方式" : "Guidance method"}</small><strong>{lang === "zh" ? coachModes.find((coach) => coach.id === goal.coachMode)?.zh : coachModes.find((coach) => coach.id === goal.coachMode)?.en}</strong></span><CaretDown size={16}/></button>{plusSection === "coach" && coachMenuItems}</div></details><div className="composer-main"><textarea ref={chatInputRef} rows={1} value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={onChatKey} placeholder={t.chatPlaceholder} aria-label={t.chatPlaceholder}/></div><UsageMeter lang={lang} member={member} onOpen={() => openSpace("membership")} /><button className="composer-send" onClick={() => isTyping ? requestControllerRef.current?.abort() : sendChat()} aria-label={isTyping ? (lang === "zh" ? "停止生成" : "Stop generating") : t.send}>{isTyping ? <StopCircle size={20}/> : <><span className="send-up">↑</span><ArrowElbowDownLeft className="send-return" size={20}/></>}</button><AiNote lang={lang} /></div>
@@ -2012,7 +2013,7 @@ export default function Home() {
         <div className="view-heading"><p className="eyebrow">{lang === "zh" ? "转念" : "REFRAME"}</p><h1>{t.revisionTitle}</h1><p>{t.revisionCopy}</p></div>
         <label className="field-label">{t.oldLabel}</label>
         <textarea className={retiringOld ? "retiring" : ""} value={oldScene} onChange={(e) => setOldScene(e.target.value)} placeholder={t.oldPlaceholder} readOnly={retiringOld} />
-        <button className="primary" onClick={() => makeRevision()} disabled={isTyping}>{isTyping ? t.turning : t.makeRevision}</button>
+        <button className="primary" onClick={() => makeRevision()} disabled={isTyping}>{isTyping ? <span className="dough-loading"><DoughHop size="xs"/>{t.turning}</span> : t.makeRevision}</button>
         {aiError && <div className="ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
         {newScene && (() => {
           const { thought, reading } = splitThought(newScene);
@@ -2023,7 +2024,7 @@ export default function Home() {
             {reading && thoughtDraft.trim() === thought && <small className="new-thought-reading">{reading}</small>}
             <div className="revised-actions">
               <button type="button" className="accept-thought" onClick={acceptRevision} disabled={!thoughtDraft.trim() || retiringOld || isTyping}>{savedPulse ? t.accepted : t.acceptStory}</button>
-              <button type="button" onClick={() => makeRevision(thoughtDraft || thought)} disabled={isTyping || retiringOld}>{isTyping ? t.turning : t.rephrase}</button>
+              <button type="button" onClick={() => makeRevision(thoughtDraft || thought)} disabled={isTyping || retiringOld}>{isTyping ? <span className="dough-loading"><DoughHop size="xs"/>{t.turning}</span> : t.rephrase}</button>
             </div>
           </div>;
         })()}
@@ -2266,7 +2267,7 @@ function StoryWritingLoader({ lang }: { lang: Lang }) {
   // once, when it appears: she sees the dough whether she pressed at the top or the bottom of a long script
   useEffect(() => { ref.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }, []);
   return <div className="story-writing" role="status" ref={ref}>
-    <span className="story-writing-dough" aria-hidden="true"><DoughLineMark/><i/></span>
+    <DoughHop size="lg"/>
     <p>{lang === "zh" ? "正在把你的关键词写成剧本，大约半分钟……" : "Writing your keywords into a script, about half a minute…"}</p>
   </div>;
 }

@@ -5,6 +5,7 @@ import { ArrowRight, X } from "@phosphor-icons/react";
 import DoughLineMark from "./DoughLineMark";
 import { askConfirm } from "./ConfirmHost";
 import { useCallback, useEffect, useRef, useState } from "react";
+import DoughHop from "./DoughHop";
 import {
   exhaustedWindow, fetchMemberStatus, MEMBER_PLANS, memberErrorText, memberPost, planName, resetLabel,
   submitCheckoutForm, usagePercent, type Membership, type MemberStatus,
@@ -171,7 +172,7 @@ export default function MembershipPanel({ lang, member, onRefresh }: { lang: Lan
     } finally { setBusy(false); }
   }
 
-  if (!member) return <div className="settings-section profile-panel"><div className="profile-cards"><section className="profile-card"><p className="setting-empty">{zh ? "正在读取会员信息…" : "Loading your membership…"}</p></section></div></div>;
+  if (!member) return <div className="settings-section profile-panel"><div className="profile-cards"><section className="profile-card"><p className="setting-empty dough-loading" role="status"><DoughHop size="sm"/>{zh ? "正在读取会员信息…" : "Loading your membership…"}</p></section></div></div>;
 
   if (!member.enabled) return (
     <div className="settings-section profile-panel">

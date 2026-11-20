@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import DoughHop from "./DoughHop";
 import { Capacitor } from "@capacitor/core";
 import SiteFooter from "./SiteFooter";
 import home from "../home.module.css";
@@ -153,7 +154,7 @@ export default function LoginGate({ children }: { children: ReactNode }) {
                   <form onSubmit={submit}>
                     <label><span>{t.email}</span><input type="email" autoComplete="email" value={email} disabled={codeSent || busy} onChange={(event) => { setEmail(event.target.value); setError(null); }} placeholder="you@example.com" /></label>
                     {codeSent && <label><span>{t.code}</span><input type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={code} disabled={busy} autoFocus onChange={(event) => { setCode(event.target.value.replace(/\D/g, "")); setError(null); }} /></label>}
-                    <button type="submit" disabled={busy || !email.trim() || (codeSent && code.length < 6)}>{busy ? t.wait : codeSent ? t.verify : t.send}</button>
+                    <button type="submit" disabled={busy || !email.trim() || (codeSent && code.length < 6)}>{busy ? <span className="dough-loading"><DoughHop size="xs"/>{t.wait}</span> : codeSent ? t.verify : t.send}</button>
                     {codeSent && !error && <p className="login-gate-note">{t.sent}</p>}
                     {codeSent && <button type="button" className="login-gate-link" disabled={busy} onClick={() => { setCodeSent(false); setCode(""); setError(null); }}>{t.change}</button>}
                     {error && <p className="login-gate-error" role="alert">{t.errors[error]}</p>}

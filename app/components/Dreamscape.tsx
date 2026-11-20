@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import DoughHop from "./DoughHop";
 import { ArrowLeft, Microphone, Pause, Play, SkipBack, SkipForward, Stop } from "@phosphor-icons/react";
 import { startAmbience, type AmbienceHandle, type AmbienceKind } from "@/lib/ambience";
 import { recordingToWav, toDataUri } from "@/lib/recording";
@@ -333,7 +334,7 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
             <Image src={DOUGH} alt="" width={1536} height={1024} sizes="160px" priority />
           </div>
           {preparing ? (
-            <p className="dream-status" role="status">{t("正在准备你的声音", "Getting your voice ready")}<small>{preparing.done} / {preparing.total}</small></p>
+            <p className="dream-status" role="status"><DoughHop size="sm" className="dream-status-dough"/>{t("正在准备你的声音", "Getting your voice ready")}<small>{preparing.done} / {preparing.total}</small></p>
           ) : finished ? (
             <div className="dream-lines"><span className="now">{t("今晚就到这里。晚安。", "That's enough for tonight. Good night.")}</span></div>
           ) : (
@@ -476,7 +477,7 @@ function RecordScreen({ lang, headers, onBack, onDone }: RecordProps) {
           {error && <p className="dream-message" role="alert">{error}</p>}
         </div>
         <div className="dream-recorder">
-          <button type="button" className="dream-start" onClick={() => void send()} disabled={phase === "sending"}>{phase === "sending" ? t("正在生成，请稍等", "Creating your voice") : t("同意并生成我的声音", "Agree and create my voice")}</button>
+          <button type="button" className="dream-start" onClick={() => void send()} disabled={phase === "sending"}>{phase === "sending" ? <span className="dough-loading"><DoughHop size="xs"/>{t("正在生成，请稍等", "Creating your voice")}</span> : t("同意并生成我的声音", "Agree and create my voice")}</button>
           <button type="button" className="dream-record-link" onClick={() => { setRecorded(null); setPhase("idle"); setSeconds(0); }} disabled={phase === "sending"}>{t("重新读一遍", "Read it again")}</button>
         </div>
       </section>

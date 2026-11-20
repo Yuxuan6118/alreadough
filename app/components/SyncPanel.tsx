@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import DoughHop from "./DoughHop";
 import { removeStored, writeStored } from "@/lib/safe-storage";
 import { isShareableSyncCode, normalizeSyncCode } from "@/lib/sync-code";
 import { Check, CloudCheck, CloudSlash, Copy, Eye, EyeSlash } from "@phosphor-icons/react";
@@ -123,7 +124,7 @@ export default function SyncPanel({ lang, sessionId, syncStatus, hasLocalData, e
       <span>{t.other}</span>
       <input value={input} onChange={(event) => { setInput(event.target.value); setMessage(""); }} placeholder={t.placeholder} autoCapitalize="none" autoCorrect="off" spellCheck={false} />
     </label>
-    <button type="button" className="outline-button" onClick={adopt} disabled={busy || !input.trim()}>{busy ? t.checking : t.go}</button>
+    <button type="button" className="outline-button" onClick={adopt} disabled={busy || !input.trim()}>{busy ? <span className="dough-loading"><DoughHop size="xs"/>{t.checking}</span> : t.go}</button>
     {message && <small className="sync-message" role="status">{message}</small>}
   </div>;
 
@@ -154,7 +155,7 @@ export default function SyncPanel({ lang, sessionId, syncStatus, hasLocalData, e
       <small>{t.otherCopy}</small>
       <div className="profile-topic-add">
         <input aria-label={t.placeholder} value={input} onChange={(event) => { setInput(event.target.value); setMessage(""); }} onKeyDown={(event) => { if (event.key === "Enter" && input.trim() && !busy) { event.preventDefault(); void adopt(); } }} placeholder={t.placeholder} autoCapitalize="none" autoCorrect="off" spellCheck={false} />
-        <button type="button" className="profile-topic-plus" onClick={adopt} disabled={busy || !input.trim()}>{busy ? t.checking : t.goShort}</button>
+        <button type="button" className="profile-topic-plus" onClick={adopt} disabled={busy || !input.trim()}>{busy ? <span className="dough-loading"><DoughHop size="xs"/>{t.checking}</span> : t.goShort}</button>
       </div>
       {message && <small className="sync-message" role="status">{message}</small>}
     </div>

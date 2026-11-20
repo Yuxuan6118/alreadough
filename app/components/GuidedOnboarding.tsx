@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import DoughHop from "./DoughHop";
 import { ArrowLeft, X } from "@phosphor-icons/react";
 import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
 import {
@@ -298,12 +299,12 @@ export default function GuidedOnboarding({ lang, sessionId, mode, syncSlot, init
         {def.hint && <p className="guided-hint">{def.hint[lang]}</p>}
         {body}
         {slot.id === "name" && syncSlot}
-        {thinking && <p className="onboard-reply onboard-thinking" aria-live="polite"><i /><i /><i /></p>}
+        {thinking && <p className="onboard-reply onboard-thinking" role="status" aria-label={zh ? "正在想" : "Thinking"}><DoughHop size="sm"/></p>}
         {replyHere && <Typed text={replyHere} />}
       </div>
       {def.type !== "more" && (
         <footer className="guided-footer">
-          <button type="button" className="primary" disabled={!canContinue} onClick={() => void onContinue()}>{thinking ? (zh ? "……" : "…") : isLast ? (zh ? "进入 AlreaDough" : "Enter AlreaDough") : slot.id === "welcome" ? (zh ? "开始" : "Start") : def.type === "info" ? (zh ? "我明白了" : "I understand") : (zh ? "继续" : "Continue")}</button>
+          <button type="button" className="primary" disabled={!canContinue} onClick={() => void onContinue()}>{thinking ? <DoughHop size="xs"/> : isLast ? (zh ? "进入 AlreaDough" : "Enter AlreaDough") : slot.id === "welcome" ? (zh ? "开始" : "Start") : def.type === "info" ? (zh ? "我明白了" : "I understand") : (zh ? "继续" : "Continue")}</button>
         </footer>
       )}
     </section>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import DoughHop from "./DoughHop";
 import { Coffee, Flag } from "@phosphor-icons/react";
 import { SITE_RECORD } from "@/lib/site-info";
 import { markActive, newUsageState, tickUsage } from "@/lib/usage-break";
@@ -52,7 +53,7 @@ export function ReportDialog({ lang, sessionId, excerpt, onClose }: { lang: Lang
         </div>
         <label><span>{zh ? "补充说明（选填）" : "Details (optional)"}</span><textarea value={detail} maxLength={1000} onChange={(event) => setDetail(event.target.value)} /></label>
         {state === "error" && <p className="field-error" role="alert">{zh ? "没有发送成功，请稍后再试。" : "It did not send. Please try again shortly."}</p>}
-        <footer><button className="outline-button" onClick={onClose}>{zh ? "取消" : "Cancel"}</button><button className="primary" disabled={!reason || state === "sending"} onClick={submit}>{state === "sending" ? (zh ? "发送中…" : "Sending…") : (zh ? "提交举报" : "Submit report")}</button></footer>
+        <footer><button className="outline-button" onClick={onClose}>{zh ? "取消" : "Cancel"}</button><button className="primary" disabled={!reason || state === "sending"} onClick={submit}>{state === "sending" ? <span className="dough-loading"><DoughHop size="xs"/>{zh ? "发送中…" : "Sending…"}</span> : (zh ? "提交举报" : "Submit report")}</button></footer>
       </>}
     </section>
   </div>;

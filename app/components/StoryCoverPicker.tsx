@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import DoughHop from "./DoughHop";
 import { ImageSquare, MagnifyingGlass, Trash, UploadSimple, X } from "@phosphor-icons/react";
 import { saveLocalCover } from "@/lib/cover-store";
 
@@ -72,7 +73,7 @@ export default function StoryCoverPicker({ lang, title, initialQuery, board, has
 
   const uploadTile = <button type="button" className="cover-upload-tile" onClick={() => fileInput.current?.click()} disabled={uploading}>
     <span><UploadSimple size={22}/></span>
-    <strong>{uploading ? (zh ? "正在放进来……" : "Adding…") : uploadLabel}</strong>
+    <strong>{uploading ? <span className="dough-loading"><DoughHop size="xs"/>{zh ? "正在放进来……" : "Adding…"}</span> : uploadLabel}</strong>
     <small>{zh ? "只存在这台设备上" : "Stays on this device"}</small>
   </button>;
   const grid = (items: Array<{ key: string; image: string; label: string; pick: () => void }>) => <div className="cover-picker-scroll"><div className="cover-picker-grid">
@@ -96,10 +97,10 @@ export default function StoryCoverPicker({ lang, title, initialQuery, board, has
         <form className="cover-picker-search" onSubmit={(event) => { event.preventDefault(); search(); }}>
           <MagnifyingGlass size={18} aria-hidden="true"/>
           <input value={query} onChange={(event) => setQuery(event.target.value)} maxLength={120} placeholder={zh ? "描述你想要的画面" : "Describe the picture you want"} aria-label={zh ? "搜索照片" : "Search photos"}/>
-          <button type="submit" disabled={searching || !query.trim()}>{searching ? (zh ? "搜索中" : "Searching") : (zh ? "搜索" : "Search")}</button>
+          <button type="submit" disabled={searching || !query.trim()}>{searching ? <span className="dough-loading"><DoughHop size="xs"/>{zh ? "搜索中" : "Searching"}</span> : (zh ? "搜索" : "Search")}</button>
         </form>
         {error && <p className="cover-picker-note">{error}</p>}
-        {searching && !results.length && <p className="cover-picker-note">{zh ? "正在找照片……" : "Finding photos…"}</p>}
+        {searching && !results.length && <p className="cover-picker-note dough-loading is-block" role="status"><DoughHop size="md"/>{zh ? "正在找照片……" : "Finding photos…"}</p>}
         {grid(results.map((item) => ({ key: item.source, image: item.image, label: "", pick: () => onPick({ image: item.image, credit: item.credit, source: item.source }, item.downloadLocation) })))}
       </> : <>
         {!board.length && <p className="cover-picker-note">{zh ? "愿景里还没有收藏的图片。在「愿景」里收藏的照片会出现在这里。" : "Nothing on your vision board yet. Photos you keep in Vision show up here."}</p>}

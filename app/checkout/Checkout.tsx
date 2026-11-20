@@ -2,6 +2,7 @@
 
 import { ArrowLeft, CreditCard, Wallet } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
+import DoughHop from "../components/DoughHop";
 import { MEMBER_PLANS, memberErrorText, memberPost, submitCheckoutForm, type MemberStatus } from "@/lib/member-client";
 import SiteFooter from "../components/SiteFooter";
 import "./checkout.css";
@@ -107,7 +108,7 @@ export default function Checkout({ initialLang }: { initialLang: Lang }) {
             <p className="checkout-lead">{zh ? `每 5 小时约 ${selected.session} 次，每周约 ${selected.week} 次；${selected.id === "atelier" ? "剧本几乎不限（每周 70 篇）" : `每周 ${selected.stories} 篇 AI 剧本`}。` : `About ${selected.session} replies per 5 hours and ${selected.week} per week; ${selected.id === "atelier" ? "scripts almost unlimited (70 a week)" : `${selected.stories} AI scripts a week`}.`}<br />{zh ? "一次购买 30 天，到期不会自动扣款。" : "One payment for 30 days. It never renews on its own."}</p>
 
 
-            {!member ? <p className="checkout-quiet">{zh ? "正在读取账户…" : "Loading your account…"}</p>
+            {!member ? <p className="checkout-quiet dough-loading" role="status"><DoughHop size="sm"/>{zh ? "正在读取账户…" : "Loading your account…"}</p>
             : !open ? <p className="checkout-quiet">{zh ? "购买入口暂未开放。" : "Purchases are not open yet."}</p>
             : !member.authenticated ? (
               <div className="checkout-signin">
@@ -121,7 +122,7 @@ export default function Checkout({ initialLang }: { initialLang: Lang }) {
                 </>}
                 <button type="button" className="checkout-primary" disabled={busy || !email.trim() || (codeSent && code.length < 6)}
                   onClick={() => void act(codeSent ? "/api/member/auth/verify" : "/api/member/auth/otp", codeSent ? { email, code } : { email })}>
-                  {busy ? (zh ? "请稍候…" : "Please wait…") : codeSent ? (zh ? "登录" : "Sign in") : (zh ? "发送验证码" : "Send code")}
+                  {busy ? <span className="dough-loading"><DoughHop size="xs"/>{zh ? "请稍候…" : "Please wait…"}</span> : codeSent ? (zh ? "登录" : "Sign in") : (zh ? "发送验证码" : "Send code")}
                 </button>
                 {codeSent && <button type="button" className="checkout-link" disabled={busy} onClick={() => { setCodeSent(false); setCode(""); }}>{zh ? "换个邮箱" : "Use another email"}</button>}
               </div>
@@ -148,7 +149,7 @@ export default function Checkout({ initialLang }: { initialLang: Lang }) {
 
               <button type="button" className="checkout-primary" disabled={busy}
                 onClick={() => void act(method === "card" ? "/api/pay/waffo/checkout" : "/api/pay/zpay/checkout", method === "card" ? { plan, lang } : { plan })}>
-                {busy ? (zh ? "正在跳转…" : "Opening…") : method === "card" ? (zh ? "使用银行卡付款" : "Pay by card") : (zh ? "使用支付宝付款" : "Pay with Alipay")}
+                {busy ? <span className="dough-loading"><DoughHop size="xs"/>{zh ? "正在跳转…" : "Opening…"}</span> : method === "card" ? (zh ? "使用银行卡付款" : "Pay by card") : (zh ? "使用支付宝付款" : "Pay with Alipay")}
               </button>
               <p className="checkout-note">
                 {renewing && membership?.periodEndMs ? (zh ? `会在现有有效期（到 ${date(membership.periodEndMs)}）之后再加 30 天。` : `Adds 30 days after your current period, which ends ${date(membership.periodEndMs)}. `) : null}

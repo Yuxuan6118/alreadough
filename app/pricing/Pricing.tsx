@@ -2,6 +2,7 @@
 
 import { ArrowRight, Check, LockKey } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
+import DoughHop from "../components/DoughHop";
 import { getDeviceSessionId } from "@/lib/device-session";
 import { MEMBER_PLANS, type MemberStatus } from "@/lib/member-client";
 import SiteFooter from "../components/SiteFooter";
@@ -104,7 +105,7 @@ export default function Pricing({ initialLang }: { initialLang: "zh" | "en" }) {
               <input type="text" maxLength={120} value={contact} disabled={status === "busy"} onChange={(event) => { setContact(event.target.value); setStatus("idle"); }} />
             </label>
             <button type="button" onClick={reserve} disabled={!contact.trim() || status === "busy" || status === "saved"}>
-              {status === "busy" ? (zh ? "正在保存…" : "Saving…") : status === "saved" ? (zh ? "已登记" : "Saved") : (zh ? "通知我" : "Notify me")}
+              {status === "busy" ? <span className="dough-loading"><DoughHop size="xs"/>{zh ? "正在保存…" : "Saving…"}</span> : status === "saved" ? (zh ? "已登记" : "Saved") : (zh ? "通知我" : "Notify me")}
             </button>
             {status === "error" && <p role="alert">{zh ? "没有保存成功，请稍后重试。" : "Could not save. Please try again."}</p>}
             <small><LockKey />{zh ? "登记不扣款。" : "No payment is required."} <a href={zh ? "/privacy" : "/privacy#english"}>{zh ? "隐私说明" : "Privacy Notice"}</a></small>
