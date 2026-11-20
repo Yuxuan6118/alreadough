@@ -203,6 +203,21 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .revised-card p { font-family: var(--font-display); font-size: calc(19px * var(--fs, 1)); line-height: 1.8; }
 .revised-card button, .outline-button, .trust-link { border: 1px solid var(--app-line); border-radius: var(--app-radius-control); padding: 13px 16px; color: var(--app-ink); background: var(--app-panel); text-decoration: none; }
 .revised-card .new-thought-reading { display: block; margin: -4px 0 18px; color: var(--app-muted); font-size: calc(14px * var(--fs, 1)); line-height: 1.7; }
+.revision-view > textarea { transition: color .8s ease, opacity .8s ease, text-decoration-color .4s ease; text-decoration: line-through transparent; }
+.revision-view > textarea.retiring { color: var(--app-muted); opacity: .35; text-decoration-color: var(--app-muted); }
+.thought-options { display: grid; gap: 10px; margin: 14px 0 22px; }
+.revised-card .thought-options button { width: 100%; padding: 16px 18px; text-align: left; font-family: var(--font-display); font-size: calc(17px * var(--fs, 1)); line-height: 1.7; transition: border-color .2s ease, box-shadow .2s ease; }
+.revised-card .thought-options button.selected { border-color: var(--app-accent); box-shadow: inset 0 0 0 1px var(--app-accent); }
+.revised-card .thought-edit-label { display: block; margin: 14px 0 8px; color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); }
+.revised-card .thought-draft { width: 100%; min-height: 0; margin-bottom: 14px; resize: vertical; border: 1px solid var(--app-line); border-radius: var(--app-radius-control); padding: 14px 16px; color: var(--app-ink); background: var(--app-panel); outline: 0; font-family: var(--font-display); font-size: calc(19px * var(--fs, 1)); line-height: 1.7; }
+.revised-card .thought-draft:focus { border-color: var(--app-accent); }
+.revised-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.revised-card .revised-actions .accept-thought { border-color: var(--app-accent); color: var(--app-accent-ink); background: var(--app-accent); font-weight: 720; }
+.revised-card .revised-actions button:disabled { opacity: .55; }
+.revised-card { transition: opacity .8s ease; }
+.revised-card.accepting { opacity: .6; }
+.revision-history > div { transition: box-shadow .6s ease; }
+.revision-history > div.just-accepted { box-shadow: inset 0 0 0 1px var(--app-accent); }
 .revision-history { margin-top: 46px; }
 .revision-history > div { margin-top: 12px; padding: 18px; border-radius: var(--app-radius-control); background: var(--app-panel); }
 .revision-history span { color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); }
