@@ -63,10 +63,21 @@ export function contrastRetryNote(lang: "zh" | "en") {
 }
 
 /** For relationship goals: steer imagery toward closeness instead of household props. */
-export function relationshipImagery(lang: "zh" | "en") {
+/** Imagery for a desire about a family member or a friend: warmth without romance. */
+function closeRelationImagery(lang: "zh" | "en", kind: "family" | "friend") {
+  if (kind === "family") return lang === "zh"
+    ? "她的愿望是和一位家人的关系。需要画面或想象时，用家里的温暖：一起吃饭、熟悉的声音叫她的名字、一个拥抱、挽着胳膊走路、家里的味道。可以从这些里选一个贴合她这句话的，别每次都用同一个。不写恋人之间的亲密。她没要画面时就不写，先回应她这句话本身。"
+    : "Her desire is about a family member. When an image helps, use the warmth of home: a meal together, a familiar voice saying her name, a hug, walking arm in arm, the smell of home. Pick one that fits what she just said and vary it. Nothing romantic. If she did not ask for an image, skip it and answer the thing she said.";
   return lang === "zh"
-    ? "她的愿望是和某个人的关系。需要画面或想象时，用亲密、温暖的东西：被他抱着、牵着手、额头靠着额头、靠在他肩上、他的体温和心跳、他叫她名字的声音、他亲她的额头或脸。可以从这些里选一个贴合她这句话的，别每次都用同一个，也别每次都写拥抱。不要用杯子、水、饭菜、窗光这类道具当画面的主角，除非她自己提过。她没要画面时就不写，先回应她这句话本身。"
-    : "Her desire is about a relationship with a particular person. When an image or imagined moment helps, use closeness and warmth: being held by him, holding hands, foreheads together, leaning on his shoulder, his body heat and heartbeat, his voice saying her name, a kiss on the forehead or cheek. Pick one that fits what she just said; vary it, and do not default to a hug every time. Do not make props such as cups, water, food, or window light the center of the image unless she mentioned them. If she did not ask for an image, skip it and answer the thing she said.";
+    ? "她的愿望是和一位朋友的关系。需要画面或想象时，用朋友之间的温暖：并肩走、笑到停不下来、一起做一件小事、只有她们懂的玩笑、不用解释的默契。可以从这些里选一个贴合她这句话的，别每次都用同一个。不写暧昧和恋爱暗示。她没要画面时就不写，先回应她这句话本身。"
+    : "Her desire is about a friend. When an image helps, use the warmth between friends: walking side by side, laughing until they cannot stop, doing a small thing together, a joke only they share, understanding without explaining. Pick one that fits what she just said and vary it. Nothing flirtatious or romantic. If she did not ask for an image, skip it and answer the thing she said.";
+}
+
+export function relationshipImagery(lang: "zh" | "en", kind?: string) {
+  if (kind === "family" || kind === "friend") return closeRelationImagery(lang, kind);
+  return lang === "zh"
+    ? "她的愿望是和某个人的关系。需要画面或想象时，用亲密、温暖的东西：被 TA 抱着、牵着手、额头靠着额头、靠在 TA 肩上、TA 的体温和心跳、TA 叫她名字的声音、TA 亲她的额头或脸。可以从这些里选一个贴合她这句话的，别每次都用同一个，也别每次都写拥抱。不要用杯子、水、饭菜、窗光这类道具当画面的主角，除非她自己提过。她没要画面时就不写，先回应她这句话本身。"
+    : "Her desire is about a relationship with a particular person. When an image or imagined moment helps, use closeness and warmth: being held by them, holding hands, foreheads together, leaning on their shoulder, their body heat and heartbeat, their voice saying her name, a kiss on the forehead or cheek. Pick one that fits what she just said; vary it, and do not default to a hug every time. Do not make props such as cups, water, food, or window light the center of the image unless she mentioned them. If she did not ask for an image, skip it and answer the thing she said.";
 }
 
 /**

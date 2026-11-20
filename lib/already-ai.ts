@@ -45,6 +45,8 @@ export type GoalContext = {
   background?: string;
   /** What she wants every script for this desire to keep to (who the person is, their life, what to leave out). */
   storySetting?: string;
+  /** For a relationship desire: a partner ("love"), a family member or a friend. */
+  relationKind?: string;
   profile?: {
     /** The country and city she lives in, as she wrote it. */
     home?: string;
@@ -294,7 +296,8 @@ export function buildInput(payload: CompanionRequest) {
       desire: clip(payload.goal.desire, 1400),
       companion_name: clip(payload.goal.companionName, 80),
       desire_focus: clip(payload.goal.spName || "", 80),
-      sp_reference: payload.goal.wishCategory === "relationship" ? clip(payload.goal.spName || (payload.lang === "zh" ? "对方" : "my person"), 80) : "",
+      // the person she loves; a family member or a friend is not her SP
+      sp_reference: payload.goal.wishCategory === "relationship" && payload.goal.relationKind !== "family" && payload.goal.relationKind !== "friend" ? clip(payload.goal.spName || "TA", 80) : "",
       sp_pronunciation: clip(payload.goal.spPronunciation || "", 120),
       preferred_tone: DEFAULT_TONE[payload.lang],
       canon: (payload.goal.canon || []).slice(0, 6).map((item) => clip(item, 600)),
@@ -310,7 +313,7 @@ export function buildInput(payload: CompanionRequest) {
     accepted_scene_ledger: (payload.goal.acceptedSceneLedger || []).slice(0, 8).map((item) => clip(item, 500)),
     recent_conversation: recent,
     recent_ai_openings: recentAiOpenings,
-    ...(payload.goal.wishCategory === "relationship" ? { imagery_guidance: relationshipImagery(payload.lang) } : {}),
+    ...(payload.goal.wishCategory === "relationship" ? { imagery_guidance: relationshipImagery(payload.lang, payload.goal.relationKind) } : {}),
     recent_accepted_revisions: payload.recentRevisions.slice(0, 4).map((item) => clip(item, 900)),
     current_request: clip(payload.userInput, 4000),
     ...(payload.mode === "revision" && payload.rephrase?.trim() ? { say_it_another_way: clip(payload.rephrase, 600) } : {}),

@@ -45,7 +45,7 @@ import SpacePage from "../components/SpacePage";
 import { AboutIcon, DoughIcon, HelpIcon, LibraryIcon, LookIcon, MembershipIcon, PetIcon, SyncIcon, ThoughtsIcon, WishesIcon, WriteLineIcon } from "../components/SpaceIcons";
 import LettersPanel, { type AppLetter } from "../components/LettersPanel";
 import StoryCoverPicker from "../components/StoryCoverPicker";
-import { STORY_CATEGORIES, STORY_CATEGORY_LABELS, storyCategoryFor, type StoryCategory } from "@/lib/story-prompt";
+import { STORY_CATEGORIES, STORY_CATEGORY_LABELS, type StoryCategory } from "@/lib/story-prompt";
 import { validateSpName } from "@/lib/name-policy";
 import { answersToSeeds, MAX_STORY_SETTING, sharedMemories, splitLines, type GoalSeed, type MemorySeed, type OnboardingAnswers } from "@/lib/onboarding-flow";
 import { readStored, writeStored, removeStored } from "@/lib/safe-storage";
@@ -65,7 +65,7 @@ import { AppRail, SwipeSidebar } from "./AppNav";
 import { useBetaSurveyTimer } from "./useBetaSurveyTimer";
 import { useChatScroll } from "./useChatScroll";
 import { useSwipeDrawer } from "./useSwipeDrawer";
-import { type SpaceSection, type View, type Lang, type Message, type Conversation, type BoardItem, type Revision, type MemoryKind, type MemoryItem, type MemoryDraft, type GoalProfile, type Profile, emptyProfile, normalizeProfile, type Story, type StoryCover, type StoryDraft, NO_STORY_GOAL, type AIResponse, type SearchImage, type BetaStatus, splitThought, emptyStoryDraft, emptyMemoryDraft, emptyStory, defaultGoal, MAX_BELIEFS, MAX_GOALS, SYNC_BASE_KEY, SPACE_OWNER_KEY, discardDeviceSpace, isDiscardingSpace, clearDeviceSpace, MAX_STORIES, MAX_STORY_PARAGRAPHS, storyTitleFrom, normalizeStory, intensityLabels, normalizeGoal, MAX_MEMORIES, nextLocalId, memoryKinds, sameBelief, parseBeliefs, seedJourneySummary, normalizeMessages, conversationTitle, SurveyScale, wishCategories, goalTitle, coachModes, ui, withHerName } from "./model";
+import { type SpaceSection, type View, type Lang, type Message, type Conversation, type BoardItem, type Revision, type MemoryKind, type MemoryItem, type MemoryDraft, type GoalProfile, type Profile, emptyProfile, normalizeProfile, type Story, type StoryCover, type StoryDraft, NO_STORY_GOAL, relationKindOf, storyKindOfGoal, type AIResponse, type SearchImage, type BetaStatus, splitThought, emptyStoryDraft, emptyMemoryDraft, emptyStory, defaultGoal, MAX_BELIEFS, MAX_GOALS, SYNC_BASE_KEY, SPACE_OWNER_KEY, discardDeviceSpace, isDiscardingSpace, clearDeviceSpace, MAX_STORIES, MAX_STORY_PARAGRAPHS, storyTitleFrom, normalizeStory, intensityLabels, normalizeGoal, MAX_MEMORIES, nextLocalId, memoryKinds, sameBelief, parseBeliefs, seedJourneySummary, normalizeMessages, conversationTitle, SurveyScale, wishCategories, goalTitle, coachModes, ui, withHerName } from "./model";
 
 export default function Home() {
   const [lang, setLang] = useState<Lang>("zh");
@@ -494,6 +494,7 @@ export default function Home() {
     desire: { ...base.desire, [lang]: seed.desire },
     background: { ...base.background, [lang]: seed.background },
     storySetting: { ...base.storySetting, [lang]: seed.storySetting || "" },
+    ...(seed.relationKind ? { relationKind: seed.relationKind } : {}),
     beliefs: { ...base.beliefs, [lang]: seed.beliefs.slice(0, MAX_BELIEFS) },
     journeySummary: { ...base.journeySummary, [lang]: seedJourneySummary(seed.background) },
     canon: { ...base.canon, [lang]: [seed.desire] },
@@ -550,6 +551,7 @@ export default function Home() {
       updated[index] = {
         ...current,
         spName: current.spName || seed.spName,
+        relationKind: current.relationKind || seed.relationKind || undefined,
         storySetting: current.storySetting[lang] || !seed.storySetting ? current.storySetting : { ...current.storySetting, [lang]: seed.storySetting },
         background: seed.background && !(current.background[lang] || "").includes(seed.background) ? { ...current.background, [lang]: [current.background[lang], seed.background].filter(Boolean).join("\n\n") } : current.background,
         beliefs: { ...current.beliefs, [lang]: [...beliefs, ...seed.beliefs.filter((belief) => !beliefs.some((item) => sameBelief(item, belief)))].slice(0, MAX_BELIEFS) },
@@ -689,6 +691,7 @@ export default function Home() {
           memoryItems: g.memoryItems[lang],
           background: g.background[lang],
           storySetting: g.storySetting[lang],
+          relationKind: relationKindOf(g),
           profile: { home: profile.country, about: profile.about, situation: profile.situation, people: profile.people.map((person) => ({ name: person.name, relation: person.relation })), neverInclude: profile.neverInclude },
         },
         recentMessages: (recentOverride || (mode === "chat" ? sessionMessages : messages)).filter((item) => !item.error).slice(-10),
@@ -818,7 +821,7 @@ export default function Home() {
     if (story.goalId === NO_STORY_GOAL) return null;
     const all = [goal, ...otherGoals];
     return all.find((item) => item.id === story.goalId)
-      || (story.category ? all.find((item) => item.setupComplete && storyCategoryFor(item.wishCategory) === story.category) : undefined)
+      || (story.category ? all.find((item) => item.setupComplete && storyKindOfGoal(item) === story.category) : undefined)
       || goal;
   };
   /** A desire with only her own background left: used for a script that belongs to no desire. */
@@ -855,7 +858,7 @@ export default function Home() {
     const prompt = `${zh ? "把下面这些关键词扩写成我的完成态剧本。" : "Expand these keywords into my fulfilled-state script."}\n${fields.filter(([, value]) => value.trim()).map(([label, value]) => `${label}${zh ? "：" : ": "}${value.trim()}`).join("\n")}`;
     try {
       const desire = storyGoalFor(story);
-      const script = await callCompanion("story", prompt, undefined, undefined, story.category || storyCategoryFor(desire?.wishCategory), desire || neutralGoal());
+      const script = await callCompanion("story", prompt, undefined, undefined, story.category || (desire ? storyKindOfGoal(desire) : "other"), desire || neutralGoal());
       let paragraphs = script.split(/\n+/).map((item) => item.trim()).filter(Boolean);
       // the model sometimes returns one long block: break it into paragraphs of about three sentences
       if (paragraphs.length === 1 && paragraphs[0].length > 300) {
@@ -1002,10 +1005,10 @@ export default function Home() {
     if (story) {
       setStoryEditingId(story.id);
       const desire = storyGoalFor(story);
-      setStoryDraft({ title: story.title[lang], city: story.city[lang], subtitle: story.subtitle[lang], scene: storyNotes(story), anchor: story.anchor[lang], category: story.category || storyCategoryFor(desire?.wishCategory), goalId: desire?.id || NO_STORY_GOAL });
+      setStoryDraft({ title: story.title[lang], city: story.city[lang], subtitle: story.subtitle[lang], scene: storyNotes(story), anchor: story.anchor[lang], category: story.category || (desire ? storyKindOfGoal(desire) : "other"), goalId: desire?.id || NO_STORY_GOAL });
     } else {
       setStoryEditingId(null);
-      setStoryDraft({ ...emptyStoryDraft, goalId: goal.id, category: storyCategoryFor(goal.wishCategory) });
+      setStoryDraft({ ...emptyStoryDraft, goalId: goal.id, category: storyKindOfGoal(goal) });
     }
     setStoryKindOpen(false);
     setStoryEditorOpen(true);
@@ -1569,7 +1572,7 @@ export default function Home() {
         <form className="story-editor-modal" onSubmit={(event) => { event.preventDefault(); saveStory(true); }}>
           <header><div><p className="eyebrow">{storyEditingId ? (lang === "zh" ? "编辑剧本" : "EDIT SCRIPT") : (lang === "zh" ? "新的已实现时刻" : "A NEW FULFILLED MOMENT")}</p><h2>{storyEditingId ? (lang === "zh" ? "把这个剧本写成你的版本" : "Make this story yours") : (lang === "zh" ? "它已经发生在哪里？" : "Where has it already happened?")}</h2></div><button type="button" onClick={() => setStoryEditorOpen(false)} aria-label={lang === "zh" ? "关闭" : "Close"}>×</button></header>
           {(() => {
-            const kindOf = (id: string) => { const item = [goal, ...otherGoals].find((entry) => entry.id === id); return item ? storyCategoryFor(item.wishCategory) : "other"; };
+            const kindOf = (id: string) => { const item = [goal, ...otherGoals].find((entry) => entry.id === id); return item ? storyKindOfGoal(item) : "other"; };
             const pick = (id: string) => setStoryDraft((draft) => ({ ...draft, goalId: id, category: draft.categoryTouched ? draft.category : kindOf(id) }));
             return <fieldset className="story-category-picker">
               <legend><span>{lang === "zh" ? "这个剧本属于哪个愿望" : "Which desire is this script for"}</span></legend>

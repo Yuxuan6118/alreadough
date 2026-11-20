@@ -2,7 +2,7 @@
 // Kept apart from page.tsx so the page component holds only the screen and its state.
 
 import { COVER_DB } from "@/lib/cover-store";
-import { type StoryCategory } from "@/lib/story-prompt";
+import { storyCategoryFor, type StoryCategory } from "@/lib/story-prompt";
 import type { ReflectionAnswers } from "@/lib/reflection";
 import { type ProfileSeed } from "@/lib/onboarding-flow";
 import { removeStored } from "@/lib/safe-storage";
@@ -46,6 +46,8 @@ export type GoalProfile = {
   background: Record<Lang, string>;
   /** What every story script for this desire keeps to: who the person is, their life, what to leave out. */
   storySetting: Record<Lang, string>;
+  /** For a relationship desire: a partner, a family member or a friend (from the opening questions). */
+  relationKind?: "love" | "family" | "friend";
   beliefs: Record<Lang, string[]>;
   tone: Record<Lang, string>;
   journeySummary: Record<Lang, string>;
@@ -292,6 +294,18 @@ export const wishCategories: Array<{ id: WishCategory; zh: string; en: string; z
 ];
 
 export { withHerName } from "@/lib/her-name";
+
+/** Partner, family or friend for a relationship desire; older desires are read from their background line. */
+export const relationKindOf = (item: GoalProfile): "love" | "family" | "friend" | undefined => {
+  if (item.wishCategory !== "relationship") return undefined;
+  if (item.relationKind) return item.relationKind;
+  const text = `${item.background.zh}\n${item.background.en}`;
+  if (/这段关系是：家人|This relationship is with: family/i.test(text)) return "family";
+  if (/这段关系是：朋友|This relationship is with: a friend/i.test(text)) return "friend";
+  return "love";
+};
+/** The script kind a desire leads to: a family member or a friend is not a love story. */
+export const storyKindOfGoal = (item: GoalProfile) => storyCategoryFor(item.wishCategory, relationKindOf(item));
 
 export const goalTitle = (item: GoalProfile, lang: Lang) => {
   const text = (item.desire[lang] || item.desire.zh || item.desire.en || "").trim();

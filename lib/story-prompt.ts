@@ -6,7 +6,7 @@ import type { CompanionRequest } from "./already-ai";
  * the chat prompt's size (input tokens are most of a story's cost) and removes chat rules that contradict it.
  */
 
-export const STORY_CATEGORIES = ["love", "wealth", "career", "study", "body", "life", "family", "other"] as const;
+export const STORY_CATEGORIES = ["love", "wealth", "career", "study", "body", "life", "family", "friend", "other"] as const;
 export type StoryCategory = (typeof STORY_CATEGORIES)[number];
 
 export const STORY_CATEGORY_LABELS: Record<StoryCategory, { zh: string; en: string }> = {
@@ -17,12 +17,14 @@ export const STORY_CATEGORY_LABELS: Record<StoryCategory, { zh: string; en: stri
   body: { zh: "健康与身体", en: "Health and body" },
   life: { zh: "生活与旅行", en: "Life and travel" },
   family: { zh: "家人", en: "Family" },
+  friend: { zh: "朋友", en: "Friends" },
   other: { zh: "其他", en: "Other" },
 };
 
-/** The story category that matches a desire card's category, used as the editor's default. */
-export function storyCategoryFor(wishCategory?: string): StoryCategory {
-  return ({ relationship: "love", wealth: "wealth", self: "body", lifestyle: "life" } as Record<string, StoryCategory>)[wishCategory || ""] || "other";
+/** The story category that matches a desire, used as the editor's default. A relationship desire about family or a friend is not a love story. */
+export function storyCategoryFor(wishCategory?: string, relationKind?: string): StoryCategory {
+  if (wishCategory === "relationship") return relationKind === "family" ? "family" : relationKind === "friend" ? "friend" : "love";
+  return ({ wealth: "wealth", self: "body", lifestyle: "life" } as Record<string, StoryCategory>)[wishCategory || ""] || "other";
 }
 
 const core = {
@@ -32,6 +34,7 @@ const core = {
 - 第一人称“我”，现在时，写愿望已经实现之后的某一天或某一刻。不写过程、等待和匮乏，不写“终于”“曾经”。
 - 地点：关键词里写了地点，剧本就发生在那里，并把它写到具体的街区、楼、店、酒店或学校。关键词没写地点时，用 desire_details 里她写过的地方，再没有就用 her_home（她住的城市）。愿望涉及物质环境时（住处、店、学校、公司、物品），用现实中存在、叫得出名字的地方和品牌；拿不准名字的，只写它是什么样的地方，不编造名字。不写真实名人。
 - desire_details 和 about_her 是她自己写的愿望细节和生活状况，里面能用进这个场景的人、地方、习惯和细节都用上。
+- 称呼对方：正文里主要用对方的名字或她对 TA 的称呼（比如“妈妈”）。只有她的资料里写明了对方的性别，才用“他”或“她”；没有写明就用名字或“TA”，不猜性别。
 - story_setting 是她为这个愿望交代的剧本设定（人物是什么样、他们的生活、不想出现的东西），每一条都照做；和其他资料冲突时以它为准，里面说不要的一律不写。
 - 感知要全：看见的颜色、光线和天气，听见的人声和背景里的环境音，闻到的气味，尝到的味道，皮肤上的温度、质地和重量，身体里面的感觉（心跳、呼吸、肩膀松下来、胃里暖起来）。
 - 让场景是活的：写清时间（几点、季节），写周围的人和万物在做什么，写具体的数字和小物件（金额、分数、门牌、时间、手里拿着的东西），可以有一点不完美的小插曲（打翻、迟到、笑场），真实生活就是这样。
@@ -51,6 +54,7 @@ How to write:
 - First person, present tense, a day or moment after the desire is already real. No process, waiting, or lack; no "finally" or "used to".
 - Place: if the keywords name a place, the script happens there, written down to the street, building, shop, hotel or school. If they do not, use a place she wrote in desire_details, and failing that her_home (the city she lives in). When the desire involves a physical world (a home, a shop, a school, a company, things), use places and brands that exist and can be named; if you are unsure of a name, describe what kind of place it is and invent no name. No real celebrities.
 - desire_details and about_her are her own words about this desire and her life; use every person, place, habit and detail from them that fits this scene.
+- Naming the other person: in the prose, mostly use their name or what she calls them (for example "Mom"). Use "he" or "she" only if her own details say which; otherwise keep to the name or "they", and never guess.
 - story_setting is what she has asked every script for this desire to keep to (who the people are, their life, what to leave out). Follow every point; it wins over anything else, and anything it says to leave out never appears.
 - All the senses: colours, light and weather; voices and the ambient sound behind them; smells; tastes; temperature, texture and weight on the skin; what happens inside the body (heartbeat, breath, shoulders dropping, warmth in the stomach).
 - Make the scene alive: give the time (hour, season), what the people and things around her are doing, specific numbers and small objects (amounts, scores, door numbers, times, what is in her hand), and a small imperfection if it fits (a spill, running late, a laugh at the wrong moment).
@@ -68,8 +72,8 @@ Output only the script: no title, preface, or notes.`,
 
 const modules: Record<StoryCategory, { zh: string; en: string }> = {
   love: {
-    zh: "类目：爱情。对方（用 her_person 里的名字，至少出现两次）全程在场。写两个人之间的动作、对白、眼神、身体的靠近：牵手、靠着、他的体温和声音、他叫她的名字。写日常里的亲密，比如一起做一件普通的小事，他自然地记得她的习惯。他的话只写这个场景里说的，不替他发誓或解释心意。",
-    en: "Category: love. The other person (the name in her_person, at least twice) is there throughout. Write what passes between them: gestures, dialogue, eye contact, closeness, his warmth and voice, him saying her name. Show everyday intimacy, like doing a small ordinary thing together while he remembers her habits without being asked. He only says what fits this scene; no vows or speeches about his feelings.",
+    zh: "类目：爱情。对方（用 her_person 里的名字，至少出现两次）全程在场。写两个人之间的动作、对白、眼神、身体的靠近：牵手、靠着、TA 的体温和声音、TA 叫她的名字。写日常里的亲密，比如一起做一件普通的小事，TA 自然地记得她的习惯。TA 的话只写这个场景里说的，不替 TA 发誓或解释心意。",
+    en: "Category: love. The other person (the name in her_person, at least twice) is there throughout. Write what passes between them: gestures, dialogue, eye contact, closeness, their warmth and voice, them saying her name. Show everyday intimacy, like doing a small ordinary thing together while they remember her habits without being asked. They only say what fits this scene; no vows or speeches about their feelings.",
   },
   wealth: {
     zh: "类目：财富。钱要落到具体的数字和币种（按她生活的地方），比如银行 App 里的余额、到账通知、一张账单的金额。写她用的、穿的、住的、开的东西的真实品牌和型号，档次贴合她的愿望，不堆砌奢侈品牌。重点写有钱以后的从容：付款时不看价格，顺手帮别人买单，时间被自己安排。",
@@ -92,8 +96,12 @@ const modules: Record<StoryCategory, { zh: string; en: string }> = {
     en: "Category: life and travel. Set it in a real city, neighbourhood, hotel, shop or sight, with what is really there: the local language and sounds, the season's weather and food. For a home, describe the layout, the view from the window, and the things she uses. Show her at ease there.",
   },
   family: {
-    zh: "类目：家人。用 people_in_her_life 里家人的称呼和名字，写一家人在一起时真实的样子：饭桌、口头禅、家里的气味、一起做的小事。每个人只写这个场景里的言行。",
-    en: "Category: family. Use the family members' names from people_in_her_life and show the family as it really is together: the dinner table, sayings they repeat, the smell of home, small things done together. Each person only acts and speaks in this scene.",
+    zh: "类目：家人。剧本写她和这位家人在一起的一段日常，这位家人全程在场；是谁，看 desire_details 里的“TA 是谁”，也可以用 people_in_her_life 里的称呼和名字。写家里人之间才有的东西：饭桌上的菜和口味、家里的气味、口头禅、拌着嘴又互相照顾、旧事被轻轻提起。亲近要合家人的分寸：拥抱、挽胳膊、夹菜、给她披件衣服都可以，不写恋人之间的亲密。desire_details 里“理想中的相处”，就是这一幕要实现的样子。家人只说这个场景里会说的话，不长篇表白，也不替他们编身世。",
+    en: "Category: family. The script is an ordinary stretch of time she spends with this family member, who is there throughout; who they are is in desire_details (who they are), and people_in_her_life may give their name. Write what only family has: the dishes and flavours at the table, the smell of home, sayings they repeat, bickering while looking after each other, an old memory touched lightly. Keep a family's kind of closeness: a hug, an arm linked, food put in her bowl, a coat put round her shoulders; nothing romantic. The ideal way of being together in desire_details is what this scene makes real. They only say what fits this scene: no long declarations, and no invented history.",
+  },
+  friend: {
+    zh: "类目：朋友。剧本写她和这位朋友在一起的一段时光，朋友全程在场；是谁，看 desire_details 里的“TA 是谁”。写朋友之间才有的东西：只有她们懂的梗和外号、以前一起做过的事又做了一次、互相吐槽、笑到停不下来、不用解释就懂的默契。亲近要合朋友的分寸：勾肩、击掌、分吃一份甜点都可以，不写暧昧和恋爱暗示。desire_details 里“理想中的相处”，就是这一幕要实现的样子。",
+    en: "Category: friends. The script is time she spends with this friend, who is there throughout; who they are is in desire_details (who they are). Write what only friends have: in-jokes and nicknames, something they used to do together done again, teasing each other, laughing until they cannot stop, understanding without explaining. Keep a friend's kind of closeness: an arm round the shoulder, a high five, sharing one dessert; nothing flirtatious or romantic. The ideal way of being together in desire_details is what this scene makes real.",
   },
   other: {
     zh: "类目：其他。先从关键词判断这个愿望实现后最具体的一个场景，再按上面的写法把人、地方和感知写实。",
@@ -108,7 +116,7 @@ export function buildStoryMessages(payload: CompanionRequest, category: StoryCat
   const request = {
     keywords: payload.userInput.slice(0, 4000),
     desire: payload.goal.desire.slice(0, 600),
-    ...(category === "love" || payload.goal.wishCategory === "relationship" ? { her_person: payload.goal.spName || (lang === "zh" ? "他" : "him") } : {}),
+    ...(category === "love" ? { her_person: payload.goal.spName || (lang === "zh" ? "TA" : "them") } : {}),
     // only strings reach the prompt; the request body is not trusted to have the right shapes
     her_home: (typeof profile?.home === "string" && profile.home.slice(0, 80)) || payload.country || "",
     ...(typeof payload.goal.background === "string" && payload.goal.background.trim() ? { desire_details: payload.goal.background.slice(0, 1200) } : {}),
@@ -133,7 +141,7 @@ export function storyProblems(script: string, lang: "zh" | "en", category: Story
   if (length < (zh ? 600 : 400)) notes.push(zh ? "太短了，扩写到 700 到 1100 字。" : "Too short; expand to 450-750 words.");
   if (length > (zh ? 1500 : 1000)) notes.push(zh ? "太长了，收到 1100 字以内。" : "Too long; keep it under 750 words.");
   if (paragraphs.length < 5) notes.push(zh ? "分成 6 到 10 段，段与段之间空一行。" : "Split it into 6-10 paragraphs separated by blank lines.");
-  if (zh ? /这就是|我的日常|熟悉的日[子常]|每天都有他/.test(last) : /this is (my|what)|every ?day life/i.test(last)) notes.push(zh ? "最后一段在点题总结，改成停在一个动作、画面或对白上。" : "The last paragraph sums up; end on an action, image, or line of dialogue instead.");
+  if (zh ? /这就是|我的日常|熟悉的日[子常]|每天都有(他|她|TA)/.test(last) : /this is (my|what)|every ?day life/i.test(last)) notes.push(zh ? "最后一段在点题总结，改成停在一个动作、画面或对白上。" : "The last paragraph sums up; end on an action, image, or line of dialogue instead.");
   if (zh ? /显化|假设法则|3D|宇宙/.test(script) : /manifest|assum|\b3D\b|universe/i.test(script)) notes.push(zh ? "去掉显化、假设、3D、宇宙这类词。" : "Remove words like manifest, assume, 3D, universe.");
   if (/——|—/.test(script)) notes.push(zh ? "去掉破折号，用逗号或句号。" : "Remove em dashes; use commas or full stops.");
   if (category === "love" && person && person.length > 0 && script.split(person).length - 1 < 2) notes.push(zh ? `对方的名字「${person}」至少出现两次。` : `Use the name "${person}" at least twice.`);

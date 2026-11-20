@@ -72,7 +72,7 @@ function isPayload(value: unknown): value is CompanionRequest {
  * when a check fails (the rewrite is kept only if it passes more checks).
  */
 async function writeStoryScript(payload: CompanionRequest, model: string, apiKey: string) {
-  const category = (payload.storyCategory as StoryCategory | undefined) || storyCategoryFor(payload.goal.wishCategory);
+  const category = (payload.storyCategory as StoryCategory | undefined) || storyCategoryFor(payload.goal.wishCategory, typeof payload.goal.relationKind === "string" ? payload.goal.relationKind : undefined);
   const messages = buildStoryMessages(payload, category);
   const person = category === "love" ? payload.goal.spName : "";
   const call = async (extra: Array<{ role: "assistant" | "user"; content: string }> = []) => {

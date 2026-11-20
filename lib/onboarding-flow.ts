@@ -304,7 +304,7 @@ export type MemoryKindSeed = "person" | "place" | "event" | "preference" | "insi
 export type MemorySeed = { kind: MemoryKindSeed; title: string; detail: string; keywords: string[] };
 /** Longest story setting kept per desire (characters). */
 export const MAX_STORY_SETTING = 1500;
-export type GoalSeed = { wishCategory: WishKind; desire: string; background: string; beliefs: string[]; spName: string; intensity: number; memories: MemorySeed[]; storySetting: string };
+export type GoalSeed = { wishCategory: WishKind; desire: string; background: string; beliefs: string[]; spName: string; intensity: number; memories: MemorySeed[]; storySetting: string; relationKind: "" | "love" | "family" | "friend" };
 export type ProfileSeed = { country: string; about: string; situation: string; people: OnboardingPerson[]; neverInclude: string[] };
 
 /** Every question has to be answered, so "none" is a real answer. It should not become a memory. */
@@ -361,6 +361,7 @@ export function answersToSeeds(answers: OnboardingAnswers, lang: OnboardingLang)
       background: wishBackground(wish, lang),
       beliefs: clean(wish.pullback) ? [clean(wish.pullback)] : [],
       spName: wish.kind === "relationship" ? wishPersonName(wish) : "",
+      relationKind: wish.kind !== "relationship" ? "" : wish.specifics.relationship_kind === "family" || wish.specifics.relationship_kind === "friend" ? wish.specifics.relationship_kind : "love",
       // "what kind of person are they" goes into this desire's story setting
       storySetting: wish.kind === "relationship" && !isCloseRelation(wish) ? clean(wish.specifics.rel_who).slice(0, MAX_STORY_SETTING) : "",
       intensity: Math.min(5, Math.max(1, Math.round(wish.intensity || 3))),
