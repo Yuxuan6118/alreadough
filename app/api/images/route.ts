@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
     const searches = await Promise.all(plan.queries.flatMap((searchQuery) => [searchPexels(searchQuery), searchUnsplash(searchQuery)]));
     let results = dedupeAndRank(searches, plan.queries);
     if (results.length < 8) results = dedupeAndRank([...searches, ...await Promise.all(plan.queries.slice(0, 3).map(searchCommons))], plan.queries);
-    return NextResponse.json({ results: results.map(({ query: _q, score: _s, ...item }) => item) });
+    return NextResponse.json({ results: results.map((item) => ({ id: item.id, title: item.title, image: item.image, source: item.source, credit: item.credit, license: item.license, provider: item.provider, downloadLocation: item.downloadLocation })) });
   } catch { return NextResponse.json({ results: [], error: "IMAGE_SEARCH_UNAVAILABLE" }, { status: 502 }); }
 }
 

@@ -1,14 +1,15 @@
 "use client";
 
 import { ChangeEvent, CSSProperties, useEffect, useRef, useState } from "react";
-import { DownloadSimple, SlidersHorizontal, UploadSimple } from "@phosphor-icons/react";
+import { Check, DownloadSimple, SlidersHorizontal, UploadSimple } from "@phosphor-icons/react";
 import { readStored, writeStored } from "@/lib/safe-storage";
 import { askConfirm } from "./ConfirmHost";
 
 type Lang = "zh" | "en";
 type Layout = "editorial" | "grid" | "mosaic" | "film" | "scrapbook";
 type Ratio = "phone" | "square" | "landscape";
-type LocalImage = { id: string; name: string; url: string; zoom: number; x: number; y: number; rotate: number };
+type LocalImage = { id: string; name: string; url: string; zoom: number; x: number; y: number; rotate: number; savedId?: number };
+export type SavedPicture = { id: number; title: string; image?: string };
 type SavedVisionProject = { title: string; layout: Layout; ratio: Ratio; gap: number; corner: number; background: string; images: Array<Omit<LocalImage, "url">> };
 type FrameGeometry = { x: number; y: number; width: number; height: number; rotation?: number; border?: number };
 
@@ -171,7 +172,7 @@ function drawFrame(context: CanvasRenderingContext2D, image: HTMLImageElement, i
   }
 }
 
-export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
+export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: { lang: Lang; saved?: SavedPicture[]; onRemoveSaved?: (id: number) => void }) {
   const copy = lang === "zh" ? {
     title: "编织我的愿景",
     subtitle: "像拼图编辑器一样选择模板、调整画面、拖动换位，再导出你的专属愿景板。",
@@ -255,7 +256,7 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
 
   useEffect(() => { imagesRef.current = images; }, [images]);
   useEffect(() => {
-    const project: SavedVisionProject = { title, layout, ratio, gap, corner, background, images: images.map((item) => ({ id: item.id, name: item.name, zoom: item.zoom, x: item.x, y: item.y, rotate: item.rotate })) };
+    const project: SavedVisionProject = { title, layout, ratio, gap, corner, background, images: images.map((item) => ({ id: item.id, name: item.name, zoom: item.zoom, x: item.x, y: item.y, rotate: item.rotate, savedId: item.savedId })) };
     writeStored("already-vision-project-v1", JSON.stringify(project));
   }, [title, layout, ratio, gap, corner, background, images]);
   useEffect(() => () => imagesRef.current.forEach((item) => URL.revokeObjectURL(item.url)), []);
@@ -272,6 +273,24 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
     if (!selectedId && added[0]) setSelectedId(added[0].id);
     event.target.value = "";
   };
+
+  // a saved picture is copied onto this device, so the board still exports when the photo site is slow or gone
+  const [adding, setAdding] = useState<number | null>(null);
+  const addSaved = async (picture: SavedPicture) => {
+    if (!picture.image || adding !== null || images.length >= 12 || images.some((item) => item.savedId === picture.id)) return;
+    setAdding(picture.id);
+    try {
+      const response = await fetch(picture.image);
+      const blob = await response.blob();
+      if (!response.ok || !blob.type.startsWith("image/")) throw new Error("not an image");
+      const id = crypto.randomUUID();
+      await putVisionImage(id, blob);
+      setImages((current) => [...current, { id, name: picture.title, url: URL.createObjectURL(blob), zoom: 1, x: 0, y: 0, rotate: 0, savedId: picture.id }]);
+      setSelectedId((current) => current || id);
+    } catch { /* leave the board as it was */ }
+    setAdding(null);
+  };
+  const trayPictures = saved.filter((picture) => picture.image);
 
   const selected = images.find((item) => item.id === selectedId);
   const updateSelected = (changes: Partial<LocalImage>) => setImages((current) => current.map((item) => item.id === selectedId ? { ...item, ...changes } : item));
@@ -335,6 +354,7 @@ export default function VisionCanvasStudio({ lang }: { lang: Lang }) {
   return <div className="vision-maker">
     <div className="vision-maker-heading"><h2>{copy.title}</h2></div>
     <label className="vision-upload"><UploadSimple size={20}/><span>{copy.upload}</span><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={addImages}/></label>
+    {trayPictures.length > 0 && <div className="vision-tray">{trayPictures.map((picture) => { const placed = images.some((item) => item.savedId === picture.id); return <div className={`vision-tray-item${placed ? " placed" : ""}`} key={picture.id}><button type="button" onClick={() => addSaved(picture)} disabled={placed || adding !== null || images.length >= 12} aria-label={picture.title}><img src={picture.image} alt="" onError={(event) => { const tile = event.currentTarget.closest<HTMLElement>(".vision-tray-item"); if (tile) tile.hidden = true; }}/>{placed && <Check size={18} weight="bold"/>}</button>{onRemoveSaved && <button type="button" className="vision-tray-remove" onClick={() => onRemoveSaved(picture.id)} aria-label={`${copy.remove} ${picture.title}`}>×</button>}</div>; })}</div>}
     {images.length > 0 && <div className="vision-controls">
       <label>{copy.boardTitle}<input value={title} onChange={(event) => setTitle(event.target.value)}/></label>
       <fieldset><legend>{copy.layout}</legend>{(["editorial", "grid", "mosaic", "film", "scrapbook"] as const).map((value) => <button className={layout === value ? "selected" : ""} key={value} onClick={() => setLayout(value)}>{copy.layouts[value]}</button>)}</fieldset>

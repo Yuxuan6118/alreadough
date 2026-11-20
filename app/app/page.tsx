@@ -474,7 +474,7 @@ export default function Home() {
   const [scriptingId, setScriptingId] = useState<string | null>(null);
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [board, setBoard] = useState<BoardItem[]>([]);
-  const [boardMode, setBoardMode] = useState<"licensed" | "mine" | "collected">("licensed");
+  const [boardMode, setBoardMode] = useState<"licensed" | "mine">("licensed");
   const [reframeSection, setReframeSection] = useState<"turn" | "beliefs">("turn");
   const [checkIns, setCheckIns] = useState<PracticeCheckIn[]>([]);
   const [imageQuery, setImageQuery] = useState("");
@@ -2055,13 +2055,12 @@ export default function Home() {
         className="vision-space"
         title={lang === "zh" ? "愿景" : "Vision"}
         active={boardMode}
-        onSelect={(id) => setBoardMode(id as "licensed" | "mine" | "collected")}
+        onSelect={(id) => setBoardMode(id as "licensed" | "mine")}
         groups={[
           { title: lang === "zh" ? "找画面" : "Find pictures", rows: [
             { id: "licensed", icon: MagnifyingGlass, label: lang === "zh" ? "寻梦灵感" : "Discover Dreamscapes" },
-            { id: "mine", icon: ImageSquare, label: lang === "zh" ? "编织我的愿景" : "Weave My Vision" },
+            { id: "mine", icon: ImageSquare, label: lang === "zh" ? "我的愿景板" : "My vision board" },
           ] },
-          { title: lang === "zh" ? "收藏" : "Saved", rows: [{ id: "collected", icon: BookmarkSimple, label: lang === "zh" ? "我收藏的画面" : "My saved pictures", value: String(board.length) }] },
         ]}
       >
         {boardMode === "licensed" && <div className="profile-cards">
@@ -2072,8 +2071,7 @@ export default function Home() {
           </section>
           {imageResults.length > 0 && <div className="search-results">{imageResults.map((item) => { const saved = board.some((entry) => entry.source === item.source); return <article key={item.source}><img src={item.image} alt={item.title}/><div><strong>{item.title}</strong><small>{item.credit} · {item.license}</small><button type="button" className={saved ? "saved" : ""} onClick={() => collectSearchImage(item)} disabled={saved}>{saved ? (lang === "zh" ? "已收进我的愿景" : "Saved") : t.collect}</button></div></article>; })}</div>}
         </div>}
-        {boardMode === "mine" && <VisionCanvasStudio lang={lang}/>}
-        {boardMode === "collected" && (board.length ? <div className="moodboard">{board.map((item, index) => <article className={`board-card card-${index % 4}`} key={item.id}>{item.image ? <img src={item.image} alt={item.title}/> : <div className="board-placeholder"/>}<div><h3>{item.title}</h3>{/^https?:/.test(item.source) ? <a href={item.source} target="_blank" rel="noreferrer">{t.source}</a> : <span>{item.source}</span>}<button onClick={() => setBoard((items) => items.filter((entry) => entry.id !== item.id))} aria-label={`${lang === "zh" ? "删除" : "Delete "}${item.title}`}>×</button></div></article>)}</div> : <div className="profile-cards"><section className="profile-card"><p className="setting-empty">{lang === "zh" ? "在「寻梦灵感」里点「收进我的愿景」，喜欢的画面会收在这里。" : "Pictures you save from Discover Dreamscapes will gather here."}</p></section></div>)}
+        {boardMode === "mine" && <VisionCanvasStudio lang={lang} saved={board} onRemoveSaved={(id) => setBoard((items) => items.filter((entry) => entry.id !== id))}/>}
       </SpacePage>}
 
       {view === "settings" && (() => {
