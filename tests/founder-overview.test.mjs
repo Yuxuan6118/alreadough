@@ -82,3 +82,15 @@ test("image search and subliminal uses are counted; the client cannot send made-
   // feature uses do not leak into the AI-call table
   assert.equal((await founderOverview()).features.length, 0);
 });
+
+test("mail section: test sends are listed but never shown as the last mass mailing; in-app letters are counted", async () => {
+  const now = Date.now();
+  await run("INSERT INTO mail_sends (id, audience, subject, recipients, delivered, created_at) VALUES ('s1','all','十一月来信',70,69,?), ('s2','test','试发',1,1,?)", now - 3600_000, now);
+  await run("INSERT INTO letters (id, subject, body, created_at) VALUES ('l1','第一封','…',?), ('l2','','…',?)", now - 2 * DAY, now - DAY);
+  const { mail } = await founderOverview();
+  assert.equal(mail.last.subject, "十一月来信");
+  assert.deepEqual(mail.sends.map((row) => row.audience), ["test", "all"]);
+  assert.equal(mail.letters, 2);
+  assert.equal(mail.lastLetter.subject, "");
+  assert.equal(mail.letterList.length, 2);
+});

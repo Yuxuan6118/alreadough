@@ -1,0 +1,9 @@
+.founder-nav{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;font-family:Arial,"PingFang SC",sans-serif}
+.founder-nav a,.founder-nav button{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border:1px solid #dfcfc0;border-radius:999px;background:#fffaf5;color:#332b28;font:inherit;font-size:14px;line-height:1.2;text-decoration:none;cursor:pointer}
+.founder-nav a:hover,.founder-nav button:hover{border-color:#ac6e6b}
+.founder-nav a.current{background:#73504a;border-color:#73504a;color:#fff;cursor:default}
+.founder-nav a.founder-nav-home{border-style:dashed}
+.founder-nav b{min-width:20px;padding:1px 6px;border-radius:999px;background:#ac6e6b;color:#fff;font-size:12px;text-align:center}
+.founder-nav a.current b{background:#fff;color:#73504a}
+@media(max-width:760px){.founder-nav{justify-content:flex-start;margin-top:20px}}
+@media(prefers-color-scheme:dark){.founder-nav a,.founder-nav button{background:#2a2321;border-color:#4a3d38;color:#efe4da}.founder-nav a.current{background:#d39c96;border-color:#d39c96;color:#1f1a18}.founder-nav a.current b{background:#1f1a18;color:#d39c96}}

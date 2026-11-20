@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { readStored, writeStored } from "@/lib/safe-storage";
+import FounderNav from "../FounderNav";
 import "../beta.css";
 
 type Send = { audience: string; subject: string; recipients: number; delivered: number; createdAt: number };
@@ -75,7 +75,7 @@ export default function FounderMailPage() {
   }
 
   return <main className="beta-dashboard">
-    <header><div><p>ALREADOUGH · FOUNDER</p><h1>给用户写信</h1><span>从 hello@alreadough.com 发出，每封信底部都有退订链接。</span></div><Link href="/beta">返回驾驶舱</Link></header>
+    <header><div><p>ALREADOUGH · FOUNDER</p><h1>给用户写信</h1><span>从 hello@alreadough.com 发出，每封信底部都有退订链接。</span></div><FounderNav current="mail" /></header>
     {token === null ? <p>正在验证访问权限…</p> : !token || error ? <section className="beta-error"><h2>还没有创始人访问权限</h2><p>{error || "请先打开一次带密钥的测试驾驶舱。"}</p></section> : !stats ? <p>正在读取…</p> : <>
       {!stats.ready && <section className="beta-error"><p>发信还没配置好：网站后台缺少 RESEND_API_KEY。</p></section>}
       <section className="beta-grid">

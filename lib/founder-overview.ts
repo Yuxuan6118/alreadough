@@ -29,7 +29,7 @@ export async function founderOverview() {
     aiByFeature, trendGlobal, trendActive, trendNew, newVisitors7,
     voices, voice7, voiceToday,
     spaces, countries, devices, langs,
-    mail, lastMail, reportsNew, interest, tools,
+    mail, lastMail, letterCount, lastLetter, reportsNew, interest, tools, sends, letterList,
   ] = await Promise.all([
     first<{ n: number }>("SELECT COUNT(DISTINCT account_id) AS n FROM member_accounts"),
     first<{ n: number }>("SELECT COUNT(*) AS n FROM (SELECT account_id, MIN(created_at) AS c FROM member_accounts GROUP BY account_id) WHERE c >= ?", since7Ms),
@@ -75,7 +75,9 @@ export async function founderOverview() {
     all<{ label: string; n: number }>("SELECT COALESCE(device, '未知') || ' · ' || COALESCE(os, '?') AS label, COUNT(*) AS n FROM beta_profiles GROUP BY label ORDER BY n DESC LIMIT 6"),
     all<{ label: string; n: number }>("SELECT COALESCE(lang, '未知') AS label, COUNT(*) AS n FROM beta_profiles GROUP BY label ORDER BY n DESC LIMIT 4"),
     first<{ subscribed: number; total: number; linked: number }>("SELECT SUM(subscribed) AS subscribed, COUNT(*) AS total, SUM(CASE WHEN account_id IS NOT NULL THEN 1 ELSE 0 END) AS linked FROM mail_contacts"),
-    first<{ subject: string; recipients: number; delivered: number; createdAt: number }>("SELECT subject, recipients, delivered, created_at AS createdAt FROM mail_sends ORDER BY created_at DESC LIMIT 1"),
+    first<{ subject: string; recipients: number; delivered: number; createdAt: number }>("SELECT subject, recipients, delivered, created_at AS createdAt FROM mail_sends WHERE audience = 'all' ORDER BY created_at DESC LIMIT 1"),
+    first<{ n: number }>("SELECT COUNT(*) AS n FROM letters"),
+    first<{ subject: string; createdAt: number }>("SELECT subject, created_at AS createdAt FROM letters ORDER BY created_at DESC LIMIT 1"),
     first<{ n: number }>("SELECT COUNT(*) AS n FROM beta_reports WHERE status = 'new'"),
     first<{ n: number }>("SELECT COUNT(*) AS n FROM payment_interest"),
     // Non-AI features (image search, sound search, subliminal recording…): one 'feature_use' event per use, the feature in prompt_version.
@@ -84,6 +86,8 @@ export async function founderOverview() {
         COUNT(DISTINCT CASE WHEN created_at >= ? THEN user_hash END) AS users, SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS today,
         COUNT(*) AS usesAll, COUNT(DISTINCT user_hash) AS usersAll
        FROM beta_events WHERE event_type = 'feature_use' GROUP BY prompt_version ORDER BY uses DESC, usesAll DESC`, since7Iso, since7Iso, todayIso),
+    all<{ audience: string; subject: string; recipients: number; delivered: number; createdAt: number }>("SELECT audience, subject, recipients, delivered, created_at AS createdAt FROM mail_sends ORDER BY created_at DESC LIMIT 10"),
+    all<{ subject: string; createdAt: number }>("SELECT subject, created_at AS createdAt FROM letters ORDER BY created_at DESC LIMIT 10"),
   ]);
 
   const days: string[] = [];
@@ -108,7 +112,7 @@ export async function founderOverview() {
     voice: { cloned: voices?.n || 0, cloned7: voices?.n7 || 0, chars7: voice7?.chars || 0, speaks7: voice7?.requests || 0, enrolls7: voice7?.enrolls || 0, users7: voice7?.users || 0, charsToday: voiceToday?.chars || 0 },
     content: spaces || { total: 0, active7: 0, goals: 0, withBoard: 0, boardItems: 0, withStories: 0, stories: 0, withCheckIns: 0, checkIns: 0, withRevisions: 0, revisions: 0, withChats: 0 },
     audience: { new7: newVisitors7?.n || 0, visitors7: newVisitors7?.visitors || 0, countries, devices, langs },
-    mail: { subscribed: mail?.subscribed || 0, contacts: mail?.total || 0, linked: mail?.linked || 0, last: lastMail || null },
+    mail: { subscribed: mail?.subscribed || 0, contacts: mail?.total || 0, linked: mail?.linked || 0, last: lastMail || null, letters: letterCount?.n || 0, lastLetter: lastLetter || null, sends, letterList },
     reportsNew: reportsNew?.n || 0,
     trend,
   };
