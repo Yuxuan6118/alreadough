@@ -658,7 +658,7 @@ export default function Home() {
     memoryItems: { ...current.memoryItems, [lang]: current.memoryItems[lang].map((item) => item.id === id ? { ...item, pinned: !item.pinned } : item) },
   }));
 
-  const callCompanion = async (mode: "chat" | "revision" | "story", userInput: string, signal?: AbortSignal, recentOverride?: Message[], storyCategory?: StoryCategory, desireGoal?: GoalProfile, rephrase?: string) => {
+  const callCompanion = async (mode: "chat" | "revision" | "story" | "affirm", userInput: string, signal?: AbortSignal, recentOverride?: Message[], storyCategory?: StoryCategory, desireGoal?: GoalProfile, rephrase?: string) => {
     // a script speaks for its own desire; everything else for the current one
     const g = desireGoal || goal;
     const response = await fetch("/api/companion", {
@@ -720,7 +720,7 @@ export default function Home() {
         return beliefs.some((item) => sameBelief(item, belief)) || beliefs.length >= MAX_BELIEFS ? current : [...beliefs, belief].join("\n");
       });
     }
-    lastLogIdRef.current = typeof (data as { logId?: unknown }).logId === "string" ? (data as { logId: string }).logId : undefined;
+    if (mode !== "affirm") lastLogIdRef.current = typeof (data as { logId?: unknown }).logId === "string" ? (data as { logId: string }).logId : undefined;
     return data.reply;
   };
 
@@ -1374,13 +1374,8 @@ export default function Home() {
         story={(() => { const mine = storyLibrary.find((item) => !item.sample && item.text[lang].length > 0) || storyLibrary.find((item) => item.text[lang].length > 0); return mine ? { title: mine.title[lang], paragraphs: mine.text[lang] } : null; })()}
         onCheckIn={recordCheckIn}
         makeAffirmations={async (from?: string) => {
-          const ask = from ? (lang === "zh"
-            ? `下面是我写下或聊到的一段话。从里面挑出或改写 2 到 4 句我可以每天睡前听的肯定语：每句 20 个字以内，第一人称，现在时，当作已经成立的事，只用这段话里有的内容。每行一句，没有序号，没有引号，没有别的话。\n\n${from}`
-            : `Here is something I wrote or talked about. Pick or rewrite 2 to 4 affirmations from it that I can listen to every night: each under 15 words, first person, present tense, as already true, using only what is in it. One per line, no numbers, no quotes, nothing else.\n\n${from}`) : lang === "zh"
-            ? "请为我写 6 句睡前肯定语。每句 20 个字以内，第一人称，现在时，当作已经成立的事。只用我愿望里已有的内容，不添加我没提过的细节。每行一句，没有序号，没有引号，没有别的话。"
-            : "Write me 6 bedtime affirmations. Each under 15 words, first person, present tense, as already true. Use only what is in my desire and add no details I never gave. One per line, no numbers, no quotes, nothing else.";
-          const reply = await callCompanion("chat", ask, undefined, []);
-          return (reply || "").split(/\r?\n/).map((line) => line.replace(/^[\s\-*\d.、)）]+/, "").trim()).filter(Boolean);
+          const reply = await callCompanion("affirm", from?.trim() || "-", undefined, []);
+          return (reply || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
         }}
         affirmations={goal.affirmations?.[lang] ?? null}
         onAffirmationsChange={saveAffirmations}

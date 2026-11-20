@@ -7,6 +7,7 @@ import { beginBetaRequest, combineTokenUsage, type TokenUsage, finishMemberReque
 import { cleanReply, coachSpecificityRetryNote, contrastRetryNote, dropStockSentences, exitReply, hasContrastFrame, hasStockCoachLine, isErrorEcho, isExitIntent } from "@/lib/reply-guards";
 import { readClientInfo } from "@/lib/client-info";
 import { OPENAI_BASE_URL, chatContent, chatUsage, type ChatCompletion } from "@/lib/openai-base";
+import { affirmLines, buildAffirmMessages } from "@/lib/affirm-prompt";
 import { STORY_CATEGORIES, buildStoryMessages, storyCategoryFor, storyProblems, type StoryCategory } from "@/lib/story-prompt";
 
 /** How long one model call may take before the request gives up (a stuck upstream would otherwise hold the Worker open). */
@@ -108,6 +109,9 @@ export async function POST(request: Request) {
   } catch {
     return json({ error: "INVALID_JSON" }, 400);
   }
+  // bedtime affirmations travel as their own mode and are billed like a chat turn
+  const affirm = !!payload && typeof payload === "object" && (payload as { mode?: unknown }).mode === "affirm";
+  if (affirm) (payload as { mode: string }).mode = "chat";
   if (!isPayload(payload)) return json({ error: "INVALID_REQUEST" }, 400);
   // Error bubbles the client once showed ("AI could not connect…") are not things the AI said; keep them out of its context.
   payload.recentMessages = payload.recentMessages.filter((message) => !isErrorEcho(message));
@@ -123,6 +127,8 @@ export async function POST(request: Request) {
   const country = readClientInfo(request.headers, (request as Request & { cf?: Record<string, unknown> }).cf).country;
   payload.country = country; // server-side only: lets crisis replies name her local line
   const safetyReply = desirePreservingSafetyReply(payload.userInput, payload.lang, name, country);
+  // a crisis message is answered in the conversation, not turned into bedtime lines
+  if (safetyReply && affirm) return json({ error: "AI_REQUEST_FAILED" }, 422);
   if (safetyReply) {
     return json({
       reply: safetyReply,
@@ -135,7 +141,7 @@ export async function POST(request: Request) {
   }
 
   // She asked to stop: end it right here, no model call, no follow-up question.
-  if (payload.mode === "chat" && isExitIntent(payload.userInput)) {
+  if (!affirm && payload.mode === "chat" && isExitIntent(payload.userInput)) {
     return json({
       reply: exitReply(payload.lang),
       journeySummary: payload.goal.journeySummary,
@@ -176,6 +182,29 @@ export async function POST(request: Request) {
   }
 
   const startedAt = Date.now();
+
+  if (affirm) {
+    const failed = () => json({ error: "AI_REQUEST_FAILED", message: payload.lang === "zh" ? "AI 暂时没有连接成功，请稍后再试。" : "AI could not connect. Please try again shortly." }, 502);
+    try {
+      const from = payload.userInput.trim() === "-" ? "" : payload.userInput;
+      const upstream = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, messages: buildAffirmMessages(payload.lang, payload.goal.desire, from), response_format: { type: "json_object" }, temperature: 0.8, enable_thinking: false }),
+        signal: AbortSignal.timeout(REWRITE_TIMEOUT_MS),
+      });
+      const data = await upstream.json() as ChatCompletion;
+      const usage = chatUsage(data);
+      const lines = upstream.ok ? affirmLines(chatContent(data), payload.lang) : [];
+      await settleBetaRequest(gate.ticket, usage, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, success: lines.length > 0, latencyMs: Date.now() - startedAt });
+      await finishMemberRequest(gate.ticket, lines.length ? usage : null, lines.length > 0);
+      return lines.length ? json({ reply: lines.join("\n") }) : failed();
+    } catch (error) {
+      console.error("affirmations failed", String(error));
+      await finishMemberRequest(gate.ticket, null, false);
+      return failed();
+    }
+  }
 
   if (payload.mode === "story") {
     try {
