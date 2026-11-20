@@ -48,7 +48,8 @@
 .vision-tray-item.placed>button:first-child{border-color:var(--app-accent);box-shadow:0 0 0 1.5px var(--app-accent)}
 .vision-tray-check{position:absolute;top:6px;right:6px;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;border:1.5px solid #fff;background:#30231f59;box-shadow:0 1px 3px #0003;transition:background .15s ease}
 .vision-tray-item.placed .vision-tray-check{background:#fff;color:#30231f}
-.vision-tray-remove{position:absolute;top:-6px;left:-6px;width:22px;height:22px;padding:0;border:1px solid var(--app-line);border-radius:50%;background:var(--app-panel);color:var(--app-ink);font-size:14px;line-height:20px;cursor:pointer;opacity:0;transition:opacity .15s ease}
+.vision-tray-remove{position:absolute;top:6px;left:6px;width:22px;height:22px;padding:0;display:grid;place-items:center;border:0;border-radius:50%;background:#30231fb3;color:#fff;box-shadow:0 1px 3px #0003;cursor:pointer;opacity:0;transition:opacity .15s ease}
+.vision-tray-remove svg{position:static;margin:0;color:#fff}
 .vision-tray-item:hover .vision-tray-remove,.vision-tray-remove:focus-visible{opacity:1}
 @media(hover:none){.vision-tray-remove{opacity:1}}
 @media(prefers-reduced-motion:reduce){.vision-tray-item>button:first-child{transition:none}}

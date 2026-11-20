@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangeEvent, CSSProperties, PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
-import { ArrowClockwise, ArrowsOutCardinal, Check, DownloadSimple, FlipHorizontal, Plus, Swap, Trash, UploadSimple } from "@phosphor-icons/react";
+import { ArrowClockwise, ArrowsOutCardinal, Check, DownloadSimple, FlipHorizontal, Plus, Swap, Trash, UploadSimple, X } from "@phosphor-icons/react";
 import { readStored, writeStored } from "@/lib/safe-storage";
 import { askConfirm } from "./ConfirmHost";
 import "./vision-studio.css";
@@ -443,7 +443,7 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
     const placed = images.some((item) => item.savedId === picture.id);
     return <div className={`vision-tray-item${placed ? " placed" : ""}`} key={picture.id}>
       <button type="button" onClick={() => placed ? takeOffBoard(picture.id) : addSaved(picture)} disabled={!placed && (adding !== null || images.length >= MAX_PHOTOS)} aria-pressed={placed} aria-label={picture.title}><img src={picture.image} alt="" onError={(event) => { const tile = event.currentTarget.closest<HTMLElement>(".vision-tray-item"); if (tile) tile.hidden = true; }}/><span className="vision-tray-check" aria-hidden="true">{placed && <Check size={13} weight="bold"/>}</span></button>
-      {onRemoveSaved && <button type="button" className="vision-tray-remove" onClick={() => onRemoveSaved(picture.id)} aria-label={`${copy.remove} ${picture.title}`}>×</button>}
+      {onRemoveSaved && <button type="button" className="vision-tray-remove" onClick={() => onRemoveSaved(picture.id)} aria-label={`${copy.remove} ${picture.title}`}><X size={12} weight="bold"/></button>}
     </div>;
   })}</div>;
 
