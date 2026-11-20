@@ -8,15 +8,19 @@ export default function CopyrightPage() {
       <article>
         <p className="eyebrow">CONTENT &amp; COPYRIGHT</p>
         <h1>素材与版权说明</h1>
+        <p>最后更新：2026 年 11 月 20 日</p>
         <p>AlreaDough 的愿景板坚持使用真实素材。自动找图只应呈现许可允许相应使用的来源，并展示作者、原始页面和许可信息。图片版权仍属于原作者；图片出现在搜索结果或愿景板中不代表作者为 AlreaDough 或用户背书。</p>
         <h2>授权素材</h2>
         <p>使用自动找图时，请保留页面展示的作者与来源信息。许可可能随来源或具体素材变化；在广告、商品、公开社交内容或其他商业场景发布前，应重新查看原始页面的最新许可与限制。</p>
+        <h2 id="audio">背景声音与导出的音频</h2>
+        <p>潜音里搜索到的背景声音来自 Openverse、Freesound 等公开素材库，只收录 CC0 或 CC BY 许可的声音，每条都显示作者和许可。CC BY 声音要求署名：你把含有这些声音的音频（例如从声音工作台导出的文件）公开分享、发布或用于商业用途时，需要自行注明原作者和许可。AlreaDough 不对你导出后的再传播负责。</p>
         <h2>用户上传</h2>
         <p>你可以上传自己拍摄、已获授权，或仅在法律允许的私人范围内使用的图片与音频。上传功能不会自动把第三方作品变成可商用素材。未经允许，请勿把他人的作品用于广告、转售、公开模板或商业宣传。</p>
         <p>请尊重素材涉及的版权、肖像权、商标和隐私权。</p>
         <hr />
         <h2 id="english" lang="en">Content &amp; Copyright</h2>
         <p className="legal-en" lang="en">AlreaDough uses real imagery for vision boards. Licensed search should display the creator, source page, and license, but copyright remains with the creator and licenses may vary by asset. Uploading, arranging, saving, or privately mixing a third-party work does not make it commercially reusable. Re-check the original license before publishing, advertising, reselling, or using an asset commercially.</p>
+        <p className="legal-en" lang="en">Background sounds found in Dreamscape come from public libraries such as Openverse and Freesound, limited to CC0 or CC BY licenses, with the creator and license shown for each. CC BY sounds require attribution: if you publicly share, publish, or commercially use audio that contains them (for example a file exported from the sound studio), you must credit the original creator and license yourself. AlreaDough is not responsible for how you redistribute exported audio.</p>
       </article>
     </main><SiteFooter /></>
   );

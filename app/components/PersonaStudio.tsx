@@ -284,6 +284,7 @@ function PersonaChat({ lang, sessionId, herName, persona, messages, setMessages,
         <textarea value={input} rows={2} maxLength={2000} onChange={(e) => setInput(e.target.value)} onKeyDown={onKey} placeholder={t(`发给 ${persona.name}`, `Message ${persona.name}`)} />
         <button type="button" className="persona-send" disabled={!input.trim() || busy} onClick={send} aria-label={t("发送", "Send")}><PaperPlaneTilt size={20} /></button>
       </div>
+      <p className="persona-ai-note">{t(`${persona.name}是 AI 扮演的角色，不是真人。`, `${persona.name} is a character played by AI, not a real person.`)}</p>
       {messages.length > 0 && <button type="button" className="persona-quiet" onClick={clearChat}>{t("清空对话", "Clear chat")}</button>}
     </section>
   );
