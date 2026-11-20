@@ -1145,6 +1145,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .history-list strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 calc(15px * var(--fs, 1))/1.3 var(--font-display); }
 .history-list small { color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); }
 .history-list article > button:last-child { width: 34px; height: 34px; border: 0; border-radius: 10px; color: var(--app-muted); background: transparent; }
+.history-list article.is-open { border-radius: 14px; border-top-color: transparent; background: color-mix(in srgb,var(--app-accent) 9%,transparent); }
+.history-list article.is-open + article { border-top-color: transparent; }
+.history-list article.is-open > button:first-child { padding-left: 12px; }
+.history-list article.is-open small { color: var(--app-accent); font-weight: 600; }
 
 .message-group { display: flex; flex-direction: column; }
 .message-group.user { align-items: flex-end; }
@@ -1682,6 +1686,8 @@ html[data-theme="dark"].landscape-blocked::after { color: #f1e8e2; background: #
   .swipe-history button { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; min-height: 44px; font-size: calc(15px * var(--fs, 1)); }
   .swipe-history button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .swipe-history button small { color: var(--drawer-muted); font-size: calc(11px * var(--fs, 1)); }
+  .swipe-history button.is-open { border-radius: 12px; background: color-mix(in srgb,var(--app-accent) 10%,transparent); }
+  .swipe-history button.is-open small { color: var(--app-accent); font-weight: 600; }
   .swipe-history p { margin: 0; padding: 4px 12px; color: var(--drawer-muted); font-size: calc(14px * var(--fs, 1)); line-height: 1.6; }
   .swipe-sidebar > footer { padding-top: 10px; border-top: 1px solid var(--app-line); }
   .swipe-sidebar > footer button { font-weight: 600; }
