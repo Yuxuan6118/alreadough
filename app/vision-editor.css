@@ -45,7 +45,10 @@
 .vision-tray-item>button:first-child:active{transform:scale(.96)}
 .vision-tray-item>button:first-child:disabled{cursor:default}
 .vision-tray-item img{width:100%;height:100%;object-fit:cover;display:block}
-.vision-tray-item.placed img{opacity:.45}
-.vision-tray-item svg{position:absolute;inset:0;margin:auto;color:var(--app-ink)}
-.vision-tray-remove{position:absolute;top:4px;right:4px;width:22px;height:22px;padding:0;border:0;border-radius:50%;background:#30231fd9;color:#fff;font-size:14px;line-height:22px;cursor:pointer}
+.vision-tray-item.placed>button:first-child{border-color:var(--app-accent);box-shadow:0 0 0 1.5px var(--app-accent)}
+.vision-tray-check{position:absolute;top:6px;right:6px;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;border:1.5px solid #fff;background:#30231f59;box-shadow:0 1px 3px #0003;transition:background .15s ease}
+.vision-tray-item.placed .vision-tray-check{background:#fff;color:#30231f}
+.vision-tray-remove{position:absolute;top:-6px;left:-6px;width:22px;height:22px;padding:0;border:1px solid var(--app-line);border-radius:50%;background:var(--app-panel);color:var(--app-ink);font-size:14px;line-height:20px;cursor:pointer;opacity:0;transition:opacity .15s ease}
+.vision-tray-item:hover .vision-tray-remove,.vision-tray-remove:focus-visible{opacity:1}
+@media(hover:none){.vision-tray-remove{opacity:1}}
 @media(prefers-reduced-motion:reduce){.vision-tray-item>button:first-child{transition:none}}

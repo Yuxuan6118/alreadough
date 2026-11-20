@@ -2079,7 +2079,7 @@ export default function Home() {
       >
         {boardMode === "licensed" && <div className="profile-cards">
           <section className="profile-card">
-            <div className="space-search"><input value={imageQuery} onChange={(e) => setImageQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) searchRealImages(); }} placeholder={t.searchPlaceholder} aria-label={t.realPhotos}/><button type="button" className="wish-primary" onClick={() => searchRealImages()} disabled={imageSearching}>{imageSearching ? t.searching : t.search}</button></div>
+            <div className="space-search"><input value={imageQuery} onChange={(e) => setImageQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) searchRealImages(); }} placeholder={t.searchPlaceholder} aria-label={t.realPhotos}/><button type="button" className="wish-primary" onClick={() => searchRealImages()} disabled={imageSearching}>{imageSearching ? <span className="dough-loading"><DoughHop size="xs"/>{t.searching}</span> : t.search}</button></div>
             <div className="wish-pills">{suggestions.map((term) => <button type="button" key={term} onClick={() => searchRealImages(term)}>{term}</button>)}</div>
             {imageSearchError && <p className="search-error">{imageSearchError}</p>}
           </section>

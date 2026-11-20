@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangeEvent, CSSProperties, PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
-import { ArrowClockwise, Check, DownloadSimple, FlipHorizontal, Plus, Swap, Trash, UploadSimple } from "@phosphor-icons/react";
+import { ArrowClockwise, ArrowsOutCardinal, Check, DownloadSimple, FlipHorizontal, Plus, Swap, Trash, UploadSimple } from "@phosphor-icons/react";
 import { readStored, writeStored } from "@/lib/safe-storage";
 import { askConfirm } from "./ConfirmHost";
 import "./vision-studio.css";
@@ -278,7 +278,7 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
     margin: "外边距", gap: "间距", corner: "圆角", zoom: "缩放",
     custom: "自定义颜色", textPlaceholder: "输入文字", top: "上方", bottom: "下方",
     fonts: { serif: "宋体", sans: "黑体", kai: "楷体" },
-    replace: "替换", rotate: "旋转", flip: "镜像", remove: "删除", done: "完成",
+    replace: "替换", move: "拖动调整位置", rotate: "旋转", flip: "镜像", remove: "删除", done: "完成",
     clearTitle: "清空愿景板上的全部照片？", clearBody: "照片只存在这台设备上，清空后不能恢复。",
     removeTitle: "从愿景板删除这张照片？", removeBody: "照片只存在这台设备上，删除后不能恢复。",
     cancel: "取消",
@@ -292,7 +292,7 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
     margin: "Margin", gap: "Spacing", corner: "Corners", zoom: "Zoom",
     custom: "Custom color", textPlaceholder: "Type a line", top: "Top", bottom: "Bottom",
     fonts: { serif: "Serif", sans: "Sans", kai: "Brush" },
-    replace: "Replace", rotate: "Rotate", flip: "Mirror", remove: "Delete", done: "Done",
+    replace: "Replace", move: "Drag to reposition", rotate: "Rotate", flip: "Mirror", remove: "Delete", done: "Done",
     clearTitle: "Clear every photo from the board?", clearBody: "The photos live only on this device and can't be recovered.",
     removeTitle: "Remove this photo from the board?", removeBody: "The photo lives only on this device and can't be recovered.",
     cancel: "Cancel",
@@ -429,11 +429,20 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
     } catch { /* leave the board as it was */ }
     setAdding(null);
   };
+  // a saved picture can always be added again, so taking it off the board needs no confirmation
+  const takeOffBoard = (savedId: number) => {
+    const target = imagesRef.current.find((item) => item.savedId === savedId);
+    if (!target) return;
+    URL.revokeObjectURL(target.url);
+    void removeVisionImage(target.id);
+    setImages((current) => current.filter((item) => item.id !== target.id));
+    setSelectedId((current) => current === target.id ? "" : current);
+  };
   const trayPictures = saved.filter((picture) => picture.image);
   const tray = trayPictures.length > 0 && <div className="vision-tray">{trayPictures.map((picture) => {
     const placed = images.some((item) => item.savedId === picture.id);
     return <div className={`vision-tray-item${placed ? " placed" : ""}`} key={picture.id}>
-      <button type="button" onClick={() => addSaved(picture)} disabled={placed || adding !== null || images.length >= MAX_PHOTOS} aria-label={picture.title}><img src={picture.image} alt="" onError={(event) => { const tile = event.currentTarget.closest<HTMLElement>(".vision-tray-item"); if (tile) tile.hidden = true; }}/>{placed && <Check size={18} weight="bold"/>}</button>
+      <button type="button" onClick={() => placed ? takeOffBoard(picture.id) : addSaved(picture)} disabled={!placed && (adding !== null || images.length >= MAX_PHOTOS)} aria-pressed={placed} aria-label={picture.title}><img src={picture.image} alt="" onError={(event) => { const tile = event.currentTarget.closest<HTMLElement>(".vision-tray-item"); if (tile) tile.hidden = true; }}/><span className="vision-tray-check" aria-hidden="true">{placed && <Check size={13} weight="bold"/>}</span></button>
       {onRemoveSaved && <button type="button" className="vision-tray-remove" onClick={() => onRemoveSaved(picture.id)} aria-label={`${copy.remove} ${picture.title}`}>×</button>}
     </div>;
   })}</div>;
@@ -507,6 +516,19 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
     }
     setDropTarget("");
   };
+
+  const boardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const board = boardRef.current;
+    if (!board || !selectedId) return;
+    const onWheel = (event: WheelEvent) => {
+      if (!(event.target as HTMLElement | null)?.closest(`[data-photo-id="${selectedId}"]`)) return;
+      event.preventDefault();
+      setImages((current) => current.map((item) => item.id === selectedId ? { ...item, zoom: Math.max(1, Math.min(3, item.zoom * Math.exp(-event.deltaY * 0.004))) } : item));
+    };
+    board.addEventListener("wheel", onWheel, { passive: false });
+    return () => board.removeEventListener("wheel", onWheel);
+  }, [selectedId, images.length]);
 
   const exportBoard = async () => {
     if (!images.length) return;
@@ -595,7 +617,7 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
     {notice && <p className="vb-notice" role="status">{notice}</p>}
 
     <div className="vb-board-wrap" role="presentation" onKeyDown={(event) => { if (event.key === "Escape") setSelectedId(""); }} onClick={(event) => { if (event.target === event.currentTarget) setSelectedId(""); }}>
-      <div className="vb-board" style={{ aspectRatio: `${W} / ${H}`, background: settings.background, "--vb-max-w": `calc(70vh * ${W / H})` } as CSSProperties} role="presentation" onClick={(event) => { if (event.target === event.currentTarget) setSelectedId(""); }}>
+      <div ref={boardRef} className="vb-board" style={{ aspectRatio: `${W} / ${H}`, background: settings.background, "--vb-max-w": `calc(70vh * ${W / H})` } as CSSProperties} role="presentation" onClick={(event) => { if (event.target === event.currentTarget) setSelectedId(""); }}>
         {geometry.title && <div className="vb-title" style={{ left: pct(geometry.title.x, W), top: pct(geometry.title.y, H), width: pct(geometry.title.w, W), height: pct(geometry.title.h, H), color: ink, fontFamily: FONTS[settings.titleFont], fontSize: unit(geometry.title.h * 0.42) }}>{settings.title.trim()}</div>}
         {images.map((photo, index) => {
           const frame = geometry.frames[index];
@@ -619,6 +641,7 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
           >
             <div className="vb-photo" style={{ left: pct(frame.inner.x - frame.x, frame.w), top: pct(frame.inner.y - frame.y, frame.h), width: pct(frame.inner.w, frame.w), height: pct(frame.inner.h, frame.h), borderRadius: unit(frame.innerRadius) }}>
               <img src={photo.url} alt="" draggable={false} style={{ width: pct(place.width, frame.inner.w), height: pct(place.height, frame.inner.h), left: pct(place.cx - place.width / 2, frame.inner.w), top: pct(place.cy - place.height / 2, frame.inner.h), transform: `rotate(${photo.rotate}deg)${photo.flip ? " scaleX(-1)" : ""}` }}/>
+              {selectedId === photo.id && <span className="vb-move-hint" aria-hidden="true"><ArrowsOutCardinal size={16} weight="bold"/>{copy.move}</span>}
             </div>
           </div>;
         })}

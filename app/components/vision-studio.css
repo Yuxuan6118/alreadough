@@ -26,6 +26,8 @@
 .vb-frame { position: absolute; box-sizing: border-box; cursor: pointer; touch-action: pan-y; transition: box-shadow .18s ease, filter .18s ease; }
 .vb-frame.selected { cursor: grab; touch-action: none; }
 .vb-frame.selected:active { cursor: grabbing; }
+.vb-move-hint { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: #30231fb3; color: #fff; font-size: 13px; white-space: nowrap; pointer-events: none; transition: opacity .15s ease; }
+.vb-frame.selected:active .vb-move-hint { opacity: 0; }
 .vb-frame-white, .vb-frame-polaroid { background: #fffdfb; box-shadow: 0 calc(.6cqw) calc(1.8cqw) rgba(45, 28, 22, .18); }
 .vb-frame-shadow { background: var(--vb-shadow-bg); box-shadow: 0 calc(1.1cqw) calc(3.2cqw) rgba(45, 28, 22, .22); }
 .vb-photo { position: absolute; overflow: hidden; background: color-mix(in srgb, var(--app-ink) 8%, transparent); }
