@@ -8,6 +8,8 @@ import { cacheKey, readCached, writeCached } from "./voice-cache";
 export const KEY_VOICE_SOURCE = "already-voice-source-v1";
 const KEY_USE_MINE = "already-use-my-voice-v1";
 export type VoiceSource = "default" | "clone" | "self";
+/** Cache owner for the default voice; bump it when the default voice changes so old lines are not replayed. */
+export const DEFAULT_OWNER = "default:longyuan";
 
 export function storedVoiceSource(): VoiceSource {
   const saved = readStored(KEY_VOICE_SOURCE);
@@ -35,7 +37,7 @@ export async function lineAudio(text: string, voice: LineVoice): Promise<Blob> {
     if (own) return own;
   }
   const useMine = voice.hasClone && voice.source !== "default";
-  const key = await cacheKey(useMine ? `mine:${voice.createdAt}` : "default", text);
+  const key = await cacheKey(useMine ? `mine:${voice.createdAt}` : DEFAULT_OWNER, text);
   const cached = await readCached(key);
   if (cached) return cached;
   const response = await fetch("/api/voice/speak", { method: "POST", headers: voice.headers, body: JSON.stringify({ text, useMyVoice: useMine }) });

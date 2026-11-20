@@ -6,6 +6,7 @@ import DoughHop from "./DoughHop";
 import { ArrowLeft, Check, MagnifyingGlass, Microphone, Pause, Play, SkipBack, SkipForward, Stop, X } from "@phosphor-icons/react";
 import { startSoundStream, type AmbienceHandle } from "@/lib/ambience";
 import { clearSelfVoice, readSelfLine, selfLinesDone, writeSelfLine } from "@/lib/self-voice";
+import { DEFAULT_OWNER } from "@/lib/line-voice";
 import { recordingToWav, toDataUri } from "@/lib/recording";
 import { cacheKey, clearVoiceCache, readCached, writeCached } from "@/lib/voice-cache";
 import { VOICE_LIMITS } from "@/lib/voice-limits";
@@ -171,7 +172,7 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
 
   // the synthesized voice: her clone when she has one and wants it (also fills lines she hasn't read herself)
   const useMine = voice.has && source !== "default";
-  const owner = useMine ? `mine:${voice.createdAt}` : "default";
+  const owner = useMine ? `mine:${voice.createdAt}` : DEFAULT_OWNER;
 
   const maxLength = zh ? 40 : 120;
   const clean = useCallback((raw: string[]) => raw.map((line) => line.replace(/\s+/g, " ").trim()).filter((line) => line.length >= 2 && line.length <= maxLength), [maxLength]);
@@ -660,7 +661,7 @@ function RecordScreen({ lang, headers, onBack, onDone }: RecordProps) {
           {recorded && <audio controls src={recorded.url} aria-label={t("你刚录的声音", "Your recording")} />}
           <p>{t(`这段录音约 ${Math.round(recorded?.seconds || 0)} 秒。`, `This recording is about ${Math.round(recorded?.seconds || 0)} seconds.`)}</p>
           <label className="dream-consent-check"><input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} /><span>{method === "import"
-            ? t("这是我自己的声音，或者声音的主人已经同意我用它生成声音。我同意把这段音频发给语音服务商来生成声音，之后可以随时删除。", "This is my own voice, or its owner has agreed to let me make a voice from it. I agree to send this audio to a voice provider to create the voice, and I can delete it anytime.")
+            ? t("我确认这段声音是我本人的，或我已取得声音权利人的明确授权。因上传和使用这段声音产生的一切责任由我本人承担，与 AlreaDough 无关。我同意把这段音频发给语音服务商来生成声音，之后可以随时删除。", "I confirm this is my own voice, or that I have the voice owner's explicit permission. I alone am responsible for uploading and using it; AlreaDough is not. I agree to send this audio to a voice provider to create the voice, and I can delete it anytime.")
             : t("我同意把这段录音发给语音服务商来生成我的声音，之后可以随时删除。", "I agree to send this recording to a voice provider to create my voice, and I can delete it anytime.")}</span></label>
           {error && <p className="dream-message" role="alert">{error}</p>}
         </div>

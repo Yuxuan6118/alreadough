@@ -2,7 +2,7 @@
 
 export const VOICE_MODEL = process.env.VOICE_MODEL || "qwen-audio-3.1-tts-flash";
 /** the voice used when she has not recorded her own */
-export const DEFAULT_VOICE = process.env.VOICE_DEFAULT || "longanhuan_v3.1";
+export const DEFAULT_VOICE = process.env.VOICE_DEFAULT || "longyuan_v3.1"; // 温暖治愈, the founder's pick (2026-11-20)
 
 function endpoint() {
   // OPENAI_BASE_URL points at the same account as the chat model, e.g. https://dashscope.aliyuncs.com/compatible-mode/v1
