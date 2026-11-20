@@ -144,7 +144,7 @@ test("keeps the chosen vision-board color connected to the live canvas", async (
 test("shows only one primary memory action in each memory-library state", async () => {
   const page = await appSource();
   // one "add" button at the top of 记忆库; the empty states only explain, the filtered-empty one leads back to all
-  assert.equal((page.match(/onClick=\{\(\) => openMemoryEditor\(\)\}/g) || []).length, 1);
+  assert.equal((page.match(/onClick=\{\(\) => (openMemoryEditor|onEditMemory)\(\)\}/g) || []).length, 1);
   assert.doesNotMatch(page, /添加第一条记忆/);
   assert.match(page, /currentMemoryItems\.length === 0 \? <div className="library-empty"/);
   assert.match(page, /setMemoryFilter\("all"\)/);

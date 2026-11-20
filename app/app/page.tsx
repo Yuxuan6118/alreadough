@@ -4,14 +4,11 @@ import { KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from
 import { Capacitor } from "@capacitor/core";
 import {
   Moon,
-  PencilSimple,
   Plus,
   Sun,
   Trash,
   Waveform,
   ArrowsClockwise,
-  Brain,
-  PushPin,
   CaretDown,
   List,
   Check,
@@ -28,9 +25,6 @@ import {
   ThumbsDown,
   ThumbsUp,
   X,
-  DownloadSimple,
-  ArrowCounterClockwise,
-  CaretRight,
   ImageSquare,
   MagnifyingGlass,
 } from "@phosphor-icons/react";
@@ -41,7 +35,6 @@ import DoughPet from "../components/DoughPet";
 import { AiNote, BreakReminder, ReportButton, ReportDialog, SiteRecord } from "../components/Compliance";
 import MembershipPanel, { memberPlanLabel, UsageBanner, UsageMeter, useMemberStatus } from "../components/MembershipPanel";
 import DesktopPetPanel from "../components/DesktopPetPanel";
-import SyncPanel from "../components/SyncPanel";
 import { deleteLocalCover } from "@/lib/cover-store";
 import GuidedOnboarding from "../components/GuidedOnboarding";
 import ProfilePanel from "../components/ProfilePanel";
@@ -51,7 +44,6 @@ import SpaceNav from "../components/SpaceNav";
 import SpacePage from "../components/SpacePage";
 import { AboutIcon, DoughIcon, HelpIcon, LibraryIcon, LookIcon, MembershipIcon, PetIcon, SyncIcon, ThoughtsIcon, WishesIcon, WriteLineIcon } from "../components/SpaceIcons";
 import LettersPanel, { type AppLetter } from "../components/LettersPanel";
-import FontSizePanel from "../components/FontSizePanel";
 import StoryCoverPicker from "../components/StoryCoverPicker";
 import { STORY_CATEGORIES, STORY_CATEGORY_LABELS, storyCategoryFor, type StoryCategory } from "@/lib/story-prompt";
 import { validateSpName } from "@/lib/name-policy";
@@ -63,16 +55,17 @@ import { buildExportZip, exportFileName } from "@/lib/export-archive";
 import { getDeviceSessionId } from "@/lib/device-session";
 import { mergeSpaces } from "@/lib/space-merge";
 import DoughHop from "../components/DoughHop";
-import { CopyrightIcon, PricingIcon, PrivacyIcon, ReportIcon, SafetyIcon, TermsIcon } from "../components/HelpIcons";
 import { CompanionIcon, DreamscapeIcon, PersonaIcon, ReviseIcon, StoriesIcon, VisionIcon } from "../components/NavIcons";
 import PersonaStudio from "../components/PersonaStudio";
 
+import { ContextSection, LibrarySection } from "./MemorySections";
+import { DataSection, HelpSection, LookSection } from "./SpaceSections";
 import { StoryLibrary, StoryQuotaNote, StoryReader } from "./StoryViews";
 import { AppRail, SwipeSidebar } from "./AppNav";
 import { useBetaSurveyTimer } from "./useBetaSurveyTimer";
 import { useChatScroll } from "./useChatScroll";
 import { useSwipeDrawer } from "./useSwipeDrawer";
-import { type SpaceSection, type View, type Lang, type Message, type Conversation, type BoardItem, type Revision, type MemoryKind, type MemoryItem, type MemoryDraft, type GoalProfile, type Profile, emptyProfile, normalizeProfile, type Story, type StoryCover, type StoryDraft, NO_STORY_GOAL, type AIResponse, type SearchImage, type BetaStatus, splitThought, emptyStoryDraft, emptyMemoryDraft, emptyStory, defaultGoal, MAX_BELIEFS, MAX_GOALS, SYNC_BASE_KEY, SPACE_OWNER_KEY, discardDeviceSpace, isDiscardingSpace, clearDeviceSpace, MAX_STORIES, MAX_STORY_PARAGRAPHS, storyTitleFrom, normalizeStory, intensityLabels, normalizeGoal, MAX_BACKGROUND, MAX_MEMORIES, nextLocalId, memoryKinds, sameBelief, parseBeliefs, seedJourneySummary, normalizeMessages, conversationTitle, SurveyScale, wishCategories, goalTitle, coachModes, ui } from "./model";
+import { type SpaceSection, type View, type Lang, type Message, type Conversation, type BoardItem, type Revision, type MemoryKind, type MemoryItem, type MemoryDraft, type GoalProfile, type Profile, emptyProfile, normalizeProfile, type Story, type StoryCover, type StoryDraft, NO_STORY_GOAL, type AIResponse, type SearchImage, type BetaStatus, splitThought, emptyStoryDraft, emptyMemoryDraft, emptyStory, defaultGoal, MAX_BELIEFS, MAX_GOALS, SYNC_BASE_KEY, SPACE_OWNER_KEY, discardDeviceSpace, isDiscardingSpace, clearDeviceSpace, MAX_STORIES, MAX_STORY_PARAGRAPHS, storyTitleFrom, normalizeStory, intensityLabels, normalizeGoal, MAX_MEMORIES, nextLocalId, memoryKinds, sameBelief, parseBeliefs, seedJourneySummary, normalizeMessages, conversationTitle, SurveyScale, wishCategories, goalTitle, coachModes, ui } from "./model";
 
 export default function Home() {
   const [lang, setLang] = useState<Lang>("zh");
@@ -85,7 +78,6 @@ export default function Home() {
   const [hydrated, setHydrated] = useState(false);
   const [beliefDraft, setBeliefDraft] = useState("");
   const [beliefInput, setBeliefInput] = useState("");
-  const [openScene, setOpenScene] = useState<number | null>(null);
   const [storyIndex, setStoryIndex] = useState(0);
   const [storyLibrary, setStoryLibrary] = useState<Story[]>([]);
   const [storyReading, setStoryReading] = useState(false);
@@ -139,7 +131,6 @@ export default function Home() {
     setReadLetters(next);
     writeStored("already-letters-read-v1", JSON.stringify([...next].slice(-200)));
   };
-  const [memoryFilter, setMemoryFilter] = useState<MemoryKind | "all">("all");
   const [memoryEditorOpen, setMemoryEditorOpen] = useState(false);
   const [memoryEditingId, setMemoryEditingId] = useState<string | null>(null);
   const [memoryDraft, setMemoryDraft] = useState<MemoryDraft>(emptyMemoryDraft);
@@ -442,9 +433,6 @@ export default function Home() {
   const spNameError = spNameDraft.trim() ? validateSpName(spNameDraft, lang) : "";
   const beliefCount = parseBeliefs(beliefDraft).length;
   const currentMemoryItems = goal.memoryItems[lang] || [];
-  const filteredMemoryItems = currentMemoryItems
-    .filter((item) => memoryFilter === "all" || item.kind === memoryFilter)
-    .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.createdAt.localeCompare(a.createdAt));
   const sessionMessages = messages;
   const streak = useMemo(() => practiceStreak(checkIns), [checkIns]);
   const checkedToday = checkIns.some((item) => item.date === todayKey());
@@ -1324,6 +1312,16 @@ export default function Home() {
   }
 
   /** One way into My space: from the list (phone) or straight to a section. On a wide screen the first section is already open. */
+  /** "Clear everything": after she confirms, the cloud space and everything this device keeps are deleted. */
+  const clearEverything = async () => {
+    if (!(await askConfirm({ title: t.confirm, body: lang === "zh" ? "愿望、对话、记忆、剧本和本机的照片与音频都会删除，不能恢复。" : "Desires, conversations, memories, stories, and this device's photos and audio will be deleted. This can't be undone.", confirmLabel: lang === "zh" ? "全部清除" : "Clear everything", cancelLabel: lang === "zh" ? "取消" : "Cancel" }))) return;
+    void fetch("/api/space", { method: "DELETE", headers: { "x-already-session-id": sessionId } });
+    clearDeviceSpace();
+    syncBaseRef.current = null;
+    setProfile(emptyProfile); setOtherGoals([]); setGoal({ ...defaultGoal }); setGoalArchive([]); setConversationArchive([]); setConversationId("");
+    setSpNameDraft(""); setBeliefDraft(""); setStoryLibrary([]); setMessages([]); setRevisions([]); setCheckIns([]); setBoard([]); setView("home");
+  };
+
   const openSpace = (section?: SpaceSection) => {
     setSettingsSection(section ?? (typeof window !== "undefined" && window.matchMedia("(min-width: 1000px)").matches ? "wishes" : null));
     setView("settings");
@@ -1554,112 +1552,14 @@ export default function Home() {
                 {goalArchive.length > 0 && <div className="setting-card archive-card"><label>{lang === "zh" ? `已经发生的愿望 · ${goalArchive.length}` : `FULFILLED DESIRES · ${goalArchive.length}`}</label>{goalArchive.slice(0, 5).map((item) => <article key={item.id}><strong>{item.desire[lang] || item.desire[lang === "zh" ? "en" : "zh"]}</strong><small>{item.createdAt ? new Date(item.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US") : ""}</small></article>)}</div>}
               </div>}
               {shown === "about" && <ProfilePanel lang={lang} profile={profile} onChange={(next) => setProfile(normalizeProfile(next))} name={goal.companionName} onNameChange={(value) => setGoal((current) => ({ ...current, companionName: value }))} />}
-              {shown === "memory" && <div className="settings-section profile-panel">
-                <div className="profile-cards">
-                  <div className="memory-for"><span className="wish-chip is-current">{lang === "zh" ? "当前愿望" : "Current desire"}</span><span>{goalTitle(goal, lang)}</span></div>
-                  <section className="profile-card">
-                    <h3>{lang === "zh" ? "我的背景与处境" : "My context"}</h3>
-                    <label className="wish-field"><span className="profile-sub">{lang === "zh" ? "和这个愿望有关的经历、现状和顾虑" : "What has happened, where things stand, and what worries you"}</span><textarea maxLength={MAX_BACKGROUND} value={goal.background[lang]} onChange={(event) => setGoal((current) => ({ ...current, background: { ...current.background, [lang]: event.target.value } }))} placeholder={lang === "zh" ? "写得越具体，回复越贴合你的情况。" : "The more specific, the better the replies fit."}/></label>
-                    <small className="profile-count">{goal.background[lang].length} / {MAX_BACKGROUND}</small>
-                  </section>
-                  <section className="profile-card">
-                    <h3>{lang === "zh" ? "人物与生活设定" : "People and life"}</h3>
-                    <label className="wish-field" aria-label={lang === "zh" ? "人物与生活设定" : "People and life"}><textarea maxLength={MAX_STORY_SETTING} value={goal.storySetting[lang]} onChange={(event) => { const value = event.target.value; setGoal((current) => ({ ...current, storySetting: { ...current.storySetting, [lang]: value } })); }} placeholder={lang === "zh" ? "比如：他家里条件很好，穿衣讲究但不张扬，说话慢。不要写他穿运动品牌。" : "For example: he comes from money, dresses well but quietly, speaks slowly. No sportswear on him."}/></label>
-                    <small className="profile-count">{goal.storySetting[lang].length} / {MAX_STORY_SETTING}</small>
-                  </section>
-                  <section className="profile-card">
-                    <h3>{lang === "zh" ? "想换掉的念头" : "Thoughts to turn around"}</h3>
-                    {parseBeliefs(beliefDraft).length ? <ul className="thought-rows">{parseBeliefs(beliefDraft).map((item, index) => <li key={`${index}-${item}`}><span>{item}</span><button type="button" className="thought-turn" onClick={() => turnBelief(item)}>{lang === "zh" ? "转念" : "Reframe"}</button><button type="button" className="profile-remove" aria-label={lang === "zh" ? `删除：${item}` : `Delete: ${item}`} onClick={() => removeBeliefWithUndo(item)}><X size={16}/></button></li>)}</ul> : <p className="setting-empty">{lang === "zh" ? "还没有写下想换掉的念头。" : "Nothing written here yet."}</p>}
-                    {beliefCount < MAX_BELIEFS && <div className="profile-topic-add"><input value={beliefInput} maxLength={200} onChange={(event) => setBeliefInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); addBelief(); } }} placeholder={lang === "zh" ? "例如：他根本不在乎我" : "e.g. They don't really care"} aria-label={lang === "zh" ? "添加一个想换掉的念头" : "Add a thought to turn around"}/><button type="button" className="profile-topic-plus" disabled={!beliefInput.trim()} onClick={addBelief}><Plus size={15}/> {lang === "zh" ? "添加" : "Add"}</button></div>}
-                    <small className={`profile-count${beliefCount > MAX_BELIEFS ? " over" : ""}`}>{beliefCount} / {MAX_BELIEFS}</small>
-                  </section>
-                </div>
-              </div>}
-              {shown === "library" && <div className="settings-section profile-panel library-section">
-                <div className="profile-cards">
-                  <div className="memory-for"><span className="wish-chip is-current">{lang === "zh" ? "当前愿望" : "Current desire"}</span><span>{goalTitle(goal, lang)}</span></div>
-                  <section className="profile-card">
-                    <h3>{lang === "zh" ? "AlreaDough 对这个愿望的理解" : "What AlreaDough understands so far"}</h3>
-                    <p className="library-summary">{goal.journeySummary[lang] || (lang === "zh" ? "对话开始后，这里会形成简短摘要。" : "A short summary will form after conversations begin.")}</p>
-                    
-                  </section>
-                  <section className="profile-card">
-                    <div className="library-card-head"><h3>{lang === "zh" ? `记住的事 · ${currentMemoryItems.length}` : `Remembered · ${currentMemoryItems.length}`}</h3><button type="button" className="profile-topic-plus" onClick={() => openMemoryEditor()}><Plus size={15}/> {lang === "zh" ? "添加" : "Add"}</button></div>
-                    {currentMemoryItems.length > 0 && <div className="wish-pills library-filter" role="group" aria-label={lang === "zh" ? "筛选记忆" : "Filter memories"}><button type="button" className={memoryFilter === "all" ? "selected" : ""} onClick={() => setMemoryFilter("all")}>{lang === "zh" ? "全部" : "All"} <small>{currentMemoryItems.length}</small></button>{memoryKinds.map((kind) => { const count = currentMemoryItems.filter((item) => item.kind === kind.id).length; return count ? <button type="button" key={kind.id} className={memoryFilter === kind.id ? "selected" : ""} onClick={() => setMemoryFilter(kind.id)}>{lang === "zh" ? kind.zh : kind.en} <small>{count}</small></button> : null; })}</div>}
-                    {filteredMemoryItems.length ? <ul className="memory-rows">{filteredMemoryItems.map((item) => <li key={item.id} className={item.pinned ? "pinned" : ""}><div className="memory-row-head"><span className="wish-chip">{lang === "zh" ? memoryKinds.find((kind) => kind.id === item.kind)?.zh : memoryKinds.find((kind) => kind.id === item.kind)?.en}</span>{item.pinned && <span className="wish-chip is-current">{lang === "zh" ? "已置顶" : "Pinned"}</span>}<div className="memory-row-actions"><button type="button" onClick={() => toggleMemoryPin(item.id)} aria-pressed={item.pinned} aria-label={item.pinned ? (lang === "zh" ? "取消置顶" : "Unpin") : (lang === "zh" ? "置顶" : "Pin")}><PushPin size={16} weight={item.pinned ? "fill" : "regular"}/></button><button type="button" onClick={() => openMemoryEditor(item)} aria-label={lang === "zh" ? "编辑记忆" : "Edit memory"}><PencilSimple size={16}/></button><button type="button" className="memory-row-delete" onClick={() => deleteMemoryItem(item.id)} aria-label={lang === "zh" ? "删除记忆" : "Delete memory"}><Trash size={16}/></button></div></div><strong>{item.title}</strong><p>{item.detail}</p>{item.keywords.length > 0 && <footer>{item.keywords.map((keyword) => <small key={keyword}>{keyword}</small>)}</footer>}</li>)}</ul> : currentMemoryItems.length === 0 ? <div className="library-empty"><Brain size={22}/><p>{lang === "zh" ? "继续聊天，值得记住的事会慢慢出现在这里；也可以亲手写下第一条。" : "Keep talking and what is worth keeping will appear here, or write the first one yourself."}</p></div> : <p className="setting-empty">{lang === "zh" ? "这一类还没有记忆。" : "Nothing in this category yet."}</p>}
-                  </section>
-                  <section className="profile-card">
-                    <h3>{lang === "zh" ? `已接纳的新场景 · ${goal.acceptedSceneLedger[lang].length}` : `Accepted scenes · ${goal.acceptedSceneLedger[lang].length}`}</h3>
-                    {goal.acceptedSceneLedger[lang].length ? <ul className="scene-rows">{goal.acceptedSceneLedger[lang].map((item, index) => <li key={`${index}-${item.slice(0, 24)}`}><button type="button" className={openScene === index ? "open" : ""} aria-expanded={openScene === index} onClick={() => setOpenScene(openScene === index ? null : index)}><span>{item}</span><CaretDown size={15}/></button></li>)}</ul> : <p className="setting-empty">{lang === "zh" ? "在剧本里接纳的场景会出现在这里。" : "Scenes you accept in Stories will appear here."}</p>}
-                  </section>
-                </div>
-              </div>}
+              {shown === "memory" && <ContextSection lang={lang} goal={goal} setGoal={setGoal} beliefs={parseBeliefs(beliefDraft)} beliefCount={beliefCount} beliefInput={beliefInput} onBeliefInput={setBeliefInput} onAddBelief={addBelief} onTurnBelief={turnBelief} onRemoveBelief={removeBeliefWithUndo} />}
+              {shown === "library" && <LibrarySection lang={lang} goal={goal} currentMemoryItems={currentMemoryItems} onEditMemory={openMemoryEditor} onTogglePin={toggleMemoryPin} onDeleteMemory={deleteMemoryItem} />}
               {shown === "membership" && <MembershipPanel lang={lang} member={member} onRefresh={refreshMember} />}
               {shown === "pet" && <DesktopPetPanel lang={lang} />}
-              {shown === "look" && <div className="settings-section profile-panel look-section">
-                <div className="profile-cards">
-                  <section className="profile-card">
-                    <h3>{lang === "zh" ? "日夜间模式" : "Day and night"}</h3>
-                    <div className="look-options" role="radiogroup" aria-label={lang === "zh" ? "日夜间模式" : "Day and night"}>
-                      {([["light", Sun, "浅色", "Light"], ["dark", Moon, "深色", "Dark"]] as const).map(([option, Icon, zhLabel, enLabel]) => <button key={option} type="button" role="radio" aria-checked={(option === "dark") === dark} className={(option === "dark") === dark ? "selected" : ""} onClick={() => chooseTheme(option)}>
-                        <Icon size={22} aria-hidden="true" />
-                        <small>{lang === "zh" ? zhLabel : enLabel}</small>
-                      </button>)}
-                    </div>
-                    <p className="profile-sub theme-note">{lang === "zh" ? "手机最顶上那一条的颜色由手机系统决定，只能跟随手机自己的深色模式：在手机设置里打开深色模式时，顶部才会和页面一起变暗；没打开时，顶部就是浅色。换了模式后如果顶部和页面颜色对不上，在后台把 AlreaDough 上划关掉，再重新打开就好。" : "The strip at the very top of your phone takes its colour from the phone itself, so it can only follow your phone's Dark Mode: it darkens with the page only when Dark Mode is on in your phone's settings, and stays light when it's off. If the top and the page don't match after you switch, swipe AlreaDough away in the app switcher and open it again."}</p>
-                  </section>
-                  <section className="profile-card">
-                    <h3>{lang === "zh" ? "界面语言" : "Language"}</h3>
-                    <div className="wish-pills" role="radiogroup" aria-label={lang === "zh" ? "界面语言" : "Language"}>
-                      {([["zh", "简体中文"], ["en", "English"]] as const).map(([option, label]) => <button key={option} type="button" role="radio" aria-checked={lang === option} className={lang === option ? "selected" : ""} onClick={() => { if (lang !== option) switchLanguage(); }}>{label}</button>)}
-                    </div>
-                  </section>
-                  <FontSizePanel lang={lang} />
-                </div>
-              </div>}
-              {shown === "sync" && <div className="settings-section profile-panel data-section">
-                <div className="profile-cards">
-                  <SyncPanel lang={lang} syncStatus={syncStatus} />
-                  <section className="profile-card">
-                    <h3>{lang === "zh" ? "导出我的数据" : "Export my data"}</h3>
-                    <p className="profile-sub">{lang === "zh" ? "下载一个压缩包：解压后双击里面的 index.html，就能在浏览器里查看、搜索你的愿望、对话、记忆和剧本；原始数据也一起附上（JSON 格式）。私密照片和录音不在里面。" : "Download a .zip: unzip it and open index.html to read and search your desires, conversations, memories and stories in a browser. The raw data comes along as JSON. Private photos and audio are not included."}</p>
-                    <div className="data-actions"><button type="button" className="profile-topic-plus" onClick={exportMyData}><DownloadSimple size={16} /> {lang === "zh" ? "导出压缩包" : "Download .zip"}</button></div>
-                  </section>
-                  <section className="profile-card">
-                    <h3>{lang === "zh" ? "重新走一遍开场" : "Run the opening again"}</h3>
-                    <p className="profile-sub">{lang === "zh" ? "把开场的问题再填一遍。你填的内容会加进现在的账号，已有的愿望、记忆和对话都不会被删除。" : "Answer the opening questions again. What you write is added to this account; nothing you already have is deleted."}</p>
-                    <div className="data-actions"><button type="button" className="profile-topic-plus" onClick={() => setReplaying(true)}><ArrowCounterClockwise size={16} /> {lang === "zh" ? "开始" : "Start"}</button></div>
-                  </section>
-                  <section className="profile-card data-danger">
-                    <h3>{lang === "zh" ? "清除全部数据" : "Clear everything"}</h3>
-                    <p className="profile-sub">{lang === "zh" ? "云端和这台设备上的愿望、对话、记忆、剧本、照片与音频都会删除，不能恢复。需要的话先导出一份。" : "Desires, conversations, memories, stories, photos and audio in the cloud and on this device are deleted and cannot be recovered. Export a copy first if you want one."}</p>
-                    <div className="data-actions"><button type="button" className="data-danger-button" onClick={async () => { if (await askConfirm({ title: t.confirm, body: lang === "zh" ? "愿望、对话、记忆、剧本和本机的照片与音频都会删除，不能恢复。" : "Desires, conversations, memories, stories, and this device's photos and audio will be deleted. This can't be undone.", confirmLabel: lang === "zh" ? "全部清除" : "Clear everything", cancelLabel: lang === "zh" ? "取消" : "Cancel" })) { void fetch("/api/space", { method: "DELETE", headers: { "x-already-session-id": sessionId } }); clearDeviceSpace(); syncBaseRef.current = null; setProfile(emptyProfile); setOtherGoals([]); setGoal({ ...defaultGoal }); setGoalArchive([]); setConversationArchive([]); setConversationId(""); setSpNameDraft(""); setBeliefDraft(""); setStoryLibrary([]); setMessages([]); setRevisions([]); setCheckIns([]); setBoard([]); setView("home"); } }}><Trash size={16} /> {lang === "zh" ? "清除全部数据" : "Clear everything"}</button></div>
-                  </section>
-                </div>
-              </div>}
+              {shown === "look" && <LookSection lang={lang} dark={dark} onTheme={chooseTheme} onSwitchLanguage={switchLanguage} />}
+              {shown === "sync" && <DataSection lang={lang} syncStatus={syncStatus} onExport={exportMyData} onReplay={() => setReplaying(true)} onClearEverything={clearEverything} />}
               {shown === "dough" && <div className="settings-section dough-space"><DoughPet inline lang={lang} checked={checkedToday} streak={streak} onCheckIn={() => recordCheckIn("chosen")}/></div>}
-              {shown === "help" && <div className="settings-section profile-panel help-section">
-                <div className="profile-cards">
-                  <section className="profile-card">
-                    <h3>{lang === "zh" ? "联系与举报" : "Contact & reports"}</h3>
-                    <p className="profile-sub">{lang === "zh" ? "发现不当、违法或让你不舒服的内容，可以在这里举报。每条 AI 回复下面也有“举报”按钮。我们会尽快查看。" : "If you see anything inappropriate, unlawful, or upsetting, report it here. Every AI reply also has a Report button. We read these as soon as we can."}</p>
-                    <div className="data-actions"><button type="button" className="profile-topic-plus" onClick={() => setReportTarget({})}><ReportIcon size={16} /> {lang === "zh" ? "举报内容或反馈问题" : "Report content or send feedback"}</button></div>
-                    <SiteRecord lang={lang} />
-                  </section>
-                  <section className="profile-card">
-                    <h3>{lang === "zh" ? "说明与条款" : "Notices & terms"}</h3>
-                    <ul className="help-links">
-                      {([
-                        ["/pricing", PricingIcon, lang === "zh" ? "会员与价格" : "Membership & pricing"],
-                        ["/trust", SafetyIcon, t.trust],
-                        ["/privacy", PrivacyIcon, lang === "zh" ? "隐私说明" : "Privacy"],
-                        ["/terms", TermsIcon, lang === "zh" ? "测试版条款" : "Beta terms"],
-                        ["/copyright", CopyrightIcon, lang === "zh" ? "素材与版权" : "Content & copyright"],
-                      ] as const).map(([href, Icon, label]) => <li key={href}><a href={href}><span className="help-icon" aria-hidden="true"><Icon size={18} /></span><span>{label}</span><CaretRight size={16} aria-hidden="true" /></a></li>)}
-                    </ul>
-                  </section>
-                </div>
-              </div>}
+              {shown === "help" && <HelpSection lang={lang} trustLabel={t.trust} onReport={() => setReportTarget({})} />}
             </div>
           </div>
         </section>;
