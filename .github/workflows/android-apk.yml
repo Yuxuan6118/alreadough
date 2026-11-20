@@ -21,6 +21,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.20.0
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -32,8 +36,8 @@ jobs:
 
       - name: Install the project and the Android pieces of Capacitor
         run: |
-          npm install --no-audit --no-fund
-          npm install --no-save --no-audit --no-fund @capacitor/android@^8.5.1 @capacitor/assets
+          pnpm install --frozen-lockfile
+          pnpm add @capacitor/android@^8.5.1 @capacitor/assets
 
       - name: Create the Android project
         run: npx cap add android

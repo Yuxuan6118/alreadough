@@ -41,6 +41,7 @@ export default function Checkout({ initialLang }: { initialLang: Lang }) {
   }
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- the plan and the "back from paying" flag come from the URL, which only exists in the browser */
     const params = new URLSearchParams(window.location.search);
     if (params.get("plan") === "atelier") setPlan("atelier");
     const back = params.get("paid");
@@ -50,13 +51,16 @@ export default function Checkout({ initialLang }: { initialLang: Lang }) {
     setPaid(true);
     const timers = [3000, 8000, 20000].map((ms) => window.setTimeout(() => void refresh().catch(() => undefined), ms));
     return () => timers.forEach(clearTimeout);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   // Fall back to whichever method is actually open.
   useEffect(() => {
     if (!member) return;
+    /* eslint-disable react-hooks/set-state-in-effect -- which methods are open is only known once the status has loaded */
     if (method === "alipay" && !member.checkoutAvailable && member.cardCheckoutAvailable) setMethod("card");
     if (method === "card" && !member.cardCheckoutAvailable && member.checkoutAvailable) setMethod("alipay");
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [member, method]);
 
 

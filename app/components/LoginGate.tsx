@@ -154,6 +154,7 @@ export default function LoginGate({ children }: { children: ReactNode }) {
                   </>}
                   <form onSubmit={submit}>
                     <label><span>{t.email}</span><input type="email" autoComplete="email" value={email} disabled={codeSent || busy} onChange={(event) => { setEmail(event.target.value); setError(null); }} placeholder="you@example.com" /></label>
+                    {/* eslint-disable-next-line jsx-a11y/no-autofocus -- the code box appears right after she asks for the code */}
                     {codeSent && <label><span>{t.code}</span><input type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={code} disabled={busy} autoFocus onChange={(event) => { setCode(event.target.value.replace(/\D/g, "")); setError(null); }} /></label>}
                     <button type="submit" disabled={busy || !email.trim() || (codeSent && code.length < 6)}>{busy ? <span className="dough-loading"><DoughHop size="xs"/>{t.wait}</span> : codeSent ? t.verify : t.send}</button>
                     {codeSent && !error && <p className="login-gate-note">{t.sent}</p>}

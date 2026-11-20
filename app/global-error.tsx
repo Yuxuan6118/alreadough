@@ -10,7 +10,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
     try {
       const stack = String(error?.stack || "").split("\n").slice(0, 4).join(" | ").slice(0, 600);
       fetch(`/api/client-error?m=${encodeURIComponent(detail)}&s=${encodeURIComponent(stack)}&u=${encodeURIComponent(location.pathname)}`, { cache: "no-store" }).catch(() => {});
-    } catch {}
+    } catch { /* reporting the error must never cause another one */ }
   }, [detail, error]);
   return (
     <html lang="zh-CN">

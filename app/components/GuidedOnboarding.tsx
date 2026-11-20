@@ -97,11 +97,12 @@ export default function GuidedOnboarding({ lang, sessionId, mode, initialName = 
   }, [mode, ready, answers, pos, finished]);
 
   const kinds = answers.wishes.map((wish) => wish.kind);
+  const kindsKey = kinds.join("|");
   const flow: FlowSlot[] = useMemo(() => {
     if (mode === "extra") return wishModule(kinds[0] || "", false).map((id) => ({ wish: 0, id }));
     return buildFlow(kinds, finished);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, finished, kinds.join("|")]);
+  }, [mode, finished, kindsKey]);
 
   const index = Math.min(pos, flow.length - 1);
   const slot = flow[index];
@@ -253,8 +254,10 @@ export default function GuidedOnboarding({ lang, sessionId, mode, initialName = 
             {!meetingSomeoneNew && <input aria-label={zh ? "TA 的名字或称呼" : "Their name or what you call them"} maxLength={24} value={currentText()} onChange={(event) => setCurrentText(event.target.value)} placeholder={zh ? "TA 的名字或称呼" : "Their name or what you call them"} />}
           </>;
         }
+        // eslint-disable-next-line jsx-a11y/no-autofocus -- each step asks one thing; its field takes the focus
         return <input autoFocus maxLength={60} value={currentText()} onChange={(event) => setCurrentText(event.target.value)} placeholder={placeholder} onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing && canContinue) void onContinue(); }} />;
       case "long":
+        // eslint-disable-next-line jsx-a11y/no-autofocus -- each step asks one thing; its field takes the focus
         return <textarea autoFocus rows={slot.id === "never" ? 4 : 5} maxLength={1200} value={currentText()} onChange={(event) => setCurrentText(event.target.value)} placeholder={placeholder} />;
       case "category":
         return <div className="option-card-grid category-grid">{WISH_KIND_OPTIONS.map((option) => <button key={option.id} type="button" className={wish?.kind === option.id ? "selected" : ""} onClick={() => setWish({ kind: option.id })}><strong>{zh ? option.zh : option.en}</strong><small>{zh ? option.zhHint : option.enHint}</small></button>)}</div>;

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import SiteFooter from "../components/SiteFooter";
 import styles from "./trust.module.css";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "AI & Safety · AlreaDough",
@@ -76,7 +77,7 @@ export default function TrustPage() {
   return (
     <><main className={styles.page}>
       <header className={styles.header}>
-        <a href="/" className={styles.back}>← Back to AlreaDough</a>
+        <Link href="/" className={styles.back}>← Back to AlreaDough</Link>
         <a href="/en/trust" className={styles.back} lang="en" hrefLang="en">English</a>
       </header>
       <section className={styles.hero}>

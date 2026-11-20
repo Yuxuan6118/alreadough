@@ -17,6 +17,7 @@ export default function PlanPicker({ items, initial, label }: { items: Item[]; i
         <article
           key={item.id}
           className={styles.plan}
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-element-to-interactive-role -- a radio card: keys are handled in onKey
           role="radio"
           tabIndex={0}
           aria-checked={selected === item.id}

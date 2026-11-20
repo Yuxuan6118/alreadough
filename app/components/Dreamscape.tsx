@@ -319,7 +319,7 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
     // unlock the player inside her tap (iPhone refuses audio that starts after a wait)
     const player = audioRef.current || new Audio();
     audioRef.current = player;
-    player.src = SILENCE;
+    player.src = SILENCE; // eslint-disable-line react-hooks/immutability -- the shared player is unlocked inside her tap, as iPhone requires
     void player.play().catch(() => undefined);
     setMessage("");
     setFinished(false);
@@ -549,7 +549,7 @@ function RecordScreen({ lang, headers, onBack, onDone }: RecordProps) {
       setPhase("recording");
       timerRef.current = window.setInterval(() => {
         setSeconds((value) => {
-          if (value + 1 >= VOICE_LIMITS.maxSampleSeconds - 3) recorder.state === "recording" && recorder.stop();
+          if (value + 1 >= VOICE_LIMITS.maxSampleSeconds - 3 && recorder.state === "recording") recorder.stop();
           return value + 1;
         });
       }, 1000);
@@ -580,6 +580,7 @@ function RecordScreen({ lang, headers, onBack, onDone }: RecordProps) {
       <section className="dream dream-record">
         <header className="dream-player-head"><button type="button" className="dream-back" onClick={onBack} aria-label={t("返回", "Back")}><ArrowLeft size={22} /></button><h1>{t("听一下，再决定", "Listen, then decide")}</h1></header>
         <div className="dream-review">
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption -- her own voice sample, played back to her; there is nothing to caption */}
           {recorded && <audio controls src={recorded.url} aria-label={t("你刚录的声音", "Your recording")} />}
           <p>{t(`这段录音约 ${Math.round(recorded?.seconds || 0)} 秒。`, `This recording is about ${Math.round(recorded?.seconds || 0)} seconds.`)}</p>
           <p className="dream-consent">{t("我同意将这段录音发送给语音服务商，用于生成自定义声音。我可以在声音设置中删除该声音。", "I agree to send this recording to a voice provider to create my custom voice. I can delete the voice in its settings.")}</p>
@@ -599,6 +600,7 @@ function RecordScreen({ lang, headers, onBack, onDone }: RecordProps) {
         <div className="dream-player-head"><button type="button" className="dream-back" onClick={onBack} aria-label={t("返回", "Back")}><ArrowLeft size={22} /></button><h1>{t("读一遍给自己", "Read it to yourself")}</h1></div>
         <p>{t("约 45 秒。找个安静的地方，用平时对自己说话的语气读，可以上下滑动看全文。", "About 45 seconds. Find a quiet place and read in the voice you use with yourself. Scroll to see all of it.")}</p>
       </header>
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrollable text must be focusable so it can be scrolled with the keyboard */}
       <article className="dream-article" tabIndex={0} aria-label={t("要读的稿子，可以上下滑动", "The text to read, you can scroll it")}>
         {lines.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
       </article>

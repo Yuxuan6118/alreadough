@@ -32,8 +32,8 @@ export default function FontSizePanel({ lang }: { lang: Lang }) {
   const choose = (next: Size) => {
     setSize(next);
     writeStored(KEY, next);
-    if (next === "medium") delete document.documentElement.dataset.fontSize;
-    else document.documentElement.dataset.fontSize = next;
+    if (next === "medium") document.documentElement.removeAttribute("data-font-size");
+    else document.documentElement.setAttribute("data-font-size", next);
   };
 
   return <section className="profile-card font-size-card">

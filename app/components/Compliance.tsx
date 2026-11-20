@@ -62,7 +62,8 @@ export function ReportDialog({ lang, sessionId, excerpt, onClose }: { lang: Lang
 /** Every 2 hours of continuous chatting, a gentle note. It never blocks anything. */
 export function BreakReminder({ lang, activity }: { lang: Lang; activity: number }) {
   const [show, setShow] = useState(false);
-  const stateRef = useRef(newUsageState(Date.now()));
+  const [startedAt] = useState(() => Date.now());
+  const stateRef = useRef(newUsageState(startedAt));
 
   useEffect(() => { stateRef.current = markActive(stateRef.current, Date.now()); }, [activity]);
   useEffect(() => {

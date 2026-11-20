@@ -27,6 +27,7 @@ export type SpeakCheck = { ok: true; text: string; billed: number } | { ok: fals
 
 /** Clean the text we are about to read aloud and make sure it is a sensible size. */
 export function checkSpeakText(raw: unknown): SpeakCheck {
+  // eslint-disable-next-line no-control-regex -- stripping control characters is the point
   const text = typeof raw === "string" ? raw.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "").replace(/\s+\n/g, "\n").trim() : "";
   if (!text) return { ok: false, code: "EMPTY_TEXT" };
   const billed = billedChars(text);

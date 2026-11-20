@@ -60,6 +60,7 @@ export default function Pricing({ initialLang }: { initialLang: "zh" | "en" }) {
           <h1>{zh ? "会员与价格" : "Membership and pricing"}</h1>
           <span>{member?.enabled ? (zh ? "按用量使用。一次购买 30 天，到期不会自动扣款。" : "Usage-based allowances. Each purchase lasts 30 days and never renews on its own.") : (zh ? "新会员方案预览。试用和付款尚未开放。" : "Preview of the new membership plans. Trials and payments are not open yet.")}</span>
         </header>
+        {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-to-interactive-role -- the plan cards below are a keyboard-operable radio group */}
         <section className="pricing-plans" role="radiogroup" aria-label={zh ? "会员方案" : "Membership plans"}>
           {plans.map((plan) => {
             const isSelected = selected.id === plan.id;
@@ -67,6 +68,7 @@ export default function Pricing({ initialLang }: { initialLang: "zh" | "en" }) {
               <article
                 key={plan.id}
                 className={isSelected ? "selected" : undefined}
+                // eslint-disable-next-line jsx-a11y/no-noninteractive-element-to-interactive-role -- radio card: Enter and Space are handled in onKeyDown
                 role="radio"
                 tabIndex={0}
                 aria-checked={isSelected}

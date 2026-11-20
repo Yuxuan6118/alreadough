@@ -354,6 +354,8 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
   const [profile, setProfile] = useState<SavedSub>(defaults[lang]);
   const [editing, setEditing] = useState(false);
   const [studioTab, setStudioTab] = useState<"content" | "sound" | "playback" | "export">("content");
+  /** The summary rows open the studio on the tab they describe (by click, Enter or Space). */
+  const openStudioTab = (tab: "content" | "sound" | "playback" | "export") => { setStudioTab(tab); setEditing(true); };
   const [savedPulse, setSavedPulse] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -783,13 +785,13 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
       </div>
       <aside className="session-summary">
         <h3>{lang === "zh" ? "今天怎么听" : "How you are listening"}</h3>
-        <dl><div role="button" tabIndex={0} onClick={() => { setStudioTab("sound"); setEditing(true); }}><dt>{copy.mode}</dt><dd>{modeName}</dd></div><div role="button" tabIndex={0} onClick={() => { setStudioTab("playback"); setEditing(true); }}><dt>{copy.duration}</dt><dd>{(profile.durationMode || "timer") === "continuous" ? copy.continuous : lang === "zh" ? `${profile.duration} 分钟` : `${profile.duration} min`}</dd></div><div role="button" tabIndex={0} onClick={() => { setStudioTab("sound"); setEditing(true); }}><dt>{copy.ambience}</dt><dd>{ambienceName}</dd></div></dl>
+        <dl><div role="button" tabIndex={0} onClick={() => openStudioTab("sound")} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openStudioTab("sound"); } }}><dt>{copy.mode}</dt><dd>{modeName}</dd></div><div role="button" tabIndex={0} onClick={() => openStudioTab("playback")} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openStudioTab("playback"); } }}><dt>{copy.duration}</dt><dd>{(profile.durationMode || "timer") === "continuous" ? copy.continuous : lang === "zh" ? `${profile.duration} 分钟` : `${profile.duration} min`}</dd></div><div role="button" tabIndex={0} onClick={() => openStudioTab("sound")} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openStudioTab("sound"); } }}><dt>{copy.ambience}</dt><dd>{ambienceName}</dd></div></dl>
         <button className={`outline-button studio-toggle ${editing ? "is-open" : ""}`} aria-expanded={editing} onClick={() => setEditing((current) => !current)}>{editing && <X size={16} weight="bold"/>}{editing ? copy.closeStudio : copy.openStudio}</button>
       </aside>
     </div>
 
     {editing && <div className="sub-editor studio-panel">
-      <nav className="studio-tabs" role="tablist" aria-label={copy.openStudio}>{([["content", copy.tabContent], ["sound", copy.tabSound], ["playback", copy.tabPlayback], ["export", copy.tabExport]] as const).map(([id, label]) => <button type="button" role="tab" aria-selected={studioTab === id} className={studioTab === id ? "active" : ""} key={id} onClick={() => setStudioTab(id)}>{label}</button>)}</nav>
+      <div className="studio-tabs" role="tablist" aria-label={copy.openStudio}>{([["content", copy.tabContent], ["sound", copy.tabSound], ["playback", copy.tabPlayback], ["export", copy.tabExport]] as const).map(([id, label]) => <button type="button" role="tab" aria-selected={studioTab === id} className={studioTab === id ? "active" : ""} key={id} onClick={() => setStudioTab(id)}>{label}</button>)}</div>
       {studioTab === "content" && <div className="studio-pane">
       <div className="sub-editor-core">
         <label className="sub-title-field">{copy.title}<input value={profile.title} onChange={(event) => setProfile((current) => ({ ...current, title: event.target.value }))}/></label>

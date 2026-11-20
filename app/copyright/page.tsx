@@ -1,9 +1,10 @@
 import SiteFooter from "../components/SiteFooter";
+import Link from "next/link";
 
 export default function CopyrightPage() {
   return (
     <><main className="legal-page">
-      <a href="/" className="legal-brand">AlreaDough</a>
+      <Link href="/" className="legal-brand">AlreaDough</Link>
       <article>
         <p className="eyebrow">CONTENT &amp; COPYRIGHT</p>
         <h1>素材与版权说明</h1>

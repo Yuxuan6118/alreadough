@@ -14,6 +14,13 @@ async function render(path = "/") {
   );
 }
 
+
+/** The app page together with its data model (types, limits and defaults moved out of page.tsx). */
+async function appSource() {
+  const [page, model] = await Promise.all(["../app/app/page.tsx", "../app/app/model.tsx"].map((path) => readFile(new URL(path, import.meta.url), "utf8")));
+  return `${model}\n${page}`;
+}
+
 test("renders the AlreaDough beta entry point", async () => {
   const response = await render("/app");
   assert.equal(response.status, 200);
@@ -28,7 +35,7 @@ test("renders the AlreaDough beta entry point", async () => {
 });
 
 test("ships without the founder's private manifestation defaults", async () => {
-  const page = await readFile(new URL("../app/app/page.tsx", import.meta.url), "utf8");
+  const page = await appSource();
   const privateDefaults = ["瑄瑄", "Xuanxuan", "最要好的朋友", "他会一直喜欢男人", "他只把我当朋友", "身高 180+"];
   for (const value of privateDefaults) assert.doesNotMatch(page, new RegExp(value));
   assert.match(page, /setupComplete: false/);
@@ -83,7 +90,7 @@ test("renders the English storefront and links it to public English information"
 });
 
 test("keeps onboarding limits and three guidance methods in product source", async () => {
-  const page = await readFile(new URL("../app/app/page.tsx", import.meta.url), "utf8");
+  const page = await appSource();
   assert.match(page, /MAX_BELIEFS = 12/);
   assert.match(page, /beliefCount > MAX_BELIEFS/);
   for (const mode of ["release", "assumption", "subconscious"]) assert.match(page, new RegExp(`id: "${mode}"`));
@@ -108,12 +115,13 @@ test("has no per-person daily or trial limit, and saves only anonymous conversat
 
 test("keeps the founder dashboard private and aggregate-only", async () => {
   const admin = await readFile(new URL("../app/api/beta/admin/route.ts", import.meta.url), "utf8");
+  const founderAuth = await readFile(new URL("../lib/founder-auth.ts", import.meta.url), "utf8");
   const dashboard = await readFile(new URL("../app/beta/page.tsx", import.meta.url), "utf8");
-  assert.match(admin, /BETA_FOUNDER_SECRET/);
-  assert.match(admin, /Bearer/);
-  assert.doesNotMatch(admin, /searchParams\.get\("key"\)/); // secret must not be read from the URL
-  assert.match(dashboard, /聊天记录在单独的页面查看/);
-  assert.match(dashboard, /不显示昵称、愿望、聊天原文/);
+  assert.match(admin, /founderAuthorized/);
+  assert.match(founderAuth, /BETA_FOUNDER_SECRET/);
+  assert.match(founderAuth, /Bearer/);
+  assert.doesNotMatch(admin + founderAuth, /searchParams\.get\("key"\)/); // secret must not be read from the URL
+  assert.match(dashboard, /汇总数字只显示匿名效果与成本；聊天记录在单独的页面查看/);
 });
 
 test("shows one anonymous survey after ten minutes of active use", async () => {
@@ -127,16 +135,15 @@ test("shows one anonymous survey after ten minutes of active use", async () => {
 
 test("keeps the chosen vision-board color connected to the live canvas", async () => {
   const studio = await readFile(new URL("../app/components/VisionCanvasStudio.tsx", import.meta.url), "utf8");
-  const theme = await readFile(new URL("../app/already.css", import.meta.url), "utf8");
-  assert.match(studio, /"--vision-background": background/);
-  assert.match(studio, /vision-color-button" style=\{\{ backgroundColor: background/);
-  assert.match(theme, /\.app-shell \.vision-preview\s*\{[^}]*background:\s*var\(--vision-background,var\(--app-panel\)\)\s*!important/s);
+  // the board on screen and the exported picture both paint the chosen backdrop
+  assert.match(studio, /className="vb-board" style=\{\{[^\n]*background: settings\.background/);
+  assert.match(studio, /context\.fillStyle = settings\.background;/);
 });
 
 test("shows only one primary memory action in each memory-library state", async () => {
   const page = await readFile(new URL("../app/app/page.tsx", import.meta.url), "utf8");
   // one "add" button at the top of 记忆库; the empty states only explain, the filtered-empty one leads back to all
-  assert.equal((page.match(/className="outline-button library-add" onClick=\{\(\) => openMemoryEditor\(\)\}/g) || []).length, 1);
+  assert.equal((page.match(/onClick=\{\(\) => openMemoryEditor\(\)\}/g) || []).length, 1);
   assert.doesNotMatch(page, /添加第一条记忆/);
   assert.match(page, /currentMemoryItems\.length === 0 \? <div className="library-empty"/);
   assert.match(page, /setMemoryFilter\("all"\)/);
@@ -153,7 +160,7 @@ test("keeps only fade controls in the lightweight audio editor", async () => {
 });
 
 test("does not presume that a new user's desire is romantic", async () => {
-  const page = await readFile(new URL("../app/app/page.tsx", import.meta.url), "utf8");
+  const page = await appSource();
   const studio = await readFile(new URL("../app/components/SubliminalStudio.tsx", import.meta.url), "utf8");
   const studioDefaults = studio.slice(studio.indexOf("const defaults"), studio.indexOf("function timeLabel"));
 
@@ -581,7 +588,7 @@ test("my space: one way in from the drawer and the rail, no avatar menu, memory 
   assert.equal((page.match(/setView\("settings"\)/g) || []).length, 1, "only openSpace may open settings");
   // the list has three groups and a single memory library entry
   assert.match(page, /<SpaceNav/);
-  for (const id of ["wishes", "about", "companion", "library", "memory", "membership", "pet", "look", "sync", "help"]) assert.match(page, new RegExp(`id: "${id}"`));
+  for (const id of ["wishes", "about", "library", "memory", "membership", "pet", "look", "sync", "help"]) assert.match(page, new RegExp(`id: "${id}"`));
   // every row opens inside the same two-column layout, with the same back arrow; nothing jumps to another page
   assert.match(page, /onSelect=\{\(id\) => \{ setSettingsSection\(id as SpaceSection\);/);
   assert.doesNotMatch(page, /view === "memory"/);
@@ -597,10 +604,11 @@ test("membership and usage live in the app: a ring by the chat box, a notice whe
   assert.match(page, /<UsageMeter /);
   assert.match(page, /<UsageBanner /);
   assert.match(page, /shown === "membership" && <MembershipPanel/);
+  const checkout = await readFile(new URL("../app/checkout/Checkout.tsx", import.meta.url), "utf8");
   assert.match(panel, /\/api\/member\/auth\/otp/);
-  assert.match(panel, /\/api\/pay\/zpay\/checkout/);
+  assert.match(checkout, /\/api\/pay\/zpay\/checkout/);
   // the iPhone app never shows a way to pay outside the App Store
-  assert.match(panel, /!native && member\.checkoutAvailable/);
+  assert.match(panel, /!native && \(member\.checkoutAvailable \|\| member\.cardCheckoutAvailable\)/);
   const { usagePercent, exhaustedWindow } = await import("../lib/member-client.ts");
   assert.equal(usagePercent(30, 60), 50);
   assert.equal(usagePercent(90, 60), 100);

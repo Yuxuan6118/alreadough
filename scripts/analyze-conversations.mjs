@@ -58,7 +58,7 @@ for (const row of rows) {
 const clip = (text, n = 140) => text.replace(/\s+/g, " ").slice(0, n);
 const lines = [
   "# 对话样本分析",
-  `样本数：${rows.length}　已评价：${rated.length}（👍 ${helpful.length} / 👎 ${missed.length}，👍率 ${pct(helpful.length, rated.length)}）　回复长度中位数：${median} 字`,
+  `样本数：${rows.length}\u3000已评价：${rated.length}（👍 ${helpful.length} / 👎 ${missed.length}，👍率 ${pct(helpful.length, rated.length)}）\u3000回复长度中位数：${median} 字`,
   "",
   "## 习惯指标（命中的回复占比 / 总次数）",
   "| 习惯 | 命中回复 | 总次数 |",

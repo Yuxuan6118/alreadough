@@ -1,10 +1,11 @@
 import { SITE_RECORD } from "@/lib/site-info";
 import SiteFooter from "../components/SiteFooter";
+import Link from "next/link";
 
 export default function PrivacyPage() {
   return (
     <><main className="legal-page">
-      <a href="/" className="legal-brand">AlreaDough</a>
+      <Link href="/" className="legal-brand">AlreaDough</Link>
       <article>
         <p><a href="#english" lang="en">Read in English</a></p>
         <p className="eyebrow">PRIVACY</p>
