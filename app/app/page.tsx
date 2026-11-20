@@ -33,12 +33,6 @@ import {
   DownloadSimple,
   ArrowCounterClockwise,
   CaretRight,
-  Copyright,
-  Crown,
-  FileText,
-  Flag,
-  LockSimple,
-  ShieldCheck,
   DotsThree,
   ImageSquare,
   Sparkle,
@@ -77,6 +71,7 @@ import { mergeSpaces } from "@/lib/space-merge";
 import DoughLineMark from "../components/DoughLineMark";
 import DoughHop from "../components/DoughHop";
 import DoughPageIcon from "../components/DoughPageIcon";
+import { CopyrightIcon, PricingIcon, PrivacyIcon, ReportIcon, SafetyIcon, TermsIcon } from "../components/HelpIcons";
 import { CompanionIcon, DreamscapeIcon, HistoryIcon, ReviseIcon, StoriesIcon, VisionIcon } from "../components/NavIcons";
 
 type SpaceSection = "wishes" | "about" | "library" | "memory" | "dough" | "membership" | "pet" | "look" | "sync" | "help";
@@ -2213,18 +2208,18 @@ export default function Home() {
                   <section className="profile-card">
                     <h3>{lang === "zh" ? "联系与举报" : "Contact & reports"}</h3>
                     <p className="profile-sub">{lang === "zh" ? "发现不当、违法或让你不舒服的内容，可以在这里举报。每条 AI 回复下面也有“举报”按钮。我们会尽快查看。" : "If you see anything inappropriate, unlawful, or upsetting, report it here. Every AI reply also has a Report button. We read these as soon as we can."}</p>
-                    <div className="data-actions"><button type="button" className="profile-topic-plus" onClick={() => setReportTarget({})}><Flag size={16} /> {lang === "zh" ? "举报内容或反馈问题" : "Report content or send feedback"}</button></div>
+                    <div className="data-actions"><button type="button" className="profile-topic-plus" onClick={() => setReportTarget({})}><ReportIcon size={16} /> {lang === "zh" ? "举报内容或反馈问题" : "Report content or send feedback"}</button></div>
                     <SiteRecord lang={lang} />
                   </section>
                   <section className="profile-card">
                     <h3>{lang === "zh" ? "说明与条款" : "Notices & terms"}</h3>
                     <ul className="help-links">
                       {([
-                        ["/pricing", Crown, lang === "zh" ? "会员与价格" : "Membership & pricing"],
-                        ["/trust", ShieldCheck, t.trust],
-                        ["/privacy", LockSimple, lang === "zh" ? "隐私说明" : "Privacy"],
-                        ["/terms", FileText, lang === "zh" ? "测试版条款" : "Beta terms"],
-                        ["/copyright", Copyright, lang === "zh" ? "素材与版权" : "Content & copyright"],
+                        ["/pricing", PricingIcon, lang === "zh" ? "会员与价格" : "Membership & pricing"],
+                        ["/trust", SafetyIcon, t.trust],
+                        ["/privacy", PrivacyIcon, lang === "zh" ? "隐私说明" : "Privacy"],
+                        ["/terms", TermsIcon, lang === "zh" ? "测试版条款" : "Beta terms"],
+                        ["/copyright", CopyrightIcon, lang === "zh" ? "素材与版权" : "Content & copyright"],
                       ] as const).map(([href, Icon, label]) => <li key={href}><a href={href}><span className="help-icon" aria-hidden="true"><Icon size={18} /></span><span>{label}</span><CaretRight size={16} aria-hidden="true" /></a></li>)}
                     </ul>
                   </section>
