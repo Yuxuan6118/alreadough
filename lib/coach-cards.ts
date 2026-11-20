@@ -26,6 +26,16 @@ const usedMarkers: Record<string, RegExp> = {
   r_not_now: /催|必须现在/,
   r_scarcity_first: /压力/,
   r_back_to_wish: /还在抓/,
+  r_numb_start: /感觉不到任何感觉|从「?感受不到/,
+  r_doubt_not_failure: /不代表.{0,6}失败/,
+  r_let_go_of_letting_go: /想要放手|继续抓着/,
+  r_lean_in: /握拳|握紧/,
+  r_small_release: /小的释放|轻一点点/,
+  r_wanting_controlled: /想要被控制/,
+  r_layers: /一层一层|新的一层/,
+  a_exam_done: /考过了|考完/,
+  a_breathing: /呼吸/,
+  a_think_from_end: /站在终点|油价/,
   a_i_am: /我会|将来/,
   a_live_in_end: /结局|那一头/,
   a_how_not_yours: /怎么实现|过程/,
@@ -95,6 +105,29 @@ export const coachCards: CoachCard[] = [
     zh: { idea: "松下来以后，再想一下那个愿望，看看哪里还在抓。没有抓的地方，就让愿望轻轻待着。", how: "她说感觉松一点了时用，把释放接回她的愿望上。" },
     en: { idea: "Once she has softened, hold the desire in mind again and notice where any grip remains. Where there is none, let the desire simply rest.", how: "Use when she says she feels lighter, to connect the release back to her desire." } },
 
+  // added 2026-11-20 from the Sedona community forum translations (Killaaqueen) and Xiaohongshu replies
+  { id: "r_numb_start", coach: "release", triggers: ["感受不到", "没感觉", "麻木", "心里很空", "空空的", "feel nothing", "numb"],
+    zh: { idea: "感受不到感受的时候，就从「感受不到」开始：注意一下，感觉不到任何感觉是什么感觉，在这里待一会儿，它慢慢会变成一点感觉，或者一个念头。", how: "她说没感觉、心里很空、释放不出来时用。不要求她先找到情绪。" },
+    en: { idea: "When she can't feel anything, start from that: notice what it is like to feel nothing and stay there a while; it slowly turns into a sensation or a thought.", how: "Use when she says she feels nothing or can't find the feeling. Don't ask her to find an emotion first." } },
+  { id: "r_doubt_not_failure", coach: "release", triggers: ["怀疑", "不起作用", "没用", "白费", "是不是假的", "not working"],
+    zh: { idea: "怀疑冒出来，不代表前面的释放失败了，只说明人一直在变；注意到这个怀疑，轻轻放掉就好。", how: "她释放过、松过，现在又怀疑没用时用。" },
+    en: { idea: "Doubt showing up doesn't mean the earlier release failed; it only means she is alive and changing. Notice the doubt and let it go lightly.", how: "Use when she had released or felt lighter and now doubts it worked." } },
+  { id: "r_let_go_of_letting_go", coach: "release", triggers: ["释放不了", "卡住", "卡死", "怎么都放不掉", "stuck"],
+    zh: { idea: "卡住的时候，先放下「想要放手」本身；也可以干脆允许自己继续抓着。回答「不」也算数，答完停一下，看看有什么变化。", how: "她说怎么都释放不了、越想放越紧时用。" },
+    en: { idea: "When stuck, let go of wanting to let go; or simply allow herself to keep holding on. No counts as an answer; pause after it and notice what shifts.", how: "Use when she can't release at all or it tightens the more she tries." } },
+  { id: "r_lean_in", coach: "release", triggers: ["紧", "堵", "压着", "透不过气", "喘不上", "tight", "can't breathe"],
+    zh: { idea: "顺着紧绷：像握拳一样，用力握紧，握得再久一点，手最后会自己松开。", how: "她越想放松越紧绷的时候用。给一个可以马上做的动作。" },
+    en: { idea: "Go with the tightness: like a fist, clench harder and longer, and the hand eventually opens on its own.", how: "Use when trying to relax makes her tighter. Give her something she can do right now." } },
+  { id: "r_small_release", coach: "release", triggers: ["一点点", "没变化", "还是一样", "太慢", "没进展", "still the same"],
+    zh: { idea: "小的释放也算数。每一次轻一点点，就是在松开，不用和以前最好的那次比。", how: "她觉得进展太小、没变化时用。" },
+    en: { idea: "Small releases count. Each slightly lighter moment is letting go; no need to measure it against her best one.", how: "Use when progress feels too small." } },
+  { id: "r_wanting_controlled", coach: "release", triggers: ["完了", "肯定不行", "没希望", "最坏", "认命", "压垮", "it's over", "hopeless"],
+    zh: { idea: "宁可相信最糟的结果、觉得自己被外面压垮了，这也是一种想要：想要被控制。认出它，它就能放。", how: "她说完了、肯定不行、只能认命时用。一句话点出来，不分析。" },
+    en: { idea: "Believing the worst and feeling crushed by what's outside is also a want: wanting to be controlled. Seeing it lets it go.", how: "Use when she says it's over or hopeless. Point it out in one line, no analysis." } },
+  { id: "r_layers", coach: "release", triggers: ["越释放越", "又冒出来", "又回来", "更生气", "更难受", "worse when i release"],
+    zh: { idea: "释放的时候情绪反而冒出来、更强了，说明释放已经开始了。情绪是一层一层出来的，冒出来的是新的一层。", how: "她说越释放越难受、情绪又回来了时用。" },
+    en: { idea: "If feelings rise and get stronger while releasing, the release has started. Feelings come up in layers; what rises is the next one.", how: "Use when she says releasing makes it worse or it keeps coming back." } },
+
   // ---- assumption ----
   { id: "a_i_am", coach: "assumption", triggers: ["会不会", "以后", "将来", "希望", "will i", "someday"],
     zh: { idea: "「我是」比「我会」更有力。说「我会有」等于先承认了「我现在没有」。", how: "她用将来时、可能性的口气说愿望时用。帮她把一句话换成现在时，就一句。" },
@@ -145,6 +178,17 @@ export const coachCards: CoachCard[] = [
     zh: { idea: "过去不是证据。过去的事可以有感受，但不能拿来反驳她现在的选择。", how: "她用以前的经历证明这次也不会成时用。" },
     en: { idea: "The past is not evidence. It can be felt, but it doesn't get to overrule what she chooses now.", how: "Use when she uses past experience to prove it won't work this time." } },
 
+  // added 2026-11-20 from Xiaohongshu replies
+  { id: "a_exam_done", coach: "assumption", triggers: ["今天", "明天", "什么时候", "会不会来", "多久", "when"],
+    zh: { idea: "今天明天都是眼前世界里的说法。就像已经考完的那场试，考前再紧张，它也已经考过了。", how: "她纠结它今天会不会来、什么时候来时用。" },
+    en: { idea: "Today and tomorrow are words of the visible world. Like an exam already sat: however nervous she was before, it has already been taken.", how: "Use when she agonizes over whether it comes today or when." } },
+  { id: "a_breathing", coach: "assumption", triggers: ["用力", "好累", "坚持", "努力", "撑", "trying hard"],
+    zh: { idea: "知道自己已经有了，就不会用力，就像人不会用力去呼吸。", how: "她问怎么才能不用力、觉得坚持很累时用。" },
+    en: { idea: "Knowing she already has it, there is nothing to strain for, the way no one strains to breathe.", how: "Use when she asks how to stop straining or finds persisting tiring." } },
+  { id: "a_think_from_end", coach: "assumption", triggers: ["怎么想", "怎么假设", "终点", "该想什么", "what should i think"],
+    zh: { idea: "不是去想终点，是站在终点去想：已经拥有的她，今天会关心什么？没车的人在想怎么攒钱，有车的人在关心油价。", how: "她问该怎么想、怎么假设时用。帮她说出拥有之后会在意的一件小事。" },
+    en: { idea: "Not thinking of the end, but thinking from it: what does the version who has it care about today? Someone without a car saves for one; someone with a car watches fuel prices.", how: "Use when she asks what to think. Help her name one small thing she'd care about once she has it." } },
+
   // ---- subconscious ----
   { id: "s_familiar", coach: "subconscious", triggers: ["重复", "念多少", "多少遍", "坚持念", "how many times", "repeat"],
     zh: { idea: "一句话念熟了，就不再陌生，心里也就不急着反驳它。重复的用处是让它变熟，不是凑一个数字。", how: "她问要念多少遍、要不要狂念时用。把重点从次数挪到「念着顺不顺」。" },
@@ -193,6 +237,36 @@ function hash(text: string) {
   return value;
 }
 
+/** Very short replies, rewritten in AlreaDough's words from Xiaohongshu teachers' answers (batch 2026-11-20).
+ * One or two are shown per chat turn so the model sees that a sentence or two is often the whole reply. */
+type ShortExample = { coach: CoachMode | "any"; triggers: string[]; user: string; reply: string };
+const shortExamples: ShortExample[] = [
+  { coach: "assumption", triggers: ["考上", "录取", "上岸", "offer", "通过"], user: "我无条件相信我已经考上了。", reply: "你已经考上了。" },
+  { coach: "assumption", triggers: ["又失去", "又没了", "飞速失去", "又走了", "又回去了"], user: "好不容易成了，又一下子没了，好受打击。", reply: "这还不是结局，接着来。" },
+  { coach: "any", triggers: ["镜子", "长痘", "难看", "外貌", "脸"], user: "总忍不住照镜子挑毛病。", reply: "你已经是很好看的人了，偶尔对着镜子挑出一点瑕疵，也不影响这件事。" },
+  { coach: "assumption", triggers: ["更想他", "越来越想", "控制不住想", "一直想他"], user: "开始显化以后，我反而更想他了。", reply: "因为你开始往这个念头里放力气了。换个角度想，他也开始莫名其妙想你了。" },
+  { coach: "assumption", triggers: ["梦到", "梦见", "做梦"], user: "我梦到他来找我和好，是不是说明快成了？", reply: "你已经拥有了。现在你告诉我，这个梦还需要说明什么？" },
+  { coach: "any", triggers: ["朋友", "闺蜜", "人缘"], user: "怎么显化一个灵魂契合的朋友？", reply: "她已经在你身边的时候，你是什么感觉？" },
+  { coach: "subconscious", triggers: ["默念", "念出声", "出声", "写下来"], user: "肯定语是默念还是念出声？", reply: "不重要，哪种顺手就用哪种。" },
+  { coach: "assumption", triggers: ["今天", "明天", "什么时候"], user: "我该认定他今天会来，还是已经来了？", reply: "已经来了。就像考完的那场试，考前再紧张，它也已经考过了。" },
+  { coach: "assumption", triggers: ["用力", "好累", "不用力"], user: "怎么才能不用力？", reply: "你知道自己已经有了，就不会用力，就像你不会用力呼吸。" },
+  { coach: "release", triggers: ["堵", "又回来", "又冒出来"], user: "胸口那种堵，放走了一会儿又回来了。", reply: "那是新冒出来的一层，接着放就行。" },
+  { coach: "release", triggers: ["没感觉", "不耐烦", "没效果", "二十分钟"], user: "释放了二十分钟，一点感觉都没有，有点不耐烦。", reply: "你想快点学会吗？这个「想快」背后是什么感觉？就放它。" },
+  { coach: "release", triggers: ["怕不成功", "害怕失败", "怕失败", "怕不成"], user: "成功过几次，现在特别怕不成功。", reply: "你已经知道自己在怕什么了，那就把这份怕放掉。" },
+];
+
+export function shortExamplesBlock(lang: CompanionLang, coach: CoachMode, request: string) {
+  if (lang !== "zh") return "";
+  const pool = shortExamples.filter((example) => example.coach === "any" || example.coach === coach);
+  const text = request.toLowerCase();
+  const matched = pool.filter((example) => example.triggers.some((trigger) => text.includes(trigger.toLowerCase())));
+  const rest = pool.filter((example) => !matched.includes(example));
+  const start = rest.length ? hash(request) % rest.length : 0;
+  const picked = [...matched, ...rest.map((_, offset) => rest[(start + offset) % rest.length])].slice(0, 2);
+  if (!picked.length) return "";
+  return `很短的回复示范（只学篇幅和口气：很多时候一两句就是完整的回复，不铺垫、不讲道理也可以；不照抄句子）：\n${picked.map((example) => `用户：${example.user}\n陪伴者：${example.reply}`).join("\n")}`;
+}
+
 /** Cards her words point to come first; the rest rotate by message. Ideas already used in recent replies are skipped. */
 export function pickCoachCards(coach: CoachMode, request: string, previousUser = "", count = 3, recentAssistant: string[] = []) {
   const recent = recentAssistant.slice(-3).join("\n");
@@ -217,6 +291,8 @@ export function coachCardsBlock(lang: CompanionLang, coach: CoachMode, request: 
   if (lines.length) parts.push(lang === "zh"
     ? `本轮可用的流派知识（需要讲道理或给做法时，从中挑最贴她这句话的一张；最近几条回复已经讲过的道理不在这里，也不要换个说法再讲一遍；用自己的话讲，不照抄，不提导师名字）：\n${lines.join("\n")}`
     : `Method knowledge available this turn (when the turn needs an idea or a practice, pick the one that best fits her message; ideas already used in recent replies are left out, so don't rephrase them; say it in your own words, never name teachers):\n${lines.join("\n")}`);
+  const shorts = shortExamplesBlock(lang, coach, request);
+  if (shorts) parts.push(shorts);
   if (askedToLetGo) parts.push(lang === "zh"
     ? "最近的回复已经请她留意紧绷、问过她愿不愿意松开，这一轮不要再问，也不要再请她留意身体哪里紧；换成接住这件事、写一个画面、讲上面另一个道理，或者只简短回应。"
     : "A recent reply already asked her to notice the tension and whether she is willing to loosen it. Do not ask again this turn or point her back to the body; meet the moment, write a scene, use another idea above, or answer briefly.");
