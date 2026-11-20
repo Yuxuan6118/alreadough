@@ -14,7 +14,6 @@ import {
   PushPin,
   CaretDown,
   List,
-  GearSix,
   Check,
   ArrowClockwise,
   BookmarkSimple,
@@ -66,13 +65,13 @@ import { pickQuote, type Quote } from "@/lib/quotes";
 import { buildExportZip, exportFileName } from "@/lib/export-archive";
 import { getDeviceSessionId } from "@/lib/device-session";
 import { mergeSpaces } from "@/lib/space-merge";
-import DoughLineMark from "../components/DoughLineMark";
 import DoughHop from "../components/DoughHop";
 import DoughPageIcon from "../components/DoughPageIcon";
 import { CopyrightIcon, PricingIcon, PrivacyIcon, ReportIcon, SafetyIcon, TermsIcon } from "../components/HelpIcons";
-import { CompanionIcon, DreamscapeIcon, HistoryIcon, PersonaIcon, ReviseIcon, StoriesIcon, VisionIcon } from "../components/NavIcons";
+import { CompanionIcon, DreamscapeIcon, PersonaIcon, ReviseIcon, StoriesIcon, VisionIcon } from "../components/NavIcons";
 import PersonaStudio from "../components/PersonaStudio";
 
+import { AppRail, SwipeSidebar } from "./AppNav";
 import { useBetaSurveyTimer } from "./useBetaSurveyTimer";
 import { useChatScroll } from "./useChatScroll";
 import { useSwipeDrawer } from "./useSwipeDrawer";
@@ -1343,37 +1342,10 @@ export default function Home() {
 
   return (
     <>
-    <aside className={`swipe-sidebar${sidebarOpen ? " open" : ""}`} aria-label={lang === "zh" ? "侧边栏" : "Sidebar"} aria-hidden={!sidebarOpen} inert={!sidebarOpen} data-theme={dark ? "dark" : "light"}>
-      <header><button type="button" className="swipe-brand" onClick={() => { openLetters(); moveSidebar(false); }} aria-label={lang === "zh" ? "来信" : "Letters"}><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" />{unreadLetters.length > 0 && <i className="brand-dot" />}</span><strong>Alrea<span className="brand-dough">Dough</span></strong></button></header>
-      <button type="button" className="swipe-new" onClick={() => { beginNewConversation(); moveSidebar(false); }}><Plus size={18}/>{lang === "zh" ? "新对话" : "New conversation"}</button>
-      <nav className="swipe-nav" aria-label={t.ariaNav}>
-        {sideNav.map((item) => {
-          const Icon = item.icon;
-          return <button type="button" key={item.id} className={view === item.id ? "active" : ""} onClick={() => { navigate(item.id); moveSidebar(false); }}><Icon size={28} weight={view === item.id ? "fill" : "regular"}/><span>{item.label}</span></button>;
-        })}
-      </nav>
-      <div className="swipe-history">
-        <small>{lang === "zh" ? "对话记录" : "Conversations"}</small>
-        {allConversations.length ? allConversations.map((conversation) => <button type="button" key={conversation.id} className={conversation.id === conversationId ? "is-open" : ""} aria-current={conversation.id === conversationId ? "true" : undefined} onClick={() => { pickConversation(conversation); moveSidebar(false); }}><span>{conversation.title}</span><small>{conversation.id === conversationId ? (lang === "zh" ? "正在聊" : "Open now") : new Date(conversation.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US")}</small></button>) : <p>{lang === "zh" ? "完成第一段对话后，它会出现在这里。" : "Your first conversation will appear here."}</p>}
-      </div>
-      <footer><button type="button" onClick={() => { openSpace(); moveSidebar(false); }}><DoughLineMark className="avatar-mark avatar-mark-lg" /><span>{goal.companionName || (lang === "zh" ? "我的空间" : "My space")}</span><GearSix size={24} className="swipe-gear" aria-hidden="true"/></button></footer>
-    </aside>
+    <SwipeSidebar lang={lang} view={view} items={sideNav} navLabel={t.ariaNav} unreadCount={unreadLetters.length} companionName={goal.companionName} conversations={allConversations} onLetters={openLetters} onNewConversation={beginNewConversation} onNavigate={navigate} onOpenSpace={() => openSpace()} conversationId={conversationId} open={sidebarOpen} dark={dark} onPickConversation={pickConversation} onClose={() => moveSidebar(false)} />
     <main ref={attachShell} className={`app-shell${sidebarOpen ? " drawer-open" : ""}`} data-theme={dark ? "dark" : "light"} data-lang={lang}><ConfirmHost />
       <div className="app-grain" aria-hidden="true" />
-      <aside className="app-rail">
-        <button className="brand" onClick={openLetters} aria-label={lang === "zh" ? (unreadLetters.length ? "有新来信" : "来信") : (unreadLetters.length ? "New letter" : "Letters")} title={unreadLetters.length ? (lang === "zh" ? "有一封来信" : "You have a letter") : undefined}><span className="brand-mark"><img src="/brand/already-dough-mark.png" alt="" aria-hidden="true" />{unreadLetters.length > 0 && <i className="brand-dot" />}</span><strong>Alrea<span className="brand-dough">Dough</span></strong></button>
-        <button className="rail-new-chat" onClick={beginNewConversation}><Plus size={18}/><span>{lang === "zh" ? "新对话" : "New conversation"}</span></button>
-        <button className="rail-history" onClick={() => setHistoryOpen(true)}><HistoryIcon size={26}/><span>{lang === "zh" ? "对话记录" : "Conversation history"}</span><small>{allConversations.length}</small></button>
-        <nav className="rail-nav" aria-label={t.ariaNav}>
-          {sideNav.map((item) => {
-            const Icon = item.icon;
-            return <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => navigate(item.id)}><Icon size={26} weight={view === item.id ? "fill" : "regular"}/><span>{item.label}</span></button>;
-          })}
-        </nav>
-        <div className="rail-footer">
-          <button className={`rail-menu-button${view === "settings" ? " active" : ""}`} onClick={() => openSpace()}><span className="rail-avatar"><DoughLineMark className="avatar-mark" /></span><span>{goal.companionName || (lang === "zh" ? "我的空间" : "My space")}</span></button>
-        </div>
-      </aside>
+      <AppRail lang={lang} view={view} items={sideNav} navLabel={t.ariaNav} unreadCount={unreadLetters.length} companionName={goal.companionName} conversations={allConversations} onLetters={openLetters} onNewConversation={beginNewConversation} onNavigate={navigate} onOpenSpace={() => openSpace()} onOpenHistory={() => setHistoryOpen(true)} />
 
       <section className="app-stage">
       <header className="topbar">

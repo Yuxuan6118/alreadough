@@ -15,10 +15,10 @@ async function render(path = "/") {
 }
 
 
-/** The app page together with what was split out of it: its data model and its hooks. */
+/** The app page together with everything split out of it into the same folder (data model, hooks, parts of the screen). */
 async function appSource() {
   const folder = new URL("../app/app/", import.meta.url);
-  const files = ["page.tsx", "model.tsx", ...(await readdir(folder)).filter((name) => /^use[A-Z]\w*\.ts$/.test(name)).sort()];
+  const files = ["page.tsx", ...(await readdir(folder)).filter((name) => name !== "page.tsx" && /\.tsx?$/.test(name)).sort()];
   return (await Promise.all(files.map((name) => readFile(new URL(name, folder), "utf8")))).join("\n");
 }
 
@@ -142,7 +142,7 @@ test("keeps the chosen vision-board color connected to the live canvas", async (
 });
 
 test("shows only one primary memory action in each memory-library state", async () => {
-  const page = await readFile(new URL("../app/app/page.tsx", import.meta.url), "utf8");
+  const page = await appSource();
   // one "add" button at the top of 记忆库; the empty states only explain, the filtered-empty one leads back to all
   assert.equal((page.match(/onClick=\{\(\) => openMemoryEditor\(\)\}/g) || []).length, 1);
   assert.doesNotMatch(page, /添加第一条记忆/);
@@ -581,7 +581,7 @@ test("delete my data also deletes the cloned voice, and the voice routes enforce
 });
 
 test("my space: one way in from the drawer and the rail, no avatar menu, memory and settings live in one list", async () => {
-  const page = await readFile(new URL("../app/app/page.tsx", import.meta.url), "utf8");
+  const page = await appSource();
   // the entries that used to overlap are gone
   assert.doesNotMatch(page, /className="avatar"/);
   assert.doesNotMatch(page, /const appMenu/);
@@ -600,7 +600,7 @@ test("my space: one way in from the drawer and the rail, no avatar menu, memory 
 });
 
 test("membership and usage live in the app: a ring by the chat box, a notice when she is out, and the panel in My space", async () => {
-  const page = await readFile(new URL("../app/app/page.tsx", import.meta.url), "utf8");
+  const page = await appSource();
   const panel = await readFile(new URL("../app/components/MembershipPanel.tsx", import.meta.url), "utf8");
   assert.match(page, /<UsageMeter /);
   assert.match(page, /<UsageBanner /);
@@ -708,7 +708,7 @@ test("the opening speaks about the person as TA, never 他 or 她, and as they i
 
 test("one way of speaking: the companion tone is fixed on the server and there is no style choice anywhere", async () => {
   const ai = await readFile(new URL("../lib/already-ai.ts", import.meta.url), "utf8");
-  const page = await readFile(new URL("../app/app/page.tsx", import.meta.url), "utf8");
+  const page = await appSource();
   const flow = await readFile(new URL("../lib/onboarding-flow.ts", import.meta.url), "utf8");
   assert.match(ai, /preferred_tone: DEFAULT_TONE\[payload\.lang\]/);
   assert.match(ai, /用我能想、能说、能做的具体话回应/);
@@ -767,7 +767,7 @@ test("the desktop pet panel only offers downloads that exist", async () => {
   await access(new URL("../public/downloads/AlreaDough-Pet-mac.zip", import.meta.url));
   if (/const WINDOWS_PET_READY = true;/.test(panel)) await access(new URL("../public/downloads/AlreaDough-Pet-windows.zip", import.meta.url));
   // the pet sits in its own row of My space, not inside the guidance settings
-  const page = await readFile(new URL("../app/app/page.tsx", import.meta.url), "utf8");
+  const page = await appSource();
   assert.doesNotMatch(page, /pet-card/);
   assert.match(page, /shown === "pet" && <DesktopPetPanel/);
 });
