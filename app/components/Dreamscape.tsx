@@ -3,8 +3,9 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DoughHop from "./DoughHop";
-import { ArrowLeft, Microphone, Pause, Play, SkipBack, SkipForward, Stop } from "@phosphor-icons/react";
-import { startAmbience, type AmbienceHandle, type AmbienceKind } from "@/lib/ambience";
+import { ArrowLeft, Check, MagnifyingGlass, Microphone, Pause, Play, SkipBack, SkipForward, Stop, X } from "@phosphor-icons/react";
+import { startSoundStream, type AmbienceHandle } from "@/lib/ambience";
+import { clearSelfVoice, readSelfLine, selfLinesDone, writeSelfLine } from "@/lib/self-voice";
 import { recordingToWav, toDataUri } from "@/lib/recording";
 import { cacheKey, clearVoiceCache, readCached, writeCached } from "@/lib/voice-cache";
 import { VOICE_LIMITS } from "@/lib/voice-limits";
@@ -14,7 +15,10 @@ import { askConfirm } from "./ConfirmHost";
 import AffirmationEditor from "./AffirmationEditor";
 
 type Lang = "zh" | "en";
-type Screen = "home" | "record" | "player";
+type Screen = "home" | "record" | "selfread" | "player";
+type VoiceSource = "default" | "clone" | "self";
+/** A free-to-use sound she found in the library (CC0 or CC BY). */
+type BgSound = { id: string; title: string; audio: string; creator: string; license: string };
 type Mode = "night" | "affirm" | "story";
 type Feeling = "settled" | "soft" | "chosen";
 
@@ -40,7 +44,9 @@ type Props = {
 const DOUGH = "/mascot/already-dough-fold-v3.png";
 const GAP_MS = 1600;
 const KEY_USE_MINE = "already-use-my-voice-v1";
-const KEY_AMBIENCE = "already-dream-ambience-v1";
+const KEY_VOICE_SOURCE = "already-voice-source-v1";
+const KEY_BG = "already-dream-bg-v2";
+const KEY_BG_VOLUME = "already-dream-bg-volume-v1";
 const KEY_AFFIRM = "already-dream-affirmations-v1";
 const KEY_SKIPPED = "already-dream-skipped-v1";
 const MAX_LINES = 12;
@@ -93,8 +99,11 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
 
   const [screen, setScreen] = useState<Screen>("home");
   const [voice, setVoice] = useState<{ loaded: boolean; has: boolean; createdAt: string | null }>({ loaded: false, has: false, createdAt: null });
-  const [useMine, setUseMine] = useState(true);
-  const [ambience, setAmbience] = useState<AmbienceKind>("off");
+  const [source, setSource] = useState<VoiceSource>("clone");
+  const [selfDone, setSelfDone] = useState<Set<string>>(new Set());
+  const [bg, setBg] = useState<BgSound | null>(null);
+  const [bgVolume, setBgVolume] = useState(0.35);
+  const [bgOpen, setBgOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [mode, setMode] = useState<Mode>("night");
   const [items, setItems] = useState<string[]>([]);
@@ -112,13 +121,20 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
   const urlsRef = useRef<string[]>([]);
   const durationsRef = useRef<number[]>([]);
   const ambienceRef = useRef<AmbienceHandle | null>(null);
-  const ambienceKindRef = useRef<AmbienceKind>("off");
+  const bgRef = useRef<BgSound | null>(null);
+  const bgVolumeRef = useRef(0.35);
 
   /* eslint-disable react-hooks/set-state-in-effect -- one-time restoration of her settings */
   useEffect(() => {
-    setUseMine(readStored(KEY_USE_MINE) !== "off");
-    const saved = readStored(KEY_AMBIENCE);
-    if (saved === "rain" || saved === "ocean" || saved === "fire" || saved === "brown" || saved === "off") { setAmbience(saved); ambienceKindRef.current = saved; }
+    const savedSource = readStored(KEY_VOICE_SOURCE);
+    if (savedSource === "default" || savedSource === "clone" || savedSource === "self") setSource(savedSource);
+    else setSource(readStored(KEY_USE_MINE) === "off" ? "default" : "clone");
+    try {
+      const saved = JSON.parse(readStored(KEY_BG) || "null") as BgSound | null;
+      if (saved?.audio) { setBg(saved); bgRef.current = saved; }
+    } catch { /* no sound chosen yet */ }
+    const savedVolume = Number(readStored(KEY_BG_VOLUME));
+    if (savedVolume > 0 && savedVolume <= 1) { setBgVolume(savedVolume); bgVolumeRef.current = savedVolume; }
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -153,7 +169,9 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
   }, []);
   useEffect(() => () => stopAll(0.2), [stopAll]);
 
-  const owner = voice.has && useMine ? `mine:${voice.createdAt}` : "default";
+  // the synthesized voice: her clone when she has one and wants it (also fills lines she hasn't read herself)
+  const useMine = voice.has && source !== "default";
+  const owner = useMine ? `mine:${voice.createdAt}` : "default";
 
   const maxLength = zh ? 40 : 120;
   const clean = useCallback((raw: string[]) => raw.map((line) => line.replace(/\s+/g, " ").trim()).filter((line) => line.length >= 2 && line.length <= maxLength), [maxLength]);
@@ -237,6 +255,10 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
   };
 
   const fetchLine = useCallback(async (text: string): Promise<Blob> => {
+    if (source === "self") {
+      const own = await readSelfLine(text);
+      if (own) return own;
+    }
     const key = await cacheKey(owner, text);
     const cached = await readCached(key);
     if (cached) return cached;
@@ -248,7 +270,7 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
     const blob = await response.blob();
     await writeCached(key, blob);
     return blob;
-  }, [headers, owner, useMine]);
+  }, [headers, owner, source, useMine]);
 
   // one line in her voice, made once and kept, so only a changed line is made again
   const [preview, setPreview] = useState<{ line: string; state: "loading" | "playing" } | null>(null);
@@ -372,7 +394,7 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
       })));
       setTotal(durationsRef.current.reduce((sum, value) => sum + value, 0) + GAP_MS / 1000 * texts.length);
       setPreparing(null);
-      if (next === "night") ambienceRef.current = startAmbience(ambienceKindRef.current, 0.6);
+      ambienceRef.current = bgRef.current ? startSoundStream(bgRef.current.audio, bgVolumeRef.current) : null;
       setPlaying(true);
       void playFrom(0);
     } catch (error) {
@@ -386,26 +408,48 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
   const togglePause = () => {
     if (finished) { void begin(mode); return; }
     const audio = audioRef.current;
-    if (playing) { pausedRef.current = true; audio?.pause(); ambienceRef.current?.setVolume(0.15); setPlaying(false); }
-    else { pausedRef.current = false; void audio?.play(); ambienceRef.current?.setVolume(0.6); setPlaying(true); }
+    if (playing) { pausedRef.current = true; audio?.pause(); ambienceRef.current?.setVolume(bgVolumeRef.current * 0.25); setPlaying(false); }
+    else { pausedRef.current = false; void audio?.play(); ambienceRef.current?.setVolume(bgVolumeRef.current); setPlaying(true); }
   };
   const skip = (delta: number) => {
     const next = Math.max(0, Math.min(playlistRef.current.length - 1, current + delta));
     audioRef.current?.pause();
     pausedRef.current = false;
     setPlaying(true);
-    ambienceRef.current?.setVolume(0.6);
+    ambienceRef.current?.setVolume(bgVolumeRef.current);
     void playFrom(next);
   };
   const leavePlayer = () => { stopAll(0.8); setPlaying(false); setFinished(false); setPreparing(null); setScreen("home"); };
-  const cycleAmbience = () => {
-    const next: AmbienceKind = ambience === "rain" ? "ocean" : ambience === "ocean" ? "fire" : ambience === "fire" ? "brown" : ambience === "brown" ? "off" : "rain";
-    setAmbience(next);
-    ambienceKindRef.current = next;
-    writeStored(KEY_AMBIENCE, next);
-    if (ambienceRef.current) { ambienceRef.current.stop(0.6); ambienceRef.current = playing || mode === "night" ? startAmbience(next, 0.6) : null; }
+  const chooseBg = (next: BgSound | null) => {
+    setBg(next);
+    bgRef.current = next;
+    writeStored(KEY_BG, next ? JSON.stringify(next) : "null");
+    ambienceRef.current?.stop(0.6);
+    ambienceRef.current = next && screen === "player" && !finished ? startSoundStream(next.audio, playing ? bgVolumeRef.current : bgVolumeRef.current * 0.25) : null;
   };
-  const flipUseMine = () => { const next = !useMine; setUseMine(next); writeStored(KEY_USE_MINE, next ? "on" : "off"); };
+  const changeBgVolume = (next: number) => {
+    setBgVolume(next);
+    bgVolumeRef.current = next;
+    writeStored(KEY_BG_VOLUME, String(next));
+    ambienceRef.current?.setVolume(playing ? next : next * 0.25, 0.2);
+  };
+  const chooseSource = (next: VoiceSource) => {
+    if (next === "clone" && !voice.has) { setScreen("record"); return; }
+    if (next === "self" && !lines.some((line) => selfDone.has(line))) { setScreen("selfread"); return; }
+    setSource(next);
+    writeStored(KEY_VOICE_SOURCE, next);
+  };
+
+  const lineKey = lines.join("\n");
+  // which of her lines she has read herself
+  useEffect(() => { if (screen === "home") void selfLinesDone(lineKey ? lineKey.split("\n") : []).then(setSelfDone); }, [lineKey, screen]);
+
+  const removeSelf = async () => {
+    if (!(await askConfirm({ title: t("删除你自己读的录音？", "Delete your own readings?"), body: t("这些录音只存在这台设备上，删除后无法找回。", "These recordings live only on this device and can't be recovered."), confirmLabel: t("删除", "Delete"), cancelLabel: t("取消", "Cancel") }))) return;
+    clearSelfVoice();
+    setSelfDone(new Set());
+    if (source === "self") { setSource(voice.has ? "clone" : "default"); writeStored(KEY_VOICE_SOURCE, voice.has ? "clone" : "default"); }
+  };
 
   const removeVoice = async () => {
     if (!(await askConfirm({ title: t("删除你录下的声音？", "Delete your recorded voice?"), body: t("删除后会回到默认声音，之后可以重新录。", "You will go back to the default voice and can record again."), confirmLabel: t("删除", "Delete"), cancelLabel: t("取消", "Cancel") }))) return;
@@ -421,18 +465,22 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
   };
 
   if (screen === "record") {
-    return <RecordScreen lang={lang} headers={headers} onBack={() => setScreen("home")} onDone={async () => { clearVoiceCache(); await loadVoice(); setUseMine(true); writeStored(KEY_USE_MINE, "on"); setMessage(t("你的声音好了。", "Your voice is ready.")); setScreen("home"); }} />;
+    return <RecordScreen lang={lang} headers={headers} onBack={() => setScreen("home")} onDone={async () => { clearVoiceCache(); await loadVoice(); setSource("clone"); writeStored(KEY_VOICE_SOURCE, "clone"); setMessage(t("你的声音好了。", "Your voice is ready.")); setScreen("home"); }} />;
+  }
+
+  if (screen === "selfread") {
+    return <SelfReadScreen lang={lang} lines={lines} done={selfDone} onBack={() => setScreen("home")} onDone={(read) => { setSelfDone(read); if (read.size) { setSource("self"); writeStored(KEY_VOICE_SOURCE, "self"); } setScreen("home"); }} />;
   }
 
   if (screen === "player") {
     const line = (offset: number) => items[current + offset] || "";
-    const ambienceLabel = ambience === "rain" ? t("雨声，轻", "Rain, soft") : ambience === "ocean" ? t("海浪，轻", "Waves, soft") : ambience === "fire" ? t("炉火，轻", "Fireplace, soft") : ambience === "brown" ? t("低沉的棕噪音", "Low brown noise") : t("不加背景声", "No background sound");
+    const voiceLabel = source === "self" && selfDone.size ? t("你自己读的", "Read by you") : useMine ? t("用你的声音", "In your voice") : t("默认声音", "Default voice");
     return (
       <section className="dream dream-player">
         <header className="dream-player-head">
           <button type="button" className="dream-back" onClick={leavePlayer} aria-label={t("返回", "Back")}><ArrowLeft size={22} /></button>
           <h1>{mode === "story" ? (story?.title || t("我的剧本", "My story")) : mode === "night" ? t("睡前潜音", "Night soundscape") : t("我的肯定语", "My affirmations")}</h1>
-          <span>{voice.has && useMine ? t("用你的声音", "In your voice") : t("默认声音", "Default voice")}</span>
+          <span>{voiceLabel}</span>
         </header>
         <div className="dream-stage">
           <div className={`dream-orb small${playing ? " playing" : ""}`}>
@@ -458,7 +506,8 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
           <button type="button" className="dream-main" onClick={togglePause} aria-label={finished ? t("再听一遍", "Listen again") : playing ? t("暂停", "Pause") : t("播放", "Play")} disabled={Boolean(preparing)}>{playing ? <Pause size={30} weight="fill" /> : <Play size={30} weight="fill" />}</button>
           <button type="button" onClick={() => skip(1)} aria-label={t("下一句", "Next line")} disabled={Boolean(preparing)}><SkipForward size={26} /></button>
         </div>
-        <button type="button" className="dream-bg-sound" onClick={cycleAmbience}>{ambienceLabel}</button>
+        <button type="button" className={`dream-bg-sound${bg ? " on" : ""}`} onClick={() => setBgOpen(true)} aria-haspopup="dialog">{bg ? bg.title : t("加背景声音", "Add a background sound")}</button>
+        {bgOpen && <BgSoundSheet lang={lang} current={bg} volume={bgVolume} onVolume={changeBgVolume} onChoose={chooseBg} onClose={() => setBgOpen(false)} />}
       </section>
     );
   }
@@ -482,16 +531,22 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
         ? <p className="affirm-seeding" role="status"><DoughHop size="sm" /></p>
         : <AffirmationEditor lang={lang} lines={lines} onChange={changeLines} suggestions={suggestions} onAccept={acceptLine} onDismiss={skipLine} onAskIdeas={() => void askIdeas()} asking={asking} preview={preview} onPreview={(line) => void playPreview(line)} maxLines={MAX_LINES} maxLength={maxLength} />}
       <ul className="dream-list">
-        <li>
-          {voice.has
-            ? <><span>{t("用我的声音", "Use my voice")}</span><button type="button" className={`dream-switch${useMine ? " on" : ""}`} role="switch" aria-checked={useMine} aria-label={t("用我的声音", "Use my voice")} onClick={flipUseMine}><i /></button></>
-            : <button type="button" className="dream-row accent" onClick={() => setScreen("record")}><span>{t("录下我的声音", "Record my voice")}</span><small>{t("约 45 秒", "About 45 seconds")}</small></button>}
+        <li className="dream-voice-choice">
+          <span>{t("谁来读", "Whose voice")}</span>
+          <div role="radiogroup" aria-label={t("谁来读", "Whose voice")}>
+            {([["default", t("默认", "Default")], ["clone", t("克隆的我", "My clone")], ["self", t("我自己读", "Me, reading")]] as const).map(([value, label]) => {
+              const active = value === "self" ? source === "self" && selfDone.size > 0 : value === "clone" ? source === "clone" && voice.has : !useMine && !(source === "self" && selfDone.size > 0);
+              return <button key={value} type="button" role="radio" aria-checked={active} className={active ? "on" : ""} onClick={() => chooseSource(value)}>{label}</button>;
+            })}
+          </div>
         </li>
         <li><button type="button" className="dream-row" onClick={() => void begin("story")} disabled={!story}><span>{t("我的剧本", "My story")}</span><small>{story ? t("读给我听", "Read to me") : t("还没有剧本", "No story yet")}</small></button></li>
       </ul>
       <div className="dream-links">
-        {voice.has && <button type="button" className="dream-record-link" onClick={() => setScreen("record")}><Microphone size={16} />{t("重新录我的声音", "Record my voice again")}</button>}
-        {voice.has && <button type="button" className="dream-record-link muted" onClick={() => void removeVoice()}>{t("删除我的声音", "Delete my voice")}</button>}
+        {source === "self" && selfDone.size > 0 && <button type="button" className="dream-record-link" onClick={() => setScreen("selfread")}><Microphone size={16} />{t(`逐句读 · 已读 ${lines.filter((line) => selfDone.has(line)).length}/${lines.length}`, `Read line by line · ${lines.filter((line) => selfDone.has(line)).length}/${lines.length} read`)}</button>}
+        {source === "self" && selfDone.size > 0 && <button type="button" className="dream-record-link muted" onClick={() => void removeSelf()}>{t("删除我读的录音", "Delete my readings")}</button>}
+        {source !== "self" && voice.has && <button type="button" className="dream-record-link" onClick={() => setScreen("record")}><Microphone size={16} />{t("重新录我的声音", "Record my voice again")}</button>}
+        {source !== "self" && voice.has && <button type="button" className="dream-record-link muted" onClick={() => void removeVoice()}>{t("删除我的声音", "Delete my voice")}</button>}
         <button type="button" className="dream-record-link muted" onClick={onOpenStudio}>{t("高级：潜音工作台", "Advanced: studio")}</button>
       </div>
     </section>
@@ -610,6 +665,165 @@ function RecordScreen({ lang, headers, onBack, onDone }: RecordProps) {
         {error && <p className="dream-message" role="alert">{error}</p>}
         <p>{t("声音只属于你，随时可以在这里删除。", "The voice is only yours, and you can delete it here anytime.")}</p>
       </div>
+    </section>
+  );
+}
+
+type SheetProps = { lang: Lang; current: BgSound | null; volume: number; onVolume: (value: number) => void; onChoose: (sound: BgSound | null) => void; onClose: () => void };
+
+/** She searches the free library herself (CC0 / CC BY only, all fine for commercial use) and picks what goes under the voice. */
+function BgSoundSheet({ lang, current, volume, onVolume, onChoose, onClose }: SheetProps) {
+  const zh = lang === "zh";
+  const t = (a: string, b: string) => (zh ? a : b);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<BgSound[]>([]);
+  const [state, setState] = useState<"idle" | "searching" | "done">("idle");
+  const [previewing, setPreviewing] = useState("");
+  const previewRef = useRef<HTMLAudioElement | null>(null);
+  const searchRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => { searchRef.current?.focus(); }, []);
+  const stopPreview = () => { previewRef.current?.pause(); previewRef.current = null; setPreviewing(""); };
+  useEffect(() => () => { previewRef.current?.pause(); }, []);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const search = async () => {
+    const q = query.trim();
+    if (!q) return;
+    stopPreview();
+    setState("searching");
+    try {
+      const response = await fetch(`/api/audio?q=${encodeURIComponent(q)}&locale=${lang}&v=environment-only-v3`, { cache: "no-store" });
+      const data = await response.json() as { results?: BgSound[] };
+      setResults((data.results || []).filter((item) => item.audio).slice(0, 8));
+    } catch { setResults([]); }
+    setState("done");
+  };
+  const preview = (sound: BgSound) => {
+    if (previewing === sound.id) { stopPreview(); return; }
+    stopPreview();
+    const player = new Audio(sound.audio);
+    player.volume = 0.6;
+    player.onended = () => setPreviewing("");
+    previewRef.current = player;
+    setPreviewing(sound.id);
+    void player.play().catch(() => setPreviewing(""));
+  };
+
+  return (
+    <div className="dream-sheet-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="dream-sheet" role="dialog" aria-modal="true" aria-label={t("背景声音", "Background sound")}>
+        <header><h2>{t("背景声音", "Background sound")}</h2><button type="button" className="dream-sheet-close" onClick={onClose} aria-label={t("关闭", "Close")}><X size={20} /></button></header>
+        <form className="dream-sheet-search" onSubmit={(event) => { event.preventDefault(); void search(); }}>
+          <MagnifyingGlass size={18} aria-hidden="true" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("雨声、海浪、篝火、森林…", "Rain, waves, campfire, forest…")} aria-label={t("搜索背景声音", "Search background sounds")} ref={searchRef} />
+          <button type="submit" disabled={state === "searching" || !query.trim()}>{state === "searching" ? <DoughHop size="xs" /> : t("搜索", "Search")}</button>
+        </form>
+        <ul className="dream-sheet-list">
+          {current && <li className="chosen"><span><Check size={16} weight="bold" aria-hidden="true" />{current.title}</span><button type="button" onClick={() => onChoose(null)}>{t("不用了", "Remove")}</button></li>}
+          {results.map((sound) => (
+            <li key={sound.id} className={current?.id === sound.id ? "is-current" : ""}>
+              <button type="button" className="dream-sheet-preview" onClick={() => preview(sound)} aria-label={`${previewing === sound.id ? t("停止试听", "Stop preview") : t("试听", "Preview")}: ${sound.title}`}>{previewing === sound.id ? <Pause size={16} weight="fill" /> : <Play size={16} weight="fill" />}</button>
+              <span title={`${sound.title} · ${sound.creator} · ${sound.license}`}>{sound.title}<small>{sound.creator} · {sound.license}</small></span>
+              <button type="button" onClick={() => { stopPreview(); onChoose(sound); }} disabled={current?.id === sound.id}>{current?.id === sound.id ? t("在用", "In use") : t("用这个", "Use")}</button>
+            </li>
+          ))}
+          {state === "done" && !results.length && <li className="empty">{t("没找到，换个词试试。", "Nothing found. Try another word.")}</li>}
+        </ul>
+        {current && <label className="dream-sheet-volume"><span>{t("音量", "Volume")}</span><input type="range" min="0.05" max="1" step="0.05" value={volume} onChange={(event) => onVolume(Number(event.target.value))} /></label>}
+      </section>
+    </div>
+  );
+}
+
+type SelfReadProps = { lang: Lang; lines: string[]; done: Set<string>; onBack: () => void; onDone: (read: Set<string>) => void };
+
+/** She reads each line herself. Every recording stays on this device; nothing is uploaded or cloned. */
+function SelfReadScreen({ lang, lines, done, onBack, onDone }: SelfReadProps) {
+  const zh = lang === "zh";
+  const t = (a: string, b: string) => (zh ? a : b);
+  const [read, setRead] = useState<Set<string>>(() => new Set(done));
+  const [index, setIndex] = useState(() => Math.max(0, lines.findIndex((line) => !done.has(line))));
+  const [recording, setRecording] = useState(false);
+  const [error, setError] = useState("");
+  const [listening, setListening] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const playerRef = useRef<HTMLAudioElement | null>(null);
+  const line = lines[index] || "";
+  useEffect(() => () => { streamRef.current?.getTracks().forEach((track) => track.stop()); playerRef.current?.pause(); }, []);
+
+  const start = async () => {
+    setError("");
+    playerRef.current?.pause();
+    setListening(false);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      streamRef.current = stream;
+      const chunks: Blob[] = [];
+      const recorder = new MediaRecorder(stream);
+      recorderRef.current = recorder;
+      const forLine = line;
+      recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((track) => track.stop());
+        setRecording(false);
+        const blob = new Blob(chunks, { type: recorder.mimeType || chunks[0]?.type || "audio/webm" });
+        if (blob.size < 1200) { setError(t("没录到声音，再读一次。", "Nothing came through. Please read it again.")); return; }
+        void writeSelfLine(forLine, blob).then(() => {
+          setRead((current) => new Set(current).add(forLine));
+          const at = lines.indexOf(forLine);
+          if (at >= 0 && at < lines.length - 1) setIndex(at + 1);
+        }).catch(() => setError(t("这台设备没能保存录音。", "This device couldn't save the recording.")));
+      };
+      recorder.start();
+      setRecording(true);
+    } catch {
+      setError(t("没有拿到麦克风。请在浏览器设置里允许使用麦克风。", "Couldn't reach the microphone. Please allow microphone access in your browser settings."));
+    }
+  };
+  const stop = () => { if (recorderRef.current?.state === "recording") recorderRef.current.stop(); };
+  const listen = async () => {
+    if (listening) { playerRef.current?.pause(); setListening(false); return; }
+    const blob = await readSelfLine(line);
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const player = new Audio(url);
+    playerRef.current = player;
+    player.onended = () => { URL.revokeObjectURL(url); setListening(false); };
+    setListening(true);
+    void player.play().catch(() => setListening(false));
+  };
+
+  if (!lines.length) {
+    return (
+      <section className="dream dream-record">
+        <div className="dream-player-head"><button type="button" className="dream-back" onClick={onBack} aria-label={t("返回", "Back")}><ArrowLeft size={22} /></button><h1>{t("自己读", "Read it yourself")}</h1></div>
+        <p className="dream-message">{t("先写几句肯定语，再回来读。", "Write a few affirmations first, then come back to read them.")}</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="dream dream-record dream-selfread">
+      <header>
+        <div className="dream-player-head"><button type="button" className="dream-back" onClick={() => onDone(read)} aria-label={t("返回", "Back")}><ArrowLeft size={22} /></button><h1>{t("自己读", "Read it yourself")}</h1><span>{read.size}/{lines.length}</span></div>
+        <p>{t("一句一句读给自己听。录音只留在这台设备上。", "Read each line to yourself. The recordings stay on this device.")}</p>
+      </header>
+      <p className="dream-selfread-line" aria-live="polite">{line}</p>
+      <div className="dream-recorder">
+        <button type="button" className={`dream-record-button${recording ? " is-recording" : ""}`} onClick={recording ? stop : () => void start()} aria-label={recording ? t("读完了", "Done reading") : t("开始读这一句", "Start reading this line")}>{recording ? <Stop size={28} weight="fill" /> : <Microphone size={30} weight="fill" />}</button>
+        <strong>{recording ? t("读完点一下", "Tap when you're done") : read.has(line) ? t("这句读好了，可以重读", "Done. Tap to read it again") : t("点一下开始读", "Tap to start")}</strong>
+        {read.has(line) && !recording && <button type="button" className="dream-record-link" onClick={() => void listen()}>{listening ? <Pause size={16} weight="fill" /> : <Play size={16} weight="fill" />}{t("听一下", "Listen")}</button>}
+        {error && <p className="dream-message" role="alert">{error}</p>}
+      </div>
+      <ol className="dream-selfread-list">
+        {lines.map((item, at) => <li key={item}><button type="button" className={at === index ? "on" : ""} onClick={() => { if (!recording) { setIndex(at); setError(""); } }}>{read.has(item) ? <Check size={14} weight="bold" aria-label={t("已读", "Read")} /> : <i aria-hidden="true" />}<span>{item}</span></button></li>)}
+      </ol>
+      <button type="button" className="dream-start" onClick={() => onDone(read)} disabled={recording}>{t("好了", "Done")}</button>
     </section>
   );
 }

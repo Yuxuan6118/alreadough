@@ -747,7 +747,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   color: var(--app-ink) !important;
   background: var(--vision-background,var(--app-panel)) !important;
 }
-.app-shell .sub-player-card,
 .app-shell .sub-editor fieldset button.selected,
 .app-shell .vision-controls fieldset button.selected,
 .app-shell .track-index,
@@ -787,7 +786,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .app-shell .vision-preview > p {
   border-color: var(--app-line) !important;
 }
-.app-shell .sub-player-card::before { background: color-mix(in srgb,var(--app-accent) 15%,transparent); }
 .app-shell .sub-orbit i,
 .app-shell .sub-wave i,
 .app-shell .mini-timeline .voice { background: var(--app-panel-strong); }

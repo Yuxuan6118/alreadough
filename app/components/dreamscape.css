@@ -157,3 +157,105 @@
 .affirm-skip:hover { color: var(--app-ink); background: var(--app-panel-strong); }
 @keyframes affirm-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .affirm-suggest li { animation: none; } }
+
+/* who reads: default / clone / her own reading */
+.dream-list li.dream-voice-choice { flex-wrap: wrap; padding: 12px 0; }
+.dream-voice-choice > div { display: inline-flex; padding: 3px; border-radius: 999px; background: var(--app-panel-strong); }
+.dream-voice-choice > div button { min-height: 34px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: var(--app-muted); font-size: calc(14px * var(--fs, 1)); cursor: pointer; transition: background-color .18s ease, color .18s ease; }
+.dream-voice-choice > div button.on { background: var(--app-panel); color: var(--app-ink); box-shadow: 0 1px 3px color-mix(in srgb, var(--app-ink) 14%, transparent); }
+.dream-voice-choice > div button:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 2px; }
+
+/* background sound: she searches the free library herself */
+.dream-bg-sound { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 8px 14px; border-radius: 999px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dream-bg-sound:hover { color: var(--app-ink); background: var(--app-panel-strong); }
+.dream-bg-sound.on { color: var(--app-ink); }
+.dream-sheet-backdrop { position: fixed; inset: 0; z-index: 120; display: flex; align-items: flex-end; justify-content: center; background: color-mix(in srgb, #1d1614 45%, transparent); }
+.dream-sheet { width: min(100%, 520px); max-height: 82dvh; display: flex; flex-direction: column; gap: 14px; padding: 20px 20px calc(20px + env(safe-area-inset-bottom)); border-radius: 24px 24px 0 0; background: var(--app-bg, var(--app-panel)); color: var(--app-ink); box-shadow: 0 -18px 50px color-mix(in srgb, #000 22%, transparent); }
+@media (min-width: 761px) { .dream-sheet-backdrop { align-items: center; } .dream-sheet { border-radius: 24px; } }
+.dream-sheet header { display: flex; align-items: center; justify-content: space-between; }
+.dream-sheet h2 { margin: 0; font: 400 calc(22px * var(--fs, 1))/1.2 var(--font-display); }
+.dream-sheet-close { width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--app-muted); cursor: pointer; }
+.dream-sheet-close:hover { background: var(--app-panel-strong); color: var(--app-ink); }
+.dream-sheet-search { display: flex; align-items: center; gap: 8px; padding: 0 6px 0 14px; min-height: 48px; border: 1px solid var(--app-line); border-radius: 999px; background: var(--app-panel); color: var(--app-muted); }
+.dream-sheet-search:focus-within { border-color: var(--app-accent); }
+.dream-sheet-search input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--app-ink); font-size: calc(16px * var(--fs, 1)); }
+.dream-sheet-search button { min-height: 36px; min-width: 64px; display: grid; place-items: center; padding: 0 14px; border: 0; border-radius: 999px; background: var(--app-accent); color: var(--app-accent-ink); font-size: calc(14px * var(--fs, 1)); cursor: pointer; }
+.dream-sheet-search button:disabled { opacity: .55; cursor: default; }
+.dream-sheet-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; }
+.dream-sheet-list li { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 6px 0; border-top: 1px solid var(--app-line); }
+.dream-sheet-list li:first-child { border-top: 0; }
+.dream-sheet-list li > span { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: calc(15px * var(--fs, 1)); overflow: hidden; }
+.dream-sheet-list li > span, .dream-sheet-list li > span small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dream-sheet-list li > span small { color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); }
+.dream-sheet-list li > button:last-child { flex: none; min-height: 34px; padding: 0 12px; border: 1px solid var(--app-line); border-radius: 999px; background: transparent; color: var(--app-accent); font-size: calc(14px * var(--fs, 1)); cursor: pointer; }
+.dream-sheet-list li > button:last-child:disabled { color: var(--app-muted); cursor: default; }
+.dream-sheet-list li.chosen > span { flex-direction: row; align-items: center; gap: 8px; color: var(--app-accent); }
+.dream-sheet-list li.empty { justify-content: center; color: var(--app-muted); font-size: calc(14px * var(--fs, 1)); }
+.dream-sheet-preview { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--app-panel-strong); color: var(--app-ink); cursor: pointer; }
+.dream-sheet-volume { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 12px; color: var(--app-muted); font-size: calc(14px * var(--fs, 1)); }
+.dream-sheet-volume input { width: 100%; accent-color: var(--app-accent); }
+
+/* reading her own lines, one at a time */
+.dream-selfread { gap: 22px; }
+.dream-selfread-line { margin: 8px 0 0; text-align: center; font: 400 calc(24px * var(--fs, 1))/1.55 var(--font-display); text-wrap: balance; }
+.dream-record-button.is-recording { background: #9a4a47; box-shadow: 0 0 0 8px color-mix(in srgb, #9a4a47 18%, transparent); }
+.dream-selfread-list { list-style: none; margin: 0; padding: 0; }
+.dream-selfread-list button { width: 100%; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 4px; border: 0; border-top: 1px solid var(--app-line); background: transparent; color: var(--app-muted); font-size: calc(15px * var(--fs, 1)); text-align: left; cursor: pointer; }
+.dream-selfread-list button.on { color: var(--app-ink); }
+.dream-selfread-list button svg { flex: none; color: var(--app-accent); }
+.dream-selfread-list button i { flex: none; width: 14px; height: 14px; border: 1px solid var(--app-line); border-radius: 50%; }
+.dream-selfread-list button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* studio header: back and help sit on one quiet row; the title's left edge lines up with "back" */
+.app-shell .subliminal-view .studio-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 18px; }
+.app-shell .subliminal-view .studio-text-button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; margin: 0 0 0 -8px; padding: 0 8px; border: 0; border-radius: 10px; background: transparent; color: var(--app-muted); font-size: calc(15px * var(--fs, 1)); cursor: pointer; transition: color .18s ease, background-color .18s ease; }
+.app-shell .subliminal-view .studio-text-button:last-child { margin: 0 -8px 0 0; }
+.app-shell .subliminal-view .studio-text-button:hover { color: var(--app-ink); background: var(--app-panel-strong); }
+.app-shell .subliminal-view .studio-text-button:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 2px; }
+.app-shell .subliminal-view .studio-heading .view-heading { padding-right: 0; margin-bottom: 0; }
+
+/* the player console: the line you are hearing, the transport, and what you can change while it plays */
+.app-shell .subliminal-view .sub-player-card { position: relative; overflow: hidden; min-height: 0; display: grid; grid-template-columns: 1fr; grid-template-rows: none; align-content: stretch; align-items: stretch; gap: 0; padding: 0; border: 1px solid var(--app-line) !important; border-radius: 28px !important; background: var(--app-panel) !important; color: var(--app-ink) !important; text-align: left; box-shadow: none; }
+.app-shell .subliminal-view .sub-player-card::before { content: none; }
+.sub-console-now { min-width: 0; display: flex; flex-direction: column; gap: 12px; padding: clamp(28px, 3.4vw, 44px); }
+.sub-console-mix { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(220px, auto); align-items: center; gap: 18px 32px; padding: 22px clamp(28px, 3.4vw, 44px); border-top: 1px solid var(--app-line); background: color-mix(in srgb, var(--app-panel-strong) 55%, var(--app-panel)); }
+.app-shell .subliminal-view .sub-console-now h2 { margin: 0; color: var(--app-muted) !important; font: 400 calc(16px * var(--fs, 1))/1.4 var(--font-body); }
+.app-shell .subliminal-view .sub-console-now .sub-now-line { flex: 1; min-height: 3.1em; margin: 0; color: color-mix(in srgb, var(--app-ink) 55%, var(--app-panel)) !important; font: 400 clamp(24px, 2.5vw, 32px)/1.45 var(--font-display); text-wrap: balance; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; transition: color .5s ease; }
+.app-shell .subliminal-view .sub-console-now .sub-now-line.live { color: var(--app-ink) !important; }
+.sub-transport { display: flex; align-items: center; gap: 16px; margin-top: 8px; }
+.sub-play-button { flex: none; width: 60px; height: 60px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--app-accent); color: var(--app-accent-ink); cursor: pointer; box-shadow: 0 6px 18px color-mix(in srgb, var(--app-accent) 30%, transparent); transition: transform .12s ease, box-shadow .2s ease; }
+.sub-play-button svg { margin-left: 3px; }
+.sub-player-card.is-playing .sub-play-button svg { margin-left: 0; }
+.sub-play-button:hover { box-shadow: 0 8px 24px color-mix(in srgb, var(--app-accent) 38%, transparent); }
+.sub-play-button:active { transform: scale(.95); }
+.sub-play-button:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 4px; }
+.sub-progress { flex: 1; min-width: 0; display: grid; gap: 8px; }
+.sub-progress > div { height: 4px; border-radius: 999px; background: var(--app-line); overflow: hidden; }
+.sub-progress > div i { display: block; height: 100%; border-radius: inherit; background: var(--app-accent); transition: width 1s linear; }
+.sub-progress span { color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); font-variant-numeric: tabular-nums; }
+.sub-fader { display: grid !important; grid-template-columns: auto minmax(0, 1fr) 44px; align-items: center; gap: 12px; margin: 0 !important; color: var(--app-ink); font-size: calc(14px * var(--fs, 1)); letter-spacing: 0 !important; }
+.sub-fader > span { color: var(--app-muted); }
+.sub-fader > b { font-weight: 400; text-align: right; font-variant-numeric: tabular-nums; color: var(--app-ink); }
+.sub-fader input[type=range] { --fill: 50%; width: 100%; height: 22px; margin: 0; background: transparent; -webkit-appearance: none; appearance: none; cursor: pointer; }
+.sub-fader input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 999px; background: linear-gradient(to right, var(--app-accent) var(--fill), var(--app-line) var(--fill)); }
+.sub-fader input[type=range]::-moz-range-track { height: 4px; border-radius: 999px; background: var(--app-line); }
+.sub-fader input[type=range]::-moz-range-progress { height: 4px; border-radius: 999px; background: var(--app-accent); }
+.sub-fader input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -7px; border-radius: 50%; border: 2px solid var(--app-accent); background: var(--app-panel); }
+.sub-fader input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--app-accent); background: var(--app-panel); }
+.sub-fader input[type=range]:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 3px; border-radius: 6px; }
+.sub-fader.empty > button { grid-column: 2 / 4; justify-self: start; padding: 4px 0; border: 0; background: transparent; color: var(--app-accent); font-size: calc(14px * var(--fs, 1)); cursor: pointer; }
+.sub-fader.empty > button:hover { text-decoration: underline; text-underline-offset: 3px; }
+.sub-console-mix > .sub-fader:first-child { grid-column: span 2; }
+.sub-speed-presets { display: flex; gap: 6px; justify-content: flex-start; }
+.sub-speed-presets button { min-width: 40px; min-height: 30px; padding: 0 8px; border: 1px solid var(--app-line); border-radius: 8px; background: transparent; color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); font-variant-numeric: tabular-nums; cursor: pointer; transition: color .15s ease, border-color .15s ease, background-color .15s ease; }
+.sub-speed-presets button:hover { color: var(--app-ink); border-color: color-mix(in srgb, var(--app-accent) 40%, var(--app-line)); }
+.sub-speed-presets button.on { color: var(--app-accent-ink); background: var(--app-accent); border-color: var(--app-accent); }
+@media (prefers-reduced-motion: reduce) { .sub-progress > div i, .sub-now-line { transition: none; } }
+@media (max-width: 760px) {
+  .app-shell .subliminal-view .sub-player-card { grid-template-columns: 1fr; border-radius: 22px !important; }
+  .sub-console-now { padding: 24px 20px; }
+  .sub-console-mix { grid-template-columns: 1fr; padding: 20px; }
+  .sub-console-mix > .sub-fader:first-child { grid-column: auto; }
+  .sub-speed-presets { justify-content: flex-start; flex-wrap: wrap; }
+}
+.app-shell .subliminal-view .dreamscape-workspace { margin-top: 36px; }

@@ -1,8 +1,8 @@
 "use client";
 
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import DoughHop from "./DoughHop";
-import { DownloadSimple, Pause, Play, Question, X } from "@phosphor-icons/react";
+import { ArrowLeft, DownloadSimple, Pause, Play, Question, X } from "@phosphor-icons/react";
 import { renderSubMix, type TrackEdit } from "@/lib/audio-mix";
 import { readStored, writeStored } from "@/lib/safe-storage";
 import { AMBIENCE_LEVEL, brownSource } from "@/lib/ambience";
@@ -14,6 +14,9 @@ export type PracticeCheckIn = {
 };
 
 type Lang = "zh" | "en";
+const SPEED_KEY = "already-sub-speed-v1";
+const SPEED_MIN = 0.5;
+const SPEED_MAX = 3;
 type DeliveryMode = "clear" | "soft" | "subliminal";
 type Ambience = "none" | "rain" | "brown" | "ocean" | "library";
 type DurationMode = "timer" | "continuous";
@@ -160,9 +163,11 @@ type Props = {
   focusKind?: "scene" | "thought";
   checkIns: PracticeCheckIn[];
   onCheckIn: (feeling: PracticeCheckIn["feeling"]) => void;
+  /** Back to the Dreamscape home; shown on the title's left edge. */
+  onBack?: () => void;
 };
 
-export default function SubliminalStudio({ lang, desire, focusText, focusKind = "scene", checkIns, onCheckIn }: Props) {
+export default function SubliminalStudio({ lang, desire, focusText, focusKind = "scene", checkIns, onCheckIn, onBack }: Props) {
   const copy = lang === "zh" ? {
     eyebrow: "潜音 · 私人声音练习",
     heading: "听见你已经拥有的生活",
@@ -375,6 +380,7 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
   const [durationHours, setDurationHours] = useState(0);
   const [durationMinutes, setDurationMinutes] = useState(defaults[lang].duration);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [spokenLine, setSpokenLine] = useState("");
   const [backgroundPlay, setBackgroundPlay] = useState(true);
   const [soundQuery, setSoundQuery] = useState(lang === "zh" ? "下雨" : "rain");
   const [soundResults, setSoundResults] = useState<AudioResult[]>([]);
@@ -400,6 +406,9 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const playingRef = useRef(false);
   const speechIndexRef = useRef(0);
+  const liveRef = useRef({ speed: 1, voiceVolume: 25 });
+  useEffect(() => { liveRef.current = { speed: playbackSpeed, voiceVolume }; }, [playbackSpeed, voiceVolume]);
+  const brownGainRef = useRef<GainNode | null>(null);
 
   useEffect(() => {
     try {
@@ -444,6 +453,24 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
     mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
   }, []);
 
+  useEffect(() => {
+    const saved = Number(readStored(SPEED_KEY));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- restore her last speed once
+    if (saved >= SPEED_MIN && saved <= SPEED_MAX) setPlaybackSpeed(saved);
+  }, []);
+  useEffect(() => {
+    const modeGain = profile.mode === "clear" ? 1 : profile.mode === "soft" ? 0.58 : 0.16;
+    if (recordedAudioRef.current) { recordedAudioRef.current.playbackRate = playbackSpeed; recordedAudioRef.current.volume = Math.min(1, (voiceVolume / 100) * modeGain); }
+    if (musicAudioRef.current) musicAudioRef.current.volume = musicVolume / 100;
+    if (libraryAudioRef.current) libraryAudioRef.current.volume = ambienceVolume / 100;
+    if (brownGainRef.current) brownGainRef.current.gain.value = AMBIENCE_LEVEL.brown * (ambienceVolume / 100);
+  }, [playbackSpeed, voiceVolume, musicVolume, ambienceVolume, profile.mode]);
+  const changeSpeed = (value: number) => {
+    const next = Math.round(Math.max(SPEED_MIN, Math.min(SPEED_MAX, value)) * 10) / 10;
+    setPlaybackSpeed(next);
+    writeStored(SPEED_KEY, String(next));
+  };
+
   useEffect(() => () => {
     if (voiceUrl) URL.revokeObjectURL(voiceUrl);
   }, [voiceUrl]);
@@ -481,6 +508,7 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
     const gain = context.createGain();
     gain.gain.value = AMBIENCE_LEVEL.brown * (ambienceVolume / 100);
     output.connect(gain).connect(context.destination);
+    brownGainRef.current = gain;
     source.start();
     audioContextRef.current = context;
     ambienceSourceRef.current = source;
@@ -528,11 +556,12 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
   const speakNext = () => {
     if (!playingRef.current || !profile.affirmations.length) return;
     const text = profile.affirmations[speechIndexRef.current % profile.affirmations.length];
+    setSpokenLine(text);
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = lang === "zh" ? "zh-CN" : "en-US";
-    utterance.rate = (profile.mode === "clear" ? 0.9 : profile.mode === "soft" ? 0.72 : 1.15) * playbackSpeed;
+    utterance.rate = Math.min(10, (profile.mode === "clear" ? 0.9 : profile.mode === "soft" ? 0.72 : 1.15) * liveRef.current.speed);
     const modeGain = profile.mode === "clear" ? 1 : profile.mode === "soft" ? 0.58 : 0.16;
-    utterance.volume = Math.min(1, (voiceVolume / 100) * modeGain);
+    utterance.volume = Math.min(1, (liveRef.current.voiceVolume / 100) * modeGain);
     utterance.onend = () => {
       speechIndexRef.current += 1;
       if (playingRef.current) window.setTimeout(speakNext, profile.mode === "clear" ? 650 : profile.mode === "soft" ? 1150 : 120);
@@ -758,9 +787,13 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
 
   const modeName = profile.mode === "clear" ? copy.deliveryClear : profile.mode === "soft" ? copy.deliverySoft : copy.deliveryMasked;
   const ambienceName = librarySound?.title || (lang === "zh"
-    ? ({ none: "不加环境声", rain: "不加环境声", ocean: "不加环境声", brown: "棕噪音", library: "不加环境声" } as const)[profile.ambience]
-    : ({ none: "No ambience", rain: "No ambience", ocean: "No ambience", brown: "Brown noise", library: "No ambience" } as const)[profile.ambience]);
+    ? ({ none: "不加环境声", rain: "雨声", ocean: "海浪", brown: "棕噪音", library: "不加环境声" } as const)[profile.ambience]
+    : ({ none: "No ambience", rain: "Rain", ocean: "Waves", brown: "Brown noise", library: "No ambience" } as const)[profile.ambience]);
   const soundCard = (sound: AudioResult) => <article className={librarySound?.id === sound.id ? "selected" : ""} key={sound.id}><div className="sound-card-main"><button className="sound-preview" type="button" aria-label={`${previewingSoundId === sound.id ? copy.stopPreview : copy.previewSound}: ${sound.title}`} onClick={() => void previewSound(sound)}>{previewingSoundId === sound.id ? <Pause weight="fill"/> : <Play weight="fill"/>}</button><div className="sound-card-copy"><strong title={`${sound.title} · ${sound.creator} · ${sound.license}`}>{sound.title}</strong></div></div><button className="sound-choose" type="button" onClick={() => void chooseLibrarySound(sound)}>{librarySound?.id === sound.id ? `✓ ${copy.selectedSound}` : copy.useSound}</button></article>;
+  const continuousMode = (profile.durationMode || "timer") === "continuous";
+  const totalSeconds = Math.max(1, profile.duration * 60);
+  const dialProgress = continuousMode ? Math.min(100, (elapsedSeconds / Math.max(60, (profile.completionMinutes || 5) * 60)) * 100) : Math.min(100, ((totalSeconds - secondsLeft) / totalSeconds) * 100);
+  const nowLine = isPlaying ? (voiceUrl ? voiceName : spokenLine) : (profile.affirmations.find((line) => line.trim()) || "");
   const clearAmbience = () => {
     libraryAudioRef.current?.pause();
     libraryAudioRef.current = null;
@@ -768,20 +801,37 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
     setProfile((current) => ({ ...current, ambience: "none", librarySound: undefined }));
   };
   return <section className="full-view subliminal-view">
+    <div className="studio-topbar">
+      {onBack ? <button type="button" className="studio-text-button" onClick={onBack}><ArrowLeft size={17} aria-hidden="true"/>{lang === "zh" ? "潜音" : "Dreamscape"}</button> : <span/>}
+      <button type="button" className="studio-text-button" onClick={() => setTutorialOpen(true)}><Question size={17} aria-hidden="true"/>{copy.tutorial}</button>
+    </div>
     <div className="studio-heading">
       <div className="view-heading"><h1>{copy.heading}</h1></div>
-      <button type="button" className="tutorial-button" onClick={() => setTutorialOpen(true)}><Question size={17} aria-hidden="true"/>{copy.tutorial}</button>
     </div>
 
     {focusText && <div className="dreamscape-focus"><span>{focusKind === "thought" ? (lang === "zh" ? "从转念带来的新念头" : "New thought from Reframe") : (lang === "zh" ? "你带过来的一段话" : "What you brought here")}</span><p>{focusText}</p></div>}
 
     <div className="dreamscape-workspace">
-      <div className="sub-player-card">
-        <div className="sub-player-identity"><div className="sub-orbit" aria-hidden="true"><i/></div><div><p>{copy.current}</p><h2>{profile.title}</h2></div></div>
-        <div className="sub-player-time"><strong>{(profile.durationMode || "timer") === "continuous" ? timeLabel(elapsedSeconds) : timeLabel(secondsLeft)}</strong></div>
-        <div className="sub-wave" aria-hidden="true">{Array.from({ length: 35 }, (_, index) => <i key={index}/>)}</div>
-        <div className="mini-timeline"><span>{copy.timeline}</span><i className="voice">{lang === "zh" ? "人声" : "Voice"} · {modeName}</i><i className="music">{lang === "zh" ? "音乐" : "Music"}</i><i className="ambience">{ambienceName}</i></div>
-        <div className="player-actions"><button className="sub-play" onClick={startPractice}>{isPlaying ? "Ⅱ" : "▶"}<span>{isPlaying ? copy.pause : copy.play}</span></button></div>
+      <div className={`sub-player-card${isPlaying ? " is-playing" : ""}`}>
+        <section className="sub-console-now">
+          <h2>{profile.title}</h2>
+          <p className={`sub-now-line${isPlaying && nowLine ? " live" : ""}`} aria-live="polite">{nowLine}</p>
+          <div className="sub-transport">
+            <button type="button" className="sub-play-button" onClick={startPractice} aria-label={isPlaying ? copy.pause : copy.play}>{isPlaying ? <Pause size={26} weight="fill"/> : <Play size={26} weight="fill"/>}</button>
+            <div className="sub-progress"><div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(dialProgress)} aria-label={lang === "zh" ? "练习进度" : "Practice progress"}><i style={{ width: `${dialProgress}%` }}/></div><span>{continuousMode ? timeLabel(elapsedSeconds) : `${timeLabel(totalSeconds - secondsLeft)} / ${timeLabel(totalSeconds)}`}</span></div>
+          </div>
+        </section>
+        <section className="sub-console-mix" aria-label={lang === "zh" ? "边听边调" : "Adjust while listening"}>
+          <label className="sub-fader"><span>{lang === "zh" ? "倍速" : "Speed"}</span><input type="range" min={SPEED_MIN} max={SPEED_MAX} step="0.1" value={playbackSpeed} onChange={(event) => changeSpeed(Number(event.target.value))} style={{ "--fill": `${((playbackSpeed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN)) * 100}%` } as CSSProperties}/><b>{playbackSpeed.toFixed(1)}×</b></label>
+          <div className="sub-speed-presets" role="group" aria-label={lang === "zh" ? "常用倍速" : "Common speeds"}>{[0.5, 1, 1.5, 2, 3].map((value) => <button type="button" key={value} className={playbackSpeed === value ? "on" : ""} onClick={() => changeSpeed(value)}>{value}×</button>)}</div>
+          {([
+            ["voice", lang === "zh" ? "人声" : "Voice", voiceVolume, setVoiceVolume, true],
+            ["music", lang === "zh" ? "音乐" : "Music", musicVolume, setMusicVolume, Boolean(musicUrl)],
+            ["ambience", lang === "zh" ? "背景" : "Ambience", ambienceVolume, setAmbienceVolume, Boolean(librarySound) || profile.ambience === "brown"],
+          ] as const).map(([key, label, value, setValue, ready]) => ready
+            ? <label className="sub-fader" key={key}><span>{label}</span><input type="range" min="0" max="100" value={value} onChange={(event) => setValue(Number(event.target.value))} style={{ "--fill": `${value}%` } as CSSProperties}/><b>{value}</b></label>
+            : <div className="sub-fader empty" key={key}><span>{label}</span><button type="button" onClick={() => { setStudioTab("sound"); setEditing(true); }}>{key === "music" ? (lang === "zh" ? "加一段音乐" : "Add music") : (lang === "zh" ? "加背景声音" : "Add a sound")}</button></div>)}
+        </section>
       </div>
       <aside className="session-summary">
         <h3>{lang === "zh" ? "今天怎么听" : "How you are listening"}</h3>
@@ -816,7 +866,7 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
       </div>}
       {studioTab === "playback" && <div className="studio-pane">
       <section className="duration-studio"><div><h3>{copy.duration}</h3></div><div className="duration-mode-tabs"><button className={(profile.durationMode || "timer") === "timer" ? "selected" : ""} onClick={() => setProfile((current) => ({ ...current, durationMode: "timer" }))}>{copy.timer}</button><button className={profile.durationMode === "continuous" ? "selected" : ""} onClick={() => setProfile((current) => ({ ...current, durationMode: "continuous" }))}>{copy.continuous}</button></div><div className="duration-inputs"><label><input aria-label={copy.hours} type="number" min="0" max="12" value={durationHours} onChange={(event) => setDurationHours(Math.max(0, Math.min(12, Number(event.target.value))))}/><span>{copy.hours}</span></label><label><input aria-label={copy.minutes} type="number" min="0" max="59" value={durationMinutes} onChange={(event) => setDurationMinutes(Math.max(0, Math.min(59, Number(event.target.value))))}/><span>{copy.minutes}</span></label></div>{profile.durationMode === "continuous" && <label className="completion-goal"><span>{copy.completionGoal}</span><input aria-label={copy.completionGoal} type="number" min="1" max="180" value={profile.completionMinutes || 5} onChange={(event) => setProfile((current) => ({ ...current, completionMinutes: Math.max(1, Math.min(180, Number(event.target.value))) }))}/><b>{copy.minutes}</b></label>}<label className="background-play"><input aria-label={copy.backgroundPlay} type="checkbox" checked={backgroundPlay} onChange={(event) => setBackgroundPlay(event.target.checked)}/><span><strong>{copy.backgroundPlay}</strong></span></label></section>
-        <div className="mix-options"><label>{copy.speed}<input type="range" min="0.1" max="10" step="0.1" value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))}/><b>{playbackSpeed.toFixed(1)}×</b></label><label className="loop-check"><input type="checkbox" checked={loopAudio} onChange={(event) => setLoopAudio(event.target.checked)}/><span className="toggle-control" aria-hidden="true"><i/></span><span>{copy.loop}</span></label></div>
+        <div className="mix-options"><label>{copy.speed}<input type="range" min={SPEED_MIN} max={SPEED_MAX} step="0.1" value={playbackSpeed} onChange={(event) => changeSpeed(Number(event.target.value))}/><b>{playbackSpeed.toFixed(1)}×</b></label><label className="loop-check"><input type="checkbox" checked={loopAudio} onChange={(event) => setLoopAudio(event.target.checked)}/><span className="toggle-control" aria-hidden="true"><i/></span><span>{copy.loop}</span></label></div>
       </div>}
       {studioTab === "export" && <div className="studio-pane">
       <section className="mix-export"><label className="audio-rights"><input type="checkbox" checked={rightsConfirmed} onChange={(event) => setRightsConfirmed(event.target.checked)}/><span>{copy.rights}</span></label><button className="primary" type="button" onClick={exportMix} disabled={exporting || !voiceUrl}><DownloadSimple size={18}/>{exporting ? <span className="dough-loading"><DoughHop size="xs"/>{copy.exporting}</span> : copy.exportMix}</button>{exportMessage && <p aria-live="polite">{exportMessage}</p>}</section>
