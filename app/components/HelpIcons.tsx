@@ -2,7 +2,7 @@ import { useId, type ReactNode } from "react";
 
 // 帮助与条款 page icons, drawn as the dough mascot (picked by the founder 2026-11-20:
 // report C with a bigger flag, safety C as the shield itself, privacy A, terms D, copyright C,
-// pricing = cushion-cut ring P3 with a bigger stone).
+// pricing = cut diamond C with wide-set eyes, 2026-11-20).
 // Same language as SpaceIcons: plump dough outline, dot eyes, no mouth, round caps, currentColor strokes.
 
 type Props = { size?: number };
@@ -100,21 +100,14 @@ export function CopyrightIcon({ size }: Props) {
   );
 }
 
-/** 会员与价格: a cushion-cut solitaire ring — the big stone is the dough, on a thin band, with a small sparkle. */
+/** 会员与价格: a cut diamond (table, girdle and two crown facets) with the dough's wide-set eyes in the lower half. */
 export function PricingIcon({ size }: Props) {
-  const m = useMaskId("pricing");
-  const stone = { tx: 4.08, ty: 0, s: 0.66 };
   return (
     <Svg size={size}>
-      <defs>
-        <mask id={m} maskUnits="userSpaceOnUse" x="-4" y="-4" width="32" height="32">
-          <rect x="-4" y="-4" width="32" height="32" fill="white" stroke="none" />
-          <path d={BODY} transform={`translate(${stone.tx} ${stone.ty}) scale(${stone.s})`} fill="black" stroke="black" strokeWidth={3 / stone.s} />
-        </mask>
-      </defs>
-      <ellipse cx="12" cy="17" rx="6.4" ry="3.4" strokeWidth="1.4" mask={`url(#${m})`} />
-      <Dough {...stone} />
-      <path d="M20.2 1.4V4.6M18.6 3H21.8" strokeWidth="1.3" />
+      <path d="M7 4H17L21.2 9.2L12 20.6L2.8 9.2Z" />
+      <path d="M2.8 9.2H21.2" />
+      <path d="M9.6 4L8.4 9.2M14.4 4L15.6 9.2" />
+      <Eyes a={8.9} b={15.1} y={12.2} r={1.05} />
     </Svg>
   );
 }
