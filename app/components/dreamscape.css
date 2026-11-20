@@ -107,3 +107,53 @@
 .app-shell .subliminal-view .sound-clear { border: 0; background: transparent; color: var(--app-accent); font-size: calc(14px * var(--fs, 1)); cursor: pointer; padding: 4px 6px; border-radius: 8px; }
 .app-shell .subliminal-view .sound-clear:hover { background: var(--app-panel-strong); }
 .app-shell .subliminal-view .sound-chosen { display: inline-flex; align-items: center; gap: 6px; color: var(--app-ink); font-size: calc(15px * var(--fs, 1)); }
+
+/* 我的肯定语: her own lines, edited in place */
+.affirm-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 30px 0 8px; }
+.affirm-head h2 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: calc(20px * var(--fs, 1)); color: var(--app-ink); }
+.affirm-play-all { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; border: 1px solid var(--app-line); border-radius: 999px; background: transparent; color: var(--app-accent); font-size: calc(14px * var(--fs, 1)); cursor: pointer; transition: background .15s ease, border-color .15s ease, transform .15s ease; }
+.affirm-play-all:hover:not(:disabled) { background: var(--app-panel-strong); border-color: color-mix(in srgb, var(--app-accent) 40%, var(--app-line)); }
+.affirm-play-all:active:not(:disabled) { transform: scale(.97); }
+.affirm-play-all:disabled { opacity: .45; cursor: default; }
+.affirm-seeding { display: grid; place-items: center; min-height: 120px; margin: 0; }
+
+.affirm-editor { margin-bottom: 22px; }
+.affirm-lines { list-style: none; margin: 0; padding: 0; }
+.affirm-lines li { position: relative; display: flex; align-items: center; gap: 4px; min-height: 52px; border-top: 1px solid var(--app-line); transition: background .15s ease; }
+.affirm-lines li:last-child { border-bottom: 1px solid var(--app-line); }
+.affirm-lines li:hover, .affirm-lines li:focus-within { background: color-mix(in srgb, var(--app-panel-strong) 55%, transparent); }
+.affirm-lines li.is-dragging { background: var(--app-panel-strong); box-shadow: 0 8px 22px color-mix(in srgb, var(--app-ink) 12%, transparent); z-index: 1; }
+.affirm-handle { flex: none; width: 30px; height: 40px; display: grid; place-items: center; border: 0; background: transparent; color: var(--app-muted); cursor: grab; touch-action: none; opacity: .45; transition: opacity .15s ease; }
+.affirm-lines li:hover .affirm-handle, .affirm-handle:focus-visible, .is-dragging .affirm-handle { opacity: 1; }
+.is-dragging .affirm-handle { cursor: grabbing; }
+.affirm-text { flex: 1; min-width: 0; padding: 12px 4px; border: 0; background: transparent; color: var(--app-ink); font-family: var(--font-display); font-size: calc(16px * var(--fs, 1)); line-height: 1.55; text-align: left; cursor: text; }
+.affirm-input { flex: 1; min-width: 0; margin: 6px 0; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--app-accent) 45%, var(--app-line)); border-radius: 10px; background: var(--app-panel); color: var(--app-ink); font-family: var(--font-display); font-size: calc(16px * var(--fs, 1)); line-height: 1.55; resize: none; overflow: hidden; outline: none; }
+.affirm-play, .affirm-remove { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; cursor: pointer; transition: background .15s ease, color .15s ease, transform .15s ease, opacity .15s ease; }
+.affirm-play { color: var(--app-accent); }
+.affirm-play:hover, .affirm-play.is-on { background: color-mix(in srgb, var(--app-accent) 12%, transparent); }
+.affirm-remove { color: var(--app-muted); opacity: 0; }
+.affirm-lines li:hover .affirm-remove, .affirm-lines li:focus-within .affirm-remove { opacity: 1; }
+.affirm-remove:hover { color: var(--app-ink); background: var(--app-panel-strong); }
+.affirm-play:active, .affirm-remove:active { transform: scale(.92); }
+.affirm-lines button:focus-visible, .affirm-actions button:focus-visible, .affirm-suggest button:focus-visible, .affirm-play-all:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 2px; }
+@media (hover: none) { .affirm-remove { opacity: .6; } .affirm-handle { opacity: .7; } }
+
+.affirm-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.affirm-actions button { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 14px; border: 1px solid var(--app-line); border-radius: 999px; background: var(--app-panel); color: var(--app-ink); font-size: calc(14px * var(--fs, 1)); cursor: pointer; transition: background .15s ease, border-color .15s ease, transform .15s ease; }
+.affirm-actions button svg { color: var(--app-accent); }
+.affirm-actions button:hover:not(:disabled) { background: var(--app-panel-strong); border-color: color-mix(in srgb, var(--app-accent) 40%, var(--app-line)); }
+.affirm-actions button:active:not(:disabled) { transform: scale(.97); }
+.affirm-actions button:disabled { opacity: .5; cursor: default; }
+
+.affirm-suggest { margin-top: 18px; }
+.affirm-suggest h3 { margin: 0 0 8px; color: var(--app-muted); font-size: calc(14px * var(--fs, 1)); font-weight: 500; }
+.affirm-suggest ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.affirm-suggest li { display: flex; align-items: stretch; border: 1px dashed color-mix(in srgb, var(--app-accent) 35%, var(--app-line)); border-radius: 14px; overflow: hidden; animation: affirm-in .2s ease-out both; }
+.affirm-take { flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border: 0; background: transparent; color: var(--app-ink); font-family: var(--font-display); font-size: calc(15px * var(--fs, 1)); line-height: 1.55; text-align: left; cursor: pointer; transition: background .15s ease; }
+.affirm-take svg { flex: none; margin-top: 4px; color: var(--app-accent); }
+.affirm-take:hover:not(:disabled) { background: color-mix(in srgb, var(--app-accent) 8%, transparent); }
+.affirm-take:disabled { opacity: .5; cursor: default; }
+.affirm-skip { flex: none; width: 40px; border: 0; background: transparent; color: var(--app-muted); cursor: pointer; transition: background .15s ease, color .15s ease; }
+.affirm-skip:hover { color: var(--app-ink); background: var(--app-panel-strong); }
+@keyframes affirm-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .affirm-suggest li { animation: none; } }

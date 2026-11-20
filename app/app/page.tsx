@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import { KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import {
   Moon,
@@ -119,6 +119,8 @@ type GoalProfile = {
   canon: Record<Lang, string[]>;
   responsePreferences: Record<Lang, string[]>;
   acceptedSceneLedger: Record<Lang, string[]>;
+  /** Her own 潜音 affirmations for this desire; missing until the first set is made. */
+  affirmations?: Record<Lang, string[]>;
   memoryItems: Record<Lang, MemoryItem[]>;
   /** Her own answers to the optional self-reflection questions. Never sent to the AI. */
   reflection: ReflectionAnswers;
@@ -469,6 +471,8 @@ export default function Home() {
   const [retiringOld, setRetiringOld] = useState(false);
   /** A new thought taken into Dreamscape; when empty, Dreamscape shows the latest accepted scene. */
   const [focusThought, setFocusThought] = useState("");
+  /** A chat reply she took to 潜音; it is offered there as lines to add. */
+  const [dreamIncoming, setDreamIncoming] = useState("");
   /** The generated story already saved as a card, so one click can't save it twice. */
   /** Story whose script the AI is writing right now. */
   const [scriptingId, setScriptingId] = useState<string | null>(null);
@@ -1465,6 +1469,10 @@ export default function Home() {
     if (item.downloadLocation) fetch("/api/images", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ downloadLocation: item.downloadLocation }) }).catch(() => null);
   };
 
+  const saveAffirmations = useCallback((lines: string[]) => {
+    setGoal((current) => ({ ...current, affirmations: { zh: current.affirmations?.zh ?? [], en: current.affirmations?.en ?? [], [lang]: lines } }));
+  }, [lang]);
+
   const recordCheckIn = (feeling: PracticeCheckIn["feeling"]) => {
     const date = todayKey();
     const alreadyCheckedIn = checkIns.some((item) => item.date === date);
@@ -1900,7 +1908,7 @@ export default function Home() {
         <div className="home-ai-thread">
           {sessionMessages.map((message, index) => <div className={`message-group ${message.role}`} key={message.id}><div className={`message ${message.role}`}>{message.text}</div><div className="message-actions">
             <button onClick={() => navigator.clipboard.writeText(message.text)} aria-label={lang === "zh" ? "复制" : "Copy"}><Copy size={15}/><span>{lang === "zh" ? "复制" : "Copy"}</span></button>
-            {message.role === "user" ? <><button onClick={() => editUserMessage(index)}><NotePencil size={15}/><span>{lang === "zh" ? "编辑并重发" : "Edit and resend"}</span></button><button onClick={() => { setOldScene(message.text); setNewScene(""); setRewritingBelief(""); setReframeSection("turn"); setView("revision"); }}><ArrowsClockwise size={15}/><span>{lang === "zh" ? "带去转念" : "Reframe this"}</span></button></> : <><button onClick={() => regenerateReply(index)}><ArrowClockwise size={15}/><span>{lang === "zh" ? "重新回答" : "Regenerate"}</span></button><button onClick={() => saveReplyAsStory(message)}><BookmarkSimple size={15}/><span>{message.saved ? (lang === "zh" ? "已保存" : "Saved") : (lang === "zh" ? "存为剧本" : "Save as story")}</span></button><button onClick={() => { setFocusThought(""); setGoal((current) => ({ ...current, acceptedSceneLedger: { ...current.acceptedSceneLedger, [lang]: [message.text.slice(0, 500), ...current.acceptedSceneLedger[lang]].slice(0, 8) } })); setView("subliminal"); }}><Waveform size={15}/><span>{lang === "zh" ? "带入潜音" : "Take to Dreamscape"}</span></button><button className={message.feedback === "helpful" ? "selected" : ""} onClick={() => feedbackReply(message, "helpful")}><ThumbsUp size={15}/><span>{lang === "zh" ? "懂我" : "Helpful"}</span></button><button className={message.feedback === "missed" ? "selected" : ""} onClick={() => feedbackReply(message, "missed")}><ThumbsDown size={15}/><span>{lang === "zh" ? "不适合" : "Not for me"}</span></button><ReportButton lang={lang} onClick={() => setReportTarget({ excerpt: message.text })}/></>}
+            {message.role === "user" ? <><button onClick={() => editUserMessage(index)}><NotePencil size={15}/><span>{lang === "zh" ? "编辑并重发" : "Edit and resend"}</span></button><button onClick={() => { setOldScene(message.text); setNewScene(""); setRewritingBelief(""); setReframeSection("turn"); setView("revision"); }}><ArrowsClockwise size={15}/><span>{lang === "zh" ? "带去转念" : "Reframe this"}</span></button></> : <><button onClick={() => regenerateReply(index)}><ArrowClockwise size={15}/><span>{lang === "zh" ? "重新回答" : "Regenerate"}</span></button><button onClick={() => saveReplyAsStory(message)}><BookmarkSimple size={15}/><span>{message.saved ? (lang === "zh" ? "已保存" : "Saved") : (lang === "zh" ? "存为剧本" : "Save as story")}</span></button><button onClick={() => { setFocusThought(""); setGoal((current) => ({ ...current, acceptedSceneLedger: { ...current.acceptedSceneLedger, [lang]: [message.text.slice(0, 500), ...current.acceptedSceneLedger[lang]].slice(0, 8) } })); setDreamIncoming(message.text.slice(0, 600)); setStudioOpen(false); setView("subliminal"); }}><Waveform size={15}/><span>{lang === "zh" ? "带入潜音" : "Take to Dreamscape"}</span></button><button className={message.feedback === "helpful" ? "selected" : ""} onClick={() => feedbackReply(message, "helpful")}><ThumbsUp size={15}/><span>{lang === "zh" ? "懂我" : "Helpful"}</span></button><button className={message.feedback === "missed" ? "selected" : ""} onClick={() => feedbackReply(message, "missed")}><ThumbsDown size={15}/><span>{lang === "zh" ? "不适合" : "Not for me"}</span></button><ReportButton lang={lang} onClick={() => setReportTarget({ excerpt: message.text })}/></>}
           </div></div>)}
           {isTyping && <div className="message ai typing" role="status" aria-label={lang === "zh" ? "正在回复" : "Replying"}><DoughHop size="xs"/></div>}
         </div>
@@ -1914,14 +1922,20 @@ export default function Home() {
         desire={goal.desire[lang]}
         story={(() => { const mine = storyLibrary.find((item) => !item.sample && item.text[lang].length > 0) || storyLibrary.find((item) => item.text[lang].length > 0); return mine ? { title: mine.title[lang], paragraphs: mine.text[lang] } : null; })()}
         onCheckIn={recordCheckIn}
-        makeAffirmations={async () => {
-          const ask = lang === "zh"
+        makeAffirmations={async (from?: string) => {
+          const ask = from ? (lang === "zh"
+            ? `下面是我写下或聊到的一段话。从里面挑出或改写 2 到 4 句我可以每天睡前听的肯定语：每句 20 个字以内，第一人称，现在时，当作已经成立的事，只用这段话里有的内容。每行一句，没有序号，没有引号，没有别的话。\n\n${from}`
+            : `Here is something I wrote or talked about. Pick or rewrite 2 to 4 affirmations from it that I can listen to every night: each under 15 words, first person, present tense, as already true, using only what is in it. One per line, no numbers, no quotes, nothing else.\n\n${from}`) : lang === "zh"
             ? "请为我写 6 句睡前肯定语。每句 20 个字以内，第一人称，现在时，当作已经成立的事。只用我愿望里已有的内容，不添加我没提过的细节。每行一句，没有序号，没有引号，没有别的话。"
             : "Write me 6 bedtime affirmations. Each under 15 words, first person, present tense, as already true. Use only what is in my desire and add no details I never gave. One per line, no numbers, no quotes, nothing else.";
           const reply = await callCompanion("chat", ask, undefined, []);
           return (reply || "").split(/\r?\n/).map((line) => line.replace(/^[\s\-*\d.、)）]+/, "").trim()).filter(Boolean);
         }}
-        ownLines={(focusThought ? [focusThought] : []).concat(revisions.map((item) => splitThought(item.revised).thought)).filter((line, index, all) => line && all.indexOf(line) === index)}
+        affirmations={goal.affirmations?.[lang] ?? null}
+        onAffirmationsChange={saveAffirmations}
+        ownLines={revisions.map((item) => splitThought(item.revised).thought).filter((line, index, all) => line && all.indexOf(line) === index)}
+        incoming={dreamIncoming || focusThought}
+        onIncomingDone={() => setDreamIncoming("")}
         onOpenStudio={() => setStudioOpen(true)}
       />}
       {view === "subliminal" && studioOpen && <>

@@ -11,6 +11,7 @@ import { VOICE_LIMITS } from "@/lib/voice-limits";
 import { readStored, writeStored } from "@/lib/safe-storage";
 import "./dreamscape.css";
 import { askConfirm } from "./ConfirmHost";
+import AffirmationEditor from "./AffirmationEditor";
 
 type Lang = "zh" | "en";
 type Screen = "home" | "record" | "player";
@@ -23,10 +24,16 @@ type Props = {
   desire: string;
   story: { title: string; paragraphs: string[] } | null;
   onCheckIn: (feeling: Feeling) => void;
-  /** ask the companion for a few lines in her own words; may throw */
-  makeAffirmations: () => Promise<string[]>;
-  /** New thoughts she accepted in Reframe; they lead her affirmations, in her own words. */
+  /** Ask the companion for a few lines; with `from`, pick them out of that text. May throw. */
+  makeAffirmations: (from?: string) => Promise<string[]>;
+  /** Her own affirmations for this desire; null until the first set is made. */
+  affirmations: string[] | null;
+  onAffirmationsChange: (lines: string[]) => void;
+  /** New thoughts she accepted in Reframe: offered, never added on their own. */
   ownLines?: string[];
+  /** Text she brought here from a conversation or Reframe, waiting to be turned into lines. */
+  incoming?: string;
+  onIncomingDone?: () => void;
   onOpenStudio: () => void;
 };
 
@@ -35,6 +42,8 @@ const GAP_MS = 1600;
 const KEY_USE_MINE = "already-use-my-voice-v1";
 const KEY_AMBIENCE = "already-dream-ambience-v1";
 const KEY_AFFIRM = "already-dream-affirmations-v1";
+const KEY_SKIPPED = "already-dream-skipped-v1";
+const MAX_LINES = 12;
 
 const DEFAULT_LINES: Record<Lang, string[]> = {
   zh: ["我不用着急，也不用证明什么。", "我知道，我想要的，已经在我的生活里了。", "我只是照着自己的节奏，做今天该做的事。", "我值得被好好对待，也已经被好好对待着。", "今晚我放心地睡去，明天已经在等我。"],
@@ -77,7 +86,7 @@ function errorText(code: string, zh: boolean) {
   return hit ? hit[zh ? 0 : 1] : zh ? "声音暂时没有成功，请再试一次。" : "That didn't work. Please try again.";
 }
 
-export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, makeAffirmations, ownLines = [], onOpenStudio }: Props) {
+export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, makeAffirmations, affirmations, onAffirmationsChange, ownLines = [], incoming = "", onIncomingDone, onOpenStudio }: Props) {
   const zh = lang === "zh";
   const t = (a: string, b: string) => (zh ? a : b);
   const headers = useMemo(() => ({ "x-already-session-id": sessionId, "Content-Type": "application/json" }), [sessionId]);
@@ -146,22 +155,86 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
 
   const owner = voice.has && useMine ? `mine:${voice.createdAt}` : "default";
 
-  const ownKey = ownLines.slice(0, 3).join("\n");
-  const loadAffirmations = useCallback(async (): Promise<string[]> => {
-    // her own new thoughts first (at most 3), then the generated set, 8 lines in all
-    const own = ownKey ? ownKey.split("\n") : [];
-    const withOwn = (lines: string[]) => [...own, ...lines.filter((line) => !own.includes(line))].slice(0, 8);
-    const key = `${KEY_AFFIRM}:${lang}:${desire.slice(0, 60)}`;
+  const maxLength = zh ? 40 : 120;
+  const clean = useCallback((raw: string[]) => raw.map((line) => line.replace(/\s+/g, " ").trim()).filter((line) => line.length >= 2 && line.length <= maxLength), [maxLength]);
+  const lines = useMemo(() => (affirmations || []).filter(Boolean), [affirmations]);
+
+  // the very first time: a starting set she can change (the companion's lines, else plain ones)
+  const seedingRef = useRef(false);
+  const mountedRef = useRef(true);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+  useEffect(() => {
+    if (affirmations !== null || seedingRef.current) return;
+    seedingRef.current = true;
+    const seed = async () => {
+      let start: string[] = [];
+      try {
+        const cached = JSON.parse(readStored(`${KEY_AFFIRM}:${lang}:${desire.slice(0, 60)}`) || "null") as string[] | null;
+        if (Array.isArray(cached)) start = clean(cached);
+      } catch { /* make a fresh set */ }
+      if (start.length < 3) { try { start = clean(await makeAffirmations()); } catch { start = []; } }
+      if (start.length < 3) start = DEFAULT_LINES[lang];
+      seedingRef.current = false;
+      if (mountedRef.current) onAffirmationsChange(start.slice(0, 8));
+    };
+    void seed();
+  }, [affirmations, clean, desire, lang, makeAffirmations, onAffirmationsChange]);
+
+  // lines she may add: picks from what she brought here, AI ideas, new thoughts, lines she removed
+  const [picked, setPicked] = useState<string[]>([]);
+  const [ideas, setIdeas] = useState<string[]>([]);
+  const [removed, setRemoved] = useState<string[]>([]);
+  const [skipped, setSkipped] = useState<string[]>(() => { try { return JSON.parse(readStored(KEY_SKIPPED) || "[]") as string[]; } catch { return []; } });
+  const [asking, setAsking] = useState(false);
+  const suggestions = useMemo(() => {
+    const seen = new Set(lines);
+    return [...picked, ...ideas, ...clean(ownLines), ...removed].filter((line) => {
+      if (!line || seen.has(line) || skipped.includes(line)) return false;
+      seen.add(line);
+      return true;
+    }).slice(0, 8);
+  }, [clean, ideas, lines, ownLines, picked, removed, skipped]);
+
+  /* eslint-disable react-hooks/set-state-in-effect -- turn what she brought here into lines once */
+  useEffect(() => {
+    const text = incoming.trim();
+    if (!text) return;
+    onIncomingDone?.();
+    if (text.length <= maxLength) { setPicked((current) => [text, ...current]); return; }
+    setAsking(true);
+    makeAffirmations(text)
+      .then((found) => setPicked((current) => [...clean(found).slice(0, 4), ...current]))
+      .catch(() => setMessage(t("这次没有挑出句子，可以自己写一句。", "Couldn't pick lines this time. You can write one yourself.")))
+      .finally(() => setAsking(false));
+  }, [incoming]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const changeLines = (next: string[]) => {
+    const kept = next.map((line) => line.replace(/\s+/g, " ").trim().slice(0, maxLength));
+    if (kept.filter(Boolean).length < lines.filter(Boolean).length) setRemoved((current) => [...lines.filter((line) => line && !kept.includes(line)), ...current].slice(0, 6));
+    onAffirmationsChange(kept.filter(Boolean).slice(0, MAX_LINES));
+  };
+  const acceptLine = (line: string) => {
+    if (lines.length >= MAX_LINES) return;
+    onAffirmationsChange([...lines.filter(Boolean), line]);
+    setPicked((current) => current.filter((item) => item !== line));
+    setIdeas((current) => current.filter((item) => item !== line));
+    setRemoved((current) => current.filter((item) => item !== line));
+  };
+  const skipLine = (line: string) => {
+    const next = [line, ...skipped].slice(0, 60);
+    setSkipped(next);
+    writeStored(KEY_SKIPPED, JSON.stringify(next));
+  };
+  const askIdeas = async () => {
+    setAsking(true);
     try {
-      const cached = JSON.parse(readStored(key) || "null") as string[] | null;
-      if (Array.isArray(cached) && cached.length >= 3) return withOwn(cached);
-    } catch { /* fall through to a fresh set */ }
-    try {
-      const lines = (await makeAffirmations()).map((line) => line.trim()).filter((line) => line.length >= 4 && line.length <= (zh ? 40 : 120)).slice(0, 8);
-      if (lines.length >= 3) { writeStored(key, JSON.stringify(lines)); return withOwn(lines); }
-    } catch { /* the companion is unavailable: use the plain lines */ }
-    return withOwn(DEFAULT_LINES[lang]);
-  }, [desire, lang, makeAffirmations, ownKey, zh]);
+      const fresh = clean(await makeAffirmations()).filter((line) => !lines.includes(line));
+      setIdeas(fresh.slice(0, 5));
+      if (!fresh.length) setMessage(t("这次没有想出新句子，再试一次。", "No new lines this time. Try again."));
+    } catch { setMessage(t("现在想不出来，稍后再试。", "Couldn't think of any right now. Try again shortly.")); }
+    finally { setAsking(false); }
+  };
 
   const fetchLine = useCallback(async (text: string): Promise<Blob> => {
     const key = await cacheKey(owner, text);
@@ -176,6 +249,36 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
     await writeCached(key, blob);
     return blob;
   }, [headers, owner, useMine]);
+
+  // one line in her voice, made once and kept, so only a changed line is made again
+  const [preview, setPreview] = useState<{ line: string; state: "loading" | "playing" } | null>(null);
+  const previewRef = useRef<HTMLAudioElement | null>(null);
+  const previewToken = useRef(0);
+  const stopPreview = () => { previewToken.current += 1; previewRef.current?.pause(); setPreview(null); };
+  const playPreview = async (line: string) => {
+    if (preview?.line === line) { stopPreview(); return; }
+    stopPreview();
+    const token = previewToken.current;
+    const player = previewRef.current || new Audio();
+    previewRef.current = player;
+    player.src = SILENCE;
+    void player.play().catch(() => undefined);
+    setPreview({ line, state: "loading" });
+    try {
+      const blob = await fetchLine(line);
+      if (token !== previewToken.current) return;
+      const url = URL.createObjectURL(blob);
+      player.onended = () => { URL.revokeObjectURL(url); if (token === previewToken.current) setPreview(null); };
+      player.src = url;
+      await player.play();
+      setPreview({ line, state: "playing" });
+    } catch (error) {
+      if (token !== previewToken.current) return;
+      setPreview(null);
+      setMessage(errorText(error instanceof Error ? error.message : "", zh));
+    }
+  };
+  useEffect(() => () => { previewRef.current?.pause(); }, []);
 
   const playFrom = useCallback(async (start: number) => {
     const token = ++tokenRef.current;
@@ -210,6 +313,9 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
 
   const begin = useCallback(async (next: Mode) => {
     stopAll(0.3);
+    previewToken.current += 1;
+    previewRef.current?.pause();
+    setPreview(null);
     // unlock the player inside her tap (iPhone refuses audio that starts after a wait)
     const player = audioRef.current || new Audio();
     audioRef.current = player;
@@ -234,10 +340,10 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
         }
         texts = joined.slice(0, 40);
       } else {
-        const base = await loadAffirmations();
+        const base = lines.filter(Boolean);
         texts = next === "night" ? [...base, ...base] : base;
       }
-      if (!texts.length) { setMessage(t("还没有剧本可以听，先去“剧本”里写一个。", "There is no story to listen to yet. Write one in Stories first.")); setScreen("home"); return; }
+      if (!texts.length) { setMessage(next === "story" ? t("还没有剧本可以听，先去“剧本”里写一个。", "There is no story to listen to yet. Write one in Stories first.") : t("先写一句肯定语。", "Write an affirmation first.")); setScreen("home"); return; }
       setItems(texts);
       const unique = Array.from(new Set(texts));
       setPreparing({ done: 0, total: unique.length });
@@ -275,7 +381,7 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
       setMessage(errorText(error instanceof Error ? error.message : "", zh));
       setScreen("home");
     }
-  }, [fetchLine, loadAffirmations, playFrom, stopAll, story, t, zh]);
+  }, [fetchLine, lines, playFrom, stopAll, story, t, zh]);
 
   const togglePause = () => {
     if (finished) { void begin(mode); return; }
@@ -368,13 +474,19 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
       </button>
       <button type="button" className="dream-start" onClick={() => void begin("night")}><Play size={20} weight="fill" />{t("开始睡前潜音", "Start the night soundscape")}</button>
       {message && <p className="dream-message" role="status">{message}</p>}
+      <div className="affirm-head">
+        <h2>{t("我的肯定语", "My affirmations")}</h2>
+        <button type="button" className="affirm-play-all" onClick={() => void begin("affirm")} disabled={!lines.filter(Boolean).length} aria-label={t("听一遍我的肯定语", "Hear my affirmations once")}><Play size={16} weight="fill" />{t("听一遍", "Play")}</button>
+      </div>
+      {affirmations === null
+        ? <p className="affirm-seeding" role="status"><DoughHop size="sm" /></p>
+        : <AffirmationEditor lang={lang} lines={lines} onChange={changeLines} suggestions={suggestions} onAccept={acceptLine} onDismiss={skipLine} onAskIdeas={() => void askIdeas()} asking={asking} preview={preview} onPreview={(line) => void playPreview(line)} maxLines={MAX_LINES} maxLength={maxLength} />}
       <ul className="dream-list">
         <li>
           {voice.has
             ? <><span>{t("用我的声音", "Use my voice")}</span><button type="button" className={`dream-switch${useMine ? " on" : ""}`} role="switch" aria-checked={useMine} aria-label={t("用我的声音", "Use my voice")} onClick={flipUseMine}><i /></button></>
             : <button type="button" className="dream-row accent" onClick={() => setScreen("record")}><span>{t("录下我的声音", "Record my voice")}</span><small>{t("约 45 秒", "About 45 seconds")}</small></button>}
         </li>
-        <li><button type="button" className="dream-row" onClick={() => void begin("affirm")}><span>{t("我的肯定语", "My affirmations")}</span><small>{t("约 1 分钟", "About 1 minute")}</small></button></li>
         <li><button type="button" className="dream-row" onClick={() => void begin("story")} disabled={!story}><span>{t("我的剧本", "My story")}</span><small>{story ? t("读给我听", "Read to me") : t("还没有剧本", "No story yet")}</small></button></li>
       </ul>
       <div className="dream-links">

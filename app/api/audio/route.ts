@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
     creator: item.creator || "", license: item.license === "cc0" ? "CC0" : "CC BY",
     licenseUrl: item.license_url || "", duration: item.duration || 0, provider: item.provider || "Openverse",
   }));
-  return NextResponse.json({ results, queries }, {
+  return NextResponse.json({ results }, {
     headers: { "Cache-Control": "no-store, max-age=0", "CDN-Cache-Control": "no-store" },
   });
 }
