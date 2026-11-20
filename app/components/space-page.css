@@ -1,0 +1,88 @@
+/* 转念 and 愿景 laid out like My space: grouped list on the left, soft cards on the right.
+   Reuses space.css (list, cards, pills, rows); this file only adds what those pages need. Tokens only. */
+.space-page { width: min(1040px, 100%); }
+.space-page.vision-space { width: min(1180px, 100%); }
+.space-page.vision-space .space-layout { max-width: 1180px; }
+@media (min-width: 1000px) {
+  .space-page.vision-space .space-layout { grid-template-columns: 280px minmax(0, 1fr); gap: 48px; }
+}
+
+/* Phone and narrow windows: no list screen, the page title and the parts as pills */
+.space-page-phone-head { margin-bottom: 14px; }
+.space-page-phone-head h1 { margin: 0; color: var(--app-ink); font-family: var(--font-display); font-weight: 400; font-size: calc(30px * var(--fs, 1)); line-height: 1.25; letter-spacing: 0; }
+.space-page-phone-head p { margin: 6px 0 0; color: var(--app-muted); font-family: var(--font-body); font-size: calc(15px * var(--fs, 1)); line-height: 1.5; text-wrap: pretty; }
+.space-page-pills { margin-bottom: 22px; }
+.space-page-pills button small { margin-left: 6px; color: inherit; opacity: .7; font-size: calc(12px * var(--fs, 1)); }
+.space-page .space-detail-head { display: none; }
+@media (min-width: 1000px) {
+  .space-page-phone-head, .space-page-pills { display: none; }
+  .space-page .space-detail-head { display: flex; }
+}
+
+/* Fields: the same underlined inputs as My space */
+.space-page .profile-card input, .space-page .wish-field textarea { width: 100%; border: 0; border-bottom: 1px solid var(--app-line); border-radius: 0; padding: 8px 0; color: var(--app-ink); background: transparent; font: inherit; box-shadow: none; }
+.space-page .wish-field textarea { min-height: 96px; resize: vertical; font: 400 calc(17px * var(--fs, 1))/1.7 var(--font-display); }
+.space-page .profile-card input:focus, .space-page .wish-field textarea:focus { outline: 0; border-bottom-color: var(--app-accent); }
+.space-page .space-card-lead { margin: 0; }
+.space-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.space-page .wish-primary:disabled { opacity: .5; cursor: default; filter: none; }
+.space-outline { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 16px; border: 1px solid var(--app-line); border-radius: 999px; color: var(--app-ink); background: transparent; font-size: calc(14px * var(--fs, 1)); cursor: pointer; transition: border-color .15s ease; }
+.space-outline:hover:not(:disabled) { border-color: var(--app-accent); }
+.space-outline:disabled { opacity: .5; cursor: default; }
+.space-page .dough-loading { display: inline-flex; align-items: center; gap: 6px; }
+
+/* 转念: the old thought fades when the new one is accepted (same timing as before) */
+.reframe-space .wish-field textarea { transition: color .8s ease, opacity .8s ease, text-decoration-color .4s ease; text-decoration: line-through transparent; }
+.reframe-space .wish-field textarea.retiring { color: var(--app-muted); opacity: .35; text-decoration-color: var(--app-muted); }
+.reframe-space .wish-field textarea.thought-draft { min-height: 0; font-size: calc(19px * var(--fs, 1)); }
+.new-thought-card { border-color: color-mix(in srgb, var(--app-accent) 45%, var(--app-line)); transition: opacity .8s ease; }
+.new-thought-card.accepting { opacity: .6; }
+.new-thought-card .profile-sub { margin-top: -10px; }
+.new-thought-card .new-thought-reading { margin: 0; color: var(--app-muted); font-size: calc(14px * var(--fs, 1)); line-height: 1.7; }
+
+/* 我的新念头: soft rows like 想换掉的念头 */
+.space-rows { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.space-rows li { padding: 14px 14px 10px; border-radius: 14px; background: color-mix(in srgb, var(--app-ink) 3%, transparent); transition: box-shadow .6s ease; }
+.space-rows li.just-accepted { box-shadow: inset 0 0 0 1px var(--app-accent); }
+.space-rows small { color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); }
+.space-rows p { margin: 4px 0 8px; color: var(--app-ink); font: 400 calc(17px * var(--fs, 1))/1.65 var(--font-display); }
+.space-row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-left: -4px; }
+.space-row-actions .space-outline { min-height: 34px; padding: 0 12px; font-size: calc(13px * var(--fs, 1)); }
+.space-row-actions .wish-delete { min-height: 34px; font-size: calc(13px * var(--fs, 1)); }
+
+/* 寻梦灵感 */
+.space-search { display: flex; align-items: flex-end; gap: 12px; }
+.space-search input { flex: 1; min-width: 0; font-size: calc(17px * var(--fs, 1)) !important; }
+.space-search .wish-primary { flex: none; }
+.space-page .search-error { margin: 0; }
+.space-page .search-results { margin-bottom: 0; }
+.space-page .search-results article { border: 1px solid var(--app-line); border-radius: 18px; }
+.space-page .search-results button { min-height: 36px; padding: 0 12px; border-radius: 999px; cursor: pointer; transition: border-color .15s ease; }
+.space-page .search-results button:hover:not(:disabled) { border-color: var(--app-accent); }
+.space-page .search-results button.saved { border-color: transparent; color: var(--app-accent); background: color-mix(in srgb, var(--app-accent) 9%, transparent); }
+.space-page .moodboard { columns: 3; }
+.space-page .board-card { border-radius: 18px; }
+
+/* 编织我的愿景: the studio's boxes become the same soft cards */
+.space-page .vision-maker-heading { display: none; }
+.app-shell .space-page .vision-upload,
+.app-shell .space-page .vision-controls,
+.app-shell .space-page .frame-editor { border: 1px solid var(--app-line) !important; border-radius: 18px !important; background: var(--app-panel) !important; }
+.app-shell .space-page .vision-upload { border-style: dashed !important; }
+.app-shell .space-page .vision-controls fieldset button.selected { border-color: var(--app-accent) !important; color: var(--app-accent) !important; background: color-mix(in srgb, var(--app-accent) 10%, transparent) !important; font-weight: 600; }
+.space-page .vision-first-step { border-radius: 18px; }
+
+@media (max-width: 1240px) and (min-width: 1000px) {
+  .space-page .moodboard { columns: 2; }
+  .space-page .search-results { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .space-search { flex-direction: column; align-items: stretch; }
+  .space-search .wish-primary { justify-content: center; }
+}
+
+/* 已拆分搜索: the split queries as quiet chips */
+.space-page .image-search-plan { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.space-page .image-search-plan small { color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); }
+.space-page .image-search-plan > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.space-page .image-search-plan span { display: inline-flex; align-items: center; min-height: 24px; padding: 0 10px; border-radius: 999px; color: var(--app-muted); background: color-mix(in srgb, var(--app-ink) 5%, transparent); font-size: calc(12px * var(--fs, 1)); }

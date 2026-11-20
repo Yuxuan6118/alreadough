@@ -59,6 +59,7 @@ import ProfilePanel from "../components/ProfilePanel";
 import WishList, { type WishItem } from "../components/WishList";
 import ConfirmHost, { askConfirm, showUndo } from "../components/ConfirmHost";
 import SpaceNav from "../components/SpaceNav";
+import SpacePage from "../components/SpacePage";
 import { AboutIcon, DoughIcon, HelpIcon, LibraryIcon, LookIcon, MembershipIcon, PetIcon, SyncIcon, ThoughtsIcon, WishesIcon } from "../components/SpaceIcons";
 import LettersPanel, { type AppLetter } from "../components/LettersPanel";
 import FontSizePanel from "../components/FontSizePanel";
@@ -479,7 +480,8 @@ export default function Home() {
   const [scriptingId, setScriptingId] = useState<string | null>(null);
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [board, setBoard] = useState<BoardItem[]>([]);
-  const [boardMode, setBoardMode] = useState<"licensed" | "mine">("licensed");
+  const [boardMode, setBoardMode] = useState<"licensed" | "mine" | "collected">("licensed");
+  const [reframeSection, setReframeSection] = useState<"turn" | "beliefs">("turn");
   const [checkIns, setCheckIns] = useState<PracticeCheckIn[]>([]);
   const [imageQuery, setImageQuery] = useState("");
   const [imageResults, setImageResults] = useState<SearchImage[]>([]);
@@ -1403,6 +1405,7 @@ export default function Home() {
 
   const removeBeliefWithUndo = (text: string) => {
     const before = parseBeliefs(beliefDraft);
+    setReframeSection("turn");
     removeBelief(text);
     showUndo(lang === "zh" ? "已删除这个念头" : "Thought deleted", lang === "zh" ? "撤销" : "Undo", () => { setBeliefDraft(before.join("\n")); setGoal((current) => ({ ...current, beliefs: { ...current.beliefs, [lang]: before } })); });
   };
@@ -1905,7 +1908,7 @@ export default function Home() {
         <div className="home-ai-thread">
           {sessionMessages.map((message, index) => <div className={`message-group ${message.role}`} key={message.id}><div className={`message ${message.role}`}>{message.text}</div><div className="message-actions">
             <button onClick={() => navigator.clipboard.writeText(message.text)} aria-label={lang === "zh" ? "复制" : "Copy"}><Copy size={15}/><span>{lang === "zh" ? "复制" : "Copy"}</span></button>
-            {message.role === "user" ? <><button onClick={() => editUserMessage(index)}><NotePencil size={15}/><span>{lang === "zh" ? "编辑并重发" : "Edit and resend"}</span></button><button onClick={() => { setOldScene(message.text); setNewScene(""); setRewritingBelief(""); setView("revision"); }}><ArrowsClockwise size={15}/><span>{lang === "zh" ? "带去转念" : "Reframe this"}</span></button></> : <><button onClick={() => regenerateReply(index)}><ArrowClockwise size={15}/><span>{lang === "zh" ? "重新回答" : "Regenerate"}</span></button><button onClick={() => saveReplyAsStory(message)}><BookmarkSimple size={15}/><span>{message.saved ? (lang === "zh" ? "已保存" : "Saved") : (lang === "zh" ? "存为剧本" : "Save as story")}</span></button><button onClick={() => { setFocusThought(""); setGoal((current) => ({ ...current, acceptedSceneLedger: { ...current.acceptedSceneLedger, [lang]: [message.text.slice(0, 500), ...current.acceptedSceneLedger[lang]].slice(0, 8) } })); setView("subliminal"); }}><Waveform size={15}/><span>{lang === "zh" ? "带入潜音" : "Take to Dreamscape"}</span></button><button className={message.feedback === "helpful" ? "selected" : ""} onClick={() => feedbackReply(message, "helpful")}><ThumbsUp size={15}/><span>{lang === "zh" ? "懂我" : "Helpful"}</span></button><button className={message.feedback === "missed" ? "selected" : ""} onClick={() => feedbackReply(message, "missed")}><ThumbsDown size={15}/><span>{lang === "zh" ? "不适合" : "Not for me"}</span></button><ReportButton lang={lang} onClick={() => setReportTarget({ excerpt: message.text })}/></>}
+            {message.role === "user" ? <><button onClick={() => editUserMessage(index)}><NotePencil size={15}/><span>{lang === "zh" ? "编辑并重发" : "Edit and resend"}</span></button><button onClick={() => { setOldScene(message.text); setNewScene(""); setRewritingBelief(""); setReframeSection("turn"); setView("revision"); }}><ArrowsClockwise size={15}/><span>{lang === "zh" ? "带去转念" : "Reframe this"}</span></button></> : <><button onClick={() => regenerateReply(index)}><ArrowClockwise size={15}/><span>{lang === "zh" ? "重新回答" : "Regenerate"}</span></button><button onClick={() => saveReplyAsStory(message)}><BookmarkSimple size={15}/><span>{message.saved ? (lang === "zh" ? "已保存" : "Saved") : (lang === "zh" ? "存为剧本" : "Save as story")}</span></button><button onClick={() => { setFocusThought(""); setGoal((current) => ({ ...current, acceptedSceneLedger: { ...current.acceptedSceneLedger, [lang]: [message.text.slice(0, 500), ...current.acceptedSceneLedger[lang]].slice(0, 8) } })); setView("subliminal"); }}><Waveform size={15}/><span>{lang === "zh" ? "带入潜音" : "Take to Dreamscape"}</span></button><button className={message.feedback === "helpful" ? "selected" : ""} onClick={() => feedbackReply(message, "helpful")}><ThumbsUp size={15}/><span>{lang === "zh" ? "懂我" : "Helpful"}</span></button><button className={message.feedback === "missed" ? "selected" : ""} onClick={() => feedbackReply(message, "missed")}><ThumbsDown size={15}/><span>{lang === "zh" ? "不适合" : "Not for me"}</span></button><ReportButton lang={lang} onClick={() => setReportTarget({ excerpt: message.text })}/></>}
           </div></div>)}
           {isTyping && <div className="message ai typing" role="status" aria-label={lang === "zh" ? "正在回复" : "Replying"}><DoughHop size="xs"/></div>}
         </div>
@@ -2009,43 +2012,83 @@ export default function Home() {
         />;
       })()}
 
-      {view === "revision" && <section className="full-view revision-view">
-        <div className="view-heading"><p className="eyebrow">{lang === "zh" ? "转念" : "REFRAME"}</p><h1>{t.revisionTitle}</h1><p>{t.revisionCopy}</p></div>
-        <label className="field-label">{t.oldLabel}</label>
-        <textarea className={retiringOld ? "retiring" : ""} value={oldScene} onChange={(e) => setOldScene(e.target.value)} placeholder={t.oldPlaceholder} readOnly={retiringOld} />
-        <button className="primary" onClick={() => makeRevision()} disabled={isTyping}>{isTyping ? <span className="dough-loading"><DoughHop size="xs"/>{t.turning}</span> : t.makeRevision}</button>
-        {aiError && <div className="ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
-        {newScene && (() => {
-          const { thought, reading } = splitThought(newScene);
-          return <div className={`revised-card${retiringOld ? " accepting" : ""}`}>
-            <span>{t.chosen}</span>
-            <textarea id="thought-draft" className="thought-draft" rows={2} value={thoughtDraft} onChange={(e) => setThoughtDraft(e.target.value)} readOnly={retiringOld || isTyping} aria-label={t.editThought} />
-            <small className="thought-edit-label">{t.editThought}</small>
-            {reading && thoughtDraft.trim() === thought && <small className="new-thought-reading">{reading}</small>}
-            <div className="revised-actions">
-              <button type="button" className="accept-thought" onClick={acceptRevision} disabled={!thoughtDraft.trim() || retiringOld || isTyping}>{savedPulse ? t.accepted : t.acceptStory}</button>
-              <button type="button" onClick={() => makeRevision(thoughtDraft || thought)} disabled={isTyping || retiringOld}>{isTyping ? <span className="dough-loading"><DoughHop size="xs"/>{t.turning}</span> : t.rephrase}</button>
-            </div>
-          </div>;
-        })()}
-        {revisions.length > 0 && <div className="revision-history"><p className="eyebrow">{t.history}</p>{revisions.slice(0, 8).map((item, index) => <div key={item.id} className={index === 0 && savedPulse ? "just-accepted" : undefined}><span>{item.date}</span><p>{splitThought(item.revised).thought}</p><div className="revision-item-actions"><button type="button" className="revision-to-dreamscape" onClick={() => { setFocusThought(splitThought(item.revised).thought); setStudioOpen(false); setView("subliminal"); }}><Waveform size={15}/>{t.toDreamscape}</button><button type="button" className="revision-delete" aria-label={lang === "zh" ? "删除这条新念头" : "Delete this new thought"} onClick={async () => { if (await askConfirm({ title: lang === "zh" ? "删除这条新念头？" : "Delete this new thought?", body: splitThought(item.revised).thought.slice(0, 120), confirmLabel: lang === "zh" ? "删除" : "Delete", cancelLabel: lang === "zh" ? "取消" : "Cancel" })) setRevisions((items) => items.filter((entry) => entry.id !== item.id)); }}><Trash size={15}/>{lang === "zh" ? "删除" : "Delete"}</button></div></div>)}</div>}
-      </section>}
+      {view === "revision" && <SpacePage
+        className="reframe-space"
+        title={lang === "zh" ? "转念" : "Reframe"}
+        intro={t.revisionCopy}
+        active={reframeSection}
+        onSelect={(id) => setReframeSection(id as "turn" | "beliefs")}
+        groups={[
+          { title: lang === "zh" ? "转念" : "Reframe", rows: [{ id: "turn", icon: ArrowsClockwise, label: t.revisionTitle, value: revisions.length ? String(revisions.length) : undefined }] },
+          { title: lang === "zh" ? "素材" : "To work on", rows: [{ id: "beliefs", icon: ThoughtsIcon, label: lang === "zh" ? "想换掉的念头" : "Thoughts to turn around", value: String(beliefCount) }] },
+        ]}
+      >
+        {reframeSection === "turn" && <div className="profile-cards">
+          <section className="profile-card">
+            <h3>{t.oldLabel}</h3>
+            <label className="wish-field"><textarea className={retiringOld ? "retiring" : ""} value={oldScene} onChange={(e) => setOldScene(e.target.value)} placeholder={t.oldPlaceholder} readOnly={retiringOld} aria-label={t.oldLabel} /></label>
+            <div className="space-card-actions"><button type="button" className="wish-primary" onClick={() => makeRevision()} disabled={isTyping}>{isTyping ? <span className="dough-loading"><DoughHop size="xs"/>{t.turning}</span> : t.makeRevision}</button></div>
+          </section>
+          {aiError && <div className="ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
+          {newScene && (() => {
+            const { thought, reading } = splitThought(newScene);
+            return <section className={`profile-card new-thought-card${retiringOld ? " accepting" : ""}`}>
+              <div><span className="wish-chip is-current">{t.chosen}</span></div>
+              <label className="wish-field"><textarea id="thought-draft" className="thought-draft" rows={2} value={thoughtDraft} onChange={(e) => setThoughtDraft(e.target.value)} readOnly={retiringOld || isTyping} aria-label={t.editThought} /></label>
+              <small className="profile-sub">{t.editThought}</small>
+              {reading && thoughtDraft.trim() === thought && <p className="new-thought-reading">{reading}</p>}
+              <div className="space-card-actions">
+                <button type="button" className="wish-primary" onClick={acceptRevision} disabled={!thoughtDraft.trim() || retiringOld || isTyping}>{savedPulse ? t.accepted : t.acceptStory}</button>
+                <button type="button" className="space-outline" onClick={() => makeRevision(thoughtDraft || thought)} disabled={isTyping || retiringOld}>{isTyping ? <span className="dough-loading"><DoughHop size="xs"/>{t.turning}</span> : t.rephrase}</button>
+              </div>
+            </section>;
+          })()}
+          {revisions.length > 0 && <section className="profile-card">
+            <h3>{t.history} · {revisions.length}</h3>
+            <ul className="space-rows">{revisions.slice(0, 8).map((item, index) => <li key={item.id} className={index === 0 && savedPulse ? "just-accepted" : undefined}>
+              <small>{item.date}</small>
+              <p>{splitThought(item.revised).thought}</p>
+              <div className="space-row-actions"><button type="button" className="space-outline" onClick={() => { setFocusThought(splitThought(item.revised).thought); setStudioOpen(false); setView("subliminal"); }}><Waveform size={15}/>{t.toDreamscape}</button><button type="button" className="wish-delete" aria-label={lang === "zh" ? "删除这条新念头" : "Delete this new thought"} onClick={async () => { if (await askConfirm({ title: lang === "zh" ? "删除这条新念头？" : "Delete this new thought?", body: splitThought(item.revised).thought.slice(0, 120), confirmLabel: lang === "zh" ? "删除" : "Delete", cancelLabel: lang === "zh" ? "取消" : "Cancel" })) setRevisions((items) => items.filter((entry) => entry.id !== item.id)); }}><Trash size={15}/>{lang === "zh" ? "删除" : "Delete"}</button></div>
+            </li>)}</ul>
+          </section>}
+        </div>}
+        {reframeSection === "beliefs" && <div className="profile-cards">
+          <section className="profile-card">
+            <p className="profile-sub space-card-lead">{lang === "zh" ? "反复冒出来、想换掉的旧念头，和「我的空间」里的是同一份。点「转念」就带它去转，接纳新念头以后，旧的这一句就从这里拿掉。" : "Old thoughts that keep coming back, the same list as in My space. Tap Reframe to turn one; once you accept the new thought, the old one leaves this list."}</p>
+            {parseBeliefs(beliefDraft).length ? <ul className="thought-rows">{parseBeliefs(beliefDraft).map((item, index) => <li key={`${index}-${item}`}><span>{item}</span><button type="button" className="thought-turn" onClick={() => { turnBelief(item); setReframeSection("turn"); }}>{lang === "zh" ? "转念" : "Reframe"}</button><button type="button" className="profile-remove" aria-label={lang === "zh" ? `删除：${item}` : `Delete: ${item}`} onClick={() => removeBeliefWithUndo(item)}><X size={16}/></button></li>)}</ul> : <p className="setting-empty">{lang === "zh" ? "还没有写下想换掉的念头。" : "Nothing written here yet."}</p>}
+            {beliefCount < MAX_BELIEFS && <div className="profile-topic-add"><input value={beliefInput} maxLength={200} onChange={(event) => setBeliefInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); addBelief(); } }} placeholder={lang === "zh" ? "例如：他根本不在乎我" : "e.g. They don't really care"} aria-label={lang === "zh" ? "添加一个想换掉的念头" : "Add a thought to turn around"}/><button type="button" className="profile-topic-plus" disabled={!beliefInput.trim()} onClick={addBelief}><Plus size={15}/> {lang === "zh" ? "添加" : "Add"}</button></div>}
+            <small className={`profile-count${beliefCount > MAX_BELIEFS ? " over" : ""}`}>{beliefCount} / {MAX_BELIEFS}</small>
+          </section>
+        </div>}
+      </SpacePage>}
 
-      {view === "board" && <section className="full-view board-view">
-        <div className="view-heading"><p className="eyebrow">{lang === "zh" ? "我的愿景" : "VISION BOARD"}</p><h1>{t.boardTitle}</h1><p>{t.boardCopy}</p></div>
-        <div className="vision-mode-tabs"><button className={boardMode === "licensed" ? "active" : ""} onClick={() => setBoardMode("licensed")}>{lang === "zh" ? "寻梦灵感" : "Discover Dreamscapes"}</button><button className={boardMode === "mine" ? "active" : ""} onClick={() => setBoardMode("mine")}>{lang === "zh" ? "编织我的愿景" : "Weave My Vision"}</button></div>
-        {boardMode === "licensed" ? <>
-        <div className="real-search">
-          <div className="search-title"><span>✦</span><div><strong>{t.realPhotos}</strong><small>{t.photoCopy}</small></div></div>
-          <div className="search-bar"><input value={imageQuery} onChange={(e) => setImageQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") searchRealImages(); }} placeholder={t.searchPlaceholder} aria-label={t.realPhotos}/><button onClick={() => searchRealImages()}>{imageSearching ? t.searching : t.search}</button></div>
-          <div className="search-suggestions">{suggestions.map((term) => <button key={term} onClick={() => searchRealImages(term)}>{term}</button>)}</div>
-          {imageSearchPlan && <div className="image-search-plan"><small>{lang === "zh" ? "已拆分搜索" : "Searched separately"}</small><div>{imageSearchPlan.queries.map((query) => <span key={query}>{query}</span>)}</div></div>}
-          {imageSearchError && <p className="search-error">{imageSearchError}</p>}
-        </div>
-        {imageResults.length > 0 && <div className="search-results">{imageResults.map((item) => <article key={item.source}><img src={item.image} alt={item.title}/><div><strong>{item.title}</strong><small>{item.credit} · {item.license}</small><button onClick={() => collectSearchImage(item)}>{t.collect}</button></div></article>)}</div>}
-        <div className="moodboard">{board.map((item, index) => <article className={`board-card card-${index % 4}`} key={item.id}>{item.image ? <img src={item.image} alt={item.title}/> : <div className="board-placeholder">✦</div>}<div><h3>{item.title}</h3>{/^https?:/.test(item.source) ? <a href={item.source} target="_blank" rel="noreferrer">{t.source}</a> : <span>{item.source}</span>}<button onClick={() => setBoard((items) => items.filter((entry) => entry.id !== item.id))} aria-label={`${lang === "zh" ? "删除" : "Delete "}${item.title}`}>×</button></div></article>)}</div>
-        </> : <VisionCanvasStudio lang={lang}/>} 
-      </section>}
+      {view === "board" && <SpacePage
+        className="vision-space"
+        title={lang === "zh" ? "愿景" : "Vision"}
+        intro={t.boardCopy}
+        active={boardMode}
+        onSelect={(id) => setBoardMode(id as "licensed" | "mine" | "collected")}
+        groups={[
+          { title: lang === "zh" ? "找画面" : "Find pictures", rows: [
+            { id: "licensed", icon: Sparkle, label: lang === "zh" ? "寻梦灵感" : "Discover Dreamscapes" },
+            { id: "mine", icon: ImageSquare, label: lang === "zh" ? "编织我的愿景" : "Weave My Vision" },
+          ] },
+          { title: lang === "zh" ? "收藏" : "Saved", rows: [{ id: "collected", icon: BookmarkSimple, label: lang === "zh" ? "我收藏的画面" : "My saved pictures", value: String(board.length) }] },
+        ]}
+      >
+        {boardMode === "licensed" && <div className="profile-cards">
+          <section className="profile-card">
+            <p className="profile-sub space-card-lead">{t.photoCopy}</p>
+            <div className="space-search"><input value={imageQuery} onChange={(e) => setImageQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) searchRealImages(); }} placeholder={t.searchPlaceholder} aria-label={t.realPhotos}/><button type="button" className="wish-primary" onClick={() => searchRealImages()} disabled={imageSearching}>{imageSearching ? t.searching : t.search}</button></div>
+            <div className="wish-pills">{suggestions.map((term) => <button type="button" key={term} onClick={() => searchRealImages(term)}>{term}</button>)}</div>
+            {imageSearchPlan && <div className="image-search-plan"><small>{lang === "zh" ? "已拆分搜索" : "Searched separately"}</small><div>{imageSearchPlan.queries.map((query) => <span key={query}>{query}</span>)}</div></div>}
+            {imageSearchError && <p className="search-error">{imageSearchError}</p>}
+          </section>
+          {imageResults.length > 0 && <div className="search-results">{imageResults.map((item) => { const saved = board.some((entry) => entry.source === item.source); return <article key={item.source}><img src={item.image} alt={item.title}/><div><strong>{item.title}</strong><small>{item.credit} · {item.license}</small><button type="button" className={saved ? "saved" : ""} onClick={() => collectSearchImage(item)} disabled={saved}>{saved ? (lang === "zh" ? "已收进我的愿景" : "Saved") : t.collect}</button></div></article>; })}</div>}
+        </div>}
+        {boardMode === "mine" && <VisionCanvasStudio lang={lang}/>}
+        {boardMode === "collected" && (board.length ? <div className="moodboard">{board.map((item, index) => <article className={`board-card card-${index % 4}`} key={item.id}>{item.image ? <img src={item.image} alt={item.title}/> : <div className="board-placeholder">✦</div>}<div><h3>{item.title}</h3>{/^https?:/.test(item.source) ? <a href={item.source} target="_blank" rel="noreferrer">{t.source}</a> : <span>{item.source}</span>}<button onClick={() => setBoard((items) => items.filter((entry) => entry.id !== item.id))} aria-label={`${lang === "zh" ? "删除" : "Delete "}${item.title}`}>×</button></div></article>)}</div> : <div className="profile-cards"><section className="profile-card"><p className="setting-empty">{lang === "zh" ? "在「寻梦灵感」里点「收进我的愿景」，喜欢的画面会收在这里。" : "Pictures you save from Discover Dreamscapes will gather here."}</p><div className="space-card-actions"><button type="button" className="space-outline" onClick={() => setBoardMode("licensed")}><Sparkle size={15}/>{lang === "zh" ? "去寻梦灵感" : "Go discover"}</button></div></section></div>)}
+      </SpacePage>}
 
       {view === "settings" && (() => {
         const shown: SpaceSection = settingsSection ?? "wishes";
