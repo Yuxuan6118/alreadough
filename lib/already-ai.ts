@@ -1,4 +1,5 @@
 import { coachCorpusInstructions } from "./coach-corpus";
+import { coachCardsBlock } from "./coach-cards";
 import { relationshipImagery } from "./reply-guards";
 import { crisisResources } from "./crisis-resources";
 
@@ -192,7 +193,7 @@ const zhChatVoiceExample: Record<CoachMode, string> = {
   subconscious: "用户说「有一句肯定语我念着特别别扭。」可以接「念到那一句就觉得别扭，这个反应值得留意。先看看你平常会怎么说同一个意思。一句话如果每遍说完都要在心里反驳一遍，改成顺口的说法，就比较容易念下去。」",
 };
 
-export function buildInstructions(lang: CompanionLang, mode: CompanionMode, coachMode: CoachMode = "assumption", request = "", previousUser = "", country: string | null = null) {
+export function buildInstructions(lang: CompanionLang, mode: CompanionMode, coachMode: CoachMode = "assumption", request = "", previousUser = "", country: string | null = null, recentAssistant: string[] = []) {
   const base = lang === "zh" ? zhInstructions : enInstructions;
   const modeNote = lang === "zh"
     ? {
@@ -229,14 +230,15 @@ export function buildInstructions(lang: CompanionLang, mode: CompanionMode, coac
   const methodLock = mode !== "chat" ? "" : lang === "zh"
     ? `\n\n本轮的引导方式是${current}。recent_conversation 里较早的回复可能用的是别的方法，那是她之前选的；这一轮只用${current}的概念回答，不提${others.join("、")}或其他流派的名字和术语。`
     : `\n\nThis turn's guidance method is ${current}. Earlier replies in recent_conversation may use another method she chose before; answer this turn only with ${current} concepts and do not name ${others.join(", ")} or any other school, or use their terms.`;
-  return `${base}\n\n${voice}\n\n${guidance[lang]}\n\n${modeNote}\n\n${coachCorpusInstructions(lang, coachMode, request, previousUser, crisisResources(lang, country))}\n\n${goalChoice}${chatReview}${editing}${methodLock}\n\n${jsonNote}`;
+  const cards = mode === "chat" ? coachCardsBlock(lang, coachMode, request, previousUser, recentAssistant) : "";
+  return `${base}\n\n${voice}\n\n${guidance[lang]}${cards ? `\n\n${cards}` : ""}\n\n${modeNote}\n\n${coachCorpusInstructions(lang, coachMode, request, previousUser, crisisResources(lang, country))}\n\n${goalChoice}${chatReview}${editing}${methodLock}\n\n${jsonNote}`;
 }
 
 /** Chat Completions messages for the companion turn (OpenAI-compatible providers). */
 export function buildMessages(payload: CompanionRequest) {
   const previousUser = payload.recentMessages.slice().reverse().find((message) => message.role === "user" && message.text !== payload.userInput)?.text ?? "";
   return [
-    { role: "system" as const, content: buildInstructions(payload.lang, payload.mode, payload.goal.coachMode, payload.userInput, previousUser, payload.country ?? null) },
+    { role: "system" as const, content: buildInstructions(payload.lang, payload.mode, payload.goal.coachMode, payload.userInput, previousUser, payload.country ?? null, payload.recentMessages.filter((message) => message.role === "ai").map((message) => message.text)) },
     { role: "user" as const, content: buildInput(payload) },
   ];
 }
