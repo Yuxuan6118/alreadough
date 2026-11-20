@@ -122,9 +122,29 @@ export async function finishMemberRequest(ticket: BetaTicket, usage: TokenUsage,
   ticket.memberSettled = true;
 }
 
-export async function recordAnonymousEvent(request: Request, sessionId: string, event: { eventType: string; mode?: string; wishCategory?: string; coachMode?: string; feedback?: string; ratingBefore?: number; ratingAfter?: number }) {
+/** Features the founder cockpit counts that are not AI calls. Server-side ones are written by their routes; the client may only send the client-side ones. */
+export const SERVER_FEATURES = ["image_search", "sound_search"] as const;
+export const CLIENT_FEATURES = ["subliminal_record", "subliminal_upload", "subliminal_play", "subliminal_export"] as const;
+
+/** One use of a non-AI feature (event_type 'feature_use', the feature name in prompt_version). Never throws. */
+export async function recordFeatureUse(identity: string | null, feature: (typeof SERVER_FEATURES)[number] | (typeof CLIENT_FEATURES)[number]) {
+  if (!identity) return;
+  try {
+    await env.DB.prepare("INSERT INTO beta_events (id, user_hash, event_type, prompt_version, created_at) VALUES (?, ?, 'feature_use', ?, ?)").bind(crypto.randomUUID(), await sha256(identity), feature, new Date().toISOString()).run();
+  } catch (error) {
+    console.error("recordFeatureUse failed", String(error));
+  }
+}
+
+export async function recordAnonymousEvent(request: Request, sessionId: string, event: { eventType: string; mode?: string; wishCategory?: string; coachMode?: string; feedback?: string; ratingBefore?: number; ratingAfter?: number; feature?: string }) {
   const userId = requestIdentity(request, sessionId);
   if (!userId) return false;
+  if (event.eventType === "feature_use") {
+    const feature = CLIENT_FEATURES.find((item) => item === event.feature);
+    if (!feature) return false;
+    await recordFeatureUse(userId, feature);
+    return true;
+  }
   const allowedTypes = new Set(["reply_feedback", "state_rating", "practice_checkin", "beta_survey"]);
   if (!allowedTypes.has(event.eventType)) return false;
   const allowedModes = new Set(["chat", "revision", "story", "steadiness", "understood", "return_intent", "helpful_feature"]);

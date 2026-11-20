@@ -61,3 +61,24 @@ test("members, revenue, features, voice, content and audience are counted", asyn
   assert.equal(data.trend.at(-1).requests, 3);
   assert.equal(data.trend.at(-1).newUsers, 1);
 });
+
+test("image search and subliminal uses are counted; the client cannot send made-up features", async () => {
+  const guard = await import("../lib/beta-guard.ts");
+  const request = new Request("https://alreadough.test/api/beta/events", { headers: { "x-already-session-id": "device-1" } });
+  await guard.recordFeatureUse("device:device-1", "image_search");
+  await guard.recordFeatureUse("device:device-2", "image_search");
+  assert.equal(await guard.recordAnonymousEvent(request, "device-1", { eventType: "feature_use", feature: "subliminal_record" }), true);
+  assert.equal(await guard.recordAnonymousEvent(request, "device-1", { eventType: "feature_use", feature: "subliminal_record" }), true);
+  assert.equal(await guard.recordAnonymousEvent(request, "device-1", { eventType: "feature_use", feature: "image_search" }), false); // server-side only
+  assert.equal(await guard.recordAnonymousEvent(request, "device-1", { eventType: "feature_use", feature: "anything" }), false);
+  const old = new Date(Date.now() - 20 * DAY).toISOString();
+  await run("INSERT INTO beta_events (id, user_hash, event_type, prompt_version, created_at) VALUES ('old', 'x', 'feature_use', 'subliminal_play', ?)", old);
+
+  const tools = Object.fromEntries((await founderOverview()).tools.map((row) => [row.feature, row]));
+  assert.deepEqual({ uses: tools.image_search.uses, users: tools.image_search.users, today: tools.image_search.today }, { uses: 2, users: 2, today: 2 });
+  assert.deepEqual({ uses: tools.subliminal_record.uses, users: tools.subliminal_record.users }, { uses: 2, users: 1 });
+  assert.deepEqual({ uses: tools.subliminal_play.uses, usesAll: tools.subliminal_play.usesAll }, { uses: 0, usesAll: 1 });
+  assert.equal(Object.keys(tools).length, 3);
+  // feature uses do not leak into the AI-call table
+  assert.equal((await founderOverview()).features.length, 0);
+});

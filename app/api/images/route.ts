@@ -1,6 +1,7 @@
 import { chatContent, helperCompletion } from "@/lib/openai-base";
 import { NextRequest, NextResponse } from "next/server";
 import { claimDaily, requestOwner, tooMany, unauthorized } from "@/lib/request-owner";
+import { recordFeatureUse } from "@/lib/beta-guard";
 
 /** Photo searches a day per account: far above real use, low enough that nobody can drain the shared search quotas. */
 const DAILY_SEARCHES = 200;
@@ -103,6 +104,7 @@ export async function GET(request: NextRequest) {
   const owner = await requestOwner(request);
   if (!owner) return unauthorized();
   if (!(await claimDaily(owner, "image-search", DAILY_SEARCHES))) return tooMany();
+  await recordFeatureUse(owner.deviceKey || owner.key, "image_search");
   try {
     const plan = await buildSearchPlan(query);
     const searches = await Promise.all(plan.queries.flatMap((searchQuery) => [searchPexels(searchQuery), searchUnsplash(searchQuery)]));

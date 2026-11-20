@@ -29,7 +29,7 @@ export async function founderOverview() {
     aiByFeature, trendGlobal, trendActive, trendNew, newVisitors7,
     voices, voice7, voiceToday,
     spaces, countries, devices, langs,
-    mail, lastMail, reportsNew, interest,
+    mail, lastMail, reportsNew, interest, tools,
   ] = await Promise.all([
     first<{ n: number }>("SELECT COUNT(DISTINCT account_id) AS n FROM member_accounts"),
     first<{ n: number }>("SELECT COUNT(*) AS n FROM (SELECT account_id, MIN(created_at) AS c FROM member_accounts GROUP BY account_id) WHERE c >= ?", since7Ms),
@@ -78,6 +78,12 @@ export async function founderOverview() {
     first<{ subject: string; recipients: number; delivered: number; createdAt: number }>("SELECT subject, recipients, delivered, created_at AS createdAt FROM mail_sends ORDER BY created_at DESC LIMIT 1"),
     first<{ n: number }>("SELECT COUNT(*) AS n FROM beta_reports WHERE status = 'new'"),
     first<{ n: number }>("SELECT COUNT(*) AS n FROM payment_interest"),
+    // Non-AI features (image search, sound search, subliminal recording…): one 'feature_use' event per use, the feature in prompt_version.
+    all<{ feature: string; uses: number; users: number; today: number; usesAll: number; usersAll: number }>(
+      `SELECT prompt_version AS feature, SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS uses,
+        COUNT(DISTINCT CASE WHEN created_at >= ? THEN user_hash END) AS users, SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS today,
+        COUNT(*) AS usesAll, COUNT(DISTINCT user_hash) AS usersAll
+       FROM beta_events WHERE event_type = 'feature_use' GROUP BY prompt_version ORDER BY uses DESC, usesAll DESC`, since7Iso, since7Iso, todayIso),
   ]);
 
   const days: string[] = [];
@@ -97,6 +103,7 @@ export async function founderOverview() {
       buyers: ordersPaid?.buyers || 0, pending7: ordersPending?.n || 0,
       recent: recentOrders.map((row) => ({ ...row, tradeNo: row.tradeNo ? row.tradeNo.slice(-6) : null })),
     },
+    tools,
     features: aiByFeature.map((row) => ({ ...row, latency: Math.round(row.latency || 0) })),
     voice: { cloned: voices?.n || 0, cloned7: voices?.n7 || 0, chars7: voice7?.chars || 0, speaks7: voice7?.requests || 0, enrolls7: voice7?.enrolls || 0, users7: voice7?.users || 0, charsToday: voiceToday?.chars || 0 },
     content: spaces || { total: 0, active7: 0, goals: 0, withBoard: 0, boardItems: 0, withStories: 0, stories: 0, withCheckIns: 0, checkIns: 0, withRevisions: 0, revisions: 0, withChats: 0 },

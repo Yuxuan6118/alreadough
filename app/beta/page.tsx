@@ -84,6 +84,8 @@ export default function FounderBetaPage() {
 }
 
 const FEATURE_LABELS: Record<string, string> = { chat: "陪伴对话", revision: "转念改写", story: "剧本故事", affirm: "睡前肯定语", persona: "TA 对话", persona_import: "TA 资料导入", onboarding: "首次引导回复" };
+const TOOL_LABELS: Record<string, string> = { image_search: "愿景板图片搜索", sound_search: "环境声搜索", subliminal_record: "潜意识录音（录完一段）", subliminal_upload: "潜意识上传音频", subliminal_play: "潜意识开始播放", subliminal_export: "潜意识导出混音" };
+const TOOL_ORDER = ["image_search", "subliminal_record", "subliminal_play", "subliminal_upload", "subliminal_export", "sound_search"];
 const PLAN_LABELS: Record<string, string> = { deep: "Deep", atelier: "Atelier" };
 const yuan = (fen: number) => `¥${(fen / 100).toLocaleString("zh-CN", { maximumFractionDigits: 2 })}`;
 const short = (ms: number) => new Date(ms).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -117,6 +119,7 @@ function Overview({ data }: { data: FounderOverview }) {
 
     <h2 className="beta-section">功能使用 · 近 7 天</h2>
     <section className="beta-table"><small>每个 AI 功能</small>{data.features.length ? <div className="beta-scroll"><table><thead><tr><th>功能</th><th>调用</th><th>占比</th><th>使用人数</th><th>Tokens</th><th>平均耗时</th><th>无结果</th></tr></thead><tbody>{data.features.map((row) => <tr key={row.feature}><td>{FEATURE_LABELS[row.feature] || row.feature}</td><td>{row.calls}</td><td>{pct(row.calls, featureCalls)}</td><td>{row.users}</td><td>{(row.tokens || 0).toLocaleString()}</td><td>{row.latency ? `${(row.latency / 1000).toFixed(1)} 秒` : "—"}</td><td>{row.failed}</td></tr>)}</tbody></table></div> : <p>近 7 天还没有 AI 调用。</p>}<span>TA 对话、睡前肯定语、首次引导从这次升级起单独计数，之前的调用算在「陪伴对话」里。</span></section>
+    <section className="beta-table"><small>图片搜索与潜意识工具</small><div className="beta-scroll"><table><thead><tr><th>功能</th><th>近 7 天次数</th><th>近 7 天人数</th><th>今天</th><th>累计次数</th><th>累计人数</th></tr></thead><tbody>{TOOL_ORDER.concat(data.tools.map((row) => row.feature).filter((name) => !TOOL_ORDER.includes(name))).map((name) => { const row = data.tools.find((item) => item.feature === name); return <tr key={name} className={row?.uses ? "paid" : ""}><td>{TOOL_LABELS[name] || name}</td><td>{row?.uses || 0}</td><td>{row?.users || 0}</td><td>{row?.today || 0}</td><td>{row?.usesAll || 0}</td><td>{row?.usersAll || 0}</td></tr>; })}</tbody></table></div><span>从这次升级起开始计数。录音和音频只留在用户自己的设备上，这里只记次数。</span></section>
     <section className="beta-grid"><article><small>克隆声音</small><strong>{voice.cloned}</strong><span>近 7 天新录 {voice.cloned7} · 录制尝试 {voice.enrolls7}</span></article><article><small>用自己的声音朗读 · 7 天</small><strong>{voice.speaks7}</strong><span>{voice.users7} 人 · {voice.chars7.toLocaleString()} 字</span></article><article><small>今日朗读字数</small><strong>{voice.charsToday.toLocaleString()}</strong><span>全站合计</span></article></section>
 
     <h2 className="beta-section">用户留下的内容</h2>

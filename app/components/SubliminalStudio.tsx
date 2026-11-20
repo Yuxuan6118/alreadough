@@ -504,6 +504,11 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
     window.setTimeout(() => setSavedPulse(false), 1600);
   };
 
+  // counted (anonymously) in the founder cockpit; never blocks or fails what she is doing
+  const countUse = (feature: "subliminal_record" | "subliminal_upload" | "subliminal_play" | "subliminal_export") => {
+    void fetch("/api/beta/events", { method: "POST", headers: { "Content-Type": "application/json", "x-already-session-id": sessionId }, body: JSON.stringify({ sessionId, eventType: "feature_use", feature }) }).catch(() => undefined);
+  };
+
   const startAmbience = async () => {
     const selectedSound = librarySound || profile.librarySound;
     if (selectedSound) {
@@ -630,6 +635,7 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
     setSecondsLeft(remaining);
     playingRef.current = true;
     setIsPlaying(true);
+    countUse("subliminal_play");
     setAudioError("");
     try {
       await startAmbience();
@@ -755,6 +761,7 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
         setVoiceUrl(nextUrl);
         setVoiceName(lang === "zh" ? "我的录音" : "My recording");
         void storeAudioTrack("voice", blob, lang === "zh" ? "我的录音" : "My recording");
+        countUse("subliminal_record");
         setAudioError("");
       };
       mediaRecorderRef.current = recorder;
@@ -777,6 +784,7 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
       setMusicUrl(url); setMusicName(file.name);
     }
     void storeAudioTrack(kind, file, file.name);
+    countUse("subliminal_upload");
     setAudioError("");
   };
 
@@ -814,6 +822,7 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
       link.download = `${profile.title.trim().replace(/[^\p{L}\p{N}]+/gu, "-") || "alreadough-sub"}.wav`;
       link.click(); window.setTimeout(() => URL.revokeObjectURL(link.href), 2000);
       setExportMessage(copy.exportReady);
+      countUse("subliminal_export");
     } catch { setAudioError(copy.playbackError); }
     finally { setExporting(false); }
   };
