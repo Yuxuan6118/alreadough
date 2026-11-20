@@ -824,7 +824,7 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
     </div>}
 
 
-    {checkInOpen && <div className="modal-backdrop"><div className="checkin-modal"><span>✦</span><h2>{copy.checkTitle}</h2><p>{copy.checkCopy}</p>{copy.feelings.map(([value, label]) => <button key={value} onClick={() => { onCheckIn(value); setCheckInOpen(false); setSecondsLeft(profile.duration * 60); }}>{label}</button>)}</div></div>}
+    {checkInOpen && <div className="modal-backdrop"><div className="checkin-modal"><h2>{copy.checkTitle}</h2><p>{copy.checkCopy}</p>{copy.feelings.map(([value, label]) => <button key={value} onClick={() => { onCheckIn(value); setCheckInOpen(false); setSecondsLeft(profile.duration * 60); }}>{label}</button>)}</div></div>}
     {tutorialOpen && <div className="modal-backdrop"><div className="tutorial-modal"><p className="eyebrow">{lang === "zh" ? "潜音" : "DREAMSCAPE"}</p><h2>{copy.tutorialTitle}</h2><ol>{copy.tutorialSteps.map((step) => <li key={step}>{step}</li>)}</ol><button className="primary" onClick={() => setTutorialOpen(false)}>{copy.close}</button></div></div>}
   </section>;
 }

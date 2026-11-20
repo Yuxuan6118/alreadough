@@ -380,6 +380,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .story-editor-modal footer > small { color: var(--app-muted); }
 .story-editor-modal footer > div { display: flex; gap: 9px; }
 .story-editor-modal footer .outline-button { width: auto; }
+.story-editor-modal footer .primary { padding: 0 22px; font-size: calc(13px * var(--fs, 1)); font-weight: 640; letter-spacing: .02em; }
 
 /* Stories as lived memories: photo cards in the library, photo on top and a cream sheet in the reader */
 .story-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(220px,1fr)); gap: 18px; }
