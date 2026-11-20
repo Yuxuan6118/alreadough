@@ -229,6 +229,17 @@ const MAX_BELIEFS = 12;
 const MAX_GOALS = 30;
 /** Device storage key for the copy last agreed with the cloud (the base of the three-way merge). */
 const SYNC_BASE_KEY = "already-sync-base-v1";
+/** Short tag of the account whose space this device holds (from /api/space). Kept when the device's data is cleared. */
+const SPACE_OWNER_KEY = "already-space-owner-v1";
+
+/** Set while the page is about to reload after clearing another account's data, so nothing is saved back in the meantime. */
+let discardingSpace = false;
+
+/** Removes everything this device keeps about the space: the synced copy and the photos and audio that live only here. */
+function clearDeviceSpace() {
+  for (const key of ["already-private-state-v5", SYNC_BASE_KEY, "already-practice-checkins-v1", "already-subliminal-v1", "already-vision-project-v1", "already-opening-v1"]) removeStored(key);
+  for (const name of ["already-private-audio-v1", "already-private-vision-v1", COVER_DB]) indexedDB.deleteDatabase(name);
+}
 /** How many stories one person can keep. One place to change it when membership tiers set their own limits. */
 const MAX_STORIES = 30;
 /** Paragraphs kept per story; long enough for a full script. */
@@ -792,6 +803,10 @@ export default function Home() {
         .then(async (response) => ({ response, data: await response.json() as { space?: Record<string, unknown> | null; revision?: number; owner?: string } }))
         .then(({ response, data }) => {
           // The agreed copy only counts when it was agreed with this same space (same account); otherwise the first merge keeps everything from both sides.
+          // Another account signed in on this device: what the device holds is the previous person's. Clear it and start again from this account's space.
+          const previousOwner = readStored(SPACE_OWNER_KEY);
+          if (response.ok && data.owner) writeStored(SPACE_OWNER_KEY, data.owner);
+          if (response.ok && data.owner && previousOwner && previousOwner !== data.owner) { discardingSpace = true; clearDeviceSpace(); window.location.reload(); return; }
           if (response.ok && spaceOwnerRef.current !== data.owner) syncBaseRef.current = null;
           if (response.ok) { spaceOwnerRef.current = data.owner ?? null; cloudRevisionRef.current = data.space ? data.revision ?? 0 : 0; }
           if (response.ok && data.space) applyCloudSpace(data.space, data.revision ?? 0);
@@ -869,7 +884,7 @@ export default function Home() {
   }, [cloudReady, sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || discardingSpace) return;
     const space = { lang, goal, goalArchive: goalArchive.slice(0, 20), otherGoals: otherGoals.slice(0, MAX_GOALS), conversationId, conversationArchive: conversationArchive.slice(0, 30), messages: messages.slice(-80), revisions: revisions.slice(0, 20), board, storyLibrary, checkIns, profile };
     writeStored("already-private-state-v5", JSON.stringify(space));
     latestSpaceRef.current = JSON.parse(JSON.stringify(space));
@@ -877,6 +892,7 @@ export default function Home() {
     if (!cloudReady) return;
     if (syncBaseRef.current && JSON.stringify(syncBaseRef.current) === JSON.stringify(space)) return; // nothing new to save
     const timeout = window.setTimeout(() => {
+      if (discardingSpace) return;
       setSyncStatus("saving");
       const baseRevision = cloudRevisionRef.current;
       fetch("/api/space", { method: "PUT", headers: { "Content-Type": "application/json", "x-already-session-id": sessionId }, body: JSON.stringify(baseRevision === null ? { space } : { space, baseRevision }) })
@@ -2209,7 +2225,7 @@ export default function Home() {
                   <section className="profile-card data-danger">
                     <h3>{lang === "zh" ? "清除全部数据" : "Clear everything"}</h3>
                     <p className="profile-sub">{lang === "zh" ? "云端和这台设备上的愿望、对话、记忆、剧本、照片与音频都会删除，不能恢复。需要的话先导出一份。" : "Desires, conversations, memories, stories, photos and audio in the cloud and on this device are deleted and cannot be recovered. Export a copy first if you want one."}</p>
-                    <div className="data-actions"><button type="button" className="data-danger-button" onClick={async () => { if (await askConfirm({ title: t.confirm, body: lang === "zh" ? "愿望、对话、记忆、剧本和本机的照片与音频都会删除，不能恢复。" : "Desires, conversations, memories, stories, and this device's photos and audio will be deleted. This can't be undone.", confirmLabel: lang === "zh" ? "全部清除" : "Clear everything", cancelLabel: lang === "zh" ? "取消" : "Cancel" })) { void fetch("/api/space", { method: "DELETE", headers: { "x-already-session-id": sessionId } }); removeStored("already-private-state-v5"); removeStored(SYNC_BASE_KEY); syncBaseRef.current = null; removeStored("already-practice-checkins-v1"); removeStored("already-subliminal-v1"); removeStored("already-vision-project-v1"); indexedDB.deleteDatabase("already-private-audio-v1"); indexedDB.deleteDatabase("already-private-vision-v1"); indexedDB.deleteDatabase(COVER_DB); removeStored("already-opening-v1"); setProfile(emptyProfile); setOtherGoals([]); setGoal({ ...defaultGoal }); setGoalArchive([]); setConversationArchive([]); setConversationId(""); setSpNameDraft(""); setBeliefDraft(""); setStoryLibrary([]); setMessages([]); setRevisions([]); setCheckIns([]); setBoard([]); setView("home"); setOnboardingStep(0); } }}><Trash size={16} /> {lang === "zh" ? "清除全部数据" : "Clear everything"}</button></div>
+                    <div className="data-actions"><button type="button" className="data-danger-button" onClick={async () => { if (await askConfirm({ title: t.confirm, body: lang === "zh" ? "愿望、对话、记忆、剧本和本机的照片与音频都会删除，不能恢复。" : "Desires, conversations, memories, stories, and this device's photos and audio will be deleted. This can't be undone.", confirmLabel: lang === "zh" ? "全部清除" : "Clear everything", cancelLabel: lang === "zh" ? "取消" : "Cancel" })) { void fetch("/api/space", { method: "DELETE", headers: { "x-already-session-id": sessionId } }); clearDeviceSpace(); syncBaseRef.current = null; setProfile(emptyProfile); setOtherGoals([]); setGoal({ ...defaultGoal }); setGoalArchive([]); setConversationArchive([]); setConversationId(""); setSpNameDraft(""); setBeliefDraft(""); setStoryLibrary([]); setMessages([]); setRevisions([]); setCheckIns([]); setBoard([]); setView("home"); setOnboardingStep(0); } }}><Trash size={16} /> {lang === "zh" ? "清除全部数据" : "Clear everything"}</button></div>
                   </section>
                 </div>
               </div>}

@@ -164,7 +164,8 @@ export default function MembershipPanel({ lang, member, onRefresh }: { lang: Lan
       else if (path.endsWith("/checkout") && data.action && data.fields) { submitCheckoutForm(data.action, data.fields); return; }
       else {
         if (path.endsWith("/referral")) { setReferral(""); setNotice(zh ? "已开通 7 天丰盛工坊。" : "7 days of Dough Atelier added."); }
-        if (path.endsWith("/verify")) { setCode(""); setCodeSent(false); }
+        // Signing in or out changes whose space the app shows: start again from a fresh load.
+        if (path.endsWith("/verify") || path.endsWith("/logout")) { window.location.reload(); return; }
         await onRefresh();
       }
     } catch (failure) {

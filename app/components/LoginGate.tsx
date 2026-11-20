@@ -118,7 +118,9 @@ export default function LoginGate({ children }: { children: ReactNode }) {
       });
       const data = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) throw new Error(data.error || "other");
-      if (codeSent) setState("open"); else setCodeSent(true);
+      // Reload once signed in, so the app loads this account's space from the start.
+      if (codeSent) { window.location.reload(); return; }
+      setCodeSent(true);
     } catch (caught) {
       const reason = caught instanceof Error ? caught.message : "other";
       setError(reason in copy.zh.errors ? reason as ErrorKey : "other");
