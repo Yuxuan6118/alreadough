@@ -158,3 +158,22 @@ test("memory library: the AI's old \"用户\" / \"the user\" shows as her own na
   assert.equal(withHerName("用户希望……", "  "), "用户希望……", "no name: shown as it was");
   assert.equal(withHerName("", "瑄瑄"), "");
 });
+
+test("crisis: the words readers really use reach the crisis path; everyday venting does not", async () => {
+  const { mentionsSuicide } = await import("../lib/crisis-signals.ts");
+  for (const text of ["我真的不想活了", "哪天想不开了要紫砂", "活着没意思", "我想一了百了", "没有我大家会更好", "I want to die", "everyone is better off without me"]) {
+    assert.equal(mentionsSuicide(text), true, text);
+  }
+  for (const text of ["旧版本的 sp 去死，都是假的", "上班和家里的压力，感觉自己快撑不住了", "不想上班了", "我想放下执念"]) {
+    assert.equal(mentionsSuicide(text), false, text);
+  }
+  const companion = await import("../app/api/companion/route.ts");
+  const goal = { companionName: "", spName: "", desire: "和阿哲复合", beliefs: [], journeySummary: "", wishCategory: "relationship", coachMode: "assumption" };
+  const ask = (mode, userInput) => companion.POST(new Request("https://alreadough.com/api/companion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode, lang: "zh", userInput, sessionId: `crisis-${mode}-${Math.random()}`, goal, recentMessages: [], recentRevisions: [] }) }));
+  const reframe = await (await ask("revision", "我不想活了")).json();
+  assert.equal(reframe.model, "crisis-pause-route", "Reframe never turns this into a new thought");
+  assert.match(reframe.reply, /安全/);
+  const lines = await ask("affirm", "想不开");
+  assert.equal(lines.status, 422);
+  assert.equal((await lines.json()).error, "CRISIS_PAUSE");
+});

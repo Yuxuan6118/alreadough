@@ -61,7 +61,7 @@ export const STEPS: Record<string, StepDef> = {
     prompt: { zh: "是哪一位？", en: "Who is it with?" } }),
   rel_person: step({ id: "rel_person", type: "text", optional: true, reply: false, short: true,
     prompt: { zh: "TA 是谁？", en: "Who are they?" },
-    placeholder: { zh: "比如：妈妈、室友小林", en: "For example: my mom, my roommate Lin" } }),
+    placeholder: { zh: "比如：妈妈、我的室友", en: "For example: my mom, my roommate" } }),
   rel_together: step({ id: "rel_together", type: "long", optional: true, reply: false,
     prompt: { zh: "你们理想中是怎么相处的？", en: "How do the two of you get along, ideally?" },
     placeholder: { zh: "比如：周末一起吃饭，有事愿意先告诉我，意见不同也能好好说。", en: "For example: We have dinner together on weekends, they tell me things first, and we can disagree and still talk kindly." } }),

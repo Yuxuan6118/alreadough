@@ -1,3 +1,4 @@
+import { mentionsSuicide } from "./crisis-signals.ts";
 // Self-reflection: a few optional questions per desire, answered in her own words.
 // Everything here is local and deterministic. No model call, nothing sent anywhere.
 // The only "analysis" is counting which words she herself wrote more than once.
@@ -65,7 +66,7 @@ export function repeatedWords(goals: ReflectionGoal[], options: { min?: number; 
 
 /** A gentle check for words that may signal she is in danger. It only decides whether to show a caring note. */
 export function mentionsSelfHarm(text: string) {
-  return /自杀|不想活|想死|去死|伤害自己|结束(?:自己的)?生命|活不下去|kill myself|suicid|end my life|hurt myself|want to die/i.test(text);
+  return mentionsSuicide(text);
 }
 
 export function clipReflection(text: string) {

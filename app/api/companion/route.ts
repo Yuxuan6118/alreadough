@@ -6,6 +6,8 @@ import {
 import { beginBetaRequest, combineTokenUsage, type TokenUsage, finishMemberRequest, recordConversation, settleBetaRequest } from "@/lib/beta-guard";
 import { cleanReply, coachSpecificityRetryNote, contrastRetryNote, dropStockSentences, exitReply, hasContrastFrame, hasStockCoachLine, isErrorEcho, isExitIntent } from "@/lib/reply-guards";
 import { readClientInfo } from "@/lib/client-info";
+import { crisisPause, mentionsSuicide } from "@/lib/crisis-signals";
+import { crisisResources } from "@/lib/crisis-resources";
 import { OPENAI_BASE_URL, chatContent, chatUsage, type ChatCompletion } from "@/lib/openai-base";
 import { affirmLines, buildAffirmMessages } from "@/lib/affirm-prompt";
 import { STORY_CATEGORIES, buildStoryMessages, storyCategoryFor, storyProblems, type StoryCategory } from "@/lib/story-prompt";
@@ -127,8 +129,15 @@ export async function POST(request: Request) {
   const country = readClientInfo(request.headers, (request as Request & { cf?: Record<string, unknown> }).cf).country;
   payload.country = country; // server-side only: lets crisis replies name her local line
   const safetyReply = desirePreservingSafetyReply(payload.userInput, payload.lang, name, country);
-  // a crisis message is answered in the conversation, not turned into bedtime lines
-  if (safetyReply && affirm) return json({ error: "AI_REQUEST_FAILED" }, 422);
+  // Reframe, affirmations and scripts have no conversation to catch her: a line about ending her life is
+  // never turned into a new thought, a bedtime line or a scene. Chat keeps its own crisis card.
+  if (affirm || payload.mode !== "chat") {
+    if (safetyReply || mentionsSuicide(payload.userInput)) {
+      const pause = crisisPause(payload.lang, name, crisisResources(payload.lang, country));
+      if (payload.mode === "revision") return json({ reply: pause, journeySummary: payload.goal.journeySummary, beliefObserved: "", memoryCandidates: [], model: "crisis-pause-route", usage: null });
+      return json({ error: "CRISIS_PAUSE", message: pause }, 422);
+    }
+  }
   if (safetyReply) {
     return json({
       reply: safetyReply,

@@ -701,7 +701,7 @@ test("the opening never carries real names or private details in examples, place
   // Example placeholders use generic situations and contain no private details.
   const { STEPS } = await import("../lib/onboarding-flow.ts");
   const withExamples = Object.values(STEPS).filter((step) => step.placeholder && /例如|比如|e\.g\.|For example/.test(step.placeholder.zh + step.placeholder.en)).map((step) => step.id);
-  assert.deepEqual(withExamples, ["country", "about", "wish", "rel_state", "rel_who", "rel_close"]);
+  assert.deepEqual(withExamples, ["country", "about", "wish", "rel_person", "rel_together", "rel_state", "rel_who", "rel_close", "pullback"]);
   // the same question is not asked twice
   const { buildFlow } = await import("../lib/onboarding-flow.ts");
   const ids = buildFlow(["relationship"], true).map((slot) => slot.id);
