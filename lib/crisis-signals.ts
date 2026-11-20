@@ -12,7 +12,9 @@ export function mentionsSuicide(text: string) {
 
 /** A short, caring reply for those places: stop the practice, ask about safety, point to real people and local help. */
 export function crisisPause(lang: "zh" | "en", name: string, localLine: string) {
+  // without a name the line simply starts with what she wrote, never "你，你写下…"
+  const call = name && name !== "你" && name.toLowerCase() !== "you" ? name : "";
   return lang === "zh"
-    ? `${name}，你写下的这句话很重，我先不把它转成别的。你现在安全吗？请现在联系一个你信任、能来到你身边的人；如果危险就在眼前，请立刻拨打当地紧急电话。你的愿望没有被否定，你更没有。${localLine ? `\n\n${localLine}` : ""}`
-    : `${name}, what you wrote matters, so I won't turn it into something else. Are you safe right now? Please reach someone you trust who can be with you; if danger is immediate, call your local emergency number now. Your desire is not being rejected, and neither are you.${localLine ? `\n\n${localLine}` : ""}`;
+    ? `${call ? `${call}，` : ""}你写下的这句话很重，我先不把它转成别的。你现在安全吗？请现在联系一个你信任、能来到你身边的人；如果危险就在眼前，请立刻拨打当地紧急电话。你的愿望没有被否定，你更没有。${localLine ? `\n\n${localLine}` : ""}`
+    : `${call ? `${call}, w` : "W"}hat you wrote matters, so I won't turn it into something else. Are you safe right now? Please reach someone you trust who can be with you; if danger is immediate, call your local emergency number now. Your desire is not being rejected, and neither are you.${localLine ? `\n\n${localLine}` : ""}`;
 }
