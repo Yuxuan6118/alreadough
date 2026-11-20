@@ -194,3 +194,12 @@ test("crisis: everyday 控制不住 (anxiety, crying) is not an emergency; 控�
   assert.ok(desirePreservingSafetyReply("我现在控制不住想伤害自己", "zh", "小愿"));
   assert.ok(desirePreservingSafetyReply("我准备今晚去死", "zh", "小愿"));
 });
+
+test("crisis: feeling like a burden reaches the crisis card first, even in a long message about other things", async () => {
+  const { matchSituations } = await import("../lib/coach-corpus.ts");
+  const first = (text) => matchSituations(text, "")[0]?.id;
+  assert.equal(first("没有我大家应该会过得更好吧"), "crisis_suicidal");
+  assert.equal(first("我觉得我是所有人的负担"), "crisis_suicidal");
+  assert.equal(first("sp 三个月没回消息，3D 一点没动，钱也欠着，工作也丢了，没有我大家会更好"), "crisis_suicidal");
+  assert.notEqual(first("没有我想要的那种感觉"), "crisis_suicidal");
+});

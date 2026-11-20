@@ -31,13 +31,17 @@ function pickExamples<T>(items: T[], seed: number, count: number) {
   return Array.from({ length: count }, (_, offset) => items[(start + offset) % items.length]);
 }
 
+const isCrisis = (situation: PlaybookSituation) => situation.topic === "T13" || situation.id.startsWith("crisis_");
+
 export function matchSituations(request: string, previousUser: string) {
   const rank = (text: string) => {
     const scored = playbook
       .map((situation) => ({ situation, score: scoreSituation(situation, text) }))
       .filter(({ score }) => score > 0)
       .sort((a, b) => b.score - a.score)
-      .map(({ situation }) => situation);
+      .map(({ situation }) => situation)
+      // a possible crisis always makes the cut, however many other topics the message touches
+      .sort((a, b) => Number(isCrisis(b)) - Number(isCrisis(a)));
     // One situation per topic first, so "I gave up on manifesting... and he is still gay" keeps both the doubt and the relationship part.
     const picked: PlaybookSituation[] = [];
     for (const situation of scored) if (picked.length < MAX_SITUATIONS && !picked.some((item) => item.topic === situation.topic)) picked.push(situation);
@@ -81,7 +85,7 @@ export function coachCorpusInstructions(lang: CompanionLang, coach: CoachMode, r
       examples ? `示范（只学做法和具体程度，不照抄）：\n${examples}` : "",
     ].filter(Boolean).join("\n");
   });
-  const crisis = situations.some((situation) => situation.topic === "T13" || situation.id.startsWith("crisis_"));
+  const crisis = situations.some(isCrisis);
   if (crisis) {
     blocks.push(lang === "zh"
       ? `她所在地的求助方式：${localCrisisLine || "用她所在地的危机热线和急救电话，不要写别的国家的号码。"}`
