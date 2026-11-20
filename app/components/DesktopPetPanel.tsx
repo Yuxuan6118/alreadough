@@ -63,7 +63,6 @@ export default function DesktopPetPanel({ lang }: { lang: Lang }) {
           <img src="/mascot/already-dough-fold-v3.png" alt="" aria-hidden="true" />
           <div>
             <h3>{zh ? "让面团住在你的桌面上" : "Let the dough live on your desktop"}</h3>
-            <p className="profile-sub">{zh ? "它会呼吸，轻点会弹一下，拉一拉会拉长再弹回去。没有打卡，也不打扰你。" : "It breathes, bounces when you tap it, and stretches when you pull it. No check-ins, no interruptions."}</p>
           </div>
         </section>
         {platform === "phone" && <div className="library-elsewhere"><p>{zh ? "桌宠是给电脑用的，请在电脑上打开这一页下载。手机上直接用 AlreaDough 就好，首页就有面团。" : "The desktop pet is for computers; open this page on your computer to download it. On a phone, just use AlreaDough — the dough is on the home screen."}</p></div>}
@@ -89,7 +88,6 @@ export default function DesktopPetPanel({ lang }: { lang: Lang }) {
         <section className="profile-card pet-tips">
           <h3>{zh ? "怎么玩" : "How to play"}</h3>
           <ul className="pet-steps">{tips.map((tip) => <li key={tip}><b aria-hidden="true">·</b><span>{tip}</span></li>)}</ul>
-          {platform === "other" && <small className="profile-sub">{zh ? "目前有 Mac 和 Windows 两个版本。" : "Available for Mac and Windows."}</small>}
         </section>
       </div>
     </div>

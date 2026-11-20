@@ -142,7 +142,6 @@ export default function LoginGate({ children }: { children: ReactNode }) {
             <section className={`${home.hero} login-gate-hero`}>
               <div>
                 <h1 id="login-gate-title">{t.title}</h1>
-                <p>{t.intro}</p>
                 <div className="login-gate-form">
                   {google && <>
                     <a className="login-gate-google" href="/api/member/auth/google/start">

@@ -295,7 +295,6 @@ export default function GuidedOnboarding({ lang, sessionId, mode, syncSlot, init
         <h1>{slot.id === "rel_state" && meetingSomeoneNew
           ? (zh ? "你想遇见怎样的人，和 TA 建立怎样的关系？" : "Who would you like to meet, and what relationship would you like to build?")
           : def.prompt[lang]}</h1>
-        {slot.id === "rel_state" && <p className="guided-hint">{zh ? "写下你愿意分享的细节，AlreaDough 的回复会更贴合你的情况。" : "Share the details you are comfortable with so AlreaDough can respond to your situation."}</p>}
         {def.hint && <p className="guided-hint">{def.hint[lang]}</p>}
         {body}
         {slot.id === "name" && syncSlot}

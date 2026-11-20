@@ -2,9 +2,10 @@
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import DoughHop from "./DoughHop";
-import { DownloadSimple, Pause, Play, X } from "@phosphor-icons/react";
+import { DownloadSimple, Pause, Play, Question, X } from "@phosphor-icons/react";
 import { renderSubMix, type TrackEdit } from "@/lib/audio-mix";
 import { readStored, writeStored } from "@/lib/safe-storage";
+import { AMBIENCE_LEVEL, brownSource } from "@/lib/ambience";
 import { askConfirm } from "./ConfirmHost";
 
 export type PracticeCheckIn = {
@@ -14,7 +15,7 @@ export type PracticeCheckIn = {
 
 type Lang = "zh" | "en";
 type DeliveryMode = "clear" | "soft" | "subliminal";
-type Ambience = "rain" | "brown" | "ocean" | "library";
+type Ambience = "none" | "rain" | "brown" | "ocean" | "library";
 type DurationMode = "timer" | "continuous";
 type AudioResult = { id: string; title: string; audio: string; source: string; creator: string; license: string; licenseUrl: string; duration: number; provider: string };
 
@@ -83,7 +84,7 @@ const defaults: Record<Lang, SavedSub> = {
       "我安心地生活在自己选择的新故事里。",
     ],
     mode: "soft",
-    ambience: "rain",
+    ambience: "none",
     duration: 5,
     durationMode: "timer",
     completionMinutes: 5,
@@ -96,7 +97,7 @@ const defaults: Record<Lang, SavedSub> = {
       "I feel at ease living in the new story I chose.",
     ],
     mode: "soft",
-    ambience: "rain",
+    ambience: "none",
     duration: 5,
     durationMode: "timer",
     completionMinutes: 5,
@@ -210,14 +211,13 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
     previewSound: "试听",
     stopPreview: "停止试听",
     noSounds: "暂时没有找到，换一个更简单的关键词试试。",
-    searchedTogether: "已同时搜索",
     privacy: "隐私与聆听",
     privacyCopy: "此版本在设备上完成播放与混音，不把录音发送给 AI。请保持舒适音量；潜意识音轨是个性化想象与肯定语练习，不提供医疗服务或特定结果保证。",
     checkTitle: "今天的练习已经完成",
     checkCopy: "哪一种感受最接近此刻？",
     feelings: [["settled", "安定下来了"], ["soft", "柔软了一点"], ["chosen", "愿望更真实了"]] as const,
     tutorialTitle: "如何制作属于你的声音练习",
-    tutorialSteps: ["写下你愿意每天听见的完成态肯定语。", "选择清晰、轻声或覆盖式播放，并挑选背景声音。", "可以录下自己的声音；没有录音时使用设备自带语音。", "练习结束后可以记录感受；也可以随时点击桌面面团完成今日打卡。"],
+    tutorialSteps: ["写下你愿意每天听见的完成态肯定语。", "选择清晰、轻声或覆盖式播放，并挑选背景声音。", "可以录下自己的声音；没有录音时使用设备自带语音。"],
     close: "明白了",
     recordingError: "无法使用麦克风，请在浏览器设置中允许录音。",
     playbackError: "这段录音的格式无法在当前浏览器播放，请重新录制，或上传 MP3、M4A、WAV 音频。",
@@ -227,7 +227,6 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
     voiceTrackCopy: "录制自己的声音，或上传已有的肯定语音频",
     musicTrack: "氛围 · 音乐轨",
     musicTrackCopy: "上传你有权使用的音乐、白噪音或环境音",
-    ambienceTrack: "内置 · 环境声轨",
     uploadAudio: "上传音频",
     replaceAudio: "更换音频",
     removeAudio: "移除",
@@ -305,14 +304,13 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
     previewSound: "Preview",
     stopPreview: "Stop preview",
     noSounds: "No sounds found. Try a simpler search.",
-    searchedTogether: "Searched together",
     privacy: "PRIVACY & LISTENING",
     privacyCopy: "This version mixes and plays on your device and does not send your recording to AI. Keep the volume comfortable. Sub Studio is a personalized imagination and affirmation practice, not medical care or a guarantee of a particular result.",
     checkTitle: "Today’s practice is complete",
     checkCopy: "What feels closest right now?",
     feelings: [["settled", "I feel settled"], ["soft", "I feel softer"], ["chosen", "My desire feels more real"]] as const,
     tutorialTitle: "How to make your own Sub",
-    tutorialSteps: ["Write fulfilled-state affirmations you want to hear every day.", "Choose clear, soft, or masked delivery and a soundscape.", "Record your own voice, or let your device read the lines.", "Record a feeling after practice, or tap the desktop dough anytime for today’s check-in."],
+    tutorialSteps: ["Write fulfilled-state affirmations you want to hear every day.", "Choose clear, soft, or masked delivery and a soundscape.", "Record your own voice, or let your device read the lines."],
     close: "Got it",
     recordingError: "The microphone is unavailable. Allow recording in your browser settings.",
     playbackError: "This recording format cannot play in your browser. Record again or upload an MP3, M4A, or WAV file.",
@@ -322,7 +320,6 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
     voiceTrackCopy: "Record your own voice or upload an affirmation track",
     musicTrack: "Atmosphere · Music Track",
     musicTrackCopy: "Add music, white noise, or ambience you are allowed to use",
-    ambienceTrack: "Built-in · Ambience Track",
     uploadAudio: "Upload audio",
     replaceAudio: "Replace audio",
     removeAudio: "Remove",
@@ -381,7 +378,6 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
   const [soundResults, setSoundResults] = useState<AudioResult[]>([]);
   const [soundSearching, setSoundSearching] = useState(false);
   const [soundSearched, setSoundSearched] = useState(false);
-  const [soundSearchMeta, setSoundSearchMeta] = useState<{ original: string; translated: string } | null>(null);
   const [librarySound, setLibrarySound] = useState<AudioResult | null>(null);
   const [previewingSoundId, setPreviewingSoundId] = useState("");
   const [voiceEdit, setVoiceEdit] = useState<TrackEdit>({ ...blankEdit });
@@ -409,7 +405,9 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
       if (saved) {
         const parsed = JSON.parse(saved) as SavedSub;
         if (parsed.title && Array.isArray(parsed.affirmations)) {
-          const restored = replaceLegacyRomanticTemplate(parsed);
+          const legacy = replaceLegacyRomanticTemplate(parsed);
+          // rain and ocean used to be switched on for everyone without asking; now nothing plays until she picks a sound
+          const restored = legacy.ambience === "rain" || legacy.ambience === "ocean" ? { ...legacy, ambience: "none" as const } : legacy;
           if (restored !== parsed) writeStored("already-subliminal-v1", JSON.stringify(restored));
           // Restore the private, device-local practice after the component mounts.
           // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -452,17 +450,6 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
     if (musicUrl) URL.revokeObjectURL(musicUrl);
   }, [musicUrl]);
 
-  const streak = useMemo(() => practiceStreak(checkIns), [checkIns]);
-  const week = useMemo(() => {
-    const result: Array<{ key: string; label: string; complete: boolean }> = [];
-    for (let offset = 6; offset >= 0; offset -= 1) {
-      const date = new Date();
-      date.setDate(date.getDate() - offset);
-      const key = todayKey(date);
-      result.push({ key, label: new Intl.DateTimeFormat(lang === "zh" ? "zh-CN" : "en-US", { weekday: "narrow" }).format(date), complete: checkIns.some((item) => item.date === key) });
-    }
-    return result;
-  }, [checkIns, lang]);
 
   const saveProfile = () => {
     const customDuration = Math.max(1, Math.min(720, durationHours * 60 + durationMinutes));
@@ -485,28 +472,13 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
       await audio.play();
       return;
     }
+    if (profile.ambience !== "brown") return;
     const context = new AudioContext();
     await context.resume();
-    const length = context.sampleRate * 3;
-    const buffer = context.createBuffer(1, length, context.sampleRate);
-    const data = buffer.getChannelData(0);
-    let brown = 0;
-    for (let index = 0; index < length; index += 1) {
-      const white = Math.random() * 2 - 1;
-      brown = (brown + 0.02 * white) / 1.02;
-      data[index] = profile.ambience === "brown" ? brown * 3.5 : white;
-    }
-    const source = context.createBufferSource();
-    const filter = context.createBiquadFilter();
+    const { source, output } = brownSource(context);
     const gain = context.createGain();
-    source.buffer = buffer;
-    source.loop = true;
-    filter.type = profile.ambience === "ocean" ? "lowpass" : "bandpass";
-    filter.frequency.value = profile.ambience === "rain" ? 1500 : profile.ambience === "ocean" ? 420 : 720;
-    filter.Q.value = profile.ambience === "rain" ? 0.45 : 0.8;
-    const base = profile.ambience === "brown" ? 0.12 : 0.08;
-    gain.gain.value = base * (ambienceVolume / 100);
-    source.connect(filter).connect(gain).connect(context.destination);
+    gain.gain.value = AMBIENCE_LEVEL.brown * (ambienceVolume / 100);
+    output.connect(gain).connect(context.destination);
     source.start();
     audioContextRef.current = context;
     ambienceSourceRef.current = source;
@@ -686,17 +658,13 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
     setAudioError("");
     setSoundSearched(false);
     setSoundResults([]);
-    setSoundSearchMeta(null);
     previewAudioRef.current?.pause();
     previewAudioRef.current = null;
     setPreviewingSoundId("");
     try {
       const response = await fetch(`/api/audio?q=${encodeURIComponent(soundQuery.trim())}&locale=${lang}&v=environment-only-v3&t=${Date.now()}`, { cache: "no-store" });
-      const data = await response.json() as { results?: AudioResult[]; queries?: { original?: string; translated?: string } };
+      const data = await response.json() as { results?: AudioResult[] };
       setSoundResults(data.results || []);
-      if (data.queries?.original && data.queries?.translated) {
-        setSoundSearchMeta({ original: data.queries.original, translated: data.queries.translated });
-      }
     } catch { setSoundResults([]); }
     finally { setSoundSearching(false); setSoundSearched(true); }
   };
@@ -775,7 +743,7 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
         voice: { url: voiceUrl, volume: (voiceVolume / 100) * modeGain, rate: playbackSpeed, loop: loopAudio, edit: voiceEdit },
         music: musicUrl ? { url: musicUrl, volume: musicVolume / 100, loop: loopAudio, edit: musicEdit } : undefined,
         ambience: librarySound ? { url: librarySound.audio, volume: ambienceVolume / 100, loop: true, edit: ambienceEdit } : undefined,
-        generatedAmbience: librarySound ? undefined : profile.ambience === "library" ? "rain" : profile.ambience,
+        generatedAmbience: !librarySound && profile.ambience === "brown" ? "brown" : undefined,
       });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
@@ -786,25 +754,36 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
     finally { setExporting(false); }
   };
 
+  const modeName = profile.mode === "clear" ? copy.deliveryClear : profile.mode === "soft" ? copy.deliverySoft : copy.deliveryMasked;
+  const ambienceName = librarySound?.title || (lang === "zh"
+    ? ({ none: "不加环境声", rain: "不加环境声", ocean: "不加环境声", brown: "棕噪音", library: "不加环境声" } as const)[profile.ambience]
+    : ({ none: "No ambience", rain: "No ambience", ocean: "No ambience", brown: "Brown noise", library: "No ambience" } as const)[profile.ambience]);
+  const soundCard = (sound: AudioResult) => <article className={librarySound?.id === sound.id ? "selected" : ""} key={sound.id}><div className="sound-card-main"><button className="sound-preview" type="button" aria-label={`${previewingSoundId === sound.id ? copy.stopPreview : copy.previewSound}: ${sound.title}`} onClick={() => void previewSound(sound)}>{previewingSoundId === sound.id ? <Pause weight="fill"/> : <Play weight="fill"/>}</button><div className="sound-card-copy"><strong title={`${sound.title} · ${sound.creator} · ${sound.license}`}>{sound.title}</strong></div></div><button className="sound-choose" type="button" onClick={() => void chooseLibrarySound(sound)}>{librarySound?.id === sound.id ? `✓ ${copy.selectedSound}` : copy.useSound}</button></article>;
+  const clearAmbience = () => {
+    libraryAudioRef.current?.pause();
+    libraryAudioRef.current = null;
+    setLibrarySound(null);
+    setProfile((current) => ({ ...current, ambience: "none", librarySound: undefined }));
+  };
   return <section className="full-view subliminal-view">
     <div className="studio-heading">
-      <div className="view-heading"><p className="eyebrow">{copy.eyebrow}</p><h1>{copy.heading}</h1><p>{copy.intro}</p></div>
-      <button className="tutorial-button" onClick={() => setTutorialOpen(true)}>ⓘ {copy.tutorial}</button>
+      <div className="view-heading"><h1>{copy.heading}</h1></div>
+      <button type="button" className="tutorial-button" onClick={() => setTutorialOpen(true)}><Question size={17} aria-hidden="true"/>{copy.tutorial}</button>
     </div>
 
-    {focusText && <div className="dreamscape-focus"><span>{focusKind === "thought" ? (lang === "zh" ? "从转念带来的新念头" : "NEW THOUGHT FROM REFRAME") : (lang === "zh" ? "从对话带来的场景" : "SCENE FROM YOUR CONVERSATION")}</span><p>{focusText}</p></div>}
+    {focusText && <div className="dreamscape-focus"><span>{focusKind === "thought" ? (lang === "zh" ? "从转念带来的新念头" : "New thought from Reframe") : (lang === "zh" ? "你带过来的一段话" : "What you brought here")}</span><p>{focusText}</p></div>}
 
     <div className="dreamscape-workspace">
       <div className="sub-player-card">
-        <div className="sub-player-identity"><div className="sub-orbit"><span>DOUGH</span><i/></div><div><p>{copy.current}</p><h2>{profile.title}</h2></div></div>
+        <div className="sub-player-identity"><div className="sub-orbit" aria-hidden="true"><i/></div><div><p>{copy.current}</p><h2>{profile.title}</h2></div></div>
         <div className="sub-player-time"><strong>{(profile.durationMode || "timer") === "continuous" ? timeLabel(elapsedSeconds) : timeLabel(secondsLeft)}</strong></div>
         <div className="sub-wave" aria-hidden="true">{Array.from({ length: 35 }, (_, index) => <i key={index}/>)}</div>
-        <div className="mini-timeline"><span>{copy.timeline}</span><i className="voice">VOICE · {profile.mode.toUpperCase()}</i><i className="music">MUSIC</i><i className="ambience">{librarySound ? librarySound.title : profile.ambience.toUpperCase()}</i></div>
+        <div className="mini-timeline"><span>{copy.timeline}</span><i className="voice">{lang === "zh" ? "人声" : "Voice"} · {modeName}</i><i className="music">{lang === "zh" ? "音乐" : "Music"}</i><i className="ambience">{ambienceName}</i></div>
         <div className="player-actions"><button className="sub-play" onClick={startPractice}>{isPlaying ? "Ⅱ" : "▶"}<span>{isPlaying ? copy.pause : copy.play}</span></button></div>
       </div>
       <aside className="session-summary">
-        <p className="eyebrow">SESSION</p><h3>{lang === "zh" ? "今天怎么听" : "How you are listening"}</h3>
-        <dl><div role="button" tabIndex={0} onClick={() => { setStudioTab("sound"); setEditing(true); }}><dt>{copy.mode}</dt><dd>{profile.mode === "clear" ? copy.deliveryClear : profile.mode === "soft" ? copy.deliverySoft : copy.deliveryMasked}</dd></div><div role="button" tabIndex={0} onClick={() => { setStudioTab("playback"); setEditing(true); }}><dt>{copy.duration}</dt><dd>{(profile.durationMode || "timer") === "continuous" ? copy.continuous : `${profile.duration} min`}</dd></div><div role="button" tabIndex={0} onClick={() => { setStudioTab("sound"); setEditing(true); }}><dt>{copy.ambience}</dt><dd>{librarySound?.title || profile.ambience}</dd></div></dl>
+        <h3>{lang === "zh" ? "今天怎么听" : "How you are listening"}</h3>
+        <dl><div role="button" tabIndex={0} onClick={() => { setStudioTab("sound"); setEditing(true); }}><dt>{copy.mode}</dt><dd>{modeName}</dd></div><div role="button" tabIndex={0} onClick={() => { setStudioTab("playback"); setEditing(true); }}><dt>{copy.duration}</dt><dd>{(profile.durationMode || "timer") === "continuous" ? copy.continuous : lang === "zh" ? `${profile.duration} 分钟` : `${profile.duration} min`}</dd></div><div role="button" tabIndex={0} onClick={() => { setStudioTab("sound"); setEditing(true); }}><dt>{copy.ambience}</dt><dd>{ambienceName}</dd></div></dl>
         <button className={`outline-button studio-toggle ${editing ? "is-open" : ""}`} aria-expanded={editing} onClick={() => setEditing((current) => !current)}>{editing && <X size={16} weight="bold"/>}{editing ? copy.closeStudio : copy.openStudio}</button>
       </aside>
     </div>
@@ -820,32 +799,30 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
       </div>}
       {studioTab === "sound" && <div className="studio-pane">
       <fieldset className="delivery-cards"><legend>{copy.mode}</legend>{(["clear", "soft", "subliminal"] as const).map((mode) => { const label = mode === "clear" ? copy.deliveryClear : mode === "soft" ? copy.deliverySoft : copy.deliveryMasked; const description = mode === "clear" ? copy.deliveryClearCopy : mode === "soft" ? copy.deliverySoftCopy : copy.deliveryMaskedCopy; return <button className={profile.mode === mode ? "selected" : ""} key={mode} onClick={() => setProfile((current) => ({ ...current, mode }))}><strong>{label}</strong><small>{description}</small><i>{mode === "clear" ? "100%" : mode === "soft" ? "58%" : "16%"}</i></button>; })}</fieldset>
-      <div className="mixer-heading"><h3>{copy.mixer}</h3><small>{copy.mixerCopy}</small></div>
-      <p className="audio-upload-help">{copy.audioFormats}</p>
+      <div className="mixer-heading"><h3>{copy.mixer}</h3></div>
       <div className="track-stack">
         <section className="audio-track voice-track">
-          <div className="track-index">01</div><div className="track-main"><div className="track-copy"><strong>{copy.voiceTrack}</strong><small aria-live="polite">{voiceName || copy.voiceTrackCopy}</small>{voiceUrl && <span className="audio-ready">✓ {copy.audioReady}</span>}</div><div className="track-actions"><button type="button" className={recording ? "recording" : ""} onClick={toggleRecording}>{recording ? "■" : "●"} {recording ? copy.stopRecord : copy.record}</button><button type="button" onClick={() => voiceFileRef.current?.click()}>{voiceUrl ? copy.replaceAudio : copy.uploadAudio}</button><input ref={voiceFileRef} className="audio-file-input" type="file" accept="audio/*,.mp3,.m4a,.mp4,.wav,.aac,.aif,.aiff,.caf,.ogg,.oga,.webm,.flac" onChange={uploadTrack("voice")}/>{voiceUrl && <button type="button" onClick={() => removeTrack("voice")}>{copy.removeAudio}</button>}</div><WaveformStrip seed={voiceName || "voice"} active={Boolean(voiceUrl)}/><label className="track-slider"><span>{copy.volume}</span><input type="range" min="0" max="100" value={voiceVolume} onChange={(event) => setVoiceVolume(Number(event.target.value))}/><b>{voiceVolume}%</b></label>{editControl(voiceEdit, setVoiceEdit)}</div>
+          <div className="track-index">01</div><div className="track-main"><div className="track-copy"><strong>{copy.voiceTrack}</strong>{voiceName && <small aria-live="polite">{voiceName}</small>}</div><div className="track-actions"><button type="button" className={recording ? "recording" : ""} onClick={toggleRecording}>{recording ? "■" : "●"} {recording ? copy.stopRecord : copy.record}</button><button type="button" onClick={() => voiceFileRef.current?.click()}>{voiceUrl ? copy.replaceAudio : copy.uploadAudio}</button><input ref={voiceFileRef} className="audio-file-input" type="file" accept="audio/*,.mp3,.m4a,.mp4,.wav,.aac,.aif,.aiff,.caf,.ogg,.oga,.webm,.flac" onChange={uploadTrack("voice")}/>{voiceUrl && <button type="button" onClick={() => removeTrack("voice")}>{copy.removeAudio}</button>}</div><WaveformStrip seed={voiceName || "voice"} active={Boolean(voiceUrl)}/><label className="track-slider"><span>{copy.volume}</span><input type="range" min="0" max="100" value={voiceVolume} onChange={(event) => setVoiceVolume(Number(event.target.value))}/><b>{voiceVolume}%</b></label>{editControl(voiceEdit, setVoiceEdit)}</div>
         </section>
         <section className="audio-track music-track">
-          <div className="track-index">02</div><div className="track-main"><div className="track-copy"><strong>{copy.musicTrack}</strong><small aria-live="polite">{musicName || copy.musicTrackCopy}</small>{musicUrl && <span className="audio-ready">✓ {copy.audioReady}</span>}</div><div className="track-actions"><button type="button" onClick={() => musicFileRef.current?.click()}>{musicUrl ? copy.replaceAudio : copy.uploadAudio}</button><input ref={musicFileRef} className="audio-file-input" type="file" accept="audio/*,.mp3,.m4a,.mp4,.wav,.aac,.aif,.aiff,.caf,.ogg,.oga,.webm,.flac" onChange={uploadTrack("music")}/>{musicUrl && <button type="button" onClick={() => removeTrack("music")}>{copy.removeAudio}</button>}</div><WaveformStrip seed={musicName || "music"} active={Boolean(musicUrl)}/><label className="track-slider"><span>{copy.volume}</span><input type="range" min="0" max="100" value={musicVolume} onChange={(event) => setMusicVolume(Number(event.target.value))}/><b>{musicVolume}%</b></label>{editControl(musicEdit, setMusicEdit)}</div>
+          <div className="track-index">02</div><div className="track-main"><div className="track-copy"><strong>{copy.musicTrack}</strong>{musicName && <small aria-live="polite">{musicName}</small>}</div><div className="track-actions"><button type="button" onClick={() => musicFileRef.current?.click()}>{musicUrl ? copy.replaceAudio : copy.uploadAudio}</button><input ref={musicFileRef} className="audio-file-input" type="file" accept="audio/*,.mp3,.m4a,.mp4,.wav,.aac,.aif,.aiff,.caf,.ogg,.oga,.webm,.flac" onChange={uploadTrack("music")}/>{musicUrl && <button type="button" onClick={() => removeTrack("music")}>{copy.removeAudio}</button>}</div><WaveformStrip seed={musicName || "music"} active={Boolean(musicUrl)}/><label className="track-slider"><span>{copy.volume}</span><input type="range" min="0" max="100" value={musicVolume} onChange={(event) => setMusicVolume(Number(event.target.value))}/><b>{musicVolume}%</b></label>{editControl(musicEdit, setMusicEdit)}</div>
         </section>
         <section className="audio-track ambience-track">
-          <div className="track-index">03</div><div className="track-main"><div className="track-copy"><strong>{copy.soundLibrary}</strong><small>{librarySound ? `${librarySound.title} · ${librarySound.creator} · ${librarySound.license}` : copy.ambienceTrack}</small></div><div className="sound-search"><input value={soundQuery} onChange={(event) => setSoundQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void searchSounds(); }} placeholder={copy.soundSearch}/><button type="button" onClick={searchSounds} disabled={soundSearching}>{soundSearching ? <span className="dough-loading"><DoughHop size="xs"/>{copy.searching}</span> : copy.search}</button></div>{soundSearchMeta && soundSearchMeta.original !== soundSearchMeta.translated && <small className="sound-query-meta">{copy.searchedTogether}: <b>{soundSearchMeta.original}</b><i>＋</i><b>{soundSearchMeta.translated}</b></small>}{soundResults.length > 0 && <div className="sound-results">{soundResults.slice(0, 9).map((sound) => <article className={librarySound?.id === sound.id ? "selected" : ""} key={sound.id}><div className="sound-card-main"><button className="sound-preview" type="button" aria-label={`${previewingSoundId === sound.id ? copy.stopPreview : copy.previewSound}: ${sound.title}`} onClick={() => void previewSound(sound)}>{previewingSoundId === sound.id ? <Pause weight="fill"/> : <Play weight="fill"/>}</button><div className="sound-card-copy"><strong title={sound.title}>{sound.title}</strong><small title={`${sound.creator} · ${sound.license}`}>{sound.creator} · {sound.license}</small></div></div><button className="sound-choose" type="button" onClick={() => void chooseLibrarySound(sound)}>{librarySound?.id === sound.id ? `✓ ${copy.selectedSound}` : copy.useSound}</button></article>)}</div>}{soundSearched && !soundSearching && soundResults.length === 0 && <small className="sound-empty">{copy.noSounds}</small>}<label className="track-slider"><span>{copy.volume}</span><input type="range" min="0" max="100" value={ambienceVolume} onChange={(event) => { const next = Number(event.target.value); setAmbienceVolume(next); if (libraryAudioRef.current) libraryAudioRef.current.volume = next / 100; if (previewAudioRef.current) previewAudioRef.current.volume = Math.max(0.2, next / 100); }}/><b>{ambienceVolume}%</b></label>{editControl(ambienceEdit, setAmbienceEdit)}</div>
+          <div className="track-index">03</div><div className="track-main"><div className="track-copy"><strong>{copy.soundLibrary}</strong>{librarySound && <span className="sound-chosen">{librarySound.title}<button type="button" className="sound-clear" onClick={clearAmbience}>{lang === "zh" ? "不用了" : "Remove"}</button></span>}</div><div className="sound-search"><input value={soundQuery} onChange={(event) => setSoundQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void searchSounds(); }} placeholder={copy.soundSearch}/><button type="button" onClick={searchSounds} disabled={soundSearching}>{soundSearching ? <span className="dough-loading"><DoughHop size="xs"/>{copy.searching}</span> : copy.search}</button></div>{soundResults.length > 0 && <div className="sound-results">{soundResults.slice(0, 9).map(soundCard)}</div>}{soundSearched && !soundSearching && soundResults.length === 0 && <small className="sound-empty">{copy.noSounds}</small>}<label className="track-slider"><span>{copy.volume}</span><input type="range" min="0" max="100" value={ambienceVolume} onChange={(event) => { const next = Number(event.target.value); setAmbienceVolume(next); if (libraryAudioRef.current) libraryAudioRef.current.volume = next / 100; if (previewAudioRef.current) previewAudioRef.current.volume = Math.max(0.2, next / 100); }}/><b>{ambienceVolume}%</b></label>{editControl(ambienceEdit, setAmbienceEdit)}</div>
         </section>
       </div>
       </div>}
       {studioTab === "playback" && <div className="studio-pane">
-      <section className="duration-studio"><div><h3>{copy.duration}</h3></div><div className="duration-mode-tabs"><button className={(profile.durationMode || "timer") === "timer" ? "selected" : ""} onClick={() => setProfile((current) => ({ ...current, durationMode: "timer" }))}>{copy.timer}</button><button className={profile.durationMode === "continuous" ? "selected" : ""} onClick={() => setProfile((current) => ({ ...current, durationMode: "continuous" }))}>{copy.continuous}</button></div><div className="duration-inputs"><label><input aria-label={copy.hours} type="number" min="0" max="12" value={durationHours} onChange={(event) => setDurationHours(Math.max(0, Math.min(12, Number(event.target.value))))}/><span>{copy.hours}</span></label><label><input aria-label={copy.minutes} type="number" min="0" max="59" value={durationMinutes} onChange={(event) => setDurationMinutes(Math.max(0, Math.min(59, Number(event.target.value))))}/><span>{copy.minutes}</span></label></div>{profile.durationMode === "continuous" && <label className="completion-goal"><span>{copy.completionGoal}</span><input aria-label={copy.completionGoal} type="number" min="1" max="180" value={profile.completionMinutes || 5} onChange={(event) => setProfile((current) => ({ ...current, completionMinutes: Math.max(1, Math.min(180, Number(event.target.value))) }))}/><b>{copy.minutes}</b><small>{copy.completionHint}</small></label>}<label className="background-play"><input aria-label={copy.backgroundPlay} type="checkbox" checked={backgroundPlay} onChange={(event) => setBackgroundPlay(event.target.checked)}/><span><strong>{copy.backgroundPlay}</strong><small>{copy.backgroundPlayHint}</small></span></label></section>
+      <section className="duration-studio"><div><h3>{copy.duration}</h3></div><div className="duration-mode-tabs"><button className={(profile.durationMode || "timer") === "timer" ? "selected" : ""} onClick={() => setProfile((current) => ({ ...current, durationMode: "timer" }))}>{copy.timer}</button><button className={profile.durationMode === "continuous" ? "selected" : ""} onClick={() => setProfile((current) => ({ ...current, durationMode: "continuous" }))}>{copy.continuous}</button></div><div className="duration-inputs"><label><input aria-label={copy.hours} type="number" min="0" max="12" value={durationHours} onChange={(event) => setDurationHours(Math.max(0, Math.min(12, Number(event.target.value))))}/><span>{copy.hours}</span></label><label><input aria-label={copy.minutes} type="number" min="0" max="59" value={durationMinutes} onChange={(event) => setDurationMinutes(Math.max(0, Math.min(59, Number(event.target.value))))}/><span>{copy.minutes}</span></label></div>{profile.durationMode === "continuous" && <label className="completion-goal"><span>{copy.completionGoal}</span><input aria-label={copy.completionGoal} type="number" min="1" max="180" value={profile.completionMinutes || 5} onChange={(event) => setProfile((current) => ({ ...current, completionMinutes: Math.max(1, Math.min(180, Number(event.target.value))) }))}/><b>{copy.minutes}</b></label>}<label className="background-play"><input aria-label={copy.backgroundPlay} type="checkbox" checked={backgroundPlay} onChange={(event) => setBackgroundPlay(event.target.checked)}/><span><strong>{copy.backgroundPlay}</strong></span></label></section>
         <div className="mix-options"><label>{copy.speed}<input type="range" min="0.1" max="10" step="0.1" value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))}/><b>{playbackSpeed.toFixed(1)}×</b></label><label className="loop-check"><input type="checkbox" checked={loopAudio} onChange={(event) => setLoopAudio(event.target.checked)}/><span className="toggle-control" aria-hidden="true"><i/></span><span>{copy.loop}</span></label></div>
       </div>}
       {studioTab === "export" && <div className="studio-pane">
-      <section className="mix-export"><label className="audio-rights"><input type="checkbox" checked={rightsConfirmed} onChange={(event) => setRightsConfirmed(event.target.checked)}/><span>{copy.rights}</span></label><small>{copy.exportLimit}</small><button className="primary" type="button" onClick={exportMix} disabled={exporting || !voiceUrl}><DownloadSimple size={18}/>{exporting ? <span className="dough-loading"><DoughHop size="xs"/>{copy.exporting}</span> : copy.exportMix}</button>{exportMessage && <p aria-live="polite">{exportMessage}</p>}</section>
+      <section className="mix-export"><label className="audio-rights"><input type="checkbox" checked={rightsConfirmed} onChange={(event) => setRightsConfirmed(event.target.checked)}/><span>{copy.rights}</span></label><button className="primary" type="button" onClick={exportMix} disabled={exporting || !voiceUrl}><DownloadSimple size={18}/>{exporting ? <span className="dough-loading"><DoughHop size="xs"/>{copy.exporting}</span> : copy.exportMix}</button>{exportMessage && <p aria-live="polite">{exportMessage}</p>}</section>
       </div>}
       {audioError && <p className="audio-error">{audioError}</p>}
-      <div className="studio-savebar"><small>{copy.saveBarHint}</small><button className="primary" onClick={saveProfile}>{savedPulse ? copy.saved : copy.save}</button></div>
+      <div className="studio-savebar"><button className="primary" onClick={saveProfile}>{savedPulse ? copy.saved : copy.save}</button></div>
     </div>}
 
-    <section className="practice-progress practice-progress-separated"><div><span>✦</span><strong>{streak}</strong><small>{copy.streak} · {copy.days}</small></div><div className="week-checks"><p>{copy.thisWeek}</p><div>{week.map((day) => <span className={day.complete ? "complete" : ""} key={day.key}><i>{day.complete ? "✓" : ""}</i>{day.label}</span>)}</div></div></section>
 
     {checkInOpen && <div className="modal-backdrop"><div className="checkin-modal"><span>✦</span><h2>{copy.checkTitle}</h2><p>{copy.checkCopy}</p>{copy.feelings.map(([value, label]) => <button key={value} onClick={() => { onCheckIn(value); setCheckInOpen(false); setSecondsLeft(profile.duration * 60); }}>{label}</button>)}</div></div>}
     {tutorialOpen && <div className="modal-backdrop"><div className="tutorial-modal"><p className="eyebrow">{lang === "zh" ? "潜音" : "DREAMSCAPE"}</p><h2>{copy.tutorialTitle}</h2><ol>{copy.tutorialSteps.map((step) => <li key={step}>{step}</li>)}</ol><button className="primary" onClick={() => setTutorialOpen(false)}>{copy.close}</button></div></div>}

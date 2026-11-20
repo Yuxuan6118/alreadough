@@ -7,7 +7,7 @@ import "./space-page.css";
 type Props = {
   className?: string;
   title: string;
-  intro: string;
+  intro?: string;
   groups: SpaceGroup[];
   active: string;
   onSelect: (id: string) => void;
@@ -29,7 +29,7 @@ export default function SpacePage({ className, title, intro, groups, active, onS
         <div className="space-detail">
           <header className="space-page-phone-head">
             <h1>{title}</h1>
-            <p>{intro}</p>
+            {intro && <p>{intro}</p>}
           </header>
           <div className="wish-pills space-page-pills" role="group" aria-label={title}>
             {rows.map((row) => (

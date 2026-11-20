@@ -9,7 +9,7 @@ export type SpaceGroup = { title: string; rows: SpaceRow[] };
 
 type Props = {
   title: string;
-  intro: string;
+  intro?: string;
   groups: SpaceGroup[];
   active: string | null;
   onSelect: (id: string) => void;
@@ -21,7 +21,7 @@ export default function SpaceNav({ title, intro, groups, active, onSelect }: Pro
     <nav className="space-list" aria-label={title}>
       <header>
         <h1>{title}</h1>
-        <p>{intro}</p>
+        {intro && <p>{intro}</p>}
       </header>
       {groups.map((group) => (
         <section key={group.title} aria-label={group.title}>

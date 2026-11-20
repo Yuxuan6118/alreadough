@@ -60,3 +60,7 @@ Yuxuan Huang supplied the product concept, desired behavior, feature decisions, 
 
 For continuing provenance, material changes should be committed with descriptive messages and pushed to a private remote. Major concept documents and dated interface screenshots should be retained without overwriting the originals. Secrets, private wish content, personal recordings, and user data must never be committed to the repository.
 
+
+## 潜音 background sounds
+
+Nothing is stored on our site. Rain, waves and fireplace stream straight from Freesound's public preview files of three CC0 1.0 field recordings: https://freesound.org/people/Garuda1982/sounds/757276/ , https://freesound.org/people/YevgVerh/sounds/827530/ , https://freesound.org/people/silencyo/sounds/81801/ (licenses checked 2026-11-20). Brown noise is generated in the browser. The studio sound search (app/api/audio) returns only CC0 / CC BY results from Openverse (Freesound, Wikimedia Commons) and, when FREESOUND_API_KEY is set, Freesound's own search; files are played from their original hosts.

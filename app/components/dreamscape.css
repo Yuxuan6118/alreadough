@@ -8,9 +8,17 @@
 .dream-orb::before { content: ""; position: absolute; inset: -14px; border-radius: 50%; border: 1px solid var(--app-line); }
 .dream-orb img { position: relative; width: 104%; height: auto; max-width: none; filter: drop-shadow(0 14px 18px color-mix(in srgb, var(--app-ink) 14%, transparent)); }
 .dream-orb.small { width: 124px; margin: 0 auto; }
-.dream-orb.playing i { animation: dream-breathe 5.4s ease-in-out infinite; }
-@keyframes dream-breathe { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.06); opacity: .82; } }
-@media (prefers-reduced-motion: reduce) { .dream-orb.playing i { animation: none; } }
+/* The dough breathes on its own, about six breaths a minute: in for 4 s, out for 6 s.
+   Only transform moves; the halo follows a beat later so it reads as one soft body. */
+.dream-orb img { transform-origin: 50% 82%; animation: dream-dough-breathe 10s cubic-bezier(.45, 0, .55, 1) infinite; will-change: transform; }
+.dream-orb i { animation: dream-halo-breathe 10s cubic-bezier(.45, 0, .55, 1) .3s infinite; }
+@keyframes dream-dough-breathe { 0%, 100% { transform: translateY(0) scale(1, 1); } 40% { transform: translateY(-3px) scale(1.025, 1.045); } }
+@keyframes dream-halo-breathe { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.035); } }
+.dream-orb-button { border: 0; background: transparent; padding: 0; cursor: pointer; border-radius: 50%; transition: transform .25s ease; }
+.dream-orb-button:hover::before { border-color: color-mix(in srgb, var(--app-accent) 45%, var(--app-line)); }
+.dream-orb-button:active { transform: scale(.97); }
+.dream-orb-button:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 18px; }
+@media (prefers-reduced-motion: reduce) { .dream-orb img, .dream-orb i { animation: none; } }
 
 .dream-start { width: 100%; min-height: 54px; display: flex; align-items: center; justify-content: center; gap: 10px; border: 0; border-radius: 999px; color: var(--app-accent-ink); background: var(--app-accent); font-size: calc(16px * var(--fs, 1)); font-weight: 600; }
 .dream-start-note { margin: 10px 0 22px; text-align: center; color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); }
@@ -70,7 +78,10 @@
 .dream-review .dream-consent { color: var(--app-ink); }
 .dream-recorder .dream-start { width: 100%; }
 .dream-controls button:disabled { opacity: .4; }
-.dream-studio-back { display: block; margin: 12px auto 0; border: 0; background: transparent; color: var(--app-accent); font-size: calc(14px * var(--fs, 1)); }
+.dream-studio-back { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; margin: 16px 0 0 clamp(16px, 4vw, 48px); padding: 0 16px 0 12px; border: 1px solid var(--app-line); border-radius: 999px; background: var(--app-panel); color: var(--app-ink); font-size: calc(15px * var(--fs, 1)); cursor: pointer; transition: background-color .18s ease, border-color .18s ease, transform .12s ease; }
+.dream-studio-back:hover { background: var(--app-panel-strong); border-color: color-mix(in srgb, var(--app-accent) 40%, var(--app-line)); }
+.dream-studio-back:active { transform: scale(.97); }
+.dream-studio-back:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 3px; }
 
 /* inside the app on a phone: the top bar takes the first 70px, so the screen is the rest */
 @media (max-width: 820px) {
@@ -83,3 +94,16 @@
 @media (max-width: 820px) { .app-stage .dream-record { height: calc(100dvh - 78px - env(safe-area-inset-top)); min-height: 0; } }
 .dream-article { flex: 1; min-height: 0; margin: 14px -6px 16px; padding: 4px 6px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; font-family: var(--font-display); font-size: calc(19px * var(--fs, 1)); line-height: 1.95; color: var(--app-ink); border-top: 1px solid var(--app-line); border-bottom: 1px solid var(--app-line); }
 .dream-article p { margin: 16px 0; text-wrap: pretty; }
+
+/* Studio header button and carried-over text: readable, clearly clickable */
+.app-shell .subliminal-view .tutorial-button { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--app-line); border-radius: 999px; background: var(--app-panel); color: var(--app-ink); font-size: calc(15px * var(--fs, 1)); cursor: pointer; transition: background-color .18s ease, border-color .18s ease, transform .12s ease; }
+.app-shell .subliminal-view .tutorial-button:hover { background: var(--app-panel-strong); border-color: color-mix(in srgb, var(--app-accent) 40%, var(--app-line)); }
+.app-shell .subliminal-view .tutorial-button:active { transform: scale(.97); }
+.app-shell .subliminal-view .tutorial-button:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 3px; }
+.app-shell .subliminal-view .dreamscape-focus p { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.app-shell .subliminal-view .dreamscape-focus span { font-size: calc(13px * var(--fs, 1)); }
+
+/* Studio sound library: the chosen sound and its remove button */
+.app-shell .subliminal-view .sound-clear { border: 0; background: transparent; color: var(--app-accent); font-size: calc(14px * var(--fs, 1)); cursor: pointer; padding: 4px 6px; border-radius: 8px; }
+.app-shell .subliminal-view .sound-clear:hover { background: var(--app-panel-strong); }
+.app-shell .subliminal-view .sound-chosen { display: inline-flex; align-items: center; gap: 6px; color: var(--app-ink); font-size: calc(15px * var(--fs, 1)); }

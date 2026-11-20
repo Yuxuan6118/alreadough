@@ -38,7 +38,6 @@ export default function FontSizePanel({ lang }: { lang: Lang }) {
 
   return <section className="profile-card font-size-card">
     <h3>{t.title}</h3>
-    <p className="profile-sub">{t.intro}</p>
     <div className="look-options" role="radiogroup" aria-label={t.title}>
       {(["small", "medium", "large"] as const).map((option) => <button key={option} type="button" role="radio" aria-checked={size === option} className={size === option ? "selected" : ""} onClick={() => choose(option)}>
         <b className={`font-size-glyph ${option}`} aria-hidden="true">{lang === "zh" ? "字" : "Aa"}</b>

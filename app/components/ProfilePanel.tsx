@@ -42,7 +42,6 @@ export default function ProfilePanel({ lang, profile, onChange, name, onNameChan
 
   return (
     <div className="settings-section profile-panel">
-      <p className="setting-hint">{zh ? "这些对每个愿望都通用。写得越具体，回复越贴合你；都可以不填，也随时能改。" : "This applies to every desire. The more specific, the better the replies fit you. All optional, editable any time."}</p>
       <div className="profile-cards">
         <section className="profile-card">
           <h3>{zh ? "基本信息" : "The basics"}</h3>
@@ -78,7 +77,6 @@ export default function ProfilePanel({ lang, profile, onChange, name, onNameChan
 
         <section className="profile-card">
           <h3>{zh ? "对我重要的人" : "People who matter to me"}</h3>
-          <p className="profile-sub">{zh ? "名字加一句 TA 是谁。AlreaDough 只用你写的，不替他们编性格或经历。" : "A name and who they are. AlreaDough uses only what you write and never invents their traits or history."}</p>
           {profile.people.length > 0 && <ul className="profile-people">{profile.people.map((person) => (
             <li key={person.id}>
               <span className="profile-avatar" aria-hidden="true">{person.name.trim().slice(0, 1) || "·"}</span>
@@ -105,7 +103,6 @@ export default function ProfilePanel({ lang, profile, onChange, name, onNameChan
 
         <section className="profile-card">
           <h3>{zh ? "不想被提的话题" : "Topics to leave alone"}</h3>
-          <p className="profile-sub">{zh ? "AlreaDough 不会主动提起，也不会写进场景和剧本。" : "AlreaDough will not bring them up or write them into scenes and stories."}</p>
           {profile.neverInclude.length > 0 && <div className="profile-topics">{profile.neverInclude.map((topic) => (
             <span key={topic} className="profile-topic">{topic}<button type="button" aria-label={zh ? `移除「${topic}」` : `Remove “${topic}”`} onClick={() => { patch({ neverInclude: profile.neverInclude.filter((item) => item !== topic) }); showUndo(zh ? `已移除「${topic}」` : `Removed “${topic}”`, zh ? "撤销" : "Undo", () => onChange({ ...profile })); }}><X size={13} /></button></span>
           ))}</div>}

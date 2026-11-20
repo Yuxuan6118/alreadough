@@ -134,7 +134,7 @@ export function UsageBanner({ lang, member, gate, onOpen }: { lang: Lang; member
         <strong>{needsSignIn ? (zh ? "用邮箱登录后就能开始对话" : "Sign in with email to start chatting")
           : used === "week" ? (zh ? "本周的用量用完了" : "You're out of this week's usage")
           : (zh ? "这 5 小时的用量用完了" : "You're out of usage for these 5 hours")}</strong>
-        <span>{needsSignIn ? (zh ? "会员和用量跟着账户走，换设备也一样。" : "Your plan and usage follow your account on any device.")
+        <span>{needsSignIn ? ""
           : `${reset ? (zh ? `${resetLabel(reset, lang)} 恢复` : `Resets ${resetLabel(reset, lang)}`) : ""}${native ? "" : (zh ? "，也可以升级会员继续聊。" : ", or upgrade to keep going.")}`}</span>
       </div>
       <button type="button" className="usage-banner-action" onClick={onOpen}>{needsSignIn ? (zh ? "登录" : "Sign in") : native ? (zh ? "查看用量" : "View usage") : (zh ? "升级" : "Upgrade")}</button>
@@ -188,7 +188,6 @@ export default function MembershipPanel({ lang, member, onRefresh }: { lang: Lan
 
   if (!member.authenticated) return (
     <div className="settings-section profile-panel">
-      <p className="setting-hint">{zh ? "登录后，会员和用量会跟着你的账户走，换设备也一样。" : "Once you sign in, your plan and usage follow your account on any device."}</p>
       <div className="profile-cards">
         <section className="profile-card member-signin">
           <h3>{zh ? "用邮箱登录" : "Sign in with email"}</h3>
@@ -234,7 +233,6 @@ export default function MembershipPanel({ lang, member, onRefresh }: { lang: Lan
           {membership.unlimited && <p className="profile-sub">{zh ? "创始人账户不受限制。下面按当前方案的额度显示，方便你看到用户看到的样子。" : "Founder account, no limit. Shown against the plan's allowance so you can see what members see."}</p>}
           <UsageBars membership={membership} lang={lang} />
           {membership.story && <p className="profile-sub member-story-usage">{zh ? `本周 AI 剧本：已写 ${membership.story.used} 篇，` + (membership.story.limit >= 1000 ? "不限。" : `还能写 ${Math.max(0, membership.story.limit - membership.story.used)} 篇，${resetLabel(membership.story.resetMs, lang)} 恢复。`) : `AI scripts this week: ${membership.story.used} written, ` + (membership.story.limit >= 1000 ? "no limit." : `${Math.max(0, membership.story.limit - membership.story.used)} left; resets ${resetLabel(membership.story.resetMs, lang)}.`)}</p>}
-          <small className="profile-sub">{zh ? "一条普通回复算 1 次，特别长的对话会多算一些。用量会按时间自动恢复。" : "One normal reply counts once; very long conversations count a little more. Allowances refill on their own."}</small>
         </section>
 
         {!native && (member.checkoutAvailable || member.cardCheckoutAvailable) && <section className="profile-card member-upgrade">

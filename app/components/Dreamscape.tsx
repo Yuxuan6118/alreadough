@@ -85,7 +85,7 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
   const [screen, setScreen] = useState<Screen>("home");
   const [voice, setVoice] = useState<{ loaded: boolean; has: boolean; createdAt: string | null }>({ loaded: false, has: false, createdAt: null });
   const [useMine, setUseMine] = useState(true);
-  const [ambience, setAmbience] = useState<AmbienceKind>("rain");
+  const [ambience, setAmbience] = useState<AmbienceKind>("off");
   const [message, setMessage] = useState("");
   const [mode, setMode] = useState<Mode>("night");
   const [items, setItems] = useState<string[]>([]);
@@ -103,13 +103,13 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
   const urlsRef = useRef<string[]>([]);
   const durationsRef = useRef<number[]>([]);
   const ambienceRef = useRef<AmbienceHandle | null>(null);
-  const ambienceKindRef = useRef<AmbienceKind>("rain");
+  const ambienceKindRef = useRef<AmbienceKind>("off");
 
   /* eslint-disable react-hooks/set-state-in-effect -- one-time restoration of her settings */
   useEffect(() => {
     setUseMine(readStored(KEY_USE_MINE) !== "off");
     const saved = readStored(KEY_AMBIENCE);
-    if (saved === "rain" || saved === "ocean" || saved === "off") { setAmbience(saved); ambienceKindRef.current = saved; }
+    if (saved === "rain" || saved === "ocean" || saved === "fire" || saved === "brown" || saved === "off") { setAmbience(saved); ambienceKindRef.current = saved; }
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -293,7 +293,7 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
   };
   const leavePlayer = () => { stopAll(0.8); setPlaying(false); setFinished(false); setPreparing(null); setScreen("home"); };
   const cycleAmbience = () => {
-    const next: AmbienceKind = ambience === "rain" ? "ocean" : ambience === "ocean" ? "off" : "rain";
+    const next: AmbienceKind = ambience === "rain" ? "ocean" : ambience === "ocean" ? "fire" : ambience === "fire" ? "brown" : ambience === "brown" ? "off" : "rain";
     setAmbience(next);
     ambienceKindRef.current = next;
     writeStored(KEY_AMBIENCE, next);
@@ -320,7 +320,7 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
 
   if (screen === "player") {
     const line = (offset: number) => items[current + offset] || "";
-    const ambienceLabel = ambience === "rain" ? t("雨声，轻", "Rain, soft") : ambience === "ocean" ? t("海浪，轻", "Waves, soft") : t("不加背景声", "No background sound");
+    const ambienceLabel = ambience === "rain" ? t("雨声，轻", "Rain, soft") : ambience === "ocean" ? t("海浪，轻", "Waves, soft") : ambience === "fire" ? t("炉火，轻", "Fireplace, soft") : ambience === "brown" ? t("低沉的棕噪音", "Low brown noise") : t("不加背景声", "No background sound");
     return (
       <section className="dream dream-player">
         <header className="dream-player-head">
@@ -356,8 +356,6 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
       </section>
     );
   }
-
-  const estimateMinutes = Math.max(2, Math.round((DEFAULT_LINES[lang].length * 2 * (zh ? 14 : 11)) / (zh ? 4 : 2.6) / 60 + 1));
   return (
     <section className="dream dream-home">
       <header>
@@ -369,7 +367,6 @@ export default function Dreamscape({ lang, sessionId, desire, story, onCheckIn, 
         <Image src={DOUGH} alt="" width={1536} height={1024} sizes="240px" priority />
       </button>
       <button type="button" className="dream-start" onClick={() => void begin("night")}><Play size={20} weight="fill" />{t("开始睡前潜音", "Start the night soundscape")}</button>
-      <p className="dream-start-note">{t(`约 ${estimateMinutes} 分钟，轻声加雨声`, `About ${estimateMinutes} minutes, soft voice with rain`)}</p>
       {message && <p className="dream-message" role="status">{message}</p>}
       <ul className="dream-list">
         <li>

@@ -36,7 +36,6 @@ export default function WishList<T extends WishItem>({ lang, items, currentId, c
 
   return (
     <div className="wish-list">
-      <p className="setting-hint">{zh ? "按想要的程度排序。每个愿望有自己的记忆和对话，点开就能修改。" : "Sorted by how much you want each one. Each desire keeps its own memory and conversations. Tap one to edit it."}</p>
       <ul>
         {items.map((item) => {
           const open = openId === item.id;
