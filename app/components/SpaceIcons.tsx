@@ -174,3 +174,16 @@ export function HelpIcon({ size }: Props) {
 export function DoughIcon({ size }: Props) {
   return <Svg size={size}><Dough tx={0} ty={0} s={1} /></Svg>;
 }
+
+const PEN = "M13 17.4L18.8 6.2C19.2 5.4 20.2 5.1 20.9 5.5C21.6 5.9 21.8 6.8 21.4 7.6L15.6 18.8L12.8 20.4Z";
+/** 转念 · 此刻这一句: the dough writing with a pen (picked by the founder 2026-11-20, T1). */
+export function WriteLineIcon({ size }: Props) {
+  const m = useMaskId("write");
+  return (
+    <Svg size={size}>
+      <defs><Mask id={m}><path d={PEN} fill="black" stroke="black" strokeWidth="3" /></Mask></defs>
+      <g mask={`url(#${m})`}><Dough tx={-1.2} ty={1.6} s={0.84} /></g>
+      <path d={PEN} />
+    </Svg>
+  );
+}
