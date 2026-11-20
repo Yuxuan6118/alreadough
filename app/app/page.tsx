@@ -35,7 +35,7 @@ import {
   CaretRight,
   DotsThree,
   ImageSquare,
-  Sparkle,
+  MagnifyingGlass,
   ArrowRight,
 } from "@phosphor-icons/react";
 import SubliminalStudio, { PracticeCheckIn, practiceStreak, todayKey } from "../components/SubliminalStudio";
@@ -1976,7 +1976,7 @@ export default function Home() {
               <strong>{currentStory.scripted ? (lang === "zh" ? "想换一种写法？" : "Want a different version?") : (lang === "zh" ? "把这段回忆写成剧本" : "Turn this memory into a script")}</strong>
               {storiesLeft !== null && <StoryQuotaNote lang={lang} left={storiesLeft} onUpgrade={Capacitor.isNativePlatform() ? undefined : () => { setStoryReading(false); setView("settings"); setSettingsSection("membership"); }}/>}
             </div>
-            {scriptingId === currentStory.id ? <StoryWritingLoader lang={lang}/> : <button type="button" className={currentStory.scripted ? "profile-topic-plus" : "wish-primary"} onClick={() => writeScript(currentStory)} disabled={Boolean(scriptingId) || storyQuotaOut}>{currentStory.scripted ? <DoughPageIcon size={16}/> : <Sparkle size={16}/>} {currentStory.scripted ? (lang === "zh" ? "重新写一版" : "Write it again") : (lang === "zh" ? "写成剧本" : "Write it as a script")}</button>}
+            {scriptingId === currentStory.id ? <StoryWritingLoader lang={lang}/> : <button type="button" className={currentStory.scripted ? "profile-topic-plus" : "wish-primary"} onClick={() => writeScript(currentStory)} disabled={Boolean(scriptingId) || storyQuotaOut}>{currentStory.scripted ? <DoughPageIcon size={16}/> : null} {currentStory.scripted ? (lang === "zh" ? "重新写一版" : "Write it again") : (lang === "zh" ? "写成剧本" : "Write it as a script")}</button>}
           </div>
           {aiError && <div className="ai-notice story-ai-notice"><strong>{t.aiSetup}</strong><span>{aiError}</span></div>}
           {storyLibrary.length > 1 && (() => {
@@ -2061,7 +2061,7 @@ export default function Home() {
         onSelect={(id) => setBoardMode(id as "licensed" | "mine" | "collected")}
         groups={[
           { title: lang === "zh" ? "找画面" : "Find pictures", rows: [
-            { id: "licensed", icon: Sparkle, label: lang === "zh" ? "寻梦灵感" : "Discover Dreamscapes" },
+            { id: "licensed", icon: MagnifyingGlass, label: lang === "zh" ? "寻梦灵感" : "Discover Dreamscapes" },
             { id: "mine", icon: ImageSquare, label: lang === "zh" ? "编织我的愿景" : "Weave My Vision" },
           ] },
           { title: lang === "zh" ? "收藏" : "Saved", rows: [{ id: "collected", icon: BookmarkSimple, label: lang === "zh" ? "我收藏的画面" : "My saved pictures", value: String(board.length) }] },
@@ -2077,7 +2077,7 @@ export default function Home() {
           {imageResults.length > 0 && <div className="search-results">{imageResults.map((item) => { const saved = board.some((entry) => entry.source === item.source); return <article key={item.source}><img src={item.image} alt={item.title}/><div><strong>{item.title}</strong><small>{item.credit} · {item.license}</small><button type="button" className={saved ? "saved" : ""} onClick={() => collectSearchImage(item)} disabled={saved}>{saved ? (lang === "zh" ? "已收进我的愿景" : "Saved") : t.collect}</button></div></article>; })}</div>}
         </div>}
         {boardMode === "mine" && <VisionCanvasStudio lang={lang}/>}
-        {boardMode === "collected" && (board.length ? <div className="moodboard">{board.map((item, index) => <article className={`board-card card-${index % 4}`} key={item.id}>{item.image ? <img src={item.image} alt={item.title}/> : <div className="board-placeholder"/>}<div><h3>{item.title}</h3>{/^https?:/.test(item.source) ? <a href={item.source} target="_blank" rel="noreferrer">{t.source}</a> : <span>{item.source}</span>}<button onClick={() => setBoard((items) => items.filter((entry) => entry.id !== item.id))} aria-label={`${lang === "zh" ? "删除" : "Delete "}${item.title}`}>×</button></div></article>)}</div> : <div className="profile-cards"><section className="profile-card"><p className="setting-empty">{lang === "zh" ? "在「寻梦灵感」里点「收进我的愿景」，喜欢的画面会收在这里。" : "Pictures you save from Discover Dreamscapes will gather here."}</p><div className="space-card-actions"><button type="button" className="space-outline" onClick={() => setBoardMode("licensed")}><Sparkle size={15}/>{lang === "zh" ? "去寻梦灵感" : "Go discover"}</button></div></section></div>)}
+        {boardMode === "collected" && (board.length ? <div className="moodboard">{board.map((item, index) => <article className={`board-card card-${index % 4}`} key={item.id}>{item.image ? <img src={item.image} alt={item.title}/> : <div className="board-placeholder"/>}<div><h3>{item.title}</h3>{/^https?:/.test(item.source) ? <a href={item.source} target="_blank" rel="noreferrer">{t.source}</a> : <span>{item.source}</span>}<button onClick={() => setBoard((items) => items.filter((entry) => entry.id !== item.id))} aria-label={`${lang === "zh" ? "删除" : "Delete "}${item.title}`}>×</button></div></article>)}</div> : <div className="profile-cards"><section className="profile-card"><p className="setting-empty">{lang === "zh" ? "在「寻梦灵感」里点「收进我的愿景」，喜欢的画面会收在这里。" : "Pictures you save from Discover Dreamscapes will gather here."}</p><div className="space-card-actions"><button type="button" className="space-outline" onClick={() => setBoardMode("licensed")}>{lang === "zh" ? "去寻梦灵感" : "Go discover"}</button></div></section></div>)}
       </SpacePage>}
 
       {view === "settings" && (() => {
