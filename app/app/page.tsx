@@ -65,7 +65,7 @@ import { AppRail, SwipeSidebar } from "./AppNav";
 import { useBetaSurveyTimer } from "./useBetaSurveyTimer";
 import { useChatScroll } from "./useChatScroll";
 import { useSwipeDrawer } from "./useSwipeDrawer";
-import { type SpaceSection, type View, type Lang, type Message, type Conversation, type BoardItem, type Revision, type MemoryKind, type MemoryItem, type MemoryDraft, type GoalProfile, type Profile, emptyProfile, normalizeProfile, type Story, type StoryCover, type StoryDraft, NO_STORY_GOAL, type AIResponse, type SearchImage, type BetaStatus, splitThought, emptyStoryDraft, emptyMemoryDraft, emptyStory, defaultGoal, MAX_BELIEFS, MAX_GOALS, SYNC_BASE_KEY, SPACE_OWNER_KEY, discardDeviceSpace, isDiscardingSpace, clearDeviceSpace, MAX_STORIES, MAX_STORY_PARAGRAPHS, storyTitleFrom, normalizeStory, intensityLabels, normalizeGoal, MAX_MEMORIES, nextLocalId, memoryKinds, sameBelief, parseBeliefs, seedJourneySummary, normalizeMessages, conversationTitle, SurveyScale, wishCategories, goalTitle, coachModes, ui } from "./model";
+import { type SpaceSection, type View, type Lang, type Message, type Conversation, type BoardItem, type Revision, type MemoryKind, type MemoryItem, type MemoryDraft, type GoalProfile, type Profile, emptyProfile, normalizeProfile, type Story, type StoryCover, type StoryDraft, NO_STORY_GOAL, type AIResponse, type SearchImage, type BetaStatus, splitThought, emptyStoryDraft, emptyMemoryDraft, emptyStory, defaultGoal, MAX_BELIEFS, MAX_GOALS, SYNC_BASE_KEY, SPACE_OWNER_KEY, discardDeviceSpace, isDiscardingSpace, clearDeviceSpace, MAX_STORIES, MAX_STORY_PARAGRAPHS, storyTitleFrom, normalizeStory, intensityLabels, normalizeGoal, MAX_MEMORIES, nextLocalId, memoryKinds, sameBelief, parseBeliefs, seedJourneySummary, normalizeMessages, conversationTitle, SurveyScale, wishCategories, goalTitle, coachModes, ui, withHerName } from "./model";
 
 export default function Home() {
   const [lang, setLang] = useState<Lang>("zh");
@@ -621,7 +621,7 @@ export default function Home() {
 
   const openMemoryEditor = (item?: MemoryItem) => {
     setMemoryEditingId(item?.id || null);
-    setMemoryDraft(item ? { kind: item.kind, title: item.title, detail: item.detail, keywords: item.keywords.join(", ") } : emptyMemoryDraft);
+    setMemoryDraft(item ? { kind: item.kind, title: withHerName(item.title, goal.companionName), detail: withHerName(item.detail, goal.companionName), keywords: item.keywords.map((keyword) => withHerName(keyword, goal.companionName)).join(", ") } : emptyMemoryDraft);
     setMemoryEditorOpen(true);
   };
 

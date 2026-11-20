@@ -18,6 +18,7 @@ const auth = await import("../lib/member-auth.ts");
 const owner = await import("../lib/request-owner.ts");
 const waffo = await import("../lib/waffo.ts");
 const { founderAuthorized } = await import("../lib/founder-auth.ts");
+const { withHerName } = await import("../lib/her-name.ts");
 const space = await import("../app/api/space/route.ts");
 const waffoWebhook = await import("../app/api/pay/waffo/webhook/route.ts");
 
@@ -149,4 +150,11 @@ test("card payments: webhook amounts are read in cents, and unsigned or tampered
   assert.equal(response.status, 401);
   assert.equal(await env.DB.prepare("SELECT COUNT(*) AS n FROM member_state").first("n"), 0, "nothing granted");
   for (const name of ["WAFFO_ENABLED", "WAFFO_MERCHANT_ID", "WAFFO_PRIVATE_KEY", "WAFFO_PRODUCT_DEEP", "WAFFO_PRODUCT_ATELIER", "WAFFO_ENV"]) delete process.env[name];
+});
+
+test("memory library: the AI's old \"用户\" / \"the user\" shows as her own name", () => {
+  assert.equal(withHerName("用户希望gay好友Elvin变成恋人，用户偏好简短的肯定语", "瑄瑄"), "瑄瑄希望gay好友Elvin变成恋人，瑄瑄偏好简短的肯定语");
+  assert.equal(withHerName("The user wants a short list; the user's friend agreed", "Mia"), "Mia wants a short list; Mia's friend agreed");
+  assert.equal(withHerName("用户希望……", "  "), "用户希望……", "no name: shown as it was");
+  assert.equal(withHerName("", "瑄瑄"), "");
 });

@@ -291,6 +291,8 @@ export const wishCategories: Array<{ id: WishCategory; zh: string; en: string; z
   { id: "other", zh: "其他愿望", en: "Something Else", zhDescription: "用你自己的方式定义它", enDescription: "Define it in your own words" },
 ];
 
+export { withHerName } from "@/lib/her-name";
+
 export const goalTitle = (item: GoalProfile, lang: Lang) => {
   const text = (item.desire[lang] || item.desire.zh || item.desire.en || "").trim();
   if (text) return text.length > 16 ? `${text.slice(0, 16)}…` : text;
