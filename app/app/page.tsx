@@ -73,6 +73,8 @@ import { CopyrightIcon, PricingIcon, PrivacyIcon, ReportIcon, SafetyIcon, TermsI
 import { CompanionIcon, DreamscapeIcon, HistoryIcon, PersonaIcon, ReviseIcon, StoriesIcon, VisionIcon } from "../components/NavIcons";
 import PersonaStudio from "../components/PersonaStudio";
 
+import { useBetaSurveyTimer } from "./useBetaSurveyTimer";
+import { useChatScroll } from "./useChatScroll";
 import { useSwipeDrawer } from "./useSwipeDrawer";
 import { type SpaceSection, type View, type Lang, type Message, type Conversation, type BoardItem, type Revision, type MemoryKind, type MemoryItem, type MemoryDraft, type GoalProfile, type Profile, emptyProfile, normalizeProfile, type Story, type StoryCover, type StoryDraft, NO_STORY_GOAL, type AIResponse, type SearchImage, type BetaStatus, splitThought, emptyStoryDraft, emptyMemoryDraft, emptyStory, defaultGoal, MAX_BELIEFS, MAX_GOALS, SYNC_BASE_KEY, SPACE_OWNER_KEY, discardDeviceSpace, isDiscardingSpace, clearDeviceSpace, MAX_STORIES, MAX_STORY_PARAGRAPHS, storyTitleFrom, normalizeStory, storyMeta, intensityLabels, normalizeGoal, MAX_BACKGROUND, MAX_MEMORIES, nextLocalId, memoryKinds, sameBelief, parseBeliefs, seedJourneySummary, normalizeMessages, conversationTitle, SurveyScale, wishCategories, goalTitle, coachModes, ui } from "./model";
 
@@ -211,9 +213,6 @@ export default function Home() {
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const requestControllerRef = useRef<AbortController | null>(null);
   const lastLogIdRef = useRef<string | undefined>(undefined);
-  const openedChatRef = useRef("");
-  const lastMessageCountRef = useRef(0);
-  const [showJump, setShowJump] = useState(false);
 
   useEffect(() => {
     const box = chatInputRef.current;
@@ -222,63 +221,7 @@ export default function Home() {
     box.style.height = `${Math.min(box.scrollHeight, 220)}px`;
   }, [chatInput, view, hydrated]);
 
-  // Chat position, like any messenger: opening a conversation lands on the newest message, new messages follow
-  // along while she is at the bottom, and a small down arrow appears when she has scrolled up.
-  const chatScroller = () => {
-    const stage = document.querySelector<HTMLElement>(".app-stage");
-    if (stage && getComputedStyle(stage).overflowY === "auto" && stage.scrollHeight > stage.clientHeight) return stage; // phones: the stage scrolls inside the shell
-    return (document.scrollingElement || document.documentElement) as HTMLElement; // desktop: the page scrolls
-  };
-  const scrollChatToBottom = (smooth: boolean) => {
-    const scroller = chatScroller();
-    scroller.scrollTo({ top: scroller.scrollHeight, behavior: smooth ? "smooth" : "auto" });
-  };
-  const distanceFromBottom = () => {
-    const scroller = chatScroller();
-    return scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
-  };
-
-  useEffect(() => {
-    if (view !== "home") { openedChatRef.current = ""; return; }
-    if (!messages.length) return;
-    const key = conversationId || "none";
-    if (openedChatRef.current === key) return;
-    openedChatRef.current = key;
-    const land = () => scrollChatToBottom(false);
-    window.requestAnimationFrame(() => window.requestAnimationFrame(land));
-    const later = window.setTimeout(land, 300); // fonts and layout may still be settling
-    return () => window.clearTimeout(later);
-  }, [view, conversationId, messages.length]);
-
-  useEffect(() => {
-    const previous = lastMessageCountRef.current;
-    lastMessageCountRef.current = messages.length;
-    if (view !== "home" || previous === 0 || messages.length <= previous) return;
-    if (distanceFromBottom() < 420 || messages[messages.length - 1]?.role === "user") window.requestAnimationFrame(() => scrollChatToBottom(true));
-  }, [messages.length, view]);
-
-  useEffect(() => {
-    if (isTyping && view === "home" && distanceFromBottom() < 420) window.requestAnimationFrame(() => scrollChatToBottom(true));
-  }, [isTyping, view]);
-
-  useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect -- the arrow shows or hides from the scroll position */
-    if (view !== "home") { setShowJump(false); return; }
-    const update = () => setShowJump(messages.length > 0 && distanceFromBottom() > 240);
-    update();
-    const stage = document.querySelector(".app-stage");
-    stage?.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
-    const timer = window.setInterval(update, 800); // the thread grows while a reply streams in
-    return () => {
-      stage?.removeEventListener("scroll", update);
-      window.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
-      window.clearInterval(timer);
-    };
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, [view, messages.length, isTyping]);
+  const { showJump, scrollChatToBottom } = useChatScroll({ active: view === "home", conversationId, messages, isTyping });
 
   // Theme: read her saved pick (none = follow the phone) and keep listening to the phone's setting.
   useEffect(() => {
@@ -408,27 +351,7 @@ export default function Home() {
       .then((response) => response.json() as Promise<BetaStatus>).then(setBetaStatus).catch(() => null);
   }, [hydrated, sessionId]);
 
-  useEffect(() => {
-    if (!hydrated || readStored("already-beta-survey-complete-v1") === "yes") return;
-    let accumulated = Number(readStored("already-active-use-ms-v1") || 0);
-    let lastTick = Date.now();
-    const tick = () => {
-      const now = Date.now();
-      if (document.visibilityState === "visible") accumulated += Math.max(0, Math.min(6000, now - lastTick));
-      lastTick = now;
-      writeStored("already-active-use-ms-v1", String(accumulated));
-      // The stamp is written when the survey opens (not only when it is dismissed), so a reload cannot bring it back the same day.
-      const lastShownAt = Number(readStored("already-beta-survey-dismissed-v1") || 0);
-      if (accumulated >= 600_000 && (!lastShownAt || now - lastShownAt >= 86_400_000)) {
-        writeStored("already-beta-survey-dismissed-v1", String(now));
-        setSurveyOpen(true);
-      }
-    };
-    const resetTick = () => { lastTick = Date.now(); };
-    document.addEventListener("visibilitychange", resetTick);
-    const timer = window.setInterval(tick, 5000);
-    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", resetTick); };
-  }, [hydrated]);
+  useBetaSurveyTimer(hydrated, () => setSurveyOpen(true));
 
   /** Take in a cloud copy: merge it with this device's work against the last agreed copy, then show the result. */
   const applyCloudSpace = (cloud: Record<string, unknown>, revision: number) => {

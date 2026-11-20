@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
 
 async function render(path = "/") {
@@ -15,10 +15,11 @@ async function render(path = "/") {
 }
 
 
-/** The app page together with its data model (types, limits and defaults moved out of page.tsx). */
+/** The app page together with what was split out of it: its data model and its hooks. */
 async function appSource() {
-  const [page, model] = await Promise.all(["../app/app/page.tsx", "../app/app/model.tsx"].map((path) => readFile(new URL(path, import.meta.url), "utf8")));
-  return `${model}\n${page}`;
+  const folder = new URL("../app/app/", import.meta.url);
+  const files = ["page.tsx", "model.tsx", ...(await readdir(folder)).filter((name) => /^use[A-Z]\w*\.ts$/.test(name)).sort()];
+  return (await Promise.all(files.map((name) => readFile(new URL(name, folder), "utf8")))).join("\n");
 }
 
 test("renders the AlreaDough beta entry point", async () => {
@@ -125,7 +126,7 @@ test("keeps the founder dashboard private and aggregate-only", async () => {
 });
 
 test("shows one anonymous survey after ten minutes of active use", async () => {
-  const page = await readFile(new URL("../app/app/page.tsx", import.meta.url), "utf8");
+  const page = await appSource();
   assert.match(page, /accumulated >= 600_000/);
   assert.match(page, /document\.visibilityState === "visible"/);
   assert.match(page, /already-beta-survey-complete-v1/);
