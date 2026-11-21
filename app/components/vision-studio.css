@@ -23,7 +23,16 @@
 .vb-board-wrap { display: flex; justify-content: center; padding: 6px 0; }
 .vb-board { position: relative; container-type: inline-size; width: min(100%, var(--vb-max-w, 100%)); border-radius: 6px; box-shadow: 0 14px 40px color-mix(in srgb, var(--app-ink) 14%, transparent), 0 0 0 1px color-mix(in srgb, var(--app-ink) 6%, transparent); overflow: hidden; user-select: none; }
 .vb-title { position: absolute; display: flex; align-items: center; justify-content: center; text-align: center; font-weight: 500; line-height: 1.15; white-space: nowrap; overflow: hidden; pointer-events: none; }
-.vb-frame { position: absolute; box-sizing: border-box; cursor: pointer; touch-action: pan-y; transition: box-shadow .18s ease, filter .18s ease; }
+.vb-board.lifting { overflow: visible; }
+.vb-frame { position: absolute; box-sizing: border-box; cursor: grab; touch-action: pan-y; -webkit-touch-callout: none; -webkit-user-select: none; rotate: var(--vb-r, none); transition: box-shadow .18s ease, filter .18s ease, transform .18s ease; }
+.vb-frame:active { cursor: grabbing; }
+/* with a mouse, a photo rises a little under the pointer, so it reads as something you can pick up */
+@media (hover: hover) and (pointer: fine) {
+  .vb-frame:not(.selected):not(.lifted):hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(30, 18, 14, .2); }
+}
+/* a photo picked up to swap: follows the pointer, leans with its speed, lifts off the board */
+.vb-frame.lifted { z-index: 6; cursor: grabbing; translate: var(--lift-x, 0px) var(--lift-y, 0px); rotate: calc(var(--vb-r, 0deg) + var(--lift-tilt, 0deg)); scale: var(--lift-scale, 1.04); box-shadow: 0 18px 40px rgba(30, 18, 14, .3), 0 4px 12px rgba(30, 18, 14, .16); transition: box-shadow .2s ease, scale .2s cubic-bezier(.2, .9, .3, 1.25); }
+.vb-slot { position: absolute; box-sizing: border-box; rotate: var(--vb-r, none); border: 1.5px solid color-mix(in srgb, currentColor 18%, transparent); background: color-mix(in srgb, currentColor 8%, transparent); pointer-events: none; }
 .vb-frame.selected { cursor: grab; touch-action: none; }
 .vb-frame.selected:active { cursor: grabbing; }
 .vb-move-hint { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: #30231fb3; color: #fff; font-size: 13px; white-space: nowrap; pointer-events: none; transition: opacity .15s ease; }
@@ -38,9 +47,15 @@
 
 /* control panel */
 .vb-panel { display: flex; flex-direction: column; gap: 14px; padding: 14px 16px 16px; border: 1px solid var(--app-line); border-radius: 18px; background: var(--app-panel); }
-.vb-tabs { display: flex; gap: 4px; padding: 3px; border-radius: 12px; background: color-mix(in srgb, var(--app-ink) 5%, transparent); }
-.vb-studio .vb-tabs button { flex: 1; height: 34px; border: 0; border-radius: 9px; background: transparent; color: var(--app-muted); font-size: calc(14px * var(--fs, 1)); font-weight: 500; }
-.vb-studio .vb-tabs button.active { background: var(--app-panel); color: var(--app-ink); box-shadow: 0 1px 4px color-mix(in srgb, var(--app-ink) 12%, transparent); }
+/* the board settings and the photo tools share one spot and cross-fade; the spot keeps the taller one's height so the page doesn't jump */
+.vb-panels { display: grid; grid-template-columns: minmax(0, 1fr); }
+.vb-panels > .vb-panel { grid-area: 1 / 1; align-self: start; opacity: 0; visibility: hidden; translate: 0 6px; transition: opacity .16s ease, translate .16s ease, visibility 0s linear .16s; }
+.vb-panels > .vb-panel.shown { opacity: 1; visibility: visible; translate: none; transition: opacity .22s ease .05s, translate .3s cubic-bezier(.2, .9, .3, 1) .05s, visibility 0s; }
+.vb-tabs { position: relative; display: flex; gap: 4px; padding: 3px; border-radius: 12px; background: color-mix(in srgb, var(--app-ink) 5%, transparent); }
+/* one pill slides under the chosen tab (five tabs, 3px padding, 4px gaps) */
+.vb-tab-pill { position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 22px) / 5); border-radius: 9px; background: var(--app-panel); box-shadow: 0 1px 4px color-mix(in srgb, var(--app-ink) 12%, transparent); translate: calc(var(--tab, 0) * (100% + 4px)) 0; transition: translate .32s cubic-bezier(.2, .9, .3, 1); pointer-events: none; }
+.vb-studio .vb-tabs button { position: relative; flex: 1; height: 34px; border: 0; border-radius: 9px; background: transparent; color: var(--app-muted); font-size: calc(14px * var(--fs, 1)); font-weight: 500; transition: color .2s ease; }
+.vb-studio .vb-tabs button.active { color: var(--app-ink); }
 .vb-options { display: flex; flex-wrap: wrap; gap: 8px; }
 .vb-studio .vb-options > button { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 6px 14px; border: 1px solid var(--app-line); border-radius: 12px; background: var(--app-panel); font-size: calc(14px * var(--fs, 1)); transition: border-color .18s ease, background .18s ease; }
 .vb-studio .vb-options > button.selected { border-color: var(--app-accent); background: color-mix(in srgb, var(--app-accent) 9%, var(--app-panel)); color: var(--app-accent); font-weight: 600; }

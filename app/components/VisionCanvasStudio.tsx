@@ -1,7 +1,8 @@
 "use client";
 
-import { ChangeEvent, CSSProperties, PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, CSSProperties, PointerEvent as ReactPointerEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowClockwise, ArrowsOutCardinal, Check, DownloadSimple, FlipHorizontal, Plus, Swap, Trash, UploadSimple, X } from "@phosphor-icons/react";
+import { Capacitor } from "@capacitor/core";
 import { readStored, writeStored } from "@/lib/safe-storage";
 import { askConfirm } from "./ConfirmHost";
 import "./vision-studio.css";
@@ -266,6 +267,69 @@ function roundedPath(context: CanvasRenderingContext2D, rect: Rect, radius: numb
   context.roundRect(rect.x, rect.y, rect.w, rect.h, Math.max(0, Math.min(radius, rect.w / 2, rect.h / 2)));
 }
 
+/* ---------- picking a photo up to swap it, and settling it back down ---------- */
+
+type Drag = {
+  id: string; el: HTMLElement; startX: number; startY: number; originX: number; originY: number; mode: "" | "pan" | "swap";
+  innerW: number; innerH: number; spanX: number; spanY: number;
+  dx: number; dy: number; lastDx: number; lastT: number; vx: number; tilt: number; maxTilt: number; scale: number; target: string; raf: number;
+  touch: boolean; hold: number;
+};
+type Box = Record<string, string>;
+type Settle = { id: string; frame: Box; photo: Box; img: Box; x: number; y: number; turn: number; scale: number; z: number };
+
+const LIFT_PROPS = ["--lift-x", "--lift-y", "--lift-tilt", "--lift-scale"];
+/** how long a photo is held still before it lifts */
+const HOLD_MS = 300;
+
+/** a light tap felt in the hand when a photo lifts: the native haptic in the app, a short vibration in Android browsers */
+async function buzz() {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const { Haptics, ImpactStyle } = await import("@capacitor/haptics");
+      await Haptics.impact({ style: ImpactStyle.Light });
+    } catch { /* no haptics on this device */ }
+    return;
+  }
+  navigator.vibrate?.(10);
+}
+const BOX_KEYS = ["left", "top", "width", "height", "borderRadius"] as const;
+
+function readBox(node: HTMLElement | null) {
+  const box: Box = {};
+  if (node) BOX_KEYS.forEach((key) => { if (node.style[key]) box[key] = node.style[key]; });
+  return box;
+}
+const readBoxes = (frame: HTMLElement) => ({ frame: readBox(frame), photo: readBox(frame.querySelector<HTMLElement>(".vb-photo")), img: readBox(frame.querySelector<HTMLElement>("img")) });
+const frameTurn = (frame: HTMLElement) => Number.parseFloat(frame.style.getPropertyValue("--vb-r")) || 0;
+
+/** a spring (stiffness 300, damping 28) written out as a CSS easing curve */
+let settleTiming: KeyframeAnimationOptions | null = null;
+function springTiming(): KeyframeAnimationOptions {
+  if (settleTiming) return settleTiming;
+  if (!CSS.supports("animation-timing-function", "linear(0, 1)")) {
+    settleTiming = { duration: 420, easing: "cubic-bezier(.2, .9, .3, 1)" };
+    return settleTiming;
+  }
+  const step = 1 / 60;
+  let position = 0;
+  let velocity = 0;
+  let time = 0;
+  const points = ["0"];
+  while (time < 1.5) {
+    for (let index = 0; index < 4; index += 1) {
+      velocity += (300 * (1 - position) - 28 * velocity) * (step / 4);
+      position += velocity * (step / 4);
+    }
+    time += step;
+    points.push(position.toFixed(4));
+    if (Math.abs(1 - position) < 0.002 && Math.abs(velocity) < 0.05) break;
+  }
+  points[points.length - 1] = "1";
+  settleTiming = { duration: Math.round(time * 1000), easing: `linear(${points.join(", ")})` };
+  return settleTiming;
+}
+
 /* ---------- component ---------- */
 
 export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: { lang: Lang; saved?: SavedPicture[]; onRemoveSaved?: (id: number) => void }) {
@@ -305,12 +369,16 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
   const [tool, setTool] = useState<Tool>("layout");
   const [selectedId, setSelectedId] = useState("");
   const [dropTarget, setDropTarget] = useState("");
+  const [liftId, setLiftId] = useState("");
+  const [loose, setLoose] = useState(false);
+  const [toolsId, setToolsId] = useState("");
   const [notice, setNotice] = useState("");
   const [restored, setRestored] = useState(false);
   const imagesRef = useRef<Photo[]>([]);
   const addInput = useRef<HTMLInputElement>(null);
   const replaceInput = useRef<HTMLInputElement>(null);
-  const dragRef = useRef<{ id: string; startX: number; startY: number; originX: number; originY: number; mode: "" | "pan" | "swap"; innerW: number; innerH: number; spanX: number; spanY: number } | null>(null);
+  const dragRef = useRef<Drag | null>(null);
+  const settleRef = useRef<Settle[] | null>(null);
   const noticeTimer = useRef<number | undefined>(undefined);
 
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) => setSettings((current) => ({ ...current, [key]: value }));
@@ -358,6 +426,7 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
   }, []);
 
   useEffect(() => { imagesRef.current = images; }, [images]);
+
   useEffect(() => {
     if (!restored) return;
     const project: SavedProject = { ...settings, images: images.map((item) => ({ id: item.id, name: item.name, w: item.w, h: item.h, zoom: item.zoom, x: item.x, y: item.y, rotate: item.rotate, flip: item.flip, savedId: item.savedId })) };
@@ -473,15 +542,75 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
   const { W, H } = geometry;
   const ink = textOnColor(settings.background);
   const selected = images.find((item) => item.id === selectedId);
+  // the photo tools stay rendered (hidden) after a photo is let go, so the two panels can cross-fade
+  const toolsPhoto = selected || images.find((item) => item.id === toolsId) || images[0];
 
-  /* pointer: tap selects, drag a selected photo to reframe it, drag another photo onto a frame to swap */
+  const liftIndex = liftId ? images.findIndex((item) => item.id === liftId) : -1;
+  const liftFrame = liftIndex >= 0 ? geometry.frames[liftIndex] : undefined;
+  const boardRef = useRef<HTMLDivElement>(null);
+
+  /* pointer: tap selects, drag a selected photo to reframe it, drag another photo onto a frame to swap.
+     A swap drag picks the photo up: it follows the pointer, leans with its sideways speed, and springs into place on release. */
   const onFramePointerDown = (event: ReactPointerEvent<HTMLDivElement>, photo: Photo, index: number) => {
     if (event.button !== 0) return;
-    const innerElement = event.currentTarget.querySelector<HTMLElement>(".vb-photo");
+    const el = event.currentTarget;
+    el.getAnimations({ subtree: true }).forEach((animation) => animation.finish());
+    const innerElement = el.querySelector<HTMLElement>(".vb-photo");
     const box = innerElement?.getBoundingClientRect();
     const placement = photoPlacement(photo, geometry.frames[index].inner);
-    dragRef.current = { id: photo.id, startX: event.clientX, startY: event.clientY, originX: placement.x, originY: placement.y, mode: "", innerW: box?.width || 1, innerH: box?.height || 1, spanX: placement.spanX, spanY: placement.spanY };
-    event.currentTarget.setPointerCapture(event.pointerId);
+    const drag: Drag = { id: photo.id, el, startX: event.clientX, startY: event.clientY, originX: placement.x, originY: placement.y, mode: "", innerW: box?.width || 1, innerH: box?.height || 1, spanX: placement.spanX, spanY: placement.spanY, dx: 0, dy: 0, lastDx: 0, lastT: 0, vx: 0, tilt: 0, maxTilt: 0, scale: 1, target: "", raf: 0, touch: event.pointerType !== "mouse", hold: 0 };
+    dragRef.current = drag;
+    try { el.setPointerCapture(event.pointerId); } catch { /* the pointer is already gone */ }
+    // holding a photo still picks it up, with a finger and with a mouse alike
+    if (photo.id !== selectedId) drag.hold = window.setTimeout(() => {
+      if (dragRef.current !== drag || drag.mode) return;
+      drag.mode = "swap";
+      liftPhoto(drag);
+      void buzz();
+    }, HOLD_MS);
+  };
+  const followPointer = (now: number) => {
+    const drag = dragRef.current;
+    if (!drag || drag.mode !== "swap") return;
+    if (!drag.lastT) drag.lastT = now;
+    const elapsed = Math.max(8, now - drag.lastT);
+    drag.vx += (((drag.dx - drag.lastDx) / elapsed) * 1000 - drag.vx) * 0.3;
+    drag.lastDx = drag.dx;
+    drag.lastT = now;
+    const lean = Math.max(-drag.maxTilt, Math.min(drag.maxTilt, drag.vx / 110));
+    drag.tilt += (lean - drag.tilt) * 0.2;
+    drag.el.style.setProperty("--lift-x", `${drag.dx}px`);
+    drag.el.style.setProperty("--lift-y", `${drag.dy}px`);
+    drag.el.style.setProperty("--lift-tilt", `${drag.tilt.toFixed(2)}deg`);
+    drag.raf = requestAnimationFrame(followPointer);
+  };
+  const liftPhoto = (drag: Drag) => {
+    const width = drag.el.offsetWidth || 1;
+    // the lean is capped so the corners swing about the same distance whatever the photo's size
+    drag.maxTilt = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : Math.min(6, (Math.asin(Math.min(1, 32 / width)) * 180) / Math.PI);
+    drag.scale = 1 + Math.min(0.05, 24 / width);
+    drag.el.style.setProperty("--lift-scale", String(drag.scale));
+    setLiftId(drag.id);
+    setLoose(true);
+    drag.raf = requestAnimationFrame(followPointer);
+  };
+  const dropPhoto = (drag: Drag, target: string) => {
+    cancelAnimationFrame(drag.raf);
+    const settle: Settle[] = [{ id: drag.id, ...readBoxes(drag.el), x: drag.dx, y: drag.dy, turn: frameTurn(drag.el) + drag.tilt, scale: drag.scale, z: 6 }];
+    const other = target ? boardRef.current?.querySelector<HTMLElement>(`[data-photo-id="${CSS.escape(target)}"]`) : null;
+    if (other) settle.push({ id: target, ...readBoxes(other), x: 0, y: 0, turn: frameTurn(other), scale: 1, z: 5 });
+    settleRef.current = settle;
+    setLiftId("");
+    setDropTarget("");
+    if (!other) return;
+    setImages((current) => {
+      const next = [...current];
+      const from = next.findIndex((item) => item.id === drag.id);
+      const to = next.findIndex((item) => item.id === target);
+      if (from < 0 || to < 0) return current;
+      [next[from], next[to]] = [next[to], next[from]];
+      return next;
+    });
   };
   const onFramePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
@@ -489,35 +618,76 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
     const dx = event.clientX - drag.startX;
     const dy = event.clientY - drag.startY;
     if (!drag.mode) {
-      if (Math.hypot(dx, dy) < 6) return;
+      if (Math.hypot(dx, dy) < (drag.touch ? 10 : 6)) return;
+      window.clearTimeout(drag.hold);
+      // a finger that moves before the hold is scrolling or swiping past, not picking the photo up
+      if (drag.touch && drag.id !== selectedId) { dragRef.current = null; return; }
       drag.mode = drag.id === selectedId ? "pan" : "swap";
+      if (drag.mode === "swap") liftPhoto(drag);
     }
     if (drag.mode === "pan") {
       updatePhoto(drag.id, { x: Math.max(-drag.spanX, Math.min(drag.spanX, drag.originX + dx / drag.innerW)), y: Math.max(-drag.spanY, Math.min(drag.spanY, drag.originY + dy / drag.innerH)) });
     } else {
-      const target = (document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null)?.closest<HTMLElement>("[data-photo-id]")?.dataset.photoId || "";
-      setDropTarget(target && target !== drag.id ? target : "");
+      drag.dx = dx;
+      drag.dy = dy;
+      // the lifted photo is under the pointer, so look past it for the frame below
+      const target = document.elementsFromPoint(event.clientX, event.clientY).map((node) => node.closest<HTMLElement>("[data-photo-id]")?.dataset.photoId || "").find((id) => id && id !== drag.id) || "";
+      if (target !== drag.target) { drag.target = target; setDropTarget(target); }
     }
   };
   const onFramePointerUp = () => {
     const drag = dragRef.current;
     dragRef.current = null;
     if (!drag) return;
-    if (!drag.mode) { setSelectedId((current) => current === drag.id ? "" : drag.id); return; }
-    if (drag.mode === "swap" && dropTarget) {
-      setImages((current) => {
-        const next = [...current];
-        const from = next.findIndex((item) => item.id === drag.id);
-        const to = next.findIndex((item) => item.id === dropTarget);
-        if (from < 0 || to < 0) return current;
-        [next[from], next[to]] = [next[to], next[from]];
-        return next;
-      });
-    }
-    setDropTarget("");
+    window.clearTimeout(drag.hold);
+    if (!drag.mode) { setSelectedId((current) => current === drag.id ? "" : drag.id); setToolsId(drag.id); return; }
+    if (drag.mode === "swap") dropPhoto(drag, drag.target);
+  };
+  const onFramePointerCancel = () => {
+    const drag = dragRef.current;
+    dragRef.current = null;
+    if (drag) window.clearTimeout(drag.hold);
+    if (drag?.mode === "swap") dropPhoto(drag, "");
   };
 
-  const boardRef = useRef<HTMLDivElement>(null);
+  // once a photo is lifted by touch, the finger carries it instead of scrolling the page
+  useEffect(() => {
+    const board = boardRef.current;
+    if (!board) return;
+    const keepPage = (event: TouchEvent) => { if (dragRef.current?.mode === "swap" && event.cancelable) event.preventDefault(); };
+    board.addEventListener("touchmove", keepPage, { passive: false });
+    return () => board.removeEventListener("touchmove", keepPage);
+  }, [images.length]);
+
+  // after a drop, fly the moved photos from where they were drawn to their new frames (FLIP)
+  useLayoutEffect(() => {
+    const settle = settleRef.current;
+    if (!settle) return;
+    settleRef.current = null;
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const timing = springTiming();
+    const flights: Animation[] = [];
+    settle.forEach((from) => {
+      const frame = boardRef.current?.querySelector<HTMLElement>(`[data-photo-id="${CSS.escape(from.id)}"]`);
+      if (!frame) return;
+      LIFT_PROPS.forEach((name) => frame.style.removeProperty(name));
+      if (still) return;
+      const to = readBoxes(frame);
+      const z = String(from.z);
+      flights.push(frame.animate([
+        { ...from.frame, translate: `${from.x}px ${from.y}px`, rotate: `${from.turn}deg`, scale: String(from.scale), zIndex: z },
+        { ...to.frame, translate: "0px 0px", rotate: `${frameTurn(frame)}deg`, scale: "1", zIndex: z },
+      ], timing));
+      const photo = frame.querySelector<HTMLElement>(".vb-photo");
+      const image = frame.querySelector<HTMLElement>("img");
+      if (photo) flights.push(photo.animate([from.photo, to.photo], timing));
+      if (image) flights.push(image.animate([from.img, to.img], timing));
+    });
+    void Promise.all(flights.map((flight) => flight.finished)).catch(() => undefined).then(() => {
+      if (dragRef.current?.mode !== "swap") setLoose(false);
+    });
+  });
+
   useEffect(() => {
     const board = boardRef.current;
     if (!board || !selectedId) return;
@@ -617,8 +787,9 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
     {notice && <p className="vb-notice" role="status">{notice}</p>}
 
     <div className="vb-board-wrap" role="presentation" onKeyDown={(event) => { if (event.key === "Escape") setSelectedId(""); }} onClick={(event) => { if (event.target === event.currentTarget) setSelectedId(""); }}>
-      <div ref={boardRef} className="vb-board" style={{ aspectRatio: `${W} / ${H}`, background: settings.background, "--vb-max-w": `calc(70vh * ${W / H})` } as CSSProperties} role="presentation" onClick={(event) => { if (event.target === event.currentTarget) setSelectedId(""); }}>
+      <div ref={boardRef} className={`vb-board${loose ? " lifting" : ""}`} style={{ aspectRatio: `${W} / ${H}`, background: settings.background, "--vb-max-w": `calc(70vh * ${W / H})` } as CSSProperties} role="presentation" onClick={(event) => { if (event.target === event.currentTarget) setSelectedId(""); }}>
         {geometry.title && <div className="vb-title" style={{ left: pct(geometry.title.x, W), top: pct(geometry.title.y, H), width: pct(geometry.title.w, W), height: pct(geometry.title.h, H), color: ink, fontFamily: FONTS[settings.titleFont], fontSize: unit(geometry.title.h * 0.42) }}>{settings.title.trim()}</div>}
+        {liftFrame && <div className="vb-slot" aria-hidden="true" style={{ left: pct(liftFrame.x, W), top: pct(liftFrame.y, H), width: pct(liftFrame.w, W), height: pct(liftFrame.h, H), borderRadius: unit(liftFrame.outerRadius), color: ink, "--vb-r": liftFrame.r ? `${liftFrame.r}deg` : undefined } as CSSProperties}/>}
         {images.map((photo, index) => {
           const frame = geometry.frames[index];
           if (!frame) return null;
@@ -631,13 +802,14 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
             tabIndex={0}
             aria-label={photo.name}
             aria-pressed={selectedId === photo.id}
-            className={`vb-frame vb-frame-${style} ${selectedId === photo.id ? "selected" : ""} ${dropTarget === photo.id ? "drop" : ""}`}
-            style={{ left: pct(frame.x, W), top: pct(frame.y, H), width: pct(frame.w, W), height: pct(frame.h, H), transform: frame.r ? `rotate(${frame.r}deg)` : undefined, borderRadius: unit(frame.outerRadius), "--vb-shadow-bg": settings.background } as CSSProperties}
+            className={`vb-frame vb-frame-${style} ${selectedId === photo.id ? "selected" : ""} ${dropTarget === photo.id ? "drop" : ""} ${liftId === photo.id ? "lifted" : ""}`}
+            style={{ left: pct(frame.x, W), top: pct(frame.y, H), width: pct(frame.w, W), height: pct(frame.h, H), "--vb-r": frame.r ? `${frame.r}deg` : undefined, borderRadius: unit(frame.outerRadius), "--vb-shadow-bg": settings.background } as CSSProperties}
             onPointerDown={(event) => onFramePointerDown(event, photo, index)}
             onPointerMove={onFramePointerMove}
             onPointerUp={onFramePointerUp}
-            onPointerCancel={() => { dragRef.current = null; setDropTarget(""); }}
-            onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedId(photo.id); } }}
+            onPointerCancel={onFramePointerCancel}
+            onContextMenu={(event) => { if (dragRef.current) event.preventDefault(); }}
+            onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedId(photo.id); setToolsId(photo.id); } }}
           >
             <div className="vb-photo" style={{ left: pct(frame.inner.x - frame.x, frame.w), top: pct(frame.inner.y - frame.y, frame.h), width: pct(frame.inner.w, frame.w), height: pct(frame.inner.h, frame.h), borderRadius: unit(frame.innerRadius) }}>
               <img src={photo.url} alt="" draggable={false} style={{ width: pct(place.width, frame.inner.w), height: pct(place.height, frame.inner.h), left: pct(place.cx - place.width / 2, frame.inner.w), top: pct(place.cy - place.height / 2, frame.inner.h), transform: `rotate(${photo.rotate}deg)${photo.flip ? " scaleX(-1)" : ""}` }}/>
@@ -648,17 +820,20 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
       </div>
     </div>
 
-    {selected ? <div className="vb-panel vb-photo-tools">
+    <div className="vb-panels">
+    {toolsPhoto && <div className={`vb-panel vb-photo-tools${selected ? " shown" : ""}`}>
       <div className="vb-row">
         <button type="button" className="vb-tool-button" onClick={() => replaceInput.current?.click()}><Swap size={18}/>{copy.replace}</button>
-        <button type="button" className="vb-tool-button" onClick={() => updatePhoto(selected.id, { rotate: (selected.rotate + 90) % 360, x: 0, y: 0 })}><ArrowClockwise size={18}/>{copy.rotate}</button>
-        <button type="button" className="vb-tool-button" onClick={() => updatePhoto(selected.id, { flip: !selected.flip })}><FlipHorizontal size={18}/>{copy.flip}</button>
-        <button type="button" className="vb-tool-button" onClick={() => removePhoto(selected.id)}><Trash size={18}/>{copy.remove}</button>
+        <button type="button" className="vb-tool-button" onClick={() => updatePhoto(toolsPhoto.id, { rotate: (toolsPhoto.rotate + 90) % 360, x: 0, y: 0 })}><ArrowClockwise size={18}/>{copy.rotate}</button>
+        <button type="button" className="vb-tool-button" onClick={() => updatePhoto(toolsPhoto.id, { flip: !toolsPhoto.flip })}><FlipHorizontal size={18}/>{copy.flip}</button>
+        <button type="button" className="vb-tool-button" onClick={() => removePhoto(toolsPhoto.id)}><Trash size={18}/>{copy.remove}</button>
         <button type="button" className="vb-tool-button vb-done" onClick={() => setSelectedId("")}>{copy.done}</button>
       </div>
-      <label className="vb-slider"><span>{copy.zoom}</span><input type="range" min="1" max="3" step="0.02" value={selected.zoom} onChange={(event) => updatePhoto(selected.id, { zoom: Number(event.target.value) })}/></label>
-    </div> : <div className="vb-panel">
-      <div className="vb-tabs" role="tablist">
+      <label className="vb-slider"><span>{copy.zoom}</span><input type="range" min="1" max="3" step="0.02" value={toolsPhoto.zoom} onChange={(event) => updatePhoto(toolsPhoto.id, { zoom: Number(event.target.value) })}/></label>
+    </div>}
+    <div className={`vb-panel${selected ? "" : " shown"}`}>
+      <div className="vb-tabs" role="tablist" style={{ "--tab": (Object.keys(copy.tools) as Tool[]).indexOf(tool) } as CSSProperties}>
+        <span className="vb-tab-pill" aria-hidden="true"/>
         {(Object.keys(copy.tools) as Tool[]).map((key) => <button type="button" role="tab" aria-selected={tool === key} className={tool === key ? "active" : ""} key={key} onClick={() => setTool(key)}>{copy.tools[key]}</button>)}
       </div>
 
@@ -702,6 +877,7 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
           {(["serif", "sans", "kai"] as const).map((value) => <button type="button" key={value} className={settings.titleFont === value ? "selected" : ""} style={{ fontFamily: FONTS[value] }} onClick={() => set("titleFont", value)}>{copy.fonts[value]}</button>)}
         </div>
       </div>}
-    </div>}
+    </div>
+    </div>
   </div>;
 }

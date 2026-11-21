@@ -8,6 +8,7 @@ import { readStored, writeStored } from "@/lib/safe-storage";
 import { AMBIENCE_LEVEL, brownSource } from "@/lib/ambience";
 import { askConfirm } from "./ConfirmHost";
 import { lineAudio, loadLineVoice, type LineVoice } from "@/lib/line-voice";
+import { usePresence } from "@/lib/use-presence";
 
 /** A half-second of silence, played inside her tap so iPhone lets the voice start later. */
 const SILENCE = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=";
@@ -374,6 +375,8 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
   const [isPlaying, setIsPlaying] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(defaults[lang].duration * 60);
   const [checkInOpen, setCheckInOpen] = useState(false);
+  const checkIn = usePresence(checkInOpen);
+  const tutorial = usePresence(tutorialOpen);
   const [recording, setRecording] = useState(false);
   const [voiceUrl, setVoiceUrl] = useState("");
   const [voiceName, setVoiceName] = useState("");
@@ -935,7 +938,7 @@ export default function SubliminalStudio({ lang, desire, focusText, focusKind = 
     </div>}
 
 
-    {checkInOpen && <div className="modal-backdrop"><div className="checkin-modal"><h2>{copy.checkTitle}</h2><p>{copy.checkCopy}</p>{copy.feelings.map(([value, label]) => <button key={value} onClick={() => { onCheckIn(value); setCheckInOpen(false); setSecondsLeft(profile.duration * 60); }}>{label}</button>)}</div></div>}
-    {tutorialOpen && <div className="modal-backdrop"><div className="tutorial-modal"><p className="eyebrow">{lang === "zh" ? "潜音" : "DREAMSCAPE"}</p><h2>{copy.tutorialTitle}</h2><ol>{copy.tutorialSteps.map((step) => <li key={step}>{step}</li>)}</ol><button className="primary" onClick={() => setTutorialOpen(false)}>{copy.close}</button></div></div>}
+    {checkIn.mounted && <div className={`modal-backdrop${checkIn.closing ? " closing" : ""}`}><div className="checkin-modal"><h2>{copy.checkTitle}</h2><p>{copy.checkCopy}</p>{copy.feelings.map(([value, label]) => <button key={value} onClick={() => { onCheckIn(value); setCheckInOpen(false); setSecondsLeft(profile.duration * 60); }}>{label}</button>)}</div></div>}
+    {tutorial.mounted && <div className={`modal-backdrop${tutorial.closing ? " closing" : ""}`}><div className="tutorial-modal"><p className="eyebrow">{lang === "zh" ? "潜音" : "DREAMSCAPE"}</p><h2>{copy.tutorialTitle}</h2><ol>{copy.tutorialSteps.map((step) => <li key={step}>{step}</li>)}</ol><button className="primary" onClick={() => setTutorialOpen(false)}>{copy.close}</button></div></div>}
   </section>;
 }

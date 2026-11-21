@@ -799,6 +799,16 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .app-shell .modal-backdrop { background: color-mix(in srgb,var(--app-ink) 70%,transparent); }
 .app-shell .checkin-modal,
 .app-shell .tutorial-modal { color: var(--app-ink); background: var(--app-bg); box-shadow: var(--app-shadow); }
+/* big dialogs (story editor, check-in, guide): the confirm dialog's entrance, plus a short exit while usePresence keeps them mounted */
+.story-editor-backdrop, .modal-backdrop { animation: dialog-fade .16s ease both; }
+.story-editor-modal, .modal-backdrop > div { animation: dialog-rise .22s cubic-bezier(.16,1,.3,1) both; }
+.story-editor-backdrop.closing, .modal-backdrop.closing { animation: dialog-fade-out .18s ease both; pointer-events: none; }
+.story-editor-backdrop.closing .story-editor-modal, .modal-backdrop.closing > div { animation: dialog-sink .18s ease both; }
+@keyframes dialog-fade { from { opacity: 0; } }
+@keyframes dialog-rise { from { opacity: 0; transform: translateY(8px); } }
+@keyframes dialog-fade-out { to { opacity: 0; } }
+@keyframes dialog-sink { to { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .story-editor-backdrop, .story-editor-modal, .modal-backdrop, .modal-backdrop > div { animation: none !important; } }
 .app-shell .vision-preview .vision-frame.selected,
 .app-shell .vision-preview figure.selected { box-shadow: inset 0 0 0 3px var(--app-panel-strong),0 0 0 2px var(--app-accent); }
 

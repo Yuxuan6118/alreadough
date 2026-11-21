@@ -65,6 +65,7 @@ import { AppRail, SwipeSidebar } from "./AppNav";
 import { useBetaSurveyTimer } from "./useBetaSurveyTimer";
 import { useChatScroll } from "./useChatScroll";
 import { useSwipeDrawer } from "./useSwipeDrawer";
+import { usePresence } from "@/lib/use-presence";
 import { type SpaceSection, type View, type Lang, type Message, type Conversation, type BoardItem, type Revision, type MemoryKind, type MemoryItem, type MemoryDraft, type GoalProfile, type Profile, emptyProfile, normalizeProfile, type Story, type StoryCover, type StoryDraft, NO_STORY_GOAL, relationKindOf, storyKindOfGoal, type AIResponse, type SearchImage, type BetaStatus, splitThought, emptyStoryDraft, emptyMemoryDraft, emptyStory, defaultGoal, MAX_BELIEFS, MAX_GOALS, SYNC_BASE_KEY, SPACE_OWNER_KEY, discardDeviceSpace, isDiscardingSpace, clearDeviceSpace, MAX_STORIES, MAX_STORY_PARAGRAPHS, storyTitleFrom, normalizeStory, intensityLabels, normalizeGoal, MAX_MEMORIES, nextLocalId, memoryKinds, sameBelief, parseBeliefs, seedJourneySummary, normalizeMessages, conversationTitle, SurveyScale, wishCategories, goalTitle, coachModes, ui, withHerName } from "./model";
 
 export default function Home() {
@@ -82,6 +83,7 @@ export default function Home() {
   const [storyLibrary, setStoryLibrary] = useState<Story[]>([]);
   const [storyReading, setStoryReading] = useState(false);
   const [storyEditorOpen, setStoryEditorOpen] = useState(false);
+  const storyEditor = usePresence(storyEditorOpen);
   const [storyEditingId, setStoryEditingId] = useState<string | null>(null);
   const [storyDraft, setStoryDraft] = useState<StoryDraft>(emptyStoryDraft);
   /** The kind options under "类型" in the story editor. */
@@ -1059,8 +1061,8 @@ export default function Home() {
       savedIndex = storyLibrary.length;
       setStoryLibrary((items) => [...items, saved as Story]);
     }
+    // the draft is left as it was so the editor fades out showing what was saved; opening the editor always sets a fresh draft
     setStoryEditorOpen(false);
-    setStoryDraft(emptyStoryDraft);
     if (saved && savedIndex >= 0) {
       setStoryIndex(savedIndex);
       if (andWrite) { setStoryReading(true); window.scrollTo({ top: 0 }); void writeScript(saved); }
@@ -1567,7 +1569,7 @@ export default function Home() {
         ["chat", lang === "zh" ? "AI 对话" : "AI chat"], ["story", lang === "zh" ? "剧本" : "Scripts"], ["revision", lang === "zh" ? "转念" : "Reframe"], ["audio", lang === "zh" ? "声音练习" : "Audio"], ["vision", lang === "zh" ? "愿景板" : "Vision board"], ["unsure", lang === "zh" ? "还不确定" : "Not sure yet"],
       ].map(([id, label]) => <button type="button" key={id} className={surveyFeature === id ? "selected" : ""} onClick={() => setSurveyFeature(id)}>{label}</button>)}</div></fieldset></div><footer><small>{lang === "zh" ? "只记录匿名选项，不保存你的愿望或聊天内容。" : "Only anonymous choices are recorded—never your desire or chat content."}</small><div><button type="button" className="survey-later" onClick={dismissSurvey}>{lang === "zh" ? "稍后再说" : "Later"}</button><button type="button" className="primary" disabled={!surveyBefore || !surveyNow || !surveyUnderstood || !surveyReturn || !surveyFeature} onClick={submitSurvey}>{lang === "zh" ? "提交，继续练习" : "Submit and continue"}</button></div></footer></section></div>}
 
-      {storyEditorOpen && <div className="story-editor-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setStoryEditorOpen(false); }}>
+      {storyEditor.mounted && <div className={`story-editor-backdrop${storyEditor.closing ? " closing" : ""}`} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setStoryEditorOpen(false); }}>
         <form className="story-editor-modal" onSubmit={(event) => { event.preventDefault(); saveStory(true); }}>
           <header><div><p className="eyebrow">{storyEditingId ? (lang === "zh" ? "编辑剧本" : "EDIT SCRIPT") : (lang === "zh" ? "新的已实现时刻" : "A NEW FULFILLED MOMENT")}</p><h2>{storyEditingId ? (lang === "zh" ? "把这个剧本写成你的版本" : "Make this story yours") : (lang === "zh" ? "它已经发生在哪里？" : "Where has it already happened?")}</h2></div><button type="button" onClick={() => setStoryEditorOpen(false)} aria-label={lang === "zh" ? "关闭" : "Close"}>×</button></header>
           {(() => {
