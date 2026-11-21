@@ -94,6 +94,8 @@
 .vb-studio .vb-text-input:focus { border-color: var(--app-accent); }
 .vb-small-options { align-items: center; }
 .vb-divider { width: 1px; height: 22px; margin: 0 4px; background: var(--app-line); }
+.vb-swatches { align-items: center; }
+.vb-swatch-divider { height: 28px; margin: 0 2px; }
 
 /* selected photo tools */
 .vb-row { display: flex; flex-wrap: wrap; gap: 6px; }

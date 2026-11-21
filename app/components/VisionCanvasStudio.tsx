@@ -245,6 +245,43 @@ function photoPlacement(photo: Photo, inner: Rect) {
   return { width: photo.w * scale, height: photo.h * scale, cx: inner.w / 2 + x * inner.w, cy: inner.h / 2 + y * inner.h, x, y, spanX, spanY };
 }
 
+/** The main colours across the board's photos, most present first (each photo counts the same). */
+async function photoPalette(urls: string[], limit = 6) {
+  const buckets = new Map<number, { weight: number; r: number; g: number; b: number }>();
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return [];
+  for (const url of urls) {
+    let image: HTMLImageElement;
+    try { image = await loadImage(url); } catch { continue; }
+    const scale = 64 / Math.max(image.naturalWidth, image.naturalHeight, 1);
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+    const share = 1 / (canvas.width * canvas.height);
+    for (let index = 0; index < data.length; index += 4) {
+      if (data[index + 3] < 128) continue;
+      const r = data[index], g = data[index + 1], b = data[index + 2];
+      const key = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
+      const bucket = buckets.get(key) || { weight: 0, r: 0, g: 0, b: 0 };
+      bucket.weight += share; bucket.r += r * share; bucket.g += g * share; bucket.b += b * share;
+      buckets.set(key, bucket);
+    }
+  }
+  const ranked = [...buckets.values()].sort((a, b) => b.weight - a.weight).map((bucket) => [bucket.r / bucket.weight, bucket.g / bucket.weight, bucket.b / bucket.weight]);
+  const distance = ([r1, g1, b1]: number[], [r2, g2, b2]: number[]) => {
+    const mean = (r1 + r2) / 2;
+    return Math.sqrt((2 + mean / 256) * (r1 - r2) ** 2 + 4 * (g1 - g2) ** 2 + (2 + (255 - mean) / 256) * (b1 - b2) ** 2);
+  };
+  const picked: number[][] = [];
+  for (const color of ranked) {
+    if (picked.every((other) => distance(color, other) > 90)) picked.push(color);
+    if (picked.length >= limit) break;
+  }
+  return picked.map((color) => `#${color.map((value) => Math.round(value).toString(16).padStart(2, "0")).join("")}`);
+}
+
 function textOnColor(hex: string) {
   const value = hex.replace("#", "");
   const red = Number.parseInt(value.slice(0, 2), 16);
@@ -427,6 +464,15 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
 
   useEffect(() => { imagesRef.current = images; }, [images]);
 
+  // colours taken from the photos on the board, shown first in the backdrop swatches
+  const [palette, setPalette] = useState<string[]>([]);
+  const paletteKey = images.map((item) => item.url).join("|");
+  useEffect(() => {
+    let cancelled = false;
+    const urls = paletteKey ? paletteKey.split("|") : [];
+    photoPalette(urls).then((colors) => { if (!cancelled) setPalette(colors); }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [paletteKey]);
   useEffect(() => {
     if (!restored) return;
     const project: SavedProject = { ...settings, images: images.map((item) => ({ id: item.id, name: item.name, w: item.w, h: item.h, zoom: item.zoom, x: item.x, y: item.y, rotate: item.rotate, flip: item.flip, savedId: item.savedId })) };
@@ -864,10 +910,17 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
         <label className="vb-slider"><span>{copy.corner}</span><input type="range" min="0" max="80" value={settings.corner} onChange={(event) => set("corner", Number(event.target.value))}/></label>
       </div>}
 
-      {tool === "background" && <div className="vb-options vb-swatches">
-        {SWATCHES.map((value) => <button type="button" key={value} aria-label={value} className={settings.background.toLowerCase() === value ? "selected" : ""} style={{ background: value }} onClick={() => set("background", value)}/>)}
-        <label className={`vb-custom-color ${SWATCHES.includes(settings.background.toLowerCase()) ? "" : "selected"}`} style={{ background: SWATCHES.includes(settings.background.toLowerCase()) ? undefined : settings.background }} aria-label={copy.custom}><input type="color" value={settings.background} onChange={(event) => set("background", event.target.value)}/></label>
-      </div>}
+      {tool === "background" && (() => {
+        const current = settings.background.toLowerCase();
+        const fromPhotos = palette.filter((value) => !SWATCHES.includes(value));
+        const preset = SWATCHES.includes(current) || fromPhotos.includes(current);
+        return <div className="vb-options vb-swatches">
+        {fromPhotos.map((value) => <button type="button" key={`photo-${value}`} aria-label={value} className={current === value ? "selected" : ""} style={{ background: value }} onClick={() => set("background", value)}/>)}
+        {fromPhotos.length > 0 && <span className="vb-divider vb-swatch-divider" aria-hidden="true"/>}
+        {SWATCHES.map((value) => <button type="button" key={value} aria-label={value} className={current === value ? "selected" : ""} style={{ background: value }} onClick={() => set("background", value)}/>)}
+        <label className={`vb-custom-color ${preset ? "" : "selected"}`} style={{ background: preset ? undefined : settings.background }} aria-label={copy.custom}><input type="color" value={settings.background} onChange={(event) => set("background", event.target.value)}/></label>
+      </div>;
+      })()}
 
       {tool === "text" && <div className="vb-stack">
         <input className="vb-text-input" value={settings.title} maxLength={40} placeholder={copy.textPlaceholder} onChange={(event) => set("title", event.target.value)}/>
