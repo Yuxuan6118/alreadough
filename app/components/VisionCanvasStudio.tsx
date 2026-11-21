@@ -962,6 +962,8 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
             aria-label={photo.name}
             aria-pressed={selectedId === photo.id}
             className={`vb-frame vb-frame-${style} ${selectedId === photo.id ? "selected" : ""} ${dropTarget === photo.id ? "drop" : ""} ${liftId === photo.id ? "lifted" : ""}`}
+            // a selected photo pans and a lifted one is carried, so a swipe on it must not pull out the side panel
+            data-no-drawer={selectedId === photo.id || liftId === photo.id ? "" : undefined}
             style={{ left: pct(frame.x, W), top: pct(frame.y, H), width: pct(frame.w, W), height: pct(frame.h, H), "--vb-r": frame.r ? `${frame.r}deg` : undefined, borderRadius: unit(frame.outerRadius), "--vb-shadow-bg": settings.background } as CSSProperties}
             onPointerDown={(event) => onFramePointerDown(event, photo, index)}
             onPointerMove={onFramePointerMove}
@@ -983,6 +985,7 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
           return <div
             key={box.id}
             data-text-id={box.id}
+            data-no-drawer=""
             role="button"
             tabIndex={0}
             aria-label={box.text.trim() || copy.textPlaceholder}

@@ -40,6 +40,7 @@ export function useSwipeDrawer() {
     const phone = window.matchMedia("(max-width: 820px)");
     let startX = 0, startY = 0, lastX = 0, lastT = 0, base = 0, velocity = 0, currentX = 0, frame = 0;
     let decided = false, dragging = false, ignore = false;
+    let startTarget: EventTarget | null = null;
     const paint = () => { frame = 0; shell.style.transform = shellTransform(currentX); };
     const setX = (x: number) => { currentX = x; if (!frame) frame = window.requestAnimationFrame(paint); };
     const settle = (open: boolean) => {
@@ -68,7 +69,8 @@ export function useSwipeDrawer() {
       startX = lastX = touch.clientX; startY = touch.clientY; lastT = Date.now();
       decided = false; dragging = false; velocity = 0;
       base = currentX = sidebarOpenRef.current ? drawerWidth() : 0;
-      ignore = !sidebarOpenRef.current && owned(event.target);
+      startTarget = event.target;
+      ignore = !sidebarOpenRef.current && owned(startTarget);
     };
     const onMove = (event: TouchEvent) => {
       if (ignore) return;
@@ -78,6 +80,8 @@ export function useSwipeDrawer() {
         if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
         decided = true;
         const open = sidebarOpenRef.current;
+        // a control can claim the swipe after it began: the vision board marks a photo once a hold lifts it
+        if (!open && owned(startTarget)) { ignore = true; return; }
         dragging = Math.abs(dx) > Math.abs(dy) * 1.4 && ((!open && dx > 0) || (open && dx < 0));
         if (dragging) { shell.style.transition = "none"; shell.classList.add("drawer-moving"); }
       }
