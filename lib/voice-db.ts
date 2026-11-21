@@ -1,5 +1,7 @@
 import { env } from "cloudflare:workers";
-import { VOICE_LIMITS, remainingToday } from "./voice-limits";
+import { VOICE_DAILY_BY_PLAN, VOICE_LIMITS, remainingToday } from "./voice-limits";
+import { memberAccount } from "./member-auth";
+import { isUnlimitedAccount, memberState, membershipEnabled } from "./membership";
 import { deleteVoice } from "./voice-service";
 import { requestOwner } from "./request-owner";
 
@@ -53,10 +55,19 @@ export async function usageFor(userId: string) {
   return { userChars: mine?.chars || 0, enrolls: mine?.enrolls || 0, siteChars: site?.chars || 0 };
 }
 
+/** Billed characters she may use today: by her plan with membership on, the old flat amount with it off (local dev). */
+export async function voiceDailyAllowance(request: Request) {
+  if (!membershipEnabled()) return VOICE_LIMITS.userDailyBilled;
+  const accountId = await memberAccount(request);
+  if (!accountId) return 0;
+  if (isUnlimitedAccount(accountId)) return 1_000_000;
+  return VOICE_DAILY_BY_PLAN[(await memberState(accountId)).plan];
+}
+
 /** Reserve billed characters before calling the provider. Returns null when today's limit is reached. */
-export async function reserveChars(userId: string, need: number): Promise<{ userLeft: number } | null> {
+export async function reserveChars(userId: string, need: number, userDaily: number = VOICE_LIMITS.userDailyBilled): Promise<{ userLeft: number } | null> {
   const used = await usageFor(userId);
-  const room = remainingToday(used.userChars, used.siteChars, need);
+  const room = remainingToday(used.userChars, used.siteChars, need, userDaily);
   if (!room.allowed) return null;
   const day = today();
   await env.DB.batch([

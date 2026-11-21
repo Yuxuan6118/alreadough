@@ -65,11 +65,22 @@ const rules: Record<CompanionLang, string> = {
   en: "Treat situation references as a knowledge base. Select an insight that fits the active school and the user's current intent, explain the reasoning, and connect it to a detail the user supplied. Actions, scenes, and exercises in examples are optional; do not mix schools. Do not copy wording, invent facts, predict others' actions, or impersonate or name teachers. If nothing matches, draw on the active school's fundamental concepts.",
 };
 
+/** The fixed part: how to use situation references. Sent every turn, so it sits in the cached front of the prompt. */
+export function coachCorpusRules(lang: CompanionLang) {
+  return rules[lang];
+}
+
 export function coachCorpusInstructions(lang: CompanionLang, coach: CoachMode, request: string, previousUser: string, localCrisisLine = "") {
+  const playbook = coachCorpusPlaybook(lang, coach, request, previousUser, localCrisisLine);
+  return playbook ? `${rules[lang]}\n\n${playbook}` : rules[lang];
+}
+
+/** The part chosen for this turn (matched situations, slang notes, local crisis line); empty when nothing matched. */
+export function coachCorpusPlaybook(lang: CompanionLang, coach: CoachMode, request: string, previousUser: string, localCrisisLine = "") {
   const situations = matchSituations(request, previousUser);
   const slang = slangBlock(lang, `${request}\n${previousUser}`);
   const tail = slang ? `\n\n${slang}` : "";
-  if (!situations.length) return rules[lang] + tail;
+  if (!situations.length) return slang || "";
   const seed = hash(request);
   const blocks = situations.map((situation) => {
     if (lang === "en") {
@@ -92,5 +103,5 @@ export function coachCorpusInstructions(lang: CompanionLang, coach: CoachMode, r
       : `Her local help: ${localCrisisLine || "use her local crisis line and emergency number; never give another country's numbers."}`);
   }
   const heading = lang === "zh" ? "situation_playbook（本轮处境的参考）：" : "situation_playbook (reference for this turn):";
-  return `${rules[lang]}\n\n${heading}\n${blocks.join("\n\n")}${tail}`;
+  return `${heading}\n${blocks.join("\n\n")}${tail}`;
 }

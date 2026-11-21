@@ -49,9 +49,9 @@ export async function founderOverview() {
     all<{ plan: string; amountFen: number; status: string; createdAtMs: number; paidAtMs: number | null; tradeNo: string | null }>(
       "SELECT plan, amount_fen AS amountFen, status, created_at_ms AS createdAtMs, paid_at_ms AS paidAtMs, provider_trade_no AS tradeNo FROM member_orders ORDER BY created_at_ms DESC LIMIT 15"),
     // prompt_version carries the feature tag (persona, affirm, onboarding…); older rows say 'v1' and fall back to the mode.
-    all<{ feature: string; mode: string; calls: number; users: number; tokens: number; failed: number; latency: number }>(
+    all<{ feature: string; mode: string; calls: number; users: number; tokens: number; input: number; cached: number; failed: number; latency: number }>(
       `SELECT CASE WHEN prompt_version IS NULL OR prompt_version = 'v1' THEN mode ELSE prompt_version END AS feature, mode,
-        COUNT(*) AS calls, COUNT(DISTINCT user_hash) AS users, SUM(total_tokens) AS tokens,
+        COUNT(*) AS calls, COUNT(DISTINCT user_hash) AS users, SUM(total_tokens) AS tokens, SUM(input_tokens) AS input, SUM(cached_tokens) AS cached,
         SUM(CASE WHEN total_tokens = 0 THEN 1 ELSE 0 END) AS failed, AVG(latency_ms) AS latency
        FROM beta_events WHERE event_type = 'ai_response' AND created_at >= ? GROUP BY feature ORDER BY calls DESC`, since7Iso),
     all<{ day: string; requests: number; tokens: number; failed: number }>(

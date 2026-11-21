@@ -1,6 +1,6 @@
 import { ArrowsClockwise, BookOpenText, ChatCircleDots, Desktop, ImagesSquare, UserCircle, Waveform } from "@phosphor-icons/react/dist/ssr";
 import type { ComponentType } from "react";
-import { MEMBER_PLANS } from "@/lib/member-client";
+import { MEMBER_PLANS, PORCELAIN_PROMISE } from "@/lib/member-client";
 import SiteFooter from "./SiteFooter";
 import ModuleIndex from "./ModuleIndex";
 import PetPreview from "./PetPreview";
@@ -44,8 +44,8 @@ const copy = {
     perMonth: "/ 30 天",
     session: (n: number) => `每 5 小时约 ${n} 次对话`,
     week: (n: number) => `每周约 ${n} 次对话`,
-    stories: (n: number) => n >= 70 ? "剧本几乎不限（每周 70 篇）" : `每周 ${n} 篇 AI 剧本`,
-    planNotes: { soft: "登录即可使用", deep: "适合每天练习", atelier: "用量是炼石的 3 倍以上；新用户注册后免费体验 7 天" },
+    stories: (n: number) => `每周 ${n} 篇 AI 剧本`,
+    planNotes: { soft: "登录即可使用", deep: "适合每天练习", atelier: `${PORCELAIN_PROMISE.zh}新用户注册后免费体验 7 天。` },
     estimate: "次数是估算，较长的对话会多算一些。",
     pricingCta: "查看会员详情",
   },
@@ -81,8 +81,8 @@ const copy = {
     perMonth: "/ 30 days",
     session: (n: number) => `About ${n} conversations per 5 hours`,
     week: (n: number) => `About ${n} conversations per week`,
-    stories: (n: number) => n >= 70 ? "Scripts almost unlimited (70 a week)" : `${n} AI scripts a week`,
-    planNotes: { soft: "Available as soon as you sign in", deep: "Made for daily practice", atelier: "More than three times Celadon; free for your first 7 days after signing up" },
+    stories: (n: number) => `${n} AI scripts a week`,
+    planNotes: { soft: "Available as soon as you sign in", deep: "Made for daily practice", atelier: `${PORCELAIN_PROMISE.en} Free for your first 7 days after signing up.` },
     estimate: "Counts are estimates; longer conversations count a little more.",
     pricingCta: "Membership details",
   },

@@ -1,5 +1,5 @@
 import { betaStatus } from "@/lib/beta-guard";
-import { getVoice, voiceOwner, refundChars, reserveChars } from "@/lib/voice-db";
+import { getVoice, voiceDailyAllowance, voiceOwner, refundChars, reserveChars } from "@/lib/voice-db";
 import { checkSpeakText } from "@/lib/voice-limits";
 import { DEFAULT_VOICE, synthesize } from "@/lib/voice-service";
 
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   if (!checked.ok) return json({ error: checked.code }, 400);
 
   const mine = body.useMyVoice === false ? null : await getVoice(userId);
-  const reservation = await reserveChars(userId, checked.billed);
+  const reservation = await reserveChars(userId, checked.billed, await voiceDailyAllowance(request));
   if (!reservation) return json({ error: "VOICE_DAILY_LIMIT" }, 429);
 
   const spoken = await synthesize(checked.text, mine?.voiceId || DEFAULT_VOICE);

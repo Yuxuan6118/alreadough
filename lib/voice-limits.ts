@@ -10,7 +10,7 @@ export function billedChars(text: string): number {
 export const VOICE_LIMITS = {
   /** one request */
   maxBilledPerRequest: 3000,
-  /** per person per day, in billed characters (about 4,000 Chinese characters) */
+  /** per person per day, in billed characters (about 4,000 Chinese characters); with membership off (local dev) */
   userDailyBilled: 8000,
   /** whole site per day, a cost backstop */
   globalDailyBilled: 600_000,
@@ -22,6 +22,12 @@ export const VOICE_LIMITS = {
   /** the clone sample, as a data URI of WAV, in bytes */
   maxSampleBytes: 6_000_000,
 } as const;
+
+/**
+ * Billed characters a day by plan (a Chinese character counts as two). The free plan gets about 2,100 a week, kept as a
+ * daily amount so "come back tomorrow" stays true. Sized for cost: reports/定价限额与成本测算.md (2026-11-21).
+ */
+export const VOICE_DAILY_BY_PLAN = { soft: 300, deep: 2000, atelier: 8000 } as const;
 
 export type SpeakCheck = { ok: true; text: string; billed: number } | { ok: false; code: "EMPTY_TEXT" | "TEXT_TOO_LONG" };
 
@@ -36,8 +42,8 @@ export function checkSpeakText(raw: unknown): SpeakCheck {
 }
 
 /** Does the person still have room today? Returns how many billed characters are left. */
-export function remainingToday(usedByUser: number, usedBySite: number, need: number) {
-  const userLeft = Math.max(0, VOICE_LIMITS.userDailyBilled - usedByUser);
+export function remainingToday(usedByUser: number, usedBySite: number, need: number, userDaily: number = VOICE_LIMITS.userDailyBilled) {
+  const userLeft = Math.max(0, userDaily - usedByUser);
   const siteLeft = Math.max(0, VOICE_LIMITS.globalDailyBilled - usedBySite);
   return { userLeft, siteLeft, allowed: need <= userLeft && need <= siteLeft };
 }

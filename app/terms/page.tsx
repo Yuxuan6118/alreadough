@@ -61,6 +61,7 @@ export default function TermsPage() {
         <p><a href="/pricing">价格页</a>列出抟土免费档、炼石（¥39/30 天）和天成（¥149/30 天）。仅登记开放通知不会扣款或开启续费。</p>
         <p>支付宝会员采用一次性付款，购买后使用 30 天，到期后可手动续购，不会自动扣款。付款入口是否开放以价格页实际显示为准。若日后开通银行卡自动续费，结账前会显示计费周期、续费条件及取消方式。</p>
         <p>TA 的截图识别可单次购买（¥9.9 一次，每次最多 20 张截图），购买的次数不会过期，识别失败不扣次数。付费的天成会员每周可免费使用 10 次。</p>
+        <p>会员额度用完后，可以购买对话加油包（¥15 / US$2.99，100 次回复）。加油包在额度用完后才开始使用，不会过期，回复失败不扣次数。</p>
         <h2 id="invitations">邀请码与活动</h2>
         <p>邀请码和活动权益没有现金价值，不能转让、出售或兑换现金。我们可以随时调整或结束活动。发现批量注册、刷码或其他滥用行为时，我们可以收回相关权益并限制账户。</p>
         <h2>退款</h2>
@@ -128,6 +129,7 @@ export default function TermsPage() {
           <p className="legal-en">The <a href="/en/pricing">pricing page</a> lists Kaolin (free), Celadon (CNY 39 for 30 days), and Porcelain (CNY 149 for 30 days). Signing up for a launch notice does not charge you or start a subscription.</p>
           <p className="legal-en">Alipay memberships use a one-time payment for 30 days. You may renew manually; there is no automatic charge. The pricing page shows whether checkout is currently open. If automatically renewing card subscriptions become available, checkout will show the billing period, renewal terms, and how to cancel.</p>
           <p className="legal-en">Screenshot import for TA can be bought one use at a time (CNY 9.9 per use, up to 20 screenshots each). Bought uses do not expire, and a failed read is not counted. Paid Porcelain members get 10 uses a week at no extra charge.</p>
+          <p className="legal-en">Once your plan&apos;s allowance is used up, you can buy a chat pack (CNY 15 / US$2.99 for 100 replies). A pack is only used after your allowance runs out, never expires, and a failed reply is not counted.</p>
           <h3>Refunds</h3>
           <p className="legal-en">A free reservation involves no payment. Email <a href={`mailto:${SITE_RECORD.contactEmail}`}>{SITE_RECORD.contactEmail}</a> with your order number and a description if you are charged twice or if we cannot provide the access you paid for. After verification, we refund the duplicate amount or the payment for access we could not provide. Other refund requests are reviewed based on the order circumstances. Approved refunds are sent back through the original payment method. Your statutory rights still apply.</p>
           <h3 id="invitations-en">Invitation codes and promotions</h3>

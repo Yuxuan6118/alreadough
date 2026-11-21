@@ -171,10 +171,6 @@ export async function POST(request: Request) {
     }, 503);
   }
 
-  const chatModel = process.env.OPENAI_CHAT_MODEL || "deepseek-v4-flash-0731";
-  const creativeModel = process.env.OPENAI_CREATIVE_MODEL || chatModel;
-  // stories are long, detailed scripts; they can run on a stronger model than chat (OPENAI_STORY_MODEL)
-  const model = payload.mode === "chat" ? chatModel : payload.mode === "story" ? (process.env.OPENAI_STORY_MODEL || creativeModel) : creativeModel;
   const gate = await beginBetaRequest(request, payload.sessionId, payload.mode);
   if (!gate.ok) {
     const messages: Record<string, Record<"zh" | "en", string>> = {
@@ -191,6 +187,11 @@ export async function POST(request: Request) {
   }
 
   const startedAt = Date.now();
+  // Every plan gets the same (best) model; plans differ in how much, not in how well (founder, 2026-11-21).
+  const chatModel = process.env.OPENAI_CHAT_MODEL || "deepseek-v4-flash-0731";
+  const creativeModel = process.env.OPENAI_CREATIVE_MODEL || chatModel;
+  // stories are long, detailed scripts; they can run on a stronger model than chat (OPENAI_STORY_MODEL)
+  const model = payload.mode === "chat" ? chatModel : payload.mode === "story" ? (process.env.OPENAI_STORY_MODEL || creativeModel) : creativeModel;
 
   if (affirm) {
     const failed = () => json({ error: "AI_REQUEST_FAILED", message: payload.lang === "zh" ? "AI 暂时没有连接成功，请稍后再试。" : "AI could not connect. Please try again shortly." }, 502);

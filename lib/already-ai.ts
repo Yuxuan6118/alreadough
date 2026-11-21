@@ -1,4 +1,4 @@
-import { coachCorpusInstructions } from "./coach-corpus";
+import { coachCorpusPlaybook, coachCorpusRules } from "./coach-corpus";
 import { coachCardsBlock, revisionCardsBlock } from "./coach-cards";
 import { relationshipImagery } from "./reply-guards";
 import { crisisResources } from "./crisis-resources";
@@ -240,15 +240,51 @@ export function buildInstructions(lang: CompanionLang, mode: CompanionMode, coac
   const methodLock = mode !== "chat" ? "" : lang === "zh"
     ? `\n\n本轮的引导方式是${current}。recent_conversation 里较早的回复可能用的是别的方法，那是她之前选的；这一轮只用${current}的概念回答，不提${others.join("、")}或其他流派的名字和术语。`
     : `\n\nThis turn's guidance method is ${current}. Earlier replies in recent_conversation may use another method she chose before; answer this turn only with ${current} concepts and do not name ${others.join(", ")} or any other school, or use their terms.`;
+  // Only what is the same on every turn of this mode: the provider's prompt cache reuses an identical front at an eighth
+  // of the input price. What is chosen for this turn (cards, situation playbook) goes at the very end of the request,
+  // see turnNotes().
+  const fixed = `${base}\n\n${voice}\n\n${guidance[lang]}\n\n${modeNote}\n\n${goalChoice}${chatReview}${editing}${methodLock}\n\n${coachCorpusRules(lang)}\n\n${jsonNote}`;
+  // older callers (tests) still pass the turn's request: then the turn's notes follow, as before
+  const notes = request ? turnNotes(lang, mode, coachMode, request, previousUser, country, recentAssistant) : "";
+  return notes ? `${fixed}\n\n${notes}` : fixed;
+}
+
+/** The cards and situation playbook picked for this turn's request. */
+export function turnNotes(lang: CompanionLang, mode: CompanionMode, coachMode: CoachMode = "assumption", request = "", previousUser = "", country: string | null = null, recentAssistant: string[] = []) {
+  if (mode === "revision") coachMode = "assumption";
   const cards = mode === "chat" ? coachCardsBlock(lang, coachMode, request, previousUser, recentAssistant) : mode === "revision" ? revisionCardsBlock(lang, request) : "";
-  return `${base}\n\n${voice}\n\n${guidance[lang]}${cards ? `\n\n${cards}` : ""}\n\n${modeNote}\n\n${coachCorpusInstructions(lang, coachMode, request, previousUser, crisisResources(lang, country))}\n\n${goalChoice}${chatReview}${editing}${methodLock}\n\n${jsonNote}`;
+  const playbook = coachCorpusPlaybook(lang, coachMode, request, previousUser, crisisResources(lang, country));
+  return [cards, playbook].filter(Boolean).join("\n\n");
+}
+
+/**
+ * Safety in two levels (founder, 2026-11-21): an explicit wish to die, self-harm or danger stops the practice for that
+ * turn; "活着没意思" and the like usually mean life feels dull, so the reply goes on as usual with one gentle, direct
+ * question, which is what screening guides do (C-SSRS asks the wish-to-be-dead question outright). Restated last so it wins.
+ */
+const safetyFirst: Record<CompanionLang, string> = {
+  zh: "她明确说想死、不想活了、想伤害自己，或者正处在危险中时，这一轮只做一件事：按上面的安全规则，先关心她此刻安不安全、身边有没有能马上联系的人，给出她所在地的求助方式。她只是说活着没意思、不知道活着有什么意义这类话时，照常回应她，同时在回复里自然地问一句：这个没意思，是日子过得没劲，还是有过不想活下去的念头；她说有，就按上面的安全规则来。",
+  en: "When she says outright that she wants to die, does not want to live, wants to hurt herself, or is in danger, this turn does one thing only: follow the safety rules above, ask whether she is safe right now and who she can reach, and give her local help. When she only says life feels pointless or meaningless, answer her as usual and, within the reply, ask one gentle, direct question: does it feel dull, or has she had thoughts of not wanting to live; if she says yes, follow the safety rules above.",
+};
+
+/** Her local crisis line, written out: without it the model filled in China's numbers for a user in the US (2026-11-21). */
+function localHelp(lang: CompanionLang, country: string | null) {
+  const line = crisisResources(lang, country);
+  if (line) return lang === "zh" ? `她所在地的求助方式：${line}` : ` Her local help: ${line}`;
+  return lang === "zh" ? "她所在地的求助方式：用她所在国家或地区的危机热线和急救电话，不确定时请她拨打当地急救电话。" : " Her local help: her own country's crisis line and emergency number; if unsure, ask her to call local emergency services.";
 }
 
 /** Chat Completions messages for the companion turn (OpenAI-compatible providers). */
 export function buildMessages(payload: CompanionRequest) {
   const previousUser = payload.recentMessages.slice().reverse().find((message) => message.role === "user" && message.text !== payload.userInput)?.text ?? "";
+  const notes = turnNotes(payload.lang, payload.mode, payload.goal.coachMode, payload.userInput, previousUser, payload.country ?? null, payload.recentMessages.filter((message) => message.role === "ai").map((message) => message.text));
+  const rephrase = payload.mode === "revision" && payload.rephrase?.trim() ? rephraseNote(payload.lang) : "";
+  const tail = [notes, rephrase].filter(Boolean).join("\n\n");
+  // Two system messages: the provider caches a whole identical system message, so the fixed rules sit alone in the
+  // first; this turn's cards and playbook follow in a second, still as instructions (measured 2026-11-21).
   return [
-    { role: "system" as const, content: buildInstructions(payload.lang, payload.mode, payload.goal.coachMode, payload.userInput, previousUser, payload.country ?? null, payload.recentMessages.filter((message) => message.role === "ai").map((message) => message.text)) + (payload.mode === "revision" && payload.rephrase?.trim() ? `\n\n${rephraseNote(payload.lang)}` : "") },
+    { role: "system" as const, content: buildInstructions(payload.lang, payload.mode, payload.goal.coachMode) + (payload.mode === "chat" ? `\n\n${safetyFirst[payload.lang]}${localHelp(payload.lang, payload.country ?? null)}` : "") },
+    ...(tail ? [{ role: "system" as const, content: tail }] : []),
     { role: "user" as const, content: buildInput(payload) },
   ];
 }
@@ -288,7 +324,11 @@ export function buildInput(payload: CompanionRequest) {
     .slice(0, 6)
     .map(({ item }) => ({ kind: item.kind, title: clip(item.title, 90), detail: clip(item.detail, 350), keywords: (item.keywords || []).slice(0, 4) }));
 
+  // Order matters for the prompt cache: what stays the same through a conversation comes first; the journey summary
+  // (rewritten every turn), the memories picked for this request and the request itself come last.
   return JSON.stringify({
+    response_language: payload.lang,
+    response_mode: payload.mode,
     active_goal: {
       status: payload.goal.status,
       category: payload.goal.wishCategory || "other",
@@ -303,22 +343,20 @@ export function buildInput(payload: CompanionRequest) {
       canon: (payload.goal.canon || []).slice(0, 6).map((item) => clip(item, 600)),
       response_preferences: (payload.goal.responsePreferences || []).slice(0, 6).map((item) => clip(item, 240)),
     },
-    journey_summary: clip(payload.goal.journeySummary, 1800),
     ...(payload.goal.profile ? {
       about_her: [clip(payload.goal.profile.about, 1200), clip(payload.goal.profile.situation, 1200)].filter(Boolean),
       people_in_her_life: (payload.goal.profile.people || []).slice(0, 12).map((person) => ({ name: clip(person.name, 40), relation: clip(person.relation, 80) })),
       never_mention: (payload.goal.profile.neverInclude || []).slice(0, 30).map((item) => clip(item, 80)).filter(Boolean),
     } : {}),
-    relevant_memories: relevantMemories,
-    accepted_scene_ledger: (payload.goal.acceptedSceneLedger || []).slice(0, 8).map((item) => clip(item, 500)),
-    recent_conversation: recent,
-    recent_ai_openings: recentAiOpenings,
     ...(payload.goal.wishCategory === "relationship" ? { imagery_guidance: relationshipImagery(payload.lang, payload.goal.relationKind) } : {}),
+    accepted_scene_ledger: (payload.goal.acceptedSceneLedger || []).slice(0, 8).map((item) => clip(item, 500)),
     recent_accepted_revisions: payload.recentRevisions.slice(0, 4).map((item) => clip(item, 900)),
+    recent_conversation: recent,
+    journey_summary: clip(payload.goal.journeySummary, 1800),
+    relevant_memories: relevantMemories,
+    recent_ai_openings: recentAiOpenings,
     current_request: clip(payload.userInput, 4000),
     ...(payload.mode === "revision" && payload.rephrase?.trim() ? { say_it_another_way: clip(payload.rephrase, 600) } : {}),
-    response_language: payload.lang,
-    response_mode: payload.mode,
   });
 }
 

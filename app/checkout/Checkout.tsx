@@ -3,7 +3,7 @@
 import { ArrowLeft, CreditCard, Wallet } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import DoughHop from "../components/DoughHop";
-import { MEMBER_PLANS, memberErrorText, memberPost, submitCheckoutForm, type MemberStatus } from "@/lib/member-client";
+import { CHAT_PACK, MEMBER_PLANS, PORCELAIN_PROMISE, memberErrorText, memberPost, submitCheckoutForm, type MemberStatus } from "@/lib/member-client";
 import SiteFooter from "../components/SiteFooter";
 import "./checkout.css";
 
@@ -13,8 +13,9 @@ type Method = "alipay" | "card";
 
 /** Card checkout (Waffo) is charged in USD; keep in step with WAFFO_PRICE_CENTS in lib/waffo.ts. */
 const CARD_PRICE: Record<PaidPlan, string> = { deep: "US$6.49", atelier: "US$22.99" };
-/** One TA screenshot import (?item=screenshots); keep in step with ORDER_PRICE_FEN and WAFFO_PRICE_CENTS. */
-const SCREENSHOT_PRICE = { alipay: 9.9, card: "US$1.99" };
+/** One-off items (?item=): one TA screenshot import, or a chat pack; keep in step with ORDER_PRICE_FEN and WAFFO_PRICE_CENTS. */
+const ITEM_PRICE: Record<Extra, { alipay: number; card: string }> = { screenshots: { alipay: 9.9, card: "US$1.99" }, chats: { alipay: CHAT_PACK.alipay, card: CHAT_PACK.card } };
+type Extra = "screenshots" | "chats";
 const PAID_PLANS = MEMBER_PLANS.filter((plan) => plan.price > 0) as unknown as { id: PaidPlan; name: Record<Lang, string>; price: number; session: number; week: number; stories: number }[];
 
 /**
@@ -25,7 +26,7 @@ export default function Checkout({ initialLang }: { initialLang: Lang }) {
   const lang = initialLang;
   const zh = lang === "zh";
   const [plan, setPlan] = useState<PaidPlan>("deep");
-  const [screenshots, setScreenshots] = useState(false);
+  const [extra, setExtra] = useState<Extra | null>(null);
   const [method, setMethod] = useState<Method>("alipay");
   const [paid, setPaid] = useState(false);
   const [member, setMember] = useState<MemberStatus | null>(null);
@@ -47,7 +48,8 @@ export default function Checkout({ initialLang }: { initialLang: Lang }) {
     /* eslint-disable react-hooks/set-state-in-effect -- the plan and the "back from paying" flag come from the URL, which only exists in the browser */
     const params = new URLSearchParams(window.location.search);
     if (params.get("plan") === "atelier") setPlan("atelier");
-    if (params.get("item") === "screenshots") setScreenshots(true);
+    const wanted = params.get("item");
+    if (wanted === "screenshots" || wanted === "chats") setExtra(wanted);
     const back = params.get("paid");
     void refresh().catch(() => undefined);
     if (!back) return;
@@ -61,12 +63,12 @@ export default function Checkout({ initialLang }: { initialLang: Lang }) {
   // Fall back to whichever method is actually open.
   useEffect(() => {
     if (!member) return;
-    const card = screenshots ? !!member.screenshotCardAvailable : !!member.cardCheckoutAvailable;
+    const card = extra === "screenshots" ? !!member.screenshotCardAvailable : extra === "chats" ? !!member.chatCardAvailable : !!member.cardCheckoutAvailable;
     /* eslint-disable react-hooks/set-state-in-effect -- which methods are open is only known once the status has loaded */
     if (method === "alipay" && !member.checkoutAvailable && card) setMethod("card");
     if (method === "card" && !card && member.checkoutAvailable) setMethod("alipay");
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [member, method, screenshots]);
+  }, [member, method, extra]);
 
 
   async function act(path: string, body: Record<string, string> = {}) {
@@ -88,9 +90,9 @@ export default function Checkout({ initialLang }: { initialLang: Lang }) {
 
   const selected = PAID_PLANS.find((item) => item.id === plan)!;
   const membership = member?.membership;
-  const cardOpen = screenshots ? !!member?.screenshotCardAvailable : !!member?.cardCheckoutAvailable;
+  const cardOpen = extra === "screenshots" ? !!member?.screenshotCardAvailable : extra === "chats" ? !!member?.chatCardAvailable : !!member?.cardCheckoutAvailable;
   const open = !!member?.enabled && (member.checkoutAvailable || cardOpen);
-  const item = screenshots ? "screenshots" : plan;
+  const item = extra ?? plan;
   const renewing = !!membership?.periodEndMs && membership.plan === plan && !membership.referral;
   const date = (ms: number) => new Date(ms).toLocaleDateString(zh ? "zh-CN" : "en-US");
   const pricing = zh ? "/pricing" : "/en/pricing";
@@ -108,7 +110,13 @@ export default function Checkout({ initialLang }: { initialLang: Lang }) {
             if (!paid && document.referrer.startsWith(window.location.origin) && window.history.length > 1) { event.preventDefault(); window.history.back(); }
           }}><ArrowLeft size={14} />{zh ? "返回" : "Back"}</a>
 
-          {paid && screenshots ? <>
+          {paid && extra === "chats" ? <>
+            <h1>{zh ? "付款完成" : "Payment received"}</h1>
+            <p className="checkout-lead">{membership?.chatCredits
+              ? (zh ? `对话加油包还剩 ${membership.chatCredits} 次，用完会员额度以后自动接着用。` : `${membership.chatCredits} replies left in your chat pack. They are used once your plan's allowance runs out.`)
+              : (zh ? "几秒内到账，这个页面会自动刷新。" : "It arrives within a few seconds. This page refreshes on its own.")}</p>
+            <a className="checkout-primary" href="/app">{zh ? "回到 AlreaDough" : "Back to AlreaDough"}</a>
+          </> : paid && extra === "screenshots" ? <>
             <h1>{zh ? "付款完成" : "Payment received"}</h1>
             <p className="checkout-lead">{member?.screenshots?.credits
               ? (zh ? `截图识别还剩 ${member.screenshots.credits} 次，在 TA 的「导入聊天记录」里用。` : `${member.screenshots.credits} screenshot import${member.screenshots.credits > 1 ? "s" : ""} left. Use it under TA → Import a chat.`)
@@ -121,12 +129,15 @@ export default function Checkout({ initialLang }: { initialLang: Lang }) {
               : (zh ? "会员会在几秒内生效，这个页面会自动刷新。" : "Your membership updates within a few seconds. This page refreshes on its own.")}</p>
             <a className="checkout-primary" href="/app">{zh ? "回到 AlreaDough" : "Back to AlreaDough"}</a>
           </> : <>
-            {screenshots ? <>
+            {extra === "chats" ? <>
+              <h1>{zh ? "对话加油包" : "Chat pack"}<span>{zh ? ` ${CHAT_PACK.replies} 次` : ` · ${CHAT_PACK.replies} replies`}</span></h1>
+              <p className="checkout-lead">{zh ? "会员额度用完以后接着聊，不用等到下一个 5 小时或下一周。买了不会过期，回复失败不扣次数。" : "Keep talking after your plan's allowance runs out, without waiting for the next 5 hours or the next week. It never expires, and a failed reply is not counted."}</p>
+            </> : extra === "screenshots" ? <>
               <h1>{zh ? "截图识别" : "Screenshot import"}<span>{zh ? " 1 次" : " · 1 use"}</span></h1>
               <p className="checkout-lead">{zh ? "把和 TA 的聊天截图识别成文字，一次最多 20 张。买了不会过期，识别失败不扣次数。" : "Turns screenshots of your chat with TA into text, up to 20 at a time. It never expires, and a failed read is not counted."}</p>
             </> : <>
             <h1>{selected.name[lang]}<span>{zh ? " 30 天" : " · 30 days"}</span></h1>
-            <p className="checkout-lead">{zh ? `每 5 小时约 ${selected.session} 次，每周约 ${selected.week} 次；${selected.id === "atelier" ? "剧本几乎不限（每周 70 篇）" : `每周 ${selected.stories} 篇 AI 剧本`}。` : `About ${selected.session} replies per 5 hours and ${selected.week} per week; ${selected.id === "atelier" ? "scripts almost unlimited (70 a week)" : `${selected.stories} AI scripts a week`}.`}<br />{zh ? "一次购买 30 天，到期不会自动扣款。" : "One payment for 30 days. It never renews on its own."}</p>
+            <p className="checkout-lead">{zh ? `每 5 小时约 ${selected.session} 次，每周约 ${selected.week} 次；每周 ${selected.stories} 篇 AI 剧本。` : `About ${selected.session} replies per 5 hours and ${selected.week} per week; ${selected.stories} AI scripts a week.`}{selected.id === "atelier" && <><br />{PORCELAIN_PROMISE[lang]}</>}<br />{zh ? "一次购买 30 天，到期不会自动扣款。" : "One payment for 30 days. It never renews on its own."}</p>
             </>}
 
 
@@ -156,7 +167,7 @@ export default function Checkout({ initialLang }: { initialLang: Lang }) {
                     <input type="radio" name="method" checked={method === "alipay"} onChange={() => setMethod("alipay")} />
                     <Wallet size={20} className="option-icon" />
                     <span className="option-text"><strong>{zh ? "支付宝" : "Alipay"}</strong><small>{zh ? "用支付宝扫二维码" : "Scan the QR code with Alipay"}</small></span>
-                    <span className="option-price">¥{screenshots ? SCREENSHOT_PRICE.alipay : selected.price}</span>
+                    <span className="option-price">¥{extra ? ITEM_PRICE[extra].alipay : selected.price}</span>
                   </label>
                 )}
                 {cardOpen && (
@@ -164,7 +175,7 @@ export default function Checkout({ initialLang }: { initialLang: Lang }) {
                     <input type="radio" name="method" checked={method === "card"} onChange={() => setMethod("card")} />
                     <CreditCard size={20} className="option-icon" />
                     <span className="option-text"><strong>{zh ? "银行卡" : "Card"}</strong><small>Visa / Mastercard / Apple Pay / Google Pay</small></span>
-                    <span className="option-price">{screenshots ? SCREENSHOT_PRICE.card : CARD_PRICE[plan]}</span>
+                    <span className="option-price">{extra ? ITEM_PRICE[extra].card : CARD_PRICE[plan]}</span>
                   </label>
                 )}
               </fieldset>
@@ -174,13 +185,13 @@ export default function Checkout({ initialLang }: { initialLang: Lang }) {
                 {busy ? <span className="dough-loading"><DoughHop size="xs"/>{zh ? "正在跳转…" : "Opening…"}</span> : method === "card" ? (zh ? "使用银行卡付款" : "Pay by card") : (zh ? "使用支付宝付款" : "Pay with Alipay")}
               </button>
               <p className="checkout-note">
-                {!screenshots && renewing && membership?.periodEndMs ? (zh ? `会在现有有效期（到 ${date(membership.periodEndMs)}）之后再加 30 天。` : `Adds 30 days after your current period, which ends ${date(membership.periodEndMs)}. `) : null}
+                {!extra && renewing && membership?.periodEndMs ? (zh ? `会在现有有效期（到 ${date(membership.periodEndMs)}）之后再加 30 天。` : `Adds 30 days after your current period, which ends ${date(membership.periodEndMs)}. `) : null}
                 {method === "card" ? (zh ? "美元报价，实付币种和金额以收银台为准。" : "Priced in USD. The checkout page shows the final currency and amount.")
-                  : screenshots ? (zh ? "下一步会显示二维码，用手机支付宝扫码付款，付完自动到账。" : "Next you will see a QR code. Scan it with Alipay on your phone; the use is added once it is paid.")
+                  : extra ? (zh ? "下一步会显示二维码，用手机支付宝扫码付款，付完自动到账。" : `Next you will see a QR code. Scan it with Alipay on your phone; ${extra === "chats" ? "the replies are added" : "the use is added"} once it is paid.`)
                   : (zh ? "下一步会显示二维码，用手机支付宝扫码付款，付完自动开通。" : "Next you will see a QR code. Scan it with Alipay on your phone; your plan starts once it is paid.")}
               </p>
 
-              {!screenshots && plan === "atelier" && !membership?.referralUsed && (showReferral ? (
+              {!extra && plan === "atelier" && !membership?.referralUsed && (showReferral ? (
                 <div className="checkout-referral">
                   <label htmlFor="checkout-referral">{zh ? "邀请码" : "Invitation code"}</label>
                   <div><input id="checkout-referral" type="text" maxLength={32} value={referral} onChange={(event) => setReferral(event.target.value)} />

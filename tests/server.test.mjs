@@ -86,6 +86,27 @@ test("allowance: a free account gets its chat and story limits, and failed repli
   assert.equal(await membership.reserveStory("app:old"), false);
 });
 
+test("chat pack: 100 replies once paid, used only after the plan's allowance, a failed reply gives its credit back", async () => {
+  await env.DB.prepare("INSERT INTO member_accounts (provider_id, account_id, created_at) VALUES ('pack', 'app:pack', ?)").bind(Date.now() - 30 * DAY).run();
+  const pack = await order("app:pack", "chats");
+  assert.equal(pack.amountFen, 1500);
+  await membership.grantPaidOrder(pack, "trade-pack");
+  await membership.grantPaidOrder(pack, "trade-pack");
+  assert.equal(await membership.chatCredits("app:pack"), membership.CHAT_PACK.replies, "a repeated callback does not add twice");
+  for (let i = 0; i < membership.MEMBER_LIMITS.soft.fiveHours; i += 1) assert.equal((await membership.reserveMemberUnit("app:pack")).source, "plan");
+  assert.equal(await membership.chatCredits("app:pack"), membership.CHAT_PACK.replies, "the plan's allowance is used first");
+  const extra = await membership.reserveMemberUnit("app:pack");
+  assert.equal(extra.ok, true);
+  assert.equal(extra.source, "credit");
+  assert.equal(await membership.chatCredits("app:pack"), membership.CHAT_PACK.replies - 1);
+  await membership.finishMemberUnit("app:pack", 1, false, undefined, "credit");
+  assert.equal(await membership.chatCredits("app:pack"), membership.CHAT_PACK.replies, "a failed reply gives the credit back");
+  await membership.finishMemberUnit("app:pack", 3, true, undefined, "credit");
+  assert.equal(await membership.chatCredits("app:pack"), membership.CHAT_PACK.replies, "a long reply from the pack is still one credit");
+  await env.DB.prepare("UPDATE member_credits SET balance = 0 WHERE account_id = 'app:pack' AND kind = 'chat'").run();
+  assert.equal((await membership.reserveMemberUnit("app:pack")).ok, false, "no plan allowance and no pack left");
+});
+
 test("invitation code: 30 days of Atelier once per account, starting after the Atelier days she already has", async () => {
   const now = Date.now();
   assert.equal(membership.isReferralCode(" 20260910 "), true);
@@ -337,4 +358,12 @@ test("screenshot import: paid Atelier is included up to the weekly count, then a
 test("screenshot import: paid Deep Practice is not included", async () => {
   await membership.grantPaidOrder(await order("app:deep", "deep"), "t");
   assert.equal((await shots.screenshotAccess("app:deep")).mode, "buy");
+});
+
+test("voice reading allowance follows the plan: free is the smallest, Porcelain the largest", async () => {
+  const { VOICE_DAILY_BY_PLAN, remainingToday } = await import("../lib/voice-limits.ts");
+  assert.ok(VOICE_DAILY_BY_PLAN.soft < VOICE_DAILY_BY_PLAN.deep && VOICE_DAILY_BY_PLAN.deep < VOICE_DAILY_BY_PLAN.atelier);
+  assert.equal(remainingToday(250, 0, 100, VOICE_DAILY_BY_PLAN.soft).allowed, false);
+  assert.equal(remainingToday(250, 0, 100, VOICE_DAILY_BY_PLAN.deep).allowed, true);
+  assert.equal(remainingToday(0, 0, 100).allowed, true);
 });

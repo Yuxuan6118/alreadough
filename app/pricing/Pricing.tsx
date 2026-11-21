@@ -4,7 +4,7 @@ import { ArrowRight, Check, LockKey } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import DoughHop from "../components/DoughHop";
 import { getDeviceSessionId } from "@/lib/device-session";
-import { MEMBER_PLANS, type MemberStatus } from "@/lib/member-client";
+import { CHAT_PACK, MEMBER_PLANS, PORCELAIN_PROMISE, type MemberStatus } from "@/lib/member-client";
 import SiteFooter from "../components/SiteFooter";
 import "./pricing.css";
 
@@ -80,9 +80,9 @@ export default function Pricing({ initialLang }: { initialLang: "zh" | "en" }) {
                 <ul>
                   <li><Check weight="bold" />{zh ? `每 5 小时约 ${plan.session} 次普通聊天的用量` : `About ${plan.session} standard chat turns per 5 hours`}</li>
                   <li><Check weight="bold" />{zh ? `每周约 ${plan.week} 次普通聊天的用量` : `About ${plan.week} standard chat turns per week`}</li>
-                  <li><Check weight="bold" />{zh ? `${plan.id === "atelier" ? "剧本几乎不限（每周 70 篇）" : `每周 ${plan.stories} 篇 AI 剧本`}` : `${plan.id === "atelier" ? "Scripts almost unlimited (70 a week)" : `${plan.stories} AI scripts a week`}`}</li>
+                  <li><Check weight="bold" />{zh ? `每周 ${plan.stories} 篇 AI 剧本` : `${plan.stories} AI scripts a week`}</li>
                   {plan.id === "atelier" && <li><Check weight="bold" />{zh ? "新用户注册后免费体验 7 天" : "Free for your first 7 days after signing up"}</li>}
-                  {plan.id === "atelier" && <li><Check weight="bold" />{zh ? "炼石用量的 3 倍以上" : "More than three times the Celadon allowance"}</li>}
+                  {plan.id === "atelier" && <li><Check weight="bold" />{PORCELAIN_PROMISE[lang]}</li>}
                 </ul>
               </article>
             );
@@ -95,6 +95,7 @@ export default function Pricing({ initialLang }: { initialLang: "zh" | "en" }) {
           <p>{selected.price > 0
             ? (zh ? "支付宝或银行卡付款，下一步选择。" : "Pay with Alipay or card on the next step.")
             : (zh ? "不用付款，登录后就能用。" : "No payment needed. Sign in and start.")}</p>
+          <p>{zh ? `额度用完了，可以买对话加油包接着聊：${CHAT_PACK.replies} 次 ¥${CHAT_PACK.alipay}，不过期。` : `Ran out? A chat pack adds ${CHAT_PACK.replies} replies for ${CHAT_PACK.card}, and it never expires.`}</p>
           {member.authenticated && member.membership && <p className="pricing-current">{zh ? "你现在是" : "You are on "}{plans.find((p) => p.id === member.membership?.plan)?.name[lang]}{member.membership.periodEndMs ? (zh ? `，有效期到 ${new Date(member.membership.periodEndMs).toLocaleDateString("zh-CN")}` : ` until ${new Date(member.membership.periodEndMs).toLocaleDateString("en-US")}`) : ""}{zh ? "。" : "."}</p>}
         </section> : <section className="checkout-preview">
           <div>

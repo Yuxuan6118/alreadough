@@ -5,7 +5,7 @@ import { memberAccount } from "./member-auth";
 import { finishMemberUnit, membershipEnabled, releaseStory, reserveMemberUnit, reserveStory, usageUnits } from "./membership";
 
 export type BetaMode = "chat" | "revision" | "story";
-export type TokenUsage = { input_tokens?: number; output_tokens?: number; total_tokens?: number } | null;
+export type TokenUsage = { input_tokens?: number; output_tokens?: number; total_tokens?: number; cached_tokens?: number } | null;
 
 export function combineTokenUsage(first: TokenUsage, second: TokenUsage): TokenUsage {
   if (!second) return first;
@@ -14,6 +14,7 @@ export function combineTokenUsage(first: TokenUsage, second: TokenUsage): TokenU
     input_tokens: (first.input_tokens || 0) + (second.input_tokens || 0),
     output_tokens: (first.output_tokens || 0) + (second.output_tokens || 0),
     total_tokens: (first.total_tokens || 0) + (second.total_tokens || 0),
+    cached_tokens: (first.cached_tokens || 0) + (second.cached_tokens || 0),
   };
 }
 
@@ -24,7 +25,8 @@ export function combineTokenUsage(first: TokenUsage, second: TokenUsage): TokenU
 // above any real usage pattern, so a real person should never hit it.
 const LIMITS = {
   globalRequests: Number(process.env.BETA_GLOBAL_DAILY_REQUESTS || 3000),
-  globalTokens: Number(process.env.BETA_GLOBAL_DAILY_TOKENS || 15_000_000),
+  // about ¥30 a day on qwen3.8-max; raise it as revenue grows (reports/定价限额与成本测算.md)
+  globalTokens: Number(process.env.BETA_GLOBAL_DAILY_TOKENS || 2_000_000),
 };
 // How long a device's row is kept around for the founder dashboard's usage stats.
 // Not a trial window — nothing reads this to decide whether to allow a request.
@@ -33,7 +35,8 @@ const DEVICE_ROW_RETENTION_DAYS = 3650;
 type UserRow = { total_requests: number; total_tokens: number };
 type GlobalRow = { request_count: number; total_tokens: number };
 
-export type BetaTicket = { userId: string; userHash: string; day: string; mode: BetaMode; memberAccountId?: string; memberSettled?: boolean };
+/** `memberSource`: the reply came from the plan's allowance or from her chat pack (settled differently). */
+export type BetaTicket = { userId: string; userHash: string; day: string; mode: BetaMode; memberAccountId?: string; memberSettled?: boolean; memberSource?: "plan" | "credit" };
 
 function dayKey(date = new Date()) { return date.toISOString().slice(0, 10); }
 function isoAfterDays(days: number) { const date = new Date(); date.setUTCDate(date.getUTCDate() + days); return date.toISOString(); }
@@ -95,15 +98,18 @@ export async function beginBetaRequest(request: Request, sessionId: string, mode
   // A story script is counted in its own weekly allowance, not in the chat allowance.
   if (memberAccountId && mode === "story") {
     if (!await reserveStory(memberAccountId)) return { ok: false as const, code: "STORY_LIMIT" };
-  } else if (memberAccountId) {
+  }
+  let memberSource: "plan" | "credit" | undefined;
+  if (memberAccountId && mode !== "story") {
     const reservation = await reserveMemberUnit(memberAccountId);
     if (!reservation.ok) return { ok: false as const, code: "MEMBERSHIP_LIMIT" };
+    memberSource = reservation.source;
   }
   const now = new Date().toISOString();
   await env.DB.prepare(`INSERT INTO beta_usage_daily (user_id, usage_date, request_count, ${modeColumn(mode)}, updated_at) VALUES (?, ?, 1, 1, ?) ON CONFLICT(user_id, usage_date) DO UPDATE SET request_count = request_count + 1, ${modeColumn(mode)} = ${modeColumn(mode)} + 1, updated_at = excluded.updated_at`).bind(userId, day, now).run();
   await env.DB.prepare("UPDATE beta_users SET total_requests = total_requests + 1, last_seen_at = ? WHERE user_id = ?").bind(now, userId).run();
   await env.DB.prepare("INSERT INTO beta_global_daily (usage_date, request_count, updated_at) VALUES (?, 1, ?) ON CONFLICT(usage_date) DO UPDATE SET request_count = request_count + 1, updated_at = excluded.updated_at").bind(day, now).run();
-  return { ok: true as const, ticket: { userId, userHash: await sha256(userId), day, mode, memberAccountId: memberAccountId || undefined } satisfies BetaTicket };
+  return { ok: true as const, ticket: { userId, userHash: await sha256(userId), day, mode, memberAccountId: memberAccountId || undefined, memberSource } satisfies BetaTicket };
 }
 
 export async function settleBetaRequest(ticket: BetaTicket, usage: TokenUsage, metadata: { wishCategory?: string; coachMode?: string; success: boolean; latencyMs: number; /** Which product feature made the call (persona, affirm, onboarding…); shown per feature in the founder cockpit. */ feature?: string }) {
@@ -119,7 +125,8 @@ export async function settleBetaRequest(ticket: BetaTicket, usage: TokenUsage, m
     await env.DB.prepare("UPDATE beta_users SET total_requests = MAX(total_requests - 1, 0) WHERE user_id = ?").bind(ticket.userId).run();
     await env.DB.prepare("UPDATE beta_global_daily SET request_count = MAX(request_count - 1, 0), updated_at = ? WHERE usage_date = ?").bind(now, ticket.day).run();
   }
-  await env.DB.prepare("INSERT INTO beta_events (id, user_hash, event_type, mode, wish_category, coach_mode, prompt_version, input_tokens, output_tokens, total_tokens, latency_ms, created_at) VALUES (?, ?, 'ai_response', ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(crypto.randomUUID(), ticket.userHash, ticket.mode, metadata.wishCategory || null, metadata.coachMode || null, metadata.feature || "v1", input, output, total, metadata.latencyMs, now).run();
+  const cached = Math.min(input, Math.max(0, usage?.cached_tokens || 0));
+  await env.DB.prepare("INSERT INTO beta_events (id, user_hash, event_type, mode, wish_category, coach_mode, prompt_version, input_tokens, output_tokens, total_tokens, cached_tokens, latency_ms, created_at) VALUES (?, ?, 'ai_response', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(crypto.randomUUID(), ticket.userHash, ticket.mode, metadata.wishCategory || null, metadata.coachMode || null, metadata.feature || "v1", input, output, total, cached, metadata.latencyMs, now).run();
 }
 
 /** Called once per user-visible answer, not once per upstream model call or internal rewrite. */
@@ -128,7 +135,7 @@ export async function finishMemberRequest(ticket: BetaTicket, usage: TokenUsage,
   if (ticket.mode === "story") {
     if (!succeeded) await releaseStory(ticket.memberAccountId);
   } else {
-    await finishMemberUnit(ticket.memberAccountId, usageUnits(usage), succeeded);
+    await finishMemberUnit(ticket.memberAccountId, usageUnits(usage), succeeded, undefined, ticket.memberSource);
   }
   ticket.memberSettled = true;
 }

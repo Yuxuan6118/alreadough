@@ -17,7 +17,7 @@ type ChatCompletion = {
   choices?: Array<{ message?: { content?: string }; finish_reason?: string }>;
   error?: { message?: string };
   message?: string;
-  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number; prompt_tokens_details?: { cached_tokens?: number } };
 };
 
 /** Text of the first choice from a Chat Completions response. */
@@ -33,6 +33,8 @@ export function chatUsage(data: ChatCompletion) {
     input_tokens: u.prompt_tokens ?? 0,
     output_tokens: u.completion_tokens ?? 0,
     total_tokens: u.total_tokens ?? (u.prompt_tokens ?? 0) + (u.completion_tokens ?? 0),
+    // the part of the input served from the provider's prompt cache (cheaper); part of input_tokens, not on top of it
+    cached_tokens: u.prompt_tokens_details?.cached_tokens ?? 0,
   };
 }
 

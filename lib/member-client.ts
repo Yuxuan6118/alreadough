@@ -6,10 +6,23 @@ type Lang = "zh" | "en";
 
 // stories: scripts a week, mirroring STORY_LIMITS (server)
 export const MEMBER_PLANS = [
-  { id: "soft", name: { zh: "抟土", en: "Kaolin" }, price: 0, session: 15, week: 60, stories: 3 },
-  { id: "deep", name: { zh: "炼石", en: "Celadon" }, price: 39, session: 60, week: 400, stories: 15 },
-  { id: "atelier", name: { zh: "天成", en: "Porcelain" }, price: 149, session: 200, week: 1500, stories: 70 },
+  { id: "soft", name: { zh: "抟土", en: "Kaolin" }, price: 0, session: 6, week: 15, stories: 1 },
+  { id: "deep", name: { zh: "炼石", en: "Celadon" }, price: 39, session: 30, week: 100, stories: 5 },
+  { id: "atelier", name: { zh: "天成", en: "Porcelain" }, price: 149, session: 80, week: 300, stories: 20 },
 ] as const;
+
+/**
+ * What Porcelain gives, said without naming models: its conversations, scripts and reframes are written by the best
+ * model; Kaolin and Celadon use the value model (app/api/companion). Founder's wording brief 2026-11-21: make 天成 feel
+ * like the way to the fulfilled day, without promising a result.
+ */
+export const PORCELAIN_PROMISE = {
+  zh: "让愿望天成：和已经选择了你的那一版 TA 说话，陪伴和剧本都给到最多，让你每天都住在愿望已经实现的那一天里。",
+  en: "Let it come true: talk with the version of TA who has already chosen you, with the most companionship and scripts, so that every day you live in the day it has already happened.",
+} as const;
+
+/** A chat pack, mirroring CHAT_PACK, ORDER_PRICE_FEN.chats and WAFFO_PRICE_CENTS.chats on the server. */
+export const CHAT_PACK = { replies: 100, alipay: 15, card: "US$2.99" } as const;
 
 export type MemberUsage = { fiveUnits: number; weekUnits: number; fiveResetMs: number; weekResetMs: number };
 export type Membership = {
@@ -26,6 +39,8 @@ export type Membership = {
   /** The new account's first seven days of Porcelain (atelier). */
   welcome?: boolean;
   unlimited?: boolean;
+  /** Replies left in her chat packs; used once the plan's 5-hour or weekly allowance runs out. */
+  chatCredits?: number;
 };
 export type MemberStatus = {
   enabled: boolean;
@@ -37,6 +52,8 @@ export type MemberStatus = {
   cardCheckoutAvailable?: boolean;
   /** Card checkout for one screenshot import (needs its own Waffo product). */
   screenshotCardAvailable?: boolean;
+  /** Card checkout for a chat pack (needs its own Waffo product, WAFFO_PRODUCT_CHATS). */
+  chatCardAvailable?: boolean;
   membership: Membership | null;
   /** TA screenshot import: included with paid Atelier, or single uses bought one at a time. */
   screenshots?: { mode: "included" | "credit" | "buy"; credits: number; weekLeft: number | null } | null;

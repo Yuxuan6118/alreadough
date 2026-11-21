@@ -4,17 +4,28 @@ import { memberAccount, memberAuthReady } from "./member-auth";
 export type PaidPlan = "deep" | "atelier";
 export type MemberPlan = "soft" | PaidPlan;
 export const MEMBER_PRICE_FEN: Record<PaidPlan, number> = { deep: 3900, atelier: 14900 };
-/** What an order can buy: a 30-day plan, or one screenshot import for TA (lib/screenshot-import.ts). */
-export type OrderItem = PaidPlan | "screenshots";
-export const ORDER_PRICE_FEN: Record<OrderItem, number> = { ...MEMBER_PRICE_FEN, screenshots: 990 };
-export function isOrderItem(value: unknown): value is OrderItem { return isPaidPlan(value) || value === "screenshots"; }
+/** What an order can buy: a 30-day plan, one screenshot import for TA (lib/screenshot-import.ts), or a chat pack. */
+export type OrderItem = PaidPlan | "screenshots" | "chats";
+/**
+ * A chat pack: replies beyond the plan's 5-hour and weekly allowance, used only once those run out, never expiring.
+ * ¥15 for 100 costs at most ¥9.6 on qwen3.8-max (¥0.096 a reply), about ¥5 with the prompt cache.
+ */
+export const CHAT_PACK = { replies: 100 } as const;
+export const ORDER_PRICE_FEN: Record<OrderItem, number> = { ...MEMBER_PRICE_FEN, screenshots: 990, chats: 1500 };
+export function isOrderItem(value: unknown): value is OrderItem { return isPaidPlan(value) || value === "screenshots" || value === "chats"; }
+/**
+ * Chat units per 5 hours and per week (chat, reframe and 此刻这一句 share them; TA too, on Porcelain). Every plan uses
+ * qwen3.8-max: about ¥0.05 a unit with the prompt cache, ¥0.096 at most. Used to the full, Celadon about breaks even
+ * and Porcelain stays in profit; typical use leaves about 70% (2026-11-21, reports/定价限额与成本测算.md and the cache
+ * measurement). The free plan is kept small: its users have no ceiling. Beyond these, chat credits (CHAT_PACK).
+ */
 export const MEMBER_LIMITS: Record<MemberPlan, { fiveHours: number; week: number }> = {
-  soft: { fiveHours: 15, week: 60 },
-  deep: { fiveHours: 60, week: 400 },
-  atelier: { fiveHours: 200, week: 1500 },
+  soft: { fiveHours: 6, week: 15 },
+  deep: { fiveHours: 30, week: 100 },
+  atelier: { fiveHours: 80, week: 300 },
 };
 /** Story scripts a week, counted apart from chat. Every plan writes with the same model; only the count differs. */
-export const STORY_LIMITS: Record<MemberPlan, number> = { soft: 3, deep: 15, atelier: 70 };
+export const STORY_LIMITS: Record<MemberPlan, number> = { soft: 1, deep: 5, atelier: 20 };
 /** Every new account has Porcelain (atelier) for its first seven days. */
 const welcomeMs = 7 * 24 * 60 * 60 * 1000;
 const fiveHoursMs = 5 * 60 * 60 * 1000;
@@ -98,13 +109,15 @@ export async function grantPaidOrder(order: MemberOrder, providerTradeNo: string
   const now = Date.now();
   const markPaid = env.DB.prepare("UPDATE member_orders SET status = 'paid', provider_trade_no = ?, paid_at_ms = ? WHERE order_id = ? AND status = 'pending'")
     .bind(providerTradeNo, now, order.orderId);
-  if (order.plan === "screenshots") {
-    // One screenshot import added to her balance; same pending-only guard as the plans below.
+  if (order.plan === "screenshots" || order.plan === "chats") {
+    // One screenshot import, or a chat pack, added to her balance; same pending-only guard as the plans below.
+    const kind = order.plan === "chats" ? "chat" : "screenshots";
+    const amount = order.plan === "chats" ? CHAT_PACK.replies : 1;
     await env.DB.batch([
       env.DB.prepare(`INSERT INTO member_credits (account_id, kind, balance, updated_at_ms)
-        SELECT account_id, 'screenshots', 1, ? FROM member_orders WHERE order_id = ? AND status = 'pending'
-        ON CONFLICT(account_id, kind) DO UPDATE SET balance = member_credits.balance + 1, updated_at_ms = excluded.updated_at_ms`)
-        .bind(now, order.orderId),
+        SELECT account_id, ?, ?, ? FROM member_orders WHERE order_id = ? AND status = 'pending'
+        ON CONFLICT(account_id, kind) DO UPDATE SET balance = member_credits.balance + excluded.balance, updated_at_ms = excluded.updated_at_ms`)
+        .bind(kind, amount, now, order.orderId),
       markPaid,
     ]);
     return;
@@ -143,7 +156,17 @@ export async function reserveMemberUnit(accountId: string, now = Date.now()) {
     five_start_ms = ?, week_start_ms = ?
     WHERE account_id = ? AND (five_start_ms != ? OR five_units < ?) AND (week_start_ms != ? OR week_units < ?)`)
     .bind(five, week, five, week, accountId, five, limits.fiveHours, week, limits.week).run();
-  return { ok: !!result.meta.changes, state, limits };
+  if (result.meta.changes) return { ok: true, state, limits, source: "plan" as const };
+  // the plan's 5-hour or weekly allowance is used up: one reply from her chat pack, if she bought one
+  const spent = await env.DB.prepare("UPDATE member_credits SET balance = balance - 1, updated_at_ms = ? WHERE account_id = ? AND kind = 'chat' AND balance > 0")
+    .bind(now, accountId).run();
+  return { ok: !!spent.meta.changes, state, limits, source: "credit" as const };
+}
+
+/** Replies left in her chat packs. */
+export async function chatCredits(accountId: string) {
+  const row = await env.DB.prepare("SELECT balance FROM member_credits WHERE account_id = ? AND kind = 'chat'").bind(accountId).first<{ balance: number }>();
+  return row?.balance || 0;
 }
 
 /**
@@ -155,7 +178,12 @@ export function usageUnits(usage: { input_tokens?: number; output_tokens?: numbe
   return Math.max(1, Math.ceil(((usage?.input_tokens || 0) + 3 * (usage?.output_tokens || 0)) / 8000));
 }
 
-export async function finishMemberUnit(accountId: string, units: number, succeeded: boolean, now = Date.now()) {
+export async function finishMemberUnit(accountId: string, units: number, succeeded: boolean, now = Date.now(), source: "plan" | "credit" = "plan") {
+  // a reply from a chat pack is one credit however long it was; a failed one gives the credit back
+  if (source === "credit") {
+    if (!succeeded) await env.DB.prepare("UPDATE member_credits SET balance = balance + 1, updated_at_ms = ? WHERE account_id = ? AND kind = 'chat'").bind(now, accountId).run();
+    return;
+  }
   const five = fiveHourWindow(now), week = weekWindow(now);
   const delta = succeeded ? Math.max(0, units - 1) : -1;
   if (!delta) return;
@@ -192,8 +220,8 @@ export async function releaseStory(accountId: string, now = Date.now()) {
 export async function membershipForRequest(request: Request) {
   const accountId = await memberAccount(request);
   if (!accountId) return null;
-  const [state, usage] = await Promise.all([memberState(accountId), memberUsage(accountId)]);
-  return { ...state, usage, limits: MEMBER_LIMITS[state.plan], story: await storyUsage(accountId, state.plan), unlimited: isUnlimitedAccount(accountId) };
+  const [state, usage, credits] = await Promise.all([memberState(accountId), memberUsage(accountId), chatCredits(accountId)]);
+  return { ...state, usage, limits: MEMBER_LIMITS[state.plan], story: await storyUsage(accountId, state.plan), unlimited: isUnlimitedAccount(accountId), chatCredits: credits };
 }
 
 export function isReferralCode(value: unknown) {

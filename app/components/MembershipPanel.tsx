@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import DoughHop from "./DoughHop";
 import { SITE_RECORD } from "@/lib/site-info";
 import {
-  exhaustedWindow, fetchMemberStatus, MEMBER_PLANS, memberErrorText, memberPost, planName, resetLabel,
+  CHAT_PACK, exhaustedWindow, fetchMemberStatus, MEMBER_PLANS, memberErrorText, memberPost, planName, PORCELAIN_PROMISE, resetLabel,
   submitCheckoutForm, usagePercent, type Membership, type MemberStatus,
 } from "@/lib/member-client";
 import "./membership.css";
@@ -124,7 +124,9 @@ export function UsageBanner({ lang, member, gate, onOpen }: { lang: Lang; member
   const zh = lang === "zh";
   const native = Capacitor.isNativePlatform();
   const needsSignIn = gate === "MEMBERSHIP_SIGN_IN_REQUIRED" || (!!member?.enabled && member.emailAvailable && !member.authenticated);
-  const used = exhaustedWindow(member?.membership) || (gate === "MEMBERSHIP_LIMIT" ? "five" : null);
+  // with replies left in a chat pack she can keep going, so there is nothing to announce
+  const used = (member?.membership?.chatCredits ? null : exhaustedWindow(member?.membership)) || (gate === "MEMBERSHIP_LIMIT" ? "five" : null);
+  const top = member?.membership?.plan === "atelier";
   const kind = needsSignIn ? "signin" : used ? `limit-${used}` : "";
   if (!kind || dismissed === kind) return null;
   const reset = used === "week" ? member?.membership?.usage.weekResetMs : member?.membership?.usage.fiveResetMs;
@@ -136,9 +138,10 @@ export function UsageBanner({ lang, member, gate, onOpen }: { lang: Lang; member
           : used === "week" ? (zh ? "本周的用量用完了" : "You're out of this week's usage")
           : (zh ? "这 5 小时的用量用完了" : "You're out of usage for these 5 hours")}</strong>
         <span>{needsSignIn ? ""
-          : `${reset ? (zh ? `${resetLabel(reset, lang)} 恢复` : `Resets ${resetLabel(reset, lang)}`) : ""}${native ? "" : (zh ? "，也可以升级会员继续聊。" : ", or upgrade to keep going.")}`}</span>
+          : `${reset ? (zh ? `${resetLabel(reset, lang)} 恢复` : `Resets ${resetLabel(reset, lang)}`) : ""}${native ? "" : (zh ? `，也可以买个加油包（${CHAT_PACK.replies} 次 ¥${CHAT_PACK.alipay}）接着聊。` : `, or get a chat pack (${CHAT_PACK.replies} replies, ${CHAT_PACK.card}) to keep going.`)}`}</span>
       </div>
-      <button type="button" className="usage-banner-action" onClick={onOpen}>{needsSignIn ? (zh ? "登录" : "Sign in") : native ? (zh ? "查看用量" : "View usage") : (zh ? "升级" : "Upgrade")}</button>
+      {!needsSignIn && !native && <a className="usage-banner-action" href={`${zh ? "/checkout" : "/en/checkout"}?item=chats`}>{zh ? "买加油包" : "Chat pack"}</a>}
+      <button type="button" className="usage-banner-action" onClick={onOpen}>{needsSignIn ? (zh ? "登录" : "Sign in") : native || top ? (zh ? "查看用量" : "View usage") : (zh ? "升级" : "Upgrade")}</button>
       <button type="button" className="usage-banner-close" aria-label={zh ? "先关掉" : "Dismiss"} onClick={() => setDismissed(kind)}><X size={16} /></button>
     </div>
   );
@@ -235,6 +238,12 @@ export default function MembershipPanel({ lang, member, onRefresh }: { lang: Lan
           {membership.unlimited && <p className="profile-sub">{zh ? "创始人账户不受限制。下面按当前方案的额度显示，方便你看到用户看到的样子。" : "Founder account, no limit. Shown against the plan's allowance so you can see what members see."}</p>}
           <UsageBars membership={membership} lang={lang} />
           {membership.story && <p className="profile-sub member-story-usage">{zh ? `本周 AI 剧本：已写 ${membership.story.used} 篇，` + (membership.story.limit >= 1000 ? "不限。" : `还能写 ${Math.max(0, membership.story.limit - membership.story.used)} 篇，${resetLabel(membership.story.resetMs, lang)} 恢复。`) : `AI scripts this week: ${membership.story.used} written, ` + (membership.story.limit >= 1000 ? "no limit." : `${Math.max(0, membership.story.limit - membership.story.used)} left; resets ${resetLabel(membership.story.resetMs, lang)}.`)}</p>}
+          {(!native || !!membership.chatCredits) && <div className="wish-actions member-pack">
+            <p className="profile-sub">{membership.chatCredits
+              ? (zh ? `加油包还剩 ${membership.chatCredits} 次，额度用完后自动接着用。` : `${membership.chatCredits} replies left in your chat pack, used once your allowance runs out.`)
+              : (zh ? `加油包：${CHAT_PACK.replies} 次 ¥${CHAT_PACK.alipay}，额度用完后接着聊，不过期。` : `Chat pack: ${CHAT_PACK.replies} replies for ${CHAT_PACK.card}, used once your allowance runs out. It never expires.`)}</p>
+            {!native && <a className="profile-topic-plus member-buy-link" href={`${zh ? "/checkout" : "/en/checkout"}?item=chats`}>{membership.chatCredits ? (zh ? "再买一个" : "Buy another") : (zh ? "买加油包" : "Buy")}</a>}
+          </div>}
         </section>
 
         {!native && (member.checkoutAvailable || member.cardCheckoutAvailable) && <section className="profile-card member-upgrade">
@@ -242,7 +251,7 @@ export default function MembershipPanel({ lang, member, onRefresh }: { lang: Lan
           <p className="profile-sub">{zh ? "支付宝或银行卡付款。一次购买 30 天，到期不会自动扣款。" : "Pay with Alipay or card. Each purchase covers 30 days and never renews on its own."}</p>
           <ul>
             {paidPlans.map((plan) => <li key={plan.id} className={plan.id === membership.plan ? "current" : ""}>
-              <div><strong>{plan.name[lang]}{plan.id === membership.plan && <span className="wish-chip is-current">{zh ? "当前" : "Current"}</span>}</strong><span className="member-price">¥{plan.price}<small> / {zh ? "30 天" : "30 days"}</small></span><small>{zh ? `每 5 小时约 ${plan.session} 次 · 每周约 ${plan.week} 次 · ` + (plan.id === "atelier" ? "剧本几乎不限" : `每周 ${plan.stories} 篇剧本`) : `About ${plan.session} per 5 hours · ${plan.week} per week · ` + (plan.id === "atelier" ? "scripts almost unlimited" : `${plan.stories} scripts a week`)}</small></div>
+              <div><strong>{plan.name[lang]}{plan.id === membership.plan && <span className="wish-chip is-current">{zh ? "当前" : "Current"}</span>}</strong><span className="member-price">¥{plan.price}<small> / {zh ? "30 天" : "30 days"}</small></span><small>{zh ? `每 5 小时约 ${plan.session} 次 · 每周约 ${plan.week} 次 · ` + `每周 ${plan.stories} 篇剧本` : `About ${plan.session} per 5 hours · ${plan.week} per week · ` + `${plan.stories} scripts a week`}</small>{plan.id === "atelier" && <small>{PORCELAIN_PROMISE[lang]}</small>}</div>
               <a className={plan.id === "deep" && membership.plan === "soft" ? "wish-primary member-buy-link" : "profile-topic-plus member-buy-link"} href={`${zh ? "/checkout" : "/en/checkout"}?plan=${plan.id}`}>{plan.id === membership.plan && membership.periodEndMs && !membership.referral ? (zh ? "续 30 天" : "Add 30 days") : (zh ? "购买" : "Buy")}</a>
             </li>)}
           </ul>

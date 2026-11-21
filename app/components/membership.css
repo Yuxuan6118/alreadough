@@ -106,3 +106,6 @@
   .profile-card.member-upgrade li { flex-wrap: wrap; }
   .profile-card.member-upgrade li .member-buy-link { width: 100%; }
 }
+.member-pack { margin-top: 12px; flex-wrap: nowrap; }
+.member-pack .profile-sub { flex: 1; min-width: 0; margin: 0; }
+.member-pack .member-buy-link { text-decoration: none; }

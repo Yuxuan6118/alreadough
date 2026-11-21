@@ -10,6 +10,7 @@ export async function GET(request: Request) {
     checkoutAvailable: membershipEnabled() && zpayConfig().enabled,
     cardCheckoutAvailable: membershipEnabled() && waffoAvailableFor(account, isUnlimitedAccount),
     screenshotCardAvailable: membershipEnabled() && waffoAvailableFor(account, isUnlimitedAccount, undefined, "screenshots"),
+    chatCardAvailable: membershipEnabled() && waffoAvailableFor(account, isUnlimitedAccount, undefined, "chats"),
     membership: account ? await membershipForRequest(request) : null,
     screenshots: account && membershipEnabled() ? await screenshotAccess(account) : null });
 }

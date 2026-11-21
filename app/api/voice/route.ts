@@ -1,5 +1,5 @@
 import { betaStatus } from "@/lib/beta-guard";
-import { getVoice, voiceOwner, recordEnroll, removeVoice, saveVoice, usageFor } from "@/lib/voice-db";
+import { getVoice, voiceDailyAllowance, voiceOwner, recordEnroll, removeVoice, saveVoice, usageFor } from "@/lib/voice-db";
 import { VOICE_LIMITS, checkSample } from "@/lib/voice-limits";
 import { VOICE_MODEL, createVoice, deleteVoice } from "@/lib/voice-service";
 
@@ -13,8 +13,8 @@ export async function GET(request: Request) {
   const userId = await voiceOwner(request);
   if (!userId) return json({ authenticated: false }, 401);
   const voice = await getVoice(userId);
-  const used = await usageFor(userId);
-  return json({ hasVoice: Boolean(voice), createdAt: voice?.createdAt || null, charsLeftToday: Math.max(0, VOICE_LIMITS.userDailyBilled - used.userChars) });
+  const [used, daily] = await Promise.all([usageFor(userId), voiceDailyAllowance(request)]);
+  return json({ hasVoice: Boolean(voice), createdAt: voice?.createdAt || null, charsLeftToday: Math.max(0, daily - used.userChars) });
 }
 
 export async function POST(request: Request) {

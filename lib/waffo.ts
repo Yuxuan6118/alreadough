@@ -13,7 +13,7 @@ export const WAFFO_STORE_ID = "STO_3fCRdcbiMOjIUqwryxPUqi";
  * the payout is about what Alipay brings in for ¥39 / ¥149 / ¥9.9 (at ~7.1 CNY/USD). Change together with the product prices in Waffo.
  */
 export const WAFFO_CURRENCY = "USD";
-export const WAFFO_PRICE_CENTS: Record<OrderItem, number> = { deep: 649, atelier: 2299, screenshots: 199 };
+export const WAFFO_PRICE_CENTS: Record<OrderItem, number> = { deep: 649, atelier: 2299, screenshots: 199, chats: 299 };
 
 // Waffo's webhook signing keys, copied from @waffo/pancake-ts 0.28.0 (src/webhooks.ts).
 const WEBHOOK_KEYS = {
@@ -29,8 +29,9 @@ export function waffoConfig() {
   const merchantId = process.env.WAFFO_MERCHANT_ID || "";
   const privateKey = process.env.WAFFO_PRIVATE_KEY || "";
   const env: WaffoEnv = process.env.WAFFO_ENV === "prod" ? "prod" : "test";
-  // The screenshot-import product is optional: without WAFFO_PRODUCT_SCREENSHOTS that one item is sold by Alipay only.
-  const products: Record<OrderItem, string> = { deep: process.env.WAFFO_PRODUCT_DEEP || "", atelier: process.env.WAFFO_PRODUCT_ATELIER || "", screenshots: process.env.WAFFO_PRODUCT_SCREENSHOTS || "" };
+  // The screenshot-import and chat-pack products are optional: without WAFFO_PRODUCT_SCREENSHOTS / WAFFO_PRODUCT_CHATS
+  // that item is sold by Alipay only.
+  const products: Record<OrderItem, string> = { deep: process.env.WAFFO_PRODUCT_DEEP || "", atelier: process.env.WAFFO_PRODUCT_ATELIER || "", screenshots: process.env.WAFFO_PRODUCT_SCREENSHOTS || "", chats: process.env.WAFFO_PRODUCT_CHATS || "" };
   const enabled = process.env.WAFFO_ENABLED === "1" && !!merchantId && !!privateKey && !!products.deep && !!products.atelier;
   return { enabled, merchantId, privateKey, env, products };
 }
@@ -95,7 +96,7 @@ export async function createWaffoCheckout(args: { plan: OrderItem; orderId: stri
     productId: config.products[args.plan],
     productType: "onetime",
     currency: WAFFO_CURRENCY,
-    successUrl: `${args.origin}${args.lang === "en" ? "/en/checkout" : "/checkout"}?paid=card&${args.plan === "screenshots" ? "item" : "plan"}=${args.plan}`,
+    successUrl: `${args.origin}${args.lang === "en" ? "/en/checkout" : "/checkout"}?paid=card&${args.plan === "screenshots" || args.plan === "chats" ? "item" : "plan"}=${args.plan}`,
     expiresInSeconds: 3600,
     metadata: { orderId: args.orderId, plan: args.plan },
     orderMerchantExternalId: args.orderId,
