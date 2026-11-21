@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import DoughHop from "./DoughHop";
-import { ImageSquare, MagnifyingGlass, Trash, UploadSimple, X } from "@phosphor-icons/react";
+import { Check, ImageSquare, MagnifyingGlass, Trash, UploadSimple, X } from "@phosphor-icons/react";
 import { saveLocalCover } from "@/lib/cover-store";
+import CoverPrint, { COVER_PRINTS, DoughIcon, isPrintCover, PRINT_COVER_PREFIX } from "./CoverPrints";
 
 // phones and tablets open the photo library; computers open a file window
 const subscribe = () => () => {};
@@ -14,19 +15,21 @@ type Cover = { image: string; credit?: string; source?: string };
 type SearchImage = { title: string; image: string; source: string; credit: string; downloadLocation?: string };
 type BoardPhoto = { image: string; title: string; source: string };
 
-/** Choose a story's cover: her own photo (kept on this device), a licensed photo from search, or one from the vision board. */
-export default function StoryCoverPicker({ lang, title, initialQuery, board, hasCover, onPick, onRemove, onClose }: {
+/** Choose a story's cover: her own photo (kept on this device), a licensed photo from search, one from the vision board, or a built-in dough print. */
+export default function StoryCoverPicker({ lang, title, initialQuery, board, hasCover, current, onPick, onRemove, onClose }: {
   lang: Lang;
   title: string;
   initialQuery: string;
   board: BoardPhoto[];
   hasCover: boolean;
+  /** The story's cover image now, to tick the built-in print it uses. */
+  current?: string;
   onPick: (cover: Cover, downloadLocation?: string) => void;
   onRemove: () => void;
   onClose: () => void;
 }) {
   const zh = lang === "zh";
-  const [tab, setTab] = useState<"search" | "board">("search");
+  const [tab, setTab] = useState<"search" | "board" | "prints">("search");
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<SearchImage[]>([]);
   // opens already searching for the story's own words
@@ -36,6 +39,8 @@ export default function StoryCoverPicker({ lang, title, initialQuery, board, has
   const [uploadError, setUploadError] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
   const touch = useSyncExternalStore(subscribe, isTouch, () => false);
+  // no cover yet shows the first print, so that one is ticked
+  const currentPrint = isPrintCover(current) ? current?.slice(PRINT_COVER_PREFIX.length) : current ? null : COVER_PRINTS[0].id;
   const uploadLabel = touch ? (zh ? "从相册选" : "From photos") : (zh ? "从电脑上传" : "Upload a photo");
 
   const upload = async (file?: File) => {
@@ -91,9 +96,17 @@ export default function StoryCoverPicker({ lang, title, initialQuery, board, has
       <div className="cover-picker-tabs" role="tablist">
         <button type="button" role="tab" aria-selected={tab === "search"} className={tab === "search" ? "active" : ""} onClick={() => setTab("search")}><MagnifyingGlass size={15}/> {zh ? "搜索照片" : "Search photos"}</button>
         <button type="button" role="tab" aria-selected={tab === "board"} className={tab === "board" ? "active" : ""} onClick={() => setTab("board")}><ImageSquare size={15}/> {zh ? `我的愿景 · ${board.length}` : `My vision · ${board.length}`}</button>
+        <button type="button" role="tab" aria-selected={tab === "prints"} className={tab === "prints" ? "active" : ""} onClick={() => setTab("prints")}><DoughIcon size={15}/> {zh ? "面团封面" : "Dough covers"}</button>
       </div>
       {uploadError && <p className="cover-picker-note is-error" role="alert">{uploadError}</p>}
-      {tab === "search" ? <>
+      {tab === "prints" ? <div className="cover-picker-scroll"><div className="cover-picker-grid">
+        {COVER_PRINTS.map((print) => {
+          const on = print.id === currentPrint;
+          return <button type="button" key={print.id} className={on ? "is-current" : undefined} aria-label={zh ? print.name[0] : print.name[1]} aria-current={on || undefined} onClick={() => onPick({ image: PRINT_COVER_PREFIX + print.id })}>
+            <CoverPrint id={print.id}/>{on && <span className="cover-print-check"><Check size={13} weight="bold"/></span>}
+          </button>;
+        })}
+      </div></div> : tab === "search" ? <>
         <form className="cover-picker-search" onSubmit={(event) => { event.preventDefault(); search(); }}>
           <MagnifyingGlass size={18} aria-hidden="true"/>
           <input value={query} onChange={(event) => setQuery(event.target.value)} maxLength={120} placeholder={zh ? "描述你想要的画面" : "Describe the picture you want"} aria-label={zh ? "搜索照片" : "Search photos"}/>
@@ -106,7 +119,7 @@ export default function StoryCoverPicker({ lang, title, initialQuery, board, has
         {!board.length && <p className="cover-picker-note">{zh ? "愿景里还没有收藏的图片。在「愿景」里收藏的照片会出现在这里。" : "Nothing on your vision board yet. Photos you keep in Vision show up here."}</p>}
         {grid(board.map((item, index) => ({ key: `${index}-${item.source}`, image: item.image, label: item.title, pick: () => onPick({ image: item.image, source: item.source }) })))}
       </>}
-      {hasCover && <footer className="cover-picker-foot"><button type="button" className="wish-delete" onClick={onRemove}><Trash size={16}/> {zh ? "不用封面，换成面团印花" : "No photo, use the dough print"}</button></footer>}
+      {hasCover && <footer className="cover-picker-foot"><button type="button" className="wish-delete" onClick={onRemove}><Trash size={16}/> {zh ? "换成默认封面" : "Use the default cover"}</button></footer>}
     </section>
   </div>;
 }

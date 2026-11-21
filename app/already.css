@@ -391,16 +391,21 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .story-tile-open:hover img { transform: scale(1.035); }
 .story-tile-open::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(28,18,18,.72), rgba(28,18,18,.18) 48%, transparent 70%); pointer-events: none; }
 .story-fallback { position: absolute; inset: 0; display: block; }
-/* No cover: tilted dough print in place of the old blurred circles (applies to every tone). */
-.story-fallback, .story-fallback.snow { overflow: hidden; color: color-mix(in srgb,var(--app-accent) 78%,var(--app-ink)); background: color-mix(in srgb,var(--app-accent) 30%,var(--app-panel)); }
-.story-pattern { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.story-pattern .sp-fill { fill: var(--app-panel); }
-.story-pattern .sp-ink { fill: currentColor; }
-.story-pattern .sp-butter { fill: color-mix(in srgb,#f3d38a 70%,var(--app-panel)); }
-.story-pattern .sp-heart { fill: var(--app-accent); }
-.app-shell[data-theme="dark"] .story-fallback { color: #4a3a3c; background: color-mix(in srgb,var(--app-accent) 34%,var(--app-panel)); }
-.app-shell[data-theme="dark"] .story-pattern .sp-fill { fill: #efe2d6; }
-.app-shell[data-theme="dark"] .story-pattern .sp-butter { fill: #e9cd8c; }
+/* While a photo kept on this device is still being read: a quiet blank in place of the cover. */
+.story-fallback, .story-fallback.snow { overflow: hidden; background: color-mix(in srgb,var(--app-accent) 30%,var(--app-panel)); }
+.app-shell[data-theme="dark"] .story-fallback { background: color-mix(in srgb,var(--app-accent) 34%,var(--app-panel)); }
+/* Built-in covers (CoverPrints.tsx): white line prints on a soft colour; no cover shows the dough on rose. */
+.cover-print { --print-ground: var(--print-bg); position: absolute; inset: 0; display: block; overflow: hidden; color: rgba(255,250,247,.86); background: var(--print-ground); }
+.cover-print.is-night { color: rgba(255,244,230,.6); }
+.cover-print > svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.cover-print .k { fill: currentColor; stroke: none; }
+.cover-print .o { fill: var(--print-ground); }
+.cover-print .ok { fill: var(--print-ground); stroke: none; }
+.cover-print .on { stroke: var(--print-ground); }
+.cover-print .band { fill: currentColor; opacity: .26; }
+.cover-print .band-line { fill: currentColor; opacity: .5; }
+.app-shell[data-theme="dark"] .cover-print { --print-ground: color-mix(in srgb,var(--print-bg) 40%,#2c2626); color: rgba(239,226,214,.5); }
+.app-shell[data-theme="dark"] .cover-print.is-night { --print-ground: color-mix(in srgb,var(--print-bg) 70%,#2c2626); color: rgba(239,226,214,.42); }
 .story-tile-text { position: absolute; left: 18px; right: 18px; bottom: 18px; z-index: 1; display: grid; gap: 6px; }
 .story-tile-text small { font-size: calc(12px * var(--fs, 1)); opacity: .86; }
 .story-tile-text strong { display: -webkit-box; overflow: hidden; font: 500 calc(21px * var(--fs, 1))/1.25 var(--font-display); -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
@@ -477,7 +482,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .story-editor-modal .cover-picker-head h2 { font: 500 calc(24px * var(--fs, 1))/1.25 var(--font-display); letter-spacing: -.01em; }
 .cover-picker-head p { margin: 0; overflow: hidden; color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); white-space: nowrap; text-overflow: ellipsis; }
 .story-editor-modal .cover-picker-head > button { width: 40px; height: 40px; display: grid; place-items: center; }
-.cover-picker-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 14px; padding: 4px; border-radius: 14px; background: color-mix(in srgb,var(--app-ink) 5%,transparent); }
+.cover-picker-tabs { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 4px; margin-bottom: 14px; padding: 4px; border-radius: 14px; background: color-mix(in srgb,var(--app-ink) 5%,transparent); }
 .cover-picker-tabs button { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 11px; padding: 0 12px; color: var(--app-muted); background: transparent; font-size: calc(14px * var(--fs, 1)); cursor: pointer; }
 .cover-picker-tabs button.active { color: var(--app-ink); background: var(--app-panel); font-weight: 600; box-shadow: 0 2px 10px color-mix(in srgb,var(--app-ink) 8%,transparent); }
 .cover-picker-search { position: relative; display: flex; align-items: center; margin-bottom: 14px; }
@@ -497,6 +502,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .cover-upload-tile strong { font-size: calc(15px * var(--fs, 1)); font-weight: 600; }
 .cover-upload-tile small { position: static; padding: 0; color: var(--app-muted); background: none; font-size: calc(12px * var(--fs, 1)); text-align: center; }
 .cover-upload-tile:hover { border-color: var(--app-accent); }
+.cover-picker-grid > button.is-current::before { content: ""; position: absolute; inset: 0; z-index: 1; border-radius: inherit; box-shadow: inset 0 0 0 3px var(--app-accent); pointer-events: none; }
+.cover-print-check { position: absolute; right: 8px; bottom: 8px; z-index: 2; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; color: var(--app-accent-ink); background: var(--app-accent); }
 .cover-picker-note { margin: 0 24px 14px; color: var(--app-muted); font-size: calc(14px * var(--fs, 1)); line-height: 1.7; }
 .cover-picker-note.is-error { color: #b4474f; }
 .story-editor-modal .cover-picker-foot { justify-content: flex-start; margin: 0; padding: 12px 18px; border-top: 1px solid var(--app-line); background: var(--app-bg); }
@@ -914,6 +921,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .story-expand .wish-primary, .story-expand .profile-topic-plus { width: 100%; justify-content: center; }
   .story-reader .story-controls button.story-card { padding: 16px; }
   .cover-picker-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .cover-picker-tabs button { gap: 4px; padding: 0 4px; font-size: calc(13px * var(--fs, 1)); white-space: nowrap; }
   .story-editor-modal.cover-picker { padding: 0 0 env(safe-area-inset-bottom); }
   .cover-picker > * { margin-left: 16px; margin-right: 16px; }
   .cover-picker-note { margin-left: 16px; margin-right: 16px; }

@@ -1432,6 +1432,7 @@ export default function Home() {
           initialQuery={[story.title[lang], ["我的生活", "MY LIFE"].includes(story.city[lang]) ? "" : story.city[lang]].filter(Boolean).join(" ")}
           board={board.filter((item): item is BoardItem & { image: string } => Boolean(item.image)).map((item) => ({ image: item.image, title: item.title, source: item.source }))}
           hasCover={Boolean(story.cover?.image)}
+          current={story.cover?.image}
           onPick={(cover, downloadLocation) => { setStoryCover(story.id, cover); reportPhotoUse(downloadLocation); setCoverPickerId(null); }}
           onRemove={() => { setStoryCover(story.id, null); setCoverPickerId(null); }}
           onClose={() => setCoverPickerId(null)}
