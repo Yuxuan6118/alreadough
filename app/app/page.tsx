@@ -1448,7 +1448,6 @@ export default function Home() {
       >
         {reframeSection === "turn" && <div className="profile-cards">
           <section className="profile-card">
-            <h3>{t.oldLabel}</h3>
             <label className="wish-field"><textarea className={retiringOld ? "retiring" : ""} value={oldScene} onChange={(e) => setOldScene(e.target.value)} placeholder={t.oldPlaceholder} readOnly={retiringOld} aria-label={t.oldLabel} /></label>
             <div className="space-card-actions"><button type="button" className="wish-primary" onClick={() => makeRevision()} disabled={isTyping}>{isTyping ? <span className="dough-loading"><DoughHop size="xs"/>{t.turning}</span> : t.makeRevision}</button></div>
           </section>
