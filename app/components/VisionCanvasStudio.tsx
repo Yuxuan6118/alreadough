@@ -1,9 +1,11 @@
 "use client";
 
 import { ChangeEvent, CSSProperties, PointerEvent as ReactPointerEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ArrowClockwise, ArrowsOutCardinal, Check, DownloadSimple, FlipHorizontal, Plus, Swap, Trash, UploadSimple, X } from "@phosphor-icons/react";
 import { Capacitor } from "@capacitor/core";
 import { readStored, writeStored } from "@/lib/safe-storage";
+import { detectInstallMode } from "@/lib/install-mode";
 import { askConfirm, showUndo } from "./ConfirmHost";
 import "./vision-studio.css";
 
@@ -409,6 +411,7 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
     custom: "自定义颜色", textPlaceholder: "输入文字",
     addText: "添加文字", removeText: "删除文字", textSize: "字号", fontZh: "中文", fontEn: "English", plainFont: "黑体", textRemoved: "已删除文字", undo: "撤销",
     replace: "替换", move: "拖动调整位置", rotate: "旋转", flip: "镜像", remove: "删除", done: "完成",
+    saveToPhotos: "保存到相册", holdToSave: "长按图片，保存到相册", close: "关闭",
     clearTitle: "清空愿景板上的全部照片？", clearBody: "照片只存在这台设备上，清空后不能恢复。",
     removeTitle: "从愿景板删除这张照片？", removeBody: "照片只存在这台设备上，删除后不能恢复。",
     cancel: "取消",
@@ -423,6 +426,7 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
     custom: "Custom color", textPlaceholder: "Type here",
     addText: "Add text", removeText: "Delete text", textSize: "Size", fontZh: "Chinese", fontEn: "English", plainFont: "Plain", textRemoved: "Text deleted", undo: "Undo",
     replace: "Replace", move: "Drag to reposition", rotate: "Rotate", flip: "Mirror", remove: "Delete", done: "Done",
+    saveToPhotos: "Save to Photos", holdToSave: "Press and hold the picture to save it to Photos", close: "Close",
     clearTitle: "Clear every photo from the board?", clearBody: "The photos live only on this device and can't be recovered.",
     removeTitle: "Remove this photo from the board?", removeBody: "The photo lives only on this device and can't be recovered.",
     cancel: "Cancel",
@@ -450,6 +454,10 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
   const dragRef = useRef<Drag | null>(null);
   const settleRef = useRef<Settle[] | null>(null);
   const noticeTimer = useRef<number | undefined>(undefined);
+  const exportingRef = useRef(false);
+  const studioRef = useRef<HTMLDivElement>(null);
+  /** a finished picture shown on its own, when the share sheet could not open straight from the tap */
+  const [ready, setReady] = useState<{ file: File; url: string; share: boolean; host: Element } | null>(null);
 
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) => setSettings((current) => ({ ...current, [key]: value }));
   const showNotice = (message: string) => {
@@ -850,13 +858,13 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
     return () => board.removeEventListener("wheel", onWheel);
   }, [selectedId, images.length]);
 
-  const exportBoard = async () => {
-    if (!images.length) return;
+  /** the board drawn at twice its size, as a JPEG: photo-sized, and quick enough to make that the share sheet can still open from the same tap */
+  const drawBoard = async (): Promise<Blob | null> => {
     const scale = 2;
     const canvas = document.createElement("canvas");
     canvas.width = W * scale; canvas.height = H * scale;
     const context = canvas.getContext("2d");
-    if (!context) return;
+    if (!context) return null;
     context.scale(scale, scale);
     context.fillStyle = settings.background;
     context.fillRect(0, 0, W, H);
@@ -906,15 +914,55 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
       lines.forEach((line, index) => context.fillText(line, box.x * W, box.y * H + (index - (lines.length - 1) / 2) * lineHeight));
       context.restore();
     });
-    canvas.toBlob((blob) => {
+    return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+  };
+
+  /** iPhone and the app keep pictures in the photo library, which a page reaches only through the share sheet (存储图像) */
+  const savesToPhotos = () => {
+    if (Capacitor.isNativePlatform()) return true;
+    const mode = detectInstallMode(navigator.userAgent, navigator.maxTouchPoints);
+    return mode === "ios-safari" || mode === "ios-other" || mode === "wechat-ios";
+  };
+  const canShareFile = (file: File) => { try { return Boolean(navigator.canShare?.({ files: [file] })); } catch { return false; } };
+  /** true once the share sheet has opened and closed again (saved or dismissed); false when it could not open */
+  const shareFile = async (file: File) => {
+    try { await navigator.share({ files: [file] }); return true; }
+    catch (error) { return (error as DOMException | null)?.name === "AbortError"; }
+  };
+
+  const exportBoard = async () => {
+    if (!images.length || exportingRef.current) return;
+    exportingRef.current = true;
+    try {
+      const blob = await drawBoard();
       if (!blob) return;
+      const file = new File([blob], `alreadough-vision-board-${Date.now()}.jpg`, { type: "image/jpeg" });
+      if (savesToPhotos()) {
+        const share = canShareFile(file);
+        if (share && await shareFile(file)) return;
+        // the tap ran out before the picture was ready (or this browser has no share sheet): show the picture, one more tap saves it
+        setReady({ file, url: URL.createObjectURL(file), share, host: studioRef.current?.closest(".app-shell") || document.body });
+        return;
+      }
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = `alreadough-vision-board-${Date.now()}.png`;
+      link.download = file.name;
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-    }, "image/png");
+    } finally {
+      exportingRef.current = false;
+    }
   };
+  const closeReady = () => {
+    if (ready) URL.revokeObjectURL(ready.url);
+    setReady(null);
+  };
+  useEffect(() => {
+    if (!ready) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") { URL.revokeObjectURL(ready.url); setReady(null); } };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [ready]);
 
   const pct = (value: number, of: number) => `${(value / of) * 100}%`;
   const unit = (value: number) => `calc(${(value / W) * 100} * 1cqw)`;
@@ -935,8 +983,21 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
     {notice && <p className="vb-notice" role="status">{notice}</p>}
   </div>;
 
-  return <div className="vb-studio">
+  // shown over the whole app (inside .app-shell, so it keeps the light or dark colours)
+  const readySheet = ready && createPortal(<div className="vb-ready" role="presentation" onClick={(event) => { if (event.target === event.currentTarget) closeReady(); }}>
+    <div className="vb-ready-body" role="dialog" aria-modal="true" aria-label={copy.export}>
+      <img src={ready.url} alt=""/>
+      {!ready.share && <p>{copy.holdToSave}</p>}
+      <div className="vb-ready-actions">
+        <button type="button" onClick={closeReady}>{copy.close}</button>
+        {ready.share && <button type="button" className="vb-ready-save" onClick={async () => { if (await shareFile(ready.file)) closeReady(); }}><DownloadSimple size={16}/>{copy.saveToPhotos}</button>}
+      </div>
+    </div>
+  </div>, ready.host);
+
+  return <div className="vb-studio" ref={studioRef}>
     {fileInputs}
+    {readySheet}
 
     <div className="vb-topbar">
       <button type="button" className="vb-chip-button" onClick={() => addInput.current?.click()} disabled={images.length >= MAX_PHOTOS}><Plus size={16}/>{copy.add}<small>{images.length}/{MAX_PHOTOS}</small></button>

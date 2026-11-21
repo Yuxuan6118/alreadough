@@ -30,6 +30,8 @@
 	<string>AlreaDough uses the microphone only when you choose to record your own affirmation track. 麦克风仅在你主动录制肯定语音轨时使用。</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>AlreaDough lets you choose your own photos for a private vision board. 用于选择你自己的照片制作私人愿景板。</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>AlreaDough saves the vision board you made to your photos when you choose to. 在你选择保存时，把你做好的愿景板存进相册。</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
