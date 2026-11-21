@@ -23,6 +23,7 @@
   .space-layout { grid-template-columns: 300px minmax(0, 1fr); gap: 56px; }
   .space-layout .space-list, .space-layout.has-detail .space-list, .space-layout:not(.has-detail) .space-detail { display: block; }
   .space-back { display: none; }
+  .space-detail-head h2 { font-size: calc(22px * var(--fs, 1)); }
 }
 .look-theme { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; }
 .look-theme strong { font-weight: 500; }
@@ -130,7 +131,7 @@
 .wish-card.open .wish-caret { transform: rotate(180deg); }
 .wish-card-body { display: grid; gap: 22px; padding: 4px 20px 20px; border-top: 1px solid color-mix(in srgb, var(--app-line) 60%, transparent); padding-top: 18px; }
 .wish-field { display: grid; gap: 8px; }
-.wish-field > span { color: var(--app-accent); font-size: calc(12px * var(--fs, 1)); font-weight: 700; letter-spacing: .06em; }
+.wish-field > span { color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); font-weight: 600; letter-spacing: .06em; }
 .settings-view .wish-field textarea, .settings-view .wish-field input { width: 100%; border: 0; border-bottom: 1px solid var(--app-line); border-radius: 0; padding: 8px 0; color: var(--app-ink); background: transparent; font: inherit; }
 .settings-view .wish-field textarea { min-height: 84px; resize: vertical; font: 400 calc(16px * var(--fs, 1))/1.7 var(--font-display); }
 .settings-view .wish-field textarea:focus, .settings-view .wish-field input:focus { outline: 0; border-bottom-color: var(--app-accent); }

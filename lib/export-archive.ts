@@ -338,7 +338,7 @@ function viewerHtml(
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AlreaDough · ${escape(t("我的数据", "My data"))}</title>
 <style>
-:root { --bg: #f4efea; --panel: #fffaf7; --ink: #2b2423; --muted: #786d68; --line: #ded2cb; --accent: #a65f6b; --soft: #e9d0d2; color-scheme: light dark; }
+:root { --bg: #f4efea; --panel: #fffaf7; --ink: #2b2423; --muted: #6e635e; --line: #ded2cb; --accent: #a65f6b; --soft: #e9d0d2; color-scheme: light dark; }
 @media (prefers-color-scheme: dark) { :root { --bg: #1f1b1b; --panel: #2a2424; --ink: #f3ebe7; --muted: #b3a7a2; --line: #3d3433; --accent: #d18b98; --soft: #4a3639; } }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.7 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
