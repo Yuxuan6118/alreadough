@@ -22,7 +22,13 @@
 /* the board */
 .vb-board-wrap { display: flex; justify-content: center; padding: 6px 0; }
 .vb-board { position: relative; container-type: inline-size; width: min(100%, var(--vb-max-w, 100%)); border-radius: 6px; box-shadow: 0 14px 40px color-mix(in srgb, var(--app-ink) 14%, transparent), 0 0 0 1px color-mix(in srgb, var(--app-ink) 6%, transparent); overflow: hidden; user-select: none; }
-.vb-title { position: absolute; display: flex; align-items: center; justify-content: center; text-align: center; font-weight: 500; line-height: 1.15; white-space: nowrap; overflow: hidden; pointer-events: none; }
+/* text floats over the board like a text box: drag it anywhere; the chosen one shows a dashed outline and a delete button */
+.vb-text { position: absolute; z-index: 4; translate: -50% -50%; padding: .12em .3em; border-radius: 6px; line-height: 1.2; text-align: center; white-space: pre; cursor: grab; touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.vb-text:active { cursor: grabbing; }
+.vb-text.active { outline: 1.5px dashed var(--app-accent); outline-offset: 2px; }
+.vb-text.empty { opacity: .5; }
+.vb-studio .vb-text-remove { position: absolute; top: -14px; right: -14px; width: 26px; height: 26px; display: grid; place-items: center; padding: 0; border: 2px solid #fff; border-radius: 50%; background: var(--app-accent); color: #fff; font-size: 0; line-height: 0; box-shadow: 0 2px 6px rgba(30, 18, 14, .25); }
+.vb-guide { position: absolute; z-index: 5; top: 0; bottom: 0; left: 50%; border-left: 1px dashed var(--app-accent); pointer-events: none; }
 .vb-board.lifting { overflow: visible; }
 .vb-frame { position: absolute; box-sizing: border-box; cursor: grab; touch-action: pan-y; -webkit-touch-callout: none; -webkit-user-select: none; rotate: var(--vb-r, none); transition: box-shadow .18s ease, filter .18s ease, transform .18s ease; }
 .vb-frame:active { cursor: grabbing; }
@@ -92,7 +98,16 @@
 /* text */
 .vb-studio .vb-text-input { width: 100%; height: 42px; padding: 0 14px; border: 1px solid var(--app-line); border-radius: 12px; background: var(--app-bg); color: var(--app-ink); font-size: calc(15px * var(--fs, 1)); outline: none; }
 .vb-studio .vb-text-input:focus { border-color: var(--app-accent); }
-.vb-small-options { align-items: center; }
+.vb-studio textarea.vb-text-input { height: auto; min-height: 64px; padding: 10px 14px; font-family: inherit; line-height: 1.5; resize: none; }
+.vb-studio .vb-add-text { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; border: 1.5px dashed var(--app-line); border-radius: 14px; background: transparent; color: var(--app-accent); font-size: calc(15px * var(--fs, 1)); font-weight: 600; }
+.vb-studio .vb-add-text:not(:disabled):hover { border-color: var(--app-accent); background: color-mix(in srgb, var(--app-accent) 6%, transparent); }
+/* font library: each font shows its name in itself */
+.vb-font-group { display: flex; flex-direction: column; gap: 8px; }
+.vb-font-group > span { color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); }
+.vb-fonts { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
+.vb-studio .vb-fonts > button { min-height: 46px; padding: 6px 10px; overflow: hidden; border: 1px solid var(--app-line); border-radius: 12px; background: var(--app-panel); font-size: 19px; line-height: 1.2; white-space: nowrap; text-overflow: ellipsis; transition: border-color .18s ease, background .18s ease; }
+.vb-studio .vb-fonts > button.selected { border-color: var(--app-accent); background: color-mix(in srgb, var(--app-accent) 9%, var(--app-panel)); color: var(--app-accent); }
+.vb-studio .vb-danger { border-color: color-mix(in srgb, #b4543f 35%, var(--app-line)); color: #b4543f; }
 .vb-divider { width: 1px; height: 22px; margin: 0 4px; background: var(--app-line); }
 .vb-swatches { align-items: center; }
 .vb-swatch-divider { height: 28px; margin: 0 2px; }

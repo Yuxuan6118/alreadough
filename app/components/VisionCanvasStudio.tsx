@@ -4,20 +4,23 @@ import { ChangeEvent, CSSProperties, PointerEvent as ReactPointerEvent, useEffec
 import { ArrowClockwise, ArrowsOutCardinal, Check, DownloadSimple, FlipHorizontal, Plus, Swap, Trash, UploadSimple, X } from "@phosphor-icons/react";
 import { Capacitor } from "@capacitor/core";
 import { readStored, writeStored } from "@/lib/safe-storage";
-import { askConfirm } from "./ConfirmHost";
+import { askConfirm, showUndo } from "./ConfirmHost";
 import "./vision-studio.css";
 
 type Lang = "zh" | "en";
 type Layout = "grid" | "editorial" | "mosaic" | "columns" | "strip" | "scrapbook";
 type Ratio = "9:16" | "3:4" | "1:1" | "4:3" | "16:9" | "2:3";
 type FrameStyle = "none" | "white" | "polaroid" | "shadow";
-type TitlePlace = "top" | "bottom";
-type TitleFont = "serif" | "sans" | "kai";
 type Tool = "layout" | "ratio" | "frame" | "background" | "text";
 type Photo = { id: string; name: string; url: string; w: number; h: number; zoom: number; x: number; y: number; rotate: number; flip: boolean; savedId?: number };
 export type SavedPicture = { id: number; title: string; image?: string };
 type StoredPhoto = Omit<Photo, "url">;
-type Settings = { layout: Layout; ratio: Ratio; frame: FrameStyle; margin: number; gap: number; corner: number; background: string; title: string; titlePlace: TitlePlace; titleFont: TitleFont };
+/** a line of text placed freely on the board: x, y are its centre as a share of the board; size is in board pixels (the board is 1080 wide) */
+type TextBox = { id: string; text: string; font: string; size: number; color: string; x: number; y: number };
+type Settings = { layout: Layout; ratio: Ratio; frame: FrameStyle; margin: number; gap: number; corner: number; background: string; texts: TextBox[] };
+/** what older versions saved: one title above or below the photos */
+type OldTitle = { title?: string; titlePlace?: "top" | "bottom"; titleFont?: "serif" | "sans" | "kai" };
+type FontFace = { fontFamily: string; fontStyle?: string };
 type SavedProject = Settings & { images: StoredPhoto[] };
 type Rect = { x: number; y: number; w: number; h: number; r?: number };
 type Frame = Rect & { inner: Rect; outerRadius: number; innerRadius: number };
@@ -32,12 +35,45 @@ const RATIOS: Ratio[] = ["9:16", "3:4", "2:3", "1:1", "4:3", "16:9"];
 const LAYOUTS: Layout[] = ["grid", "editorial", "mosaic", "columns", "strip", "scrapbook"];
 const FRAMES: FrameStyle[] = ["none", "white", "polaroid", "shadow"];
 const SWATCHES = ["#f4ece4", "#ffffff", "#efe0d3", "#ecd5d3", "#dfe6da", "#dde3ec", "#2f2a28", "#6d4a44"];
-const FONTS: Record<TitleFont, string> = {
-  serif: '"Noto Serif SC", "Songti SC", "STSong", Georgia, serif',
-  sans: '-apple-system, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif',
-  kai: '"Kaiti SC", "STKaiti", "KaiTi", "Kaiti TC", serif',
-};
-const DEFAULTS: Settings = { layout: "grid", ratio: "9:16", frame: "none", margin: 40, gap: 16, corner: 20, background: "#f4ece4", title: "", titlePlace: "top", titleFont: "serif" };
+/** the plain font every phone and computer already has */
+const SYSTEM_SANS = '-apple-system, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif';
+/** the font library; every font but the plain one is a web font from lib/vision-fonts.ts, so it looks the same on every device */
+const VISION_FONTS: Array<{ id: string; group: "zh" | "en"; label: string }> = [
+  { id: "sans", group: "zh", label: "" },
+  { id: "xiaowei", group: "zh", label: "站酷小薇" },
+  { id: "mashan", group: "zh", label: "马善政楷书" },
+  { id: "zhimang", group: "zh", label: "志莽行书" },
+  { id: "longcang", group: "zh", label: "龙藏手写" },
+  { id: "kuaile", group: "zh", label: "站酷快乐体" },
+  { id: "huangyou", group: "zh", label: "庆科黄油体" },
+  { id: "playfair", group: "en", label: "Playfair" },
+  { id: "cormorant", group: "en", label: "Cormorant" },
+  { id: "greatvibes", group: "en", label: "Great Vibes" },
+  { id: "dancing", group: "en", label: "Dancing Script" },
+  { id: "abril", group: "en", label: "Abril Fatface" },
+  { id: "bebas", group: "en", label: "Bebas Neue" },
+];
+const TEXT_COLORS = ["#2f2a28", "#ffffff", "#a65f6b", "#c8a24a", "#5f7a96", "#6d4a44"];
+const MAX_TEXTS = 8;
+const DEFAULTS: Settings = { layout: "grid", ratio: "9:16", frame: "none", margin: 40, gap: 16, corner: 20, background: "#f4ece4", texts: [] };
+
+function fontFace(id: string, faces: Record<string, FontFace> | null): FontFace {
+  const face = faces?.[id];
+  return face ? { fontFamily: `${face.fontFamily}, ${SYSTEM_SANS}`, fontStyle: face.fontStyle } : { fontFamily: SYSTEM_SANS };
+}
+
+/** saved settings from any version, with an old above/below title turned into a text box where it used to sit */
+function upgradeSettings(raw: Partial<Settings> & OldTitle): Settings {
+  const { title, titlePlace, titleFont, texts, ...rest } = raw;
+  const settings: Settings = { ...DEFAULTS, ...rest, texts: Array.isArray(texts) ? texts.filter((item) => item && typeof item.text === "string").slice(0, MAX_TEXTS) : [] };
+  if (!settings.texts.length && title?.trim()) {
+    const { W, H } = boardSize(settings.ratio);
+    const band = Math.min(W, H) * 0.13;
+    const middle = (settings.margin + band / 2) / H;
+    settings.texts = [{ id: crypto.randomUUID(), text: title.trim(), font: titleFont === "kai" ? "mashan" : titleFont === "sans" ? "sans" : "xiaowei", size: Math.round(band * 0.42), color: "", x: 0.5, y: titlePlace === "bottom" ? 1 - middle : middle }];
+  }
+  return settings;
+}
 
 /* ---------- device-local photo store ---------- */
 
@@ -201,19 +237,12 @@ function layoutFrames(layout: Layout, count: number, stage: Rect, gap: number): 
   });
 }
 
-function boardGeometry(settings: Settings, count: number) {
+function boardGeometry(settings: Omit<Settings, "background" | "texts">, count: number) {
   const { W, H } = boardSize(settings.ratio);
-  const hasTitle = settings.title.trim().length > 0;
-  const titleHeight = hasTitle ? Math.min(W, H) * 0.13 : 0;
   const margin = settings.margin;
-  const stage: Rect = {
-    x: margin,
-    y: margin + (settings.titlePlace === "top" ? titleHeight : 0),
-    w: W - margin * 2,
-    h: H - margin * 2 - titleHeight,
-  };
+  // text floats over the board, so the photos always get the whole stage
+  const stage: Rect = { x: margin, y: margin, w: W - margin * 2, h: H - margin * 2 };
   if (settings.layout === "scrapbook") { stage.x += W * 0.03; stage.y += W * 0.03; stage.w -= W * 0.06; stage.h -= W * 0.06; }
-  const title: Rect | null = hasTitle ? { x: margin, y: settings.titlePlace === "top" ? margin : H - margin - titleHeight, w: W - margin * 2, h: titleHeight } : null;
   const frameStyle = settings.layout === "scrapbook" && settings.frame === "none" ? "white" : settings.frame;
   const frames: Frame[] = layoutFrames(settings.layout, count, stage, settings.gap).map((rect) => {
     const short = Math.min(rect.w, rect.h);
@@ -229,7 +258,7 @@ function boardGeometry(settings: Settings, count: number) {
     }
     return { ...rect, inner: { x: rect.x, y: rect.y, w: rect.w, h: rect.h }, outerRadius: settings.corner, innerRadius: settings.corner };
   });
-  return { W, H, title, frames, frameStyle };
+  return { W, H, frames, frameStyle };
 }
 
 /** Where the photo sits inside its frame, in frame-inner pixels. */
@@ -377,8 +406,8 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
     layouts: { grid: "网格", editorial: "主图", mosaic: "错落", columns: "瀑布流", strip: "拼接", scrapbook: "拼贴" },
     frames: { none: "无边", white: "白边", polaroid: "拍立得", shadow: "投影" },
     margin: "外边距", gap: "间距", corner: "圆角", zoom: "缩放",
-    custom: "自定义颜色", textPlaceholder: "输入文字", top: "上方", bottom: "下方",
-    fonts: { serif: "宋体", sans: "黑体", kai: "楷体" },
+    custom: "自定义颜色", textPlaceholder: "输入文字",
+    addText: "添加文字", removeText: "删除文字", textSize: "字号", fontZh: "中文", fontEn: "English", plainFont: "黑体", textRemoved: "已删除文字", undo: "撤销",
     replace: "替换", move: "拖动调整位置", rotate: "旋转", flip: "镜像", remove: "删除", done: "完成",
     clearTitle: "清空愿景板上的全部照片？", clearBody: "照片只存在这台设备上，清空后不能恢复。",
     removeTitle: "从愿景板删除这张照片？", removeBody: "照片只存在这台设备上，删除后不能恢复。",
@@ -391,8 +420,8 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
     layouts: { grid: "Grid", editorial: "Hero", mosaic: "Mosaic", columns: "Columns", strip: "Strip", scrapbook: "Scrapbook" },
     frames: { none: "None", white: "White", polaroid: "Polaroid", shadow: "Shadow" },
     margin: "Margin", gap: "Spacing", corner: "Corners", zoom: "Zoom",
-    custom: "Custom color", textPlaceholder: "Type a line", top: "Top", bottom: "Bottom",
-    fonts: { serif: "Serif", sans: "Sans", kai: "Brush" },
+    custom: "Custom color", textPlaceholder: "Type here",
+    addText: "Add text", removeText: "Delete text", textSize: "Size", fontZh: "Chinese", fontEn: "English", plainFont: "Plain", textRemoved: "Text deleted", undo: "Undo",
     replace: "Replace", move: "Drag to reposition", rotate: "Rotate", flip: "Mirror", remove: "Delete", done: "Done",
     clearTitle: "Clear every photo from the board?", clearBody: "The photos live only on this device and can't be recovered.",
     removeTitle: "Remove this photo from the board?", removeBody: "The photo lives only on this device and can't be recovered.",
@@ -409,6 +438,10 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
   const [liftId, setLiftId] = useState("");
   const [loose, setLoose] = useState(false);
   const [toolsId, setToolsId] = useState("");
+  const [textId, setTextId] = useState("");
+  const [faces, setFaces] = useState<Record<string, FontFace> | null>(null);
+  const [guide, setGuide] = useState(false);
+  const textDragRef = useRef<{ id: string; startX: number; startY: number; originX: number; originY: number; boardW: number; boardH: number; moved: boolean } | null>(null);
   const [notice, setNotice] = useState("");
   const [restored, setRestored] = useState(false);
   const imagesRef = useRef<Photo[]>([]);
@@ -433,8 +466,8 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
         const saved = readStored(PROJECT_KEY);
         const legacy = saved ? null : readStored(LEGACY_KEY);
         if (!saved && !legacy) return;
-        let project: SavedProject;
-        if (saved) project = { ...DEFAULTS, ...(JSON.parse(saved) as SavedProject) };
+        let project: SavedProject & OldTitle;
+        if (saved) project = { ...DEFAULTS, ...(JSON.parse(saved) as SavedProject & OldTitle) };
         else {
           const old = JSON.parse(legacy as string) as { layout?: string; ratio?: string; gap?: number; corner?: number; background?: string; images?: Array<{ id: string; name: string; zoom: number }> };
           const ratioMap: Record<string, Ratio> = { phone: "9:16", square: "1:1", landscape: "16:9" };
@@ -442,7 +475,7 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
         }
         if (cancelled) return;
         const { images: storedImages, ...rest } = project;
-        setSettings({ ...DEFAULTS, ...rest });
+        setSettings(upgradeSettings(rest));
         const items = await Promise.all(storedImages.slice(0, MAX_PHOTOS).map(async (item) => {
           const blob = await getVisionImage(item.id);
           if (!blob) return null;
@@ -591,6 +624,77 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
   // the photo tools stay rendered (hidden) after a photo is let go, so the two panels can cross-fade
   const toolsPhoto = selected || images.find((item) => item.id === toolsId) || images[0];
 
+  /* ---------- text boxes ---------- */
+  const activeText = settings.texts.find((item) => item.id === textId);
+  const faceOf = (id: string) => fontFace(id, faces);
+  // the font library loads the first time text is shown or the text tools open
+  const needFonts = tool === "text" || settings.texts.length > 0;
+  useEffect(() => {
+    if (!needFonts || faces) return;
+    let cancelled = false;
+    import("@/lib/vision-fonts").then((module) => { if (!cancelled) setFaces(module.visionFontFaces); }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [needFonts, faces]);
+  // a new box gets the typing cursor straight away (in the same tap, so a phone opens its keyboard)
+  const textInput = useRef<HTMLTextAreaElement>(null);
+  const focusNewText = useRef(false);
+  useLayoutEffect(() => {
+    if (!focusNewText.current) return;
+    focusNewText.current = false;
+    textInput.current?.focus();
+  }, [textId]);
+  const updateText = (id: string, changes: Partial<TextBox>) => setSettings((current) => ({ ...current, texts: current.texts.map((item) => item.id === id ? { ...item, ...changes } : item) }));
+  /** choose a text box to edit ("" lets go); a box left empty disappears when it is let go */
+  const pickText = (id: string) => {
+    if (textId && textId !== id) setSettings((current) => ({ ...current, texts: current.texts.filter((item) => item.id !== textId || item.text.trim()) }));
+    setTextId(id);
+    if (id) { setSelectedId(""); setTool("text"); }
+  };
+  const addText = () => {
+    const kept = settings.texts.filter((item) => item.id !== textId || item.text.trim());
+    if (kept.length >= MAX_TEXTS) return;
+    // new boxes start in the middle, each a little lower than the last so they don't stack exactly
+    const box: TextBox = { id: crypto.randomUUID(), text: "", font: activeText?.font || "sans", size: 72, color: ink, x: 0.5, y: Math.min(0.85, 0.5 + (kept.length % 4) * 0.08) };
+    setSettings((current) => ({ ...current, texts: [...current.texts.filter((item) => item.id !== textId || item.text.trim()), box] }));
+    focusNewText.current = true;
+    setTextId(box.id);
+    setSelectedId("");
+    setTool("text");
+  };
+  const removeText = (id: string) => {
+    const index = settings.texts.findIndex((item) => item.id === id);
+    const box = settings.texts[index];
+    if (!box) return;
+    setSettings((current) => ({ ...current, texts: current.texts.filter((item) => item.id !== id) }));
+    if (textId === id) setTextId("");
+    if (box.text.trim()) showUndo(copy.textRemoved, copy.undo, () => setSettings((current) => ({ ...current, texts: [...current.texts.slice(0, index), box, ...current.texts.slice(index)].slice(0, MAX_TEXTS) })));
+  };
+  // a text box moves as soon as it is dragged, with a finger or a mouse; it snaps to the board's centre line
+  const onTextPointerDown = (event: ReactPointerEvent<HTMLDivElement>, box: TextBox) => {
+    if (event.button !== 0) return;
+    event.stopPropagation();
+    const rect = boardRef.current?.getBoundingClientRect();
+    textDragRef.current = { id: box.id, startX: event.clientX, startY: event.clientY, originX: box.x, originY: box.y, boardW: rect?.width || 1, boardH: rect?.height || 1, moved: false };
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* the pointer is already gone */ }
+    if (textId !== box.id) pickText(box.id);
+  };
+  const onTextPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = textDragRef.current;
+    if (!drag) return;
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+    drag.moved = true;
+    let x = Math.max(0.02, Math.min(0.98, drag.originX + dx / drag.boardW));
+    const y = Math.max(0.02, Math.min(0.98, drag.originY + dy / drag.boardH));
+    const centred = Math.abs(x - 0.5) < 0.015;
+    if (centred) x = 0.5;
+    setGuide(centred);
+    updateText(drag.id, { x, y });
+  };
+  const onTextPointerUp = () => { textDragRef.current = null; setGuide(false); };
+  const letGoAll = () => { setSelectedId(""); pickText(""); };
+
   const liftIndex = liftId ? images.findIndex((item) => item.id === liftId) : -1;
   const liftFrame = liftIndex >= 0 ? geometry.frames[liftIndex] : undefined;
   const boardRef = useRef<HTMLDivElement>(null);
@@ -686,7 +790,7 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
     dragRef.current = null;
     if (!drag) return;
     window.clearTimeout(drag.hold);
-    if (!drag.mode) { setSelectedId((current) => current === drag.id ? "" : drag.id); setToolsId(drag.id); return; }
+    if (!drag.mode) { setSelectedId((current) => current === drag.id ? "" : drag.id); setToolsId(drag.id); if (textId) pickText(""); return; }
     if (drag.mode === "swap") dropPhoto(drag, drag.target);
   };
   const onFramePointerCancel = () => {
@@ -756,13 +860,11 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
     context.scale(scale, scale);
     context.fillStyle = settings.background;
     context.fillRect(0, 0, W, H);
-    if (geometry.title) {
-      context.fillStyle = ink;
-      context.textAlign = "center";
-      context.textBaseline = "middle";
-      context.font = `500 ${Math.round(geometry.title.h * 0.42)}px ${FONTS[settings.titleFont]}`;
-      context.fillText(settings.title.trim(), W / 2, geometry.title.y + geometry.title.h / 2, geometry.title.w);
-    }
+    const texts = settings.texts.filter((item) => item.text.trim());
+    const fontFaces = texts.length ? faces || (await import("@/lib/vision-fonts").then((module) => module.visionFontFaces).catch(() => null)) : faces;
+    const canvasFont = (box: TextBox) => { const face = fontFace(box.font, fontFaces); return `${face.fontStyle === "italic" ? "italic " : ""}${box.size}px ${face.fontFamily}`; };
+    // wait for the letters each text needs, so the picture uses the chosen font rather than a fallback
+    await Promise.all(texts.map((box) => document.fonts.load(canvasFont(box), box.text).catch(() => undefined)));
     const loaded = await Promise.all(images.map((item) => loadImage(item.url)));
     geometry.frames.forEach((frame, index) => {
       const photo = images[index];
@@ -790,6 +892,18 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
       context.rotate((photo.rotate * Math.PI) / 180);
       if (photo.flip) context.scale(-1, 1);
       context.drawImage(loaded[index], -place.width / 2, -place.height / 2, place.width, place.height);
+      context.restore();
+    });
+    // text sits on top of the photos, line by line around its centre, as on screen
+    texts.forEach((box) => {
+      const lines = box.text.split("\n");
+      const lineHeight = box.size * 1.2;
+      context.save();
+      context.font = canvasFont(box);
+      context.fillStyle = box.color || ink;
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      lines.forEach((line, index) => context.fillText(line, box.x * W, box.y * H + (index - (lines.length - 1) / 2) * lineHeight));
       context.restore();
     });
     canvas.toBlob((blob) => {
@@ -832,9 +946,8 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
     {tray}
     {notice && <p className="vb-notice" role="status">{notice}</p>}
 
-    <div className="vb-board-wrap" role="presentation" onKeyDown={(event) => { if (event.key === "Escape") setSelectedId(""); }} onClick={(event) => { if (event.target === event.currentTarget) setSelectedId(""); }}>
-      <div ref={boardRef} className={`vb-board${loose ? " lifting" : ""}`} style={{ aspectRatio: `${W} / ${H}`, background: settings.background, "--vb-max-w": `calc(70vh * ${W / H})` } as CSSProperties} role="presentation" onClick={(event) => { if (event.target === event.currentTarget) setSelectedId(""); }}>
-        {geometry.title && <div className="vb-title" style={{ left: pct(geometry.title.x, W), top: pct(geometry.title.y, H), width: pct(geometry.title.w, W), height: pct(geometry.title.h, H), color: ink, fontFamily: FONTS[settings.titleFont], fontSize: unit(geometry.title.h * 0.42) }}>{settings.title.trim()}</div>}
+    <div className="vb-board-wrap" role="presentation" onKeyDown={(event) => { if (event.key === "Escape") letGoAll(); }} onClick={(event) => { if (event.target === event.currentTarget) letGoAll(); }}>
+      <div ref={boardRef} className={`vb-board${loose ? " lifting" : ""}`} style={{ aspectRatio: `${W} / ${H}`, background: settings.background, "--vb-max-w": `calc(70vh * ${W / H})` } as CSSProperties} role="presentation" onClick={(event) => { if (event.target === event.currentTarget) letGoAll(); }}>
         {liftFrame && <div className="vb-slot" aria-hidden="true" style={{ left: pct(liftFrame.x, W), top: pct(liftFrame.y, H), width: pct(liftFrame.w, W), height: pct(liftFrame.h, H), borderRadius: unit(liftFrame.outerRadius), color: ink, "--vb-r": liftFrame.r ? `${liftFrame.r}deg` : undefined } as CSSProperties}/>}
         {images.map((photo, index) => {
           const frame = geometry.frames[index];
@@ -863,6 +976,29 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
             </div>
           </div>;
         })}
+        {guide && <i className="vb-guide" aria-hidden="true"/>}
+        {settings.texts.map((box) => {
+          const face = faceOf(box.font);
+          const active = textId === box.id;
+          return <div
+            key={box.id}
+            data-text-id={box.id}
+            role="button"
+            tabIndex={0}
+            aria-label={box.text.trim() || copy.textPlaceholder}
+            aria-pressed={active}
+            className={`vb-text${active ? " active" : ""}${box.text.trim() ? "" : " empty"}`}
+            style={{ left: `${box.x * 100}%`, top: `${box.y * 100}%`, fontFamily: face.fontFamily, fontStyle: face.fontStyle, fontSize: unit(box.size), color: box.color || ink }}
+            onPointerDown={(event) => onTextPointerDown(event, box)}
+            onPointerMove={onTextPointerMove}
+            onPointerUp={onTextPointerUp}
+            onPointerCancel={onTextPointerUp}
+            onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); pickText(box.id); } }}
+          >
+            {box.text.trim() ? box.text : copy.textPlaceholder}
+            {active && <button type="button" className="vb-text-remove" aria-label={copy.removeText} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); removeText(box.id); }}><X size={14} weight="bold"/></button>}
+          </div>;
+        })}
       </div>
     </div>
 
@@ -885,7 +1021,7 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
 
       {tool === "layout" && <div className="vb-options vb-templates">
         {LAYOUTS.map((value) => {
-          const thumb = boardGeometry({ ...settings, layout: value, title: "", margin: 50, gap: 26, frame: "none" }, Math.min(previewCount, 9));
+          const thumb = boardGeometry({ ...settings, layout: value, margin: 50, gap: 26, frame: "none" }, Math.min(previewCount, 9));
           return <button type="button" key={value} className={settings.layout === value ? "selected" : ""} onClick={() => set("layout", value)}>
             <span className="vb-thumb" style={{ aspectRatio: `${thumb.W} / ${thumb.H}` }}>{thumb.frames.map((frame, index) => <i key={index} style={{ left: pct(frame.x, thumb.W), top: pct(frame.y, thumb.H), width: pct(frame.w, thumb.W), height: pct(frame.h, thumb.H), transform: frame.r ? `rotate(${frame.r}deg)` : undefined }}/>)}</span>
             {copy.layouts[value]}
@@ -923,12 +1059,28 @@ export default function VisionCanvasStudio({ lang, saved = [], onRemoveSaved }: 
       })()}
 
       {tool === "text" && <div className="vb-stack">
-        <input className="vb-text-input" value={settings.title} maxLength={40} placeholder={copy.textPlaceholder} onChange={(event) => set("title", event.target.value)}/>
-        <div className="vb-options vb-small-options">
-          {(["top", "bottom"] as const).map((value) => <button type="button" key={value} className={settings.titlePlace === value ? "selected" : ""} onClick={() => set("titlePlace", value)}>{copy[value]}</button>)}
-          <span className="vb-divider"/>
-          {(["serif", "sans", "kai"] as const).map((value) => <button type="button" key={value} className={settings.titleFont === value ? "selected" : ""} style={{ fontFamily: FONTS[value] }} onClick={() => set("titleFont", value)}>{copy.fonts[value]}</button>)}
-        </div>
+        {activeText ? <>
+          <textarea ref={textInput} key={activeText.id} className="vb-text-input" rows={2} value={activeText.text} maxLength={80} placeholder={copy.textPlaceholder} onChange={(event) => updateText(activeText.id, { text: event.target.value })}/>
+          {(["zh", "en"] as const).map((group) => <div className="vb-font-group" key={group}>
+            <span>{group === "zh" ? copy.fontZh : copy.fontEn}</span>
+            <div className="vb-fonts">
+              {VISION_FONTS.filter((font) => font.group === group).map((font) => {
+                const face = faceOf(font.id);
+                return <button type="button" key={font.id} className={activeText.font === font.id ? "selected" : ""} aria-pressed={activeText.font === font.id} style={{ fontFamily: face.fontFamily, fontStyle: face.fontStyle }} onClick={() => updateText(activeText.id, { font: font.id })}>{font.label || copy.plainFont}</button>;
+              })}
+            </div>
+          </div>)}
+          <label className="vb-slider"><span>{copy.textSize}</span><input type="range" min="28" max="260" step="2" value={activeText.size} onChange={(event) => updateText(activeText.id, { size: Number(event.target.value) })}/></label>
+          <div className="vb-options vb-swatches">
+            {TEXT_COLORS.map((value) => <button type="button" key={value} aria-label={value} className={(activeText.color || ink).toLowerCase() === value ? "selected" : ""} style={{ background: value }} onClick={() => updateText(activeText.id, { color: value })}/>)}
+            <label className={`vb-custom-color ${TEXT_COLORS.includes((activeText.color || ink).toLowerCase()) ? "" : "selected"}`} style={{ background: TEXT_COLORS.includes((activeText.color || ink).toLowerCase()) ? undefined : activeText.color || ink }} aria-label={copy.custom}><input type="color" value={activeText.color || ink} onChange={(event) => updateText(activeText.id, { color: event.target.value })}/></label>
+          </div>
+          <div className="vb-row">
+            <button type="button" className="vb-tool-button" onClick={addText} disabled={settings.texts.length >= MAX_TEXTS}><Plus size={18}/>{copy.addText}</button>
+            <button type="button" className="vb-tool-button vb-danger" onClick={() => removeText(activeText.id)}><Trash size={18}/>{copy.removeText}</button>
+            <button type="button" className="vb-tool-button vb-done" onClick={() => pickText("")}>{copy.done}</button>
+          </div>
+        </> : <button type="button" className="vb-add-text" onClick={addText} disabled={settings.texts.length >= MAX_TEXTS}><Plus size={20}/>{copy.addText}</button>}
       </div>}
     </div>
     </div>
