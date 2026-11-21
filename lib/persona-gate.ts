@@ -12,6 +12,10 @@ export const PERSONA_MESSAGES: Record<string, Record<"zh" | "en", string>> = {
   AI_PAUSED: { zh: "AI 暂时不可用，请稍后再试。", en: "AI is temporarily unavailable. Please try again shortly." },
   BETA_BUDGET_PAUSED: { zh: "AI 现在请求有点多，请稍后再试一次。", en: "AI is getting a lot of requests right now. Please try again shortly." },
   AI_REQUEST_FAILED: { zh: "AI 暂时没有连接成功，请稍后再试。", en: "AI could not connect. Please try again shortly." },
+  SCREENSHOTS_PAYMENT_REQUIRED: { zh: "截图识别要先买一次。", en: "Buy a screenshot import first." },
+  SCREENSHOTS_WEEK_LIMIT: { zh: "这周的截图识别次数用完了，下周一恢复。", en: "This week's screenshot imports are used up. They come back on Monday." },
+  SCREENSHOTS_EMPTY: { zh: "这些截图里没有读到聊天内容，这次不计次数。", en: "No chat was found in these screenshots. This one was not counted." },
+  INVALID_IMAGES: { zh: "截图太多或太大了，一次最多 20 张。", en: "Too many or too large. Up to 20 screenshots at a time." },
 };
 
 export function personaError(code: string, lang: "zh" | "en", status: number) {

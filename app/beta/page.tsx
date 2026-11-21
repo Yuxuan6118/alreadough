@@ -90,10 +90,10 @@ export default function FounderBetaPage() {
   </main>;
 }
 
-const FEATURE_LABELS: Record<string, string> = { chat: "陪伴对话", revision: "转念改写", story: "剧本故事", affirm: "睡前肯定语", persona: "TA 对话", persona_import: "TA 资料导入", onboarding: "首次引导回复" };
+const FEATURE_LABELS: Record<string, string> = { chat: "陪伴对话", revision: "转念改写", story: "剧本故事", affirm: "睡前肯定语", persona: "TA 对话", persona_import: "TA 资料导入", persona_screenshots: "TA 截图识别", onboarding: "首次引导回复" };
 const TOOL_LABELS: Record<string, string> = { image_search: "愿景板图片搜索", sound_search: "环境声搜索", subliminal_record: "潜意识录音（录完一段）", subliminal_upload: "潜意识上传音频", subliminal_play: "潜意识开始播放", subliminal_export: "潜意识导出混音" };
 const TOOL_ORDER = ["image_search", "subliminal_record", "subliminal_play", "subliminal_upload", "subliminal_export", "sound_search"];
-const PLAN_LABELS: Record<string, string> = { deep: "Deep", atelier: "Atelier" };
+const PLAN_LABELS: Record<string, string> = { deep: "Deep", atelier: "Atelier", screenshots: "截图识别 1 次" };
 const yuan = (fen: number) => `¥${(fen / 100).toLocaleString("zh-CN", { maximumFractionDigits: 2 })}`;
 const short = (ms: number) => new Date(ms).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 const pct = (part: number, whole: number) => whole ? `${Math.round(part / whole * 100)}%` : "—";

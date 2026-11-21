@@ -1,4 +1,4 @@
-import type { PaidPlan } from "./membership";
+import type { OrderItem } from "./membership";
 
 /**
  * Waffo Pancake (merchant of record) card checkout: Visa, Mastercard, Apple Pay, Google Pay.
@@ -10,10 +10,10 @@ export const WAFFO_STORE_ID = "STO_3fCRdcbiMOjIUqwryxPUqi";
 /**
  * Checkout runs in USD: on Waffo a CNY price can only be paid with WeChat Pay, while USD opens cards, Apple Pay,
  * Google Pay and WeChat Pay. Buyers are shown their local currency. Set so that after Waffo's 3.9% + $0.50 fee
- * the payout is about what Alipay brings in for ¥39 / ¥149 (at ~7.1 CNY/USD). Change together with the product prices in Waffo.
+ * the payout is about what Alipay brings in for ¥39 / ¥149 / ¥9.9 (at ~7.1 CNY/USD). Change together with the product prices in Waffo.
  */
 export const WAFFO_CURRENCY = "USD";
-export const WAFFO_PRICE_CENTS: Record<PaidPlan, number> = { deep: 649, atelier: 2299 };
+export const WAFFO_PRICE_CENTS: Record<OrderItem, number> = { deep: 649, atelier: 2299, screenshots: 199 };
 
 // Waffo's webhook signing keys, copied from @waffo/pancake-ts 0.28.0 (src/webhooks.ts).
 const WEBHOOK_KEYS = {
@@ -29,14 +29,15 @@ export function waffoConfig() {
   const merchantId = process.env.WAFFO_MERCHANT_ID || "";
   const privateKey = process.env.WAFFO_PRIVATE_KEY || "";
   const env: WaffoEnv = process.env.WAFFO_ENV === "prod" ? "prod" : "test";
-  const products: Record<PaidPlan, string> = { deep: process.env.WAFFO_PRODUCT_DEEP || "", atelier: process.env.WAFFO_PRODUCT_ATELIER || "" };
+  // The screenshot-import product is optional: without WAFFO_PRODUCT_SCREENSHOTS that one item is sold by Alipay only.
+  const products: Record<OrderItem, string> = { deep: process.env.WAFFO_PRODUCT_DEEP || "", atelier: process.env.WAFFO_PRODUCT_ATELIER || "", screenshots: process.env.WAFFO_PRODUCT_SCREENSHOTS || "" };
   const enabled = process.env.WAFFO_ENABLED === "1" && !!merchantId && !!privateKey && !!products.deep && !!products.atelier;
   return { enabled, merchantId, privateKey, env, products };
 }
 
 /** In test mode only the founder's own account sees card checkout, so nobody can get a membership with a test card. */
-export function waffoAvailableFor(accountId: string | null, isFounder: (id: string) => boolean, config = waffoConfig()) {
-  return config.enabled && (config.env === "prod" || (!!accountId && isFounder(accountId)));
+export function waffoAvailableFor(accountId: string | null, isFounder: (id: string) => boolean, config = waffoConfig(), item?: OrderItem) {
+  return config.enabled && (!item || !!config.products[item]) && (config.env === "prod" || (!!accountId && isFounder(accountId)));
 }
 
 function base64ToBytes(value: string) {
@@ -89,12 +90,12 @@ export async function waffoPost<T>(path: string, body: unknown, config = waffoCo
   return envelope.data;
 }
 
-export async function createWaffoCheckout(args: { plan: PaidPlan; orderId: string; origin: string; lang: "zh" | "en" }, config = waffoConfig()) {
+export async function createWaffoCheckout(args: { plan: OrderItem; orderId: string; origin: string; lang: "zh" | "en" }, config = waffoConfig()) {
   const session = await waffoPost<{ sessionId: string; checkoutUrl: string }>("/v1/actions/checkout/create-session", {
     productId: config.products[args.plan],
     productType: "onetime",
     currency: WAFFO_CURRENCY,
-    successUrl: `${args.origin}${args.lang === "en" ? "/en/checkout" : "/checkout"}?paid=card&plan=${args.plan}`,
+    successUrl: `${args.origin}${args.lang === "en" ? "/en/checkout" : "/checkout"}?paid=card&${args.plan === "screenshots" ? "item" : "plan"}=${args.plan}`,
     expiresInSeconds: 3600,
     metadata: { orderId: args.orderId, plan: args.plan },
     orderMerchantExternalId: args.orderId,

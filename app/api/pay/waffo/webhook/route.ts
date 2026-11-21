@@ -1,4 +1,4 @@
-import { grantPaidOrder, readMemberOrder, type PaidPlan } from "@/lib/membership";
+import { grantPaidOrder, readMemberOrder } from "@/lib/membership";
 import { WAFFO_CURRENCY, WAFFO_PRICE_CENTS, WAFFO_STORE_ID, displayAmountFen, verifyWaffoWebhook, waffoConfig } from "@/lib/waffo";
 
 const ok = () => new Response("OK");
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   if (order.status === "paid") return ok();
   // Waffo reports the amount in the pricing currency (USD cents here), whatever the buyer was shown locally.
   const paidCents = displayAmountFen(data.listPrice?.total ?? data.total);
-  const expectedCents: number | undefined = WAFFO_PRICE_CENTS[order.plan as PaidPlan];
+  const expectedCents: number | undefined = WAFFO_PRICE_CENTS[order.plan];
   if (!expectedCents || data.currency !== WAFFO_CURRENCY || paidCents === null || paidCents < expectedCents || data.paymentStatus !== "succeeded") {
     console.error("waffo webhook: amount mismatch", orderId, data.currency, data.listPrice?.total, data.paymentStatus);
     return ok();

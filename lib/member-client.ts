@@ -35,7 +35,11 @@ export type MemberStatus = {
   checkoutAvailable: boolean;
   /** Card / Apple Pay / Google Pay through Waffo Pancake. */
   cardCheckoutAvailable?: boolean;
+  /** Card checkout for one screenshot import (needs its own Waffo product). */
+  screenshotCardAvailable?: boolean;
   membership: Membership | null;
+  /** TA screenshot import: included with paid Atelier, or single uses bought one at a time. */
+  screenshots?: { mode: "included" | "credit" | "buy"; credits: number; weekLeft: number | null } | null;
 };
 
 export function planName(plan: MemberPlanId, lang: Lang) {

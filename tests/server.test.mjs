@@ -21,6 +21,7 @@ const { founderAuthorized } = await import("../lib/founder-auth.ts");
 const { withHerName } = await import("../lib/her-name.ts");
 const space = await import("../app/api/space/route.ts");
 const waffoWebhook = await import("../app/api/pay/waffo/webhook/route.ts");
+const shots = await import("../lib/screenshot-import.ts");
 
 const DAY = 86_400_000;
 const month = 30 * DAY;
@@ -282,4 +283,43 @@ test("daily cleanup: drops expired sessions, unused limit counters and month-old
   assert.deepEqual((await env.DB.prepare("SELECT token_hash AS t FROM member_sessions").all()).results.map((r) => r.t), ["live"]);
   assert.deepEqual((await env.DB.prepare("SELECT key FROM member_auth_limits").all()).results.map((r) => r.key), ["fresh"]);
   assert.deepEqual((await env.DB.prepare("SELECT id FROM client_errors").all()).results.map((r) => r.id), ["c-new"]);
+});
+
+test("screenshot import: a paid single use adds one use, once, even when the provider calls back twice", async () => {
+  const bought = await order("app:buyer", "screenshots");
+  assert.equal(bought.amountFen, 990);
+  await membership.grantPaidOrder(bought, "trade-s");
+  await membership.grantPaidOrder(bought, "trade-s");
+  assert.equal((await shots.screenshotAccess("app:buyer")).credits, 1);
+  assert.equal(await state("app:buyer"), null, "buying a use does not touch the plan");
+});
+
+test("screenshot import: free Atelier days (welcome week) must buy a use; a failed read gives it back", async () => {
+  await env.DB.prepare("INSERT INTO member_accounts (provider_id, account_id, created_at) VALUES ('w', 'app:welcome', ?)").bind(Date.now() - DAY).run();
+  assert.equal((await membership.memberState("app:welcome")).plan, "atelier");
+  assert.equal((await shots.screenshotAccess("app:welcome")).mode, "buy");
+  assert.deepEqual(await shots.reserveScreenshotUse("app:welcome"), { ok: false, code: "SCREENSHOTS_PAYMENT_REQUIRED" });
+  await membership.grantPaidOrder(await order("app:welcome", "screenshots"), "t");
+  assert.equal((await shots.screenshotAccess("app:welcome")).mode, "credit");
+  const taken = await shots.reserveScreenshotUse("app:welcome");
+  assert.deepEqual(taken, { ok: true, use: "credit" });
+  assert.equal((await shots.screenshotAccess("app:welcome")).credits, 0);
+  await shots.releaseScreenshotUse("app:welcome", "credit");
+  assert.equal((await shots.screenshotAccess("app:welcome")).credits, 1);
+});
+
+test("screenshot import: paid Atelier is included up to the weekly count, then a bought use is taken", async () => {
+  await membership.grantPaidOrder(await order("app:paid", "atelier"), "t");
+  assert.equal((await shots.screenshotAccess("app:paid")).mode, "included");
+  for (let i = 0; i < shots.SCREENSHOT_LIMITS.includedPerWeek; i++) assert.deepEqual(await shots.reserveScreenshotUse("app:paid"), { ok: true, use: "included" });
+  assert.deepEqual(await shots.reserveScreenshotUse("app:paid"), { ok: false, code: "SCREENSHOTS_WEEK_LIMIT" });
+  await shots.releaseScreenshotUse("app:paid", "included");
+  assert.deepEqual(await shots.reserveScreenshotUse("app:paid"), { ok: true, use: "included" }, "a failed read gives the week's use back");
+  await membership.grantPaidOrder(await order("app:paid", "screenshots"), "t");
+  assert.deepEqual(await shots.reserveScreenshotUse("app:paid"), { ok: true, use: "credit" });
+});
+
+test("screenshot import: paid Deep Practice is not included", async () => {
+  await membership.grantPaidOrder(await order("app:deep", "deep"), "t");
+  assert.equal((await shots.screenshotAccess("app:deep")).mode, "buy");
 });

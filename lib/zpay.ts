@@ -24,15 +24,15 @@ export function verifyZpay(fields: Record<string, string>, key: string) {
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-export function zpayFields(args: { pid: string; key: string; cid: string; orderId: string; amountFen: number; plan: "deep" | "atelier"; origin: string }) {
+export function zpayFields(args: { pid: string; key: string; cid: string; orderId: string; amountFen: number; plan: "deep" | "atelier" | "screenshots"; origin: string }) {
   const fields: Record<string, string> = {
     pid: args.pid,
     type: "alipay",
     out_trade_no: args.orderId,
-    name: args.plan === "deep" ? "AlreaDough 醒发会员 30天" : "AlreaDough 丰盛工坊会员 30天",
+    name: args.plan === "deep" ? "AlreaDough 醒发会员 30天" : args.plan === "screenshots" ? "AlreaDough 截图识别 1次" : "AlreaDough 丰盛工坊会员 30天",
     money: (args.amountFen / 100).toFixed(2),
     notify_url: `${args.origin}/api/pay/zpay/notify`,
-    return_url: `${args.origin}/checkout?paid=alipay`,
+    return_url: `${args.origin}/checkout?paid=alipay${args.plan === "screenshots" ? "&item=screenshots" : ""}`,
   };
   if (args.cid) fields.cid = args.cid;
   return { ...fields, sign: signZpay(fields, args.key), sign_type: "MD5" };

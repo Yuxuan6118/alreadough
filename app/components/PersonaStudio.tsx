@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { ArrowClockwise, BookmarkSimple, ChatCircleText, PaperPlaneTilt, Plus, PushPin, SpeakerHigh, Trash, UploadSimple, X } from "@phosphor-icons/react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { ArrowClockwise, BookmarkSimple, ChatCircleText, ImageSquare, PaperPlaneTilt, Plus, PushPin, SpeakerHigh, Trash, UploadSimple, X } from "@phosphor-icons/react";
 import SpacePage from "./SpacePage";
 import { PersonaIcon } from "./NavIcons";
 import { askConfirm } from "./ConfirmHost";
 import { readStored, writeStored } from "@/lib/safe-storage";
+import { screenshotPieces } from "@/lib/screenshot-tiles";
 import { FACT_GROUPS, PERSONA_LIMITS, emptyPersona, type Persona, type PersonaMemory, type PersonaMessage } from "@/lib/persona";
 import "./persona.css";
 
@@ -410,8 +411,46 @@ function PersonaImport({ lang, sessionId, persona, update, onDone, onOpenMembers
   const [pickFacts, setPickFacts] = useState<Set<string>>(new Set());
   const [useStyle, setUseStyle] = useState(true);
   const factLabel = useMemo(() => Object.fromEntries(FACT_GROUPS.flatMap((g) => g.fields.map(([k, zh, en]) => [k, lang === "zh" ? zh : en]))), [lang]);
+  // Screenshot import: paid Dough Atelier has it included; anyone else on TA buys single uses (lib/screenshot-import.ts).
+  type ShotAccess = { mode: "included" | "credit" | "buy"; credits: number; files: number };
+  const [shots, setShots] = useState<ShotAccess | null>(null);
+  const [reading, setReading] = useState(false);
+  const [showBuy, setShowBuy] = useState(false);
+  const [notice, setNotice] = useState("");
+  const loadShots = useCallback(() => fetch("/api/persona/screenshots", { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() as Promise<ShotAccess> : null)).then((d) => { if (d) setShots(d); }).catch(() => undefined), []);
+  useEffect(() => { void loadShots(); }, [loadShots]);
 
   const readFile = async (file: File | undefined) => { if (file) setLog(await file.text()); };
+  const readShots = async (list: FileList | null) => {
+    const files = Array.from(list || []).filter((file) => file.type.startsWith("image/"));
+    if (!files.length) return;
+    setError(null); setNotice(""); setShowBuy(false);
+    if (files.length > (shots?.files ?? 20)) { setError({ code: "INVALID_IMAGES", message: t("一次最多 20 张截图。", "Up to 20 screenshots at a time.") }); return; }
+    setReading(true);
+    try {
+      const images = await screenshotPieces(files, 40);
+      const response = await fetch("/api/persona/screenshots", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-already-session-id": sessionId },
+        body: JSON.stringify({ lang, sessionId, taName: taName.trim(), herName: herName.trim(), images }),
+      });
+      const body = await response.json().catch(() => ({})) as { text?: string; herName?: string; partial?: boolean; error?: string; message?: string };
+      if (!response.ok || !body.text) {
+        if (body.error === "SCREENSHOTS_PAYMENT_REQUIRED") { setShowBuy(true); return; }
+        setError({ code: body.error || "AI_REQUEST_FAILED", message: body.message || t("识别失败了，请稍后再试。", "That didn't work. Please try again shortly.") });
+        return;
+      }
+      const text = body.text;
+      setLog((previous) => (previous.trim() ? `${previous.trimEnd()}\n${text}` : text));
+      if (!herName.trim() && body.herName) setHerName(body.herName);
+      if (body.partial) setNotice(t("有几张没读出来，看看下面的文字有没有缺。", "A few screenshots could not be read. Check the text below for gaps."));
+    } catch (failure) {
+      setError(failure instanceof Error && failure.message === "TOO_MANY"
+        ? { code: "INVALID_IMAGES", message: t("截图太长了，少选几张再试。", "Those screenshots are too long. Pick fewer and try again.") }
+        : { code: "AI_REQUEST_FAILED", message: t("网络断了一下，请再试一次。", "The connection dropped. Please try again.") });
+    } finally { setReading(false); void loadShots(); }
+  };
   const run = async () => {
     setBusy(true); setError(null);
     try {
@@ -481,9 +520,27 @@ function PersonaImport({ lang, sessionId, persona, update, onDone, onOpenMembers
         <textarea className="persona-log" value={log} rows={10} onChange={(e) => setLog(e.target.value)} />
       </label>
       <div className="space-card-actions">
+        {shots && (shots.mode !== "buy" ? (
+          <label className="space-outline persona-file" aria-disabled={reading || busy || !taName.trim()}><ImageSquare size={15} />
+            {reading ? t("正在识别…", "Reading…") : shots.mode === "credit" ? t(`选择截图 · 剩 ${shots.credits} 次`, `Choose screenshots · ${shots.credits} left`) : t("选择截图", "Choose screenshots")}
+            <input type="file" accept="image/*" multiple disabled={reading || busy || !taName.trim()} onChange={(e) => { void readShots(e.target.files); e.target.value = ""; }} />
+          </label>
+        ) : onOpenMembership && (
+          <button type="button" className="space-outline" aria-expanded={showBuy} onClick={() => setShowBuy((open) => !open)}><ImageSquare size={15} />{t("选择截图", "Choose screenshots")}</button>
+        ))}
         <label className="space-outline persona-file"><UploadSimple size={15} />{t("选择 .txt 文件", "Choose a .txt file")}<input type="file" accept=".txt,.csv,.md,text/plain" onChange={(e) => readFile(e.target.files?.[0])} /></label>
-        <button type="button" className="persona-primary" disabled={busy || !taName.trim() || log.trim().length < 40} onClick={run}>{busy ? t("正在整理…", "Reading…") : t("整理", "Read it")}</button>
+        <button type="button" className="persona-primary" disabled={busy || reading || !taName.trim() || log.trim().length < 40} onClick={run}>{busy ? t("正在整理…", "Reading…") : t("整理", "Read it")}</button>
       </div>
+      {showBuy && onOpenMembership && (
+        <div className="persona-buy">
+          <p>{t("截图识别 ¥9.9 一次，一次最多 20 张截图。付费开通丰盛工坊后不另收费。", "Screenshot import is CNY 9.9 per use, up to 20 screenshots. Free once you pay for Dough Atelier.")}</p>
+          <div className="space-card-actions">
+            <a className="persona-primary" href={lang === "zh" ? "/checkout?item=screenshots" : "/en/checkout?item=screenshots"}>{t("买一次", "Buy one")}</a>
+            <button type="button" className="space-outline" onClick={onOpenMembership}>{t("看看丰盛工坊", "See Dough Atelier")}</button>
+          </div>
+        </div>
+      )}
+      {notice && <p className="persona-note" role="status">{notice}</p>}
       {error && <div className="persona-error" role="alert"><span>{error.message}</span>{error.code === "ATELIER_REQUIRED" && onOpenMembership && <button type="button" className="space-outline" onClick={onOpenMembership}>{t("看看丰盛工坊", "See Dough Atelier")}</button>}</div>}
     </section>
   );

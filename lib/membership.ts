@@ -4,6 +4,10 @@ import { memberAccount, memberAuthReady } from "./member-auth";
 export type PaidPlan = "deep" | "atelier";
 export type MemberPlan = "soft" | PaidPlan;
 export const MEMBER_PRICE_FEN: Record<PaidPlan, number> = { deep: 3900, atelier: 14900 };
+/** What an order can buy: a 30-day plan, or one screenshot import for TA (lib/screenshot-import.ts). */
+export type OrderItem = PaidPlan | "screenshots";
+export const ORDER_PRICE_FEN: Record<OrderItem, number> = { ...MEMBER_PRICE_FEN, screenshots: 990 };
+export function isOrderItem(value: unknown): value is OrderItem { return isPaidPlan(value) || value === "screenshots"; }
 export const MEMBER_LIMITS: Record<MemberPlan, { fiveHours: number; week: number }> = {
   soft: { fiveHours: 15, week: 60 },
   deep: { fiveHours: 60, week: 400 },
@@ -56,6 +60,8 @@ async function readMember(accountId: string, now: number) {
   const ownPlan: MemberPlan = paid ? row!.plan : welcome ? "atelier" : trial ? "deep" : "soft";
   const plan: MemberPlan = referral ? "atelier" : ownPlan;
   const state = { plan, trial: trial || welcome, welcome, referral, referralUsed: codes.some((code) => code.kind === "invite"),
+    // the plan she is paying for right now, apart from any free days on top (welcome week, invitation code)
+    paidPlan: paid ? row!.plan as PaidPlan : null,
     // the last day of code-given Atelier, also while those days are still waiting behind her first week or a paid month
     referralEndMs: codesEndMs > now ? codesEndMs : null,
     periodEndMs: paid ? row!.periodEndMs : welcome ? welcomeEndMs : trial ? row!.trialEndMs : null };
@@ -68,15 +74,15 @@ export async function memberState(accountId: string, now = Date.now()) {
   return (await readMember(accountId, now)).state;
 }
 
-export async function createMemberOrder(accountId: string, plan: PaidPlan) {
+export async function createMemberOrder(accountId: string, plan: OrderItem) {
   const orderId = Array.from(crypto.getRandomValues(new Uint8Array(16)), x => x.toString(16).padStart(2, "0")).join("");
-  const amountFen = MEMBER_PRICE_FEN[plan];
+  const amountFen = ORDER_PRICE_FEN[plan];
   await env.DB.prepare("INSERT INTO member_orders (order_id, account_id, plan, amount_fen, created_at_ms) VALUES (?, ?, ?, ?, ?)")
     .bind(orderId, accountId, plan, amountFen, Date.now()).run();
   return { orderId, amountFen, plan };
 }
 
-export type MemberOrder = { orderId: string; accountId: string; plan: PaidPlan; amountFen: number; status: string };
+export type MemberOrder = { orderId: string; accountId: string; plan: OrderItem; amountFen: number; status: string };
 export async function readMemberOrder(orderId: string) {
   return env.DB.prepare("SELECT order_id AS orderId, account_id AS accountId, plan, amount_fen AS amountFen, status FROM member_orders WHERE order_id = ?")
     .bind(orderId).first<MemberOrder>();
@@ -90,6 +96,19 @@ export async function readMemberOrder(orderId: string) {
  */
 export async function grantPaidOrder(order: MemberOrder, providerTradeNo: string) {
   const now = Date.now();
+  const markPaid = env.DB.prepare("UPDATE member_orders SET status = 'paid', provider_trade_no = ?, paid_at_ms = ? WHERE order_id = ? AND status = 'pending'")
+    .bind(providerTradeNo, now, order.orderId);
+  if (order.plan === "screenshots") {
+    // One screenshot import added to her balance; same pending-only guard as the plans below.
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO member_credits (account_id, kind, balance, updated_at_ms)
+        SELECT account_id, 'screenshots', 1, ? FROM member_orders WHERE order_id = ? AND status = 'pending'
+        ON CONFLICT(account_id, kind) DO UPDATE SET balance = member_credits.balance + 1, updated_at_ms = excluded.updated_at_ms`)
+        .bind(now, order.orderId),
+      markPaid,
+    ]);
+    return;
+  }
   const price = (column: string) => `(CASE ${column} WHEN 'atelier' THEN ${MEMBER_PRICE_FEN.atelier} ELSE ${MEMBER_PRICE_FEN.deep} END)`;
   await env.DB.batch([
     env.DB.prepare(`INSERT INTO member_state (account_id, plan, period_end_ms, updated_at_ms)
@@ -102,8 +121,7 @@ export async function grantPaidOrder(order: MemberOrder, providerTradeNo: string
       END,
       updated_at_ms = excluded.updated_at_ms`)
       .bind(now, monthMs, now, order.orderId, now, now, monthMs, now, now, monthMs),
-    env.DB.prepare("UPDATE member_orders SET status = 'paid', provider_trade_no = ?, paid_at_ms = ? WHERE order_id = ? AND status = 'pending'")
-      .bind(providerTradeNo, now, order.orderId),
+    markPaid,
   ]);
 }
 

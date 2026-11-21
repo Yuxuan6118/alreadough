@@ -55,6 +55,11 @@
 .persona-primary:disabled { opacity: .45; cursor: default; }
 .persona-file { position: relative; overflow: hidden; }
 .persona-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.persona-file[aria-disabled="true"] { opacity: .55; }
+.persona-file input:disabled { cursor: default; }
+a.persona-primary { display: inline-flex; align-items: center; text-decoration: none; }
+.persona-buy { display: grid; gap: 10px; padding: 12px 14px; border-radius: var(--app-radius-control); background: var(--app-bg); }
+.persona-buy p { margin: 0; font-size: var(--type-button); line-height: 1.6; color: var(--app-ink); }
 .persona-delete { justify-self: start; margin-top: 4px; }
 .persona-quiet { justify-self: center; border: 0; background: transparent; color: var(--app-muted); font-size: var(--type-label); cursor: pointer; padding: 6px; }
 
