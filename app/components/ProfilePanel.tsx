@@ -48,7 +48,7 @@ export default function ProfilePanel({ lang, profile, onChange, name, onNameChan
           <div className="profile-pair">
             <label className="wish-field">
               <span>{zh ? "我喜欢的称呼" : "What AlreaDough calls me"}</span>
-              <input maxLength={24} value={name} onChange={(event) => onNameChange(event.target.value)} placeholder={zh ? "例如：瑄瑄" : "e.g. Sam"} />
+              <input maxLength={24} value={name} onChange={(event) => onNameChange(event.target.value)} placeholder={zh ? "例如：小雨" : "e.g. Sam"} />
             </label>
             <label className="wish-field">
               <span>{zh ? "我在哪里" : "Where I am"}</span>

@@ -176,7 +176,7 @@ export function pickGreeting(ctx: GreetingContext): { id: string; zh: string; en
   return shown(pick([...linesAt(ctx.now), ...anytime, ...(WEEKDAY[ctx.now.getDay()] ?? [])]));
 }
 
-/** "晚饭吃了什么，瑄瑄？" / "Good evening, Xuan" — the name is dropped cleanly when there is none. */
+/** "晚饭吃了什么，小雨？" / "Good evening, Sam" — the name is dropped cleanly when there is none. */
 export function formatGreeting(g: { zh: string; en: string; ask: boolean }, lang: "zh" | "en", name: string) {
   const who = name.trim();
   if (lang === "zh") return `${g.zh}${who ? `，${who}` : ""}${g.ask ? "？" : ""}`;

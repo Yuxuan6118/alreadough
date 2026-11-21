@@ -44,6 +44,21 @@ test("ships without the founder's private manifestation defaults", async () => {
   assert.match(page, /board.*useState<BoardItem\[]>\(\[\]\)/);
 });
 
+test("no shipped source file carries the founder's names (prompts, placeholders, comments)", async () => {
+  // Prompts go to the model for every user, and placeholders show to every user: a real name in an example leaks.
+  const identity = ["瑄瑄", "Xuanxuan", "Yuxuan", "Elvin", "Charlotte", "charlottehyuxuan", "俄亥俄"];
+  const offenders = [];
+  for (const dir of ["../lib/", "../app/"]) {
+    const root = new URL(dir, import.meta.url);
+    for (const name of await readdir(root, { recursive: true })) {
+      if (!/\.(ts|tsx|js|mjs|css|json)$/.test(name)) continue;
+      const text = await readFile(new URL(name, root), "utf8");
+      for (const token of identity) if (text.includes(token)) offenders.push(`${dir}${name}: ${token}`);
+    }
+  }
+  assert.deepEqual(offenders, []);
+});
+
 test("renders the public storefront and policies without the beta prompt", async () => {
   for (const [path, content] of [
     ["/about", /一个愿望，几种练习方式/],
