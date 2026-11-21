@@ -42,9 +42,9 @@ export type CheckoutRequest = {
 };
 
 const PLAN_NAMES: Record<PlanId, { zh: string; en: string }> = {
-  soft: { zh: "轻揉", en: "Soft Start" },
-  deep: { zh: "醒发", en: "Deep Practice" },
-  atelier: { zh: "丰盛工坊", en: "Dough Atelier" },
+  soft: { zh: "抟土", en: "Kaolin" },
+  deep: { zh: "炼石", en: "Celadon" },
+  atelier: { zh: "天成", en: "Porcelain" },
 };
 
 /**

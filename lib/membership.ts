@@ -15,13 +15,13 @@ export const MEMBER_LIMITS: Record<MemberPlan, { fiveHours: number; week: number
 };
 /** Story scripts a week, counted apart from chat. Every plan writes with the same model; only the count differs. */
 export const STORY_LIMITS: Record<MemberPlan, number> = { soft: 3, deep: 15, atelier: 70 };
-/** Every new account has Dough Atelier for its first seven days. */
+/** Every new account has Porcelain (atelier) for its first seven days. */
 const welcomeMs = 7 * 24 * 60 * 60 * 1000;
 const fiveHoursMs = 5 * 60 * 60 * 1000;
 const monthMs = 30 * 24 * 60 * 60 * 1000;
 const referralMs = monthMs;
 /**
- * Invitation code: 30 days of Dough Atelier, once per account. The founder hands it out by hand to people who
+ * Invitation code: 30 days of Porcelain (atelier), once per account. The founder hands it out by hand to people who
  * posted about AlreaDough on two platforms and brought a friend who signed in. (Until 2026-11-20 the same code gave 7 days.)
  */
 const REFERRAL_CODES = new Set(["20260910"]);
@@ -54,7 +54,7 @@ async function readMember(accountId: string, now: number) {
   // Code days are a temporary overlay: Atelier while one of their windows runs, then the account's own plan again.
   const referral = codes.some((code) => code.startsAtMs <= now && now < code.endsAtMs);
   const codesEndMs = Math.max(0, ...codes.map((code) => code.endsAtMs));
-  // A new account's first seven days are Dough Atelier, unless a paid plan already covers them.
+  // A new account's first seven days are Porcelain (atelier), unless a paid plan already covers them.
   const welcomeEndMs = accountRow?.createdAt ? accountRow.createdAt + welcomeMs : null;
   const welcome = !paid && !!welcomeEndMs && welcomeEndMs > now;
   const ownPlan: MemberPlan = paid ? row!.plan : welcome ? "atelier" : trial ? "deep" : "soft";
@@ -91,7 +91,7 @@ export async function readMemberOrder(orderId: string) {
 /**
  * D1 batches are one transaction. The entitlement SELECT only sees pending orders, so repeated or concurrent callbacks cannot extend twice.
  * Days still left on a paid plan are kept at their value: switching plans converts them by price (20 days of
- * Dough Atelier become about 76 days of Deep Practice, 20 days of Deep Practice about 5 of Atelier), then the 30 bought days are added.
+ * Porcelain become about 76 days of Celadon, 20 days of Celadon about 5 of Porcelain), then the 30 bought days are added.
  * With no paid days left, an unexpired trial still counts, as before.
  */
 export async function grantPaidOrder(order: MemberOrder, providerTradeNo: string) {
@@ -201,7 +201,7 @@ export function isReferralCode(value: unknown) {
 }
 
 /**
- * Thirty days of Dough Atelier, once per account (the table's key). They begin when the Atelier days she already
+ * Thirty days of Porcelain (atelier), once per account (the table's key). They begin when the Atelier days she already
  * has end (her first week, a paid Atelier month, the old 7-day code), so none are lost. Nothing in member_state
  * changes, so when they end the account is back on its own plan (free, or its paid period).
  */

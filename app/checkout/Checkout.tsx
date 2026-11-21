@@ -79,7 +79,7 @@ export default function Checkout({ initialLang }: { initialLang: Lang }) {
         if (data.action && data.fields) { submitCheckoutForm(data.action, data.fields); return; }
       }
       if (path.endsWith("/verify")) { setCode(""); setCodeSent(false); }
-      if (path.endsWith("/referral")) { setReferral(""); setShowReferral(false); setNotice(zh ? "已加上 30 天丰盛工坊。" : "30 days of Dough Atelier added."); }
+      if (path.endsWith("/referral")) { setReferral(""); setShowReferral(false); setNotice(zh ? "已加上天成会员 30 天。" : "30 days of Porcelain added."); }
       await refresh();
     } catch (failure) {
       setError(memberErrorText(failure instanceof Error ? failure.message : "", lang));

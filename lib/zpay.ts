@@ -29,7 +29,7 @@ export function zpayFields(args: { pid: string; key: string; cid: string; orderI
     pid: args.pid,
     type: "alipay",
     out_trade_no: args.orderId,
-    name: args.plan === "deep" ? "AlreaDough 醒发会员 30天" : args.plan === "screenshots" ? "AlreaDough 截图识别 1次" : "AlreaDough 丰盛工坊会员 30天",
+    name: args.plan === "deep" ? "AlreaDough 炼石会员 30天" : args.plan === "screenshots" ? "AlreaDough 截图识别 1次" : "AlreaDough 天成会员 30天",
     money: (args.amountFen / 100).toFixed(2),
     notify_url: `${args.origin}/api/pay/zpay/notify`,
     return_url: `${args.origin}/checkout?paid=alipay${args.plan === "screenshots" ? "&item=screenshots" : ""}`,

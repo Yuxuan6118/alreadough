@@ -7,7 +7,7 @@ import { readStored, writeStored } from "@/lib/safe-storage";
 import "./space.css";
 import "./welcome-gift.css";
 
-// Over the sign-in page, once per browser: the first sign-in starts 7 days of Dough Atelier (the welcome week in
+// Over the sign-in page, once per browser: the first sign-in starts 7 days of Porcelain (atelier) (the welcome week in
 // lib/membership.ts). Not in the iPhone app.
 const SEEN_KEY = "already-welcome-gift-v1";
 const SHOW_AFTER_MS = 600;
@@ -53,7 +53,7 @@ export default function WelcomeGift({ lang, onSignIn }: { lang: "zh" | "en"; onS
             {CONFETTI.map(([x, y, r], index) => <i key={index} style={{ "--x": `${x}px`, "--y": `${y}px`, "--r": `${r}deg` } as CSSProperties} />)}
           </span>
         </span>
-        <h2 id="welcome-gift-title">{zh ? "登录就送 7 天丰盛工坊" : "Sign in for 7 free days of Dough Atelier"}</h2>
+        <h2 id="welcome-gift-title">{zh ? "登录就送天成会员 7 天" : "Sign in for 7 free days of Porcelain"}</h2>
         <p id="welcome-gift-body">{zh ? "第一次登录自动开通，到期回到免费方案，不会扣款。" : "It starts on your first sign-in. Afterwards you are back on the free plan, with no charge."}</p>
         <div className="confirm-actions">
           <button type="button" ref={signInButton} className="confirm-ok" onClick={() => { setOpen(false); onSignIn(); }}>{zh ? "去登录" : "Sign in"}</button>

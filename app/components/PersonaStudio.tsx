@@ -276,7 +276,7 @@ function PersonaChat({ lang, sessionId, herName, persona, messages, setMessages,
         {error && (
           <div className="persona-error" role="alert">
             <span>{error.message}</span>
-            {error.code === "ATELIER_REQUIRED" && onOpenMembership && <button type="button" className="space-outline" onClick={onOpenMembership}>{t("看看丰盛工坊", "See Dough Atelier")}</button>}
+            {error.code === "ATELIER_REQUIRED" && onOpenMembership && <button type="button" className="space-outline" onClick={onOpenMembership}>{t("看看天成", "See Porcelain")}</button>}
           </div>
         )}
         <div ref={endRef} />
@@ -411,7 +411,7 @@ function PersonaImport({ lang, sessionId, persona, update, onDone, onOpenMembers
   const [pickFacts, setPickFacts] = useState<Set<string>>(new Set());
   const [useStyle, setUseStyle] = useState(true);
   const factLabel = useMemo(() => Object.fromEntries(FACT_GROUPS.flatMap((g) => g.fields.map(([k, zh, en]) => [k, lang === "zh" ? zh : en]))), [lang]);
-  // Screenshot import: paid Dough Atelier has it included; anyone else on TA buys single uses (lib/screenshot-import.ts).
+  // Screenshot import: paid Porcelain (atelier) has it included; anyone else on TA buys single uses (lib/screenshot-import.ts).
   type ShotAccess = { mode: "included" | "credit" | "buy"; credits: number; files: number };
   const [shots, setShots] = useState<ShotAccess | null>(null);
   const [reading, setReading] = useState(false);
@@ -533,15 +533,15 @@ function PersonaImport({ lang, sessionId, persona, update, onDone, onOpenMembers
       </div>
       {showBuy && onOpenMembership && (
         <div className="persona-buy">
-          <p>{t("截图识别 ¥9.9 一次，一次最多 20 张截图。付费开通丰盛工坊后不另收费。", "Screenshot import is CNY 9.9 per use, up to 20 screenshots. Free once you pay for Dough Atelier.")}</p>
+          <p>{t("截图识别 ¥9.9 一次，一次最多 20 张截图。付费开通天成后不另收费。", "Screenshot import is CNY 9.9 per use, up to 20 screenshots. Free once you pay for Porcelain.")}</p>
           <div className="space-card-actions">
             <a className="persona-primary" href={lang === "zh" ? "/checkout?item=screenshots" : "/en/checkout?item=screenshots"}>{t("买一次", "Buy one")}</a>
-            <button type="button" className="space-outline" onClick={onOpenMembership}>{t("看看丰盛工坊", "See Dough Atelier")}</button>
+            <button type="button" className="space-outline" onClick={onOpenMembership}>{t("看看天成", "See Porcelain")}</button>
           </div>
         </div>
       )}
       {notice && <p className="persona-note" role="status">{notice}</p>}
-      {error && <div className="persona-error" role="alert"><span>{error.message}</span>{error.code === "ATELIER_REQUIRED" && onOpenMembership && <button type="button" className="space-outline" onClick={onOpenMembership}>{t("看看丰盛工坊", "See Dough Atelier")}</button>}</div>}
+      {error && <div className="persona-error" role="alert"><span>{error.message}</span>{error.code === "ATELIER_REQUIRED" && onOpenMembership && <button type="button" className="space-outline" onClick={onOpenMembership}>{t("看看天成", "See Porcelain")}</button>}</div>}
     </section>
   );
 }

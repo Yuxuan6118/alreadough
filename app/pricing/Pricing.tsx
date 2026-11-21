@@ -82,7 +82,7 @@ export default function Pricing({ initialLang }: { initialLang: "zh" | "en" }) {
                   <li><Check weight="bold" />{zh ? `每周约 ${plan.week} 次普通聊天的用量` : `About ${plan.week} standard chat turns per week`}</li>
                   <li><Check weight="bold" />{zh ? `${plan.id === "atelier" ? "剧本几乎不限（每周 70 篇）" : `每周 ${plan.stories} 篇 AI 剧本`}` : `${plan.id === "atelier" ? "Scripts almost unlimited (70 a week)" : `${plan.stories} AI scripts a week`}`}</li>
                   {plan.id === "atelier" && <li><Check weight="bold" />{zh ? "新用户注册后免费体验 7 天" : "Free for your first 7 days after signing up"}</li>}
-                  {plan.id === "atelier" && <li><Check weight="bold" />{zh ? "醒发用量的 3 倍以上" : "More than three times the Deep Practice allowance"}</li>}
+                  {plan.id === "atelier" && <li><Check weight="bold" />{zh ? "炼石用量的 3 倍以上" : "More than three times the Celadon allowance"}</li>}
                 </ul>
               </article>
             );

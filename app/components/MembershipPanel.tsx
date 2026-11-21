@@ -164,7 +164,7 @@ export default function MembershipPanel({ lang, member, onRefresh }: { lang: Lan
       else if (path.endsWith("/checkout") && data.url) { window.location.href = data.url; return; }
       else if (path.endsWith("/checkout") && data.action && data.fields) { submitCheckoutForm(data.action, data.fields); return; }
       else {
-        if (path.endsWith("/referral")) { setReferral(""); setNotice(zh ? "已加上 30 天丰盛工坊。" : "30 days of Dough Atelier added."); }
+        if (path.endsWith("/referral")) { setReferral(""); setNotice(zh ? "已加上天成会员 30 天。" : "30 days of Porcelain added."); }
         // Signing in or out changes whose space the app shows: start again from a fresh load.
         if (path.endsWith("/verify") || path.endsWith("/logout")) { window.location.reload(); return; }
         await onRefresh();
@@ -223,8 +223,8 @@ export default function MembershipPanel({ lang, member, onRefresh }: { lang: Lan
           </div>
           <strong className="member-plan-title">{current?.name[lang]}</strong>
           <p className="profile-sub member-plan-meta">
-            {membership.referralEndMs ? (zh ? `丰盛工坊体验到 ${date(membership.referralEndMs)}，之后回到原来的方案。` : `Dough Atelier until ${date(membership.referralEndMs)}, then back to your own plan.`)
-              : membership.welcome && membership.periodEndMs ? (zh ? `新用户免费体验丰盛工坊到 ${date(membership.periodEndMs)}，之后回到轻揉，体验期写的剧本都会保留。` : `Your first week of Dough Atelier lasts until ${date(membership.periodEndMs)}, then you are back on Soft Start. Scripts you write now stay yours.`)
+            {membership.referralEndMs ? (zh ? `天成体验到 ${date(membership.referralEndMs)}，之后回到原来的方案。` : `Porcelain until ${date(membership.referralEndMs)}, then back to your own plan.`)
+              : membership.welcome && membership.periodEndMs ? (zh ? `新用户免费体验天成到 ${date(membership.periodEndMs)}，之后回到抟土，体验期写的剧本都会保留。` : `Your first week of Porcelain lasts until ${date(membership.periodEndMs)}, then you are back on Kaolin. Scripts you write now stay yours.`)
               : membership.periodEndMs ? (zh ? `有效期到 ${date(membership.periodEndMs)}，到期不会自动扣款。` : `Active until ${date(membership.periodEndMs)}. It does not renew automatically.`)
               : (zh ? `免费方案：每 5 小时约 ${current?.session} 次、每周约 ${current?.week} 次普通对话。` : `Free plan: about ${current?.session} replies per 5 hours and ${current?.week} per week.`)}
           </p>
@@ -250,7 +250,7 @@ export default function MembershipPanel({ lang, member, onRefresh }: { lang: Lan
 
         {!membership.referralUsed && <section className="profile-card member-referral">
           <h3>{zh ? "邀请码" : "Invitation code"}</h3>
-          <p className="profile-sub">{zh ? "填邀请码可以免费体验 30 天丰盛工坊，每个账户一次。" : "An invitation code gives 30 days of Dough Atelier, once per account."}</p>
+          <p className="profile-sub">{zh ? "填邀请码可以免费体验天成会员 30 天，每个账户一次。" : "An invitation code gives 30 days of Porcelain, once per account."}</p>
           <ol className="member-referral-steps" aria-label={zh ? "怎么拿到邀请码" : "How to get a code"}>
             <li>{zh ? "在小红书、抖音、B站、微博、朋友圈中任选两个，公开发布 AlreaDough 的推荐，并截图。" : "Post about AlreaDough publicly on any two of Xiaohongshu, Douyin, Bilibili, Weibo and WeChat Moments, and take screenshots."}</li>
             <li>{zh ? "邀请至少一位朋友注册并登录 AlreaDough。" : "Invite at least one friend to sign up and sign in to AlreaDough."}</li>

@@ -3,7 +3,7 @@ import { isUnlimitedAccount, memberState, weekWindow } from "./membership";
 
 /**
  * Screenshot import for TA: chat screenshots are read into text once and handed back; nothing is stored.
- * Paid Dough Atelier includes it (a weekly fair-use count keeps the model bill in check). Everyone else who can open TA,
+ * Paid Porcelain (atelier) includes it (a weekly fair-use count keeps the model bill in check). Everyone else who can open TA,
  * which means the free Atelier days of the welcome week and the invitation code, buys single uses at ORDER_PRICE_FEN.screenshots.
  */
 export const SCREENSHOT_LIMITS = {
@@ -13,7 +13,7 @@ export const SCREENSHOT_LIMITS = {
   tiles: 40,
   /** characters of one piece's data URL */
   tileChars: 2_000_000,
-  /** uses a week that paid Dough Atelier includes; past that a bought use is taken if she has one */
+  /** uses a week that paid Porcelain (atelier) includes; past that a bought use is taken if she has one */
   includedPerWeek: 10,
 } as const;
 

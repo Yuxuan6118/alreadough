@@ -10,7 +10,7 @@ export default function TermsPage() {
         <p><a href="#english" lang="en">Read in English</a></p>
         <p className="eyebrow">TERMS OF SERVICE</p>
         <h1>服务条款</h1>
-        <p>最后更新：2026 年 11 月 20 日</p>
+        <p>最后更新：2026 年 11 月 21 日</p>
         <p>本条款适用于 AlreaDough 提供的服务。AlreaDough 目前处于内测阶段。个人信息如何处理见《隐私说明》。</p>
         <h2>适用年龄与服务性质</h2>
         <p>测试版仅面向年满 18 岁的用户。AlreaDough 提供 AI 对话、想象练习、故事、Revision、声音练习与愿景板工具，不提供医疗、心理治疗、法律、财务或危机服务，也不承诺任何特定外部结果或发生时间。</p>
@@ -58,9 +58,9 @@ export default function TermsPage() {
         <p><strong>处理措施：</strong>根据严重程度和是否重复违规，可能采取以下一项或多项措施：删除相关内容；限制相关功能（例如停用定制声音或上传功能）；暂停账户；永久终止账户；依法向有关机构报告。涉及儿童性剥削的内容一律删除、永久封禁并报告。若被举报的是 AI 生成的不当回复，我们也会据此调整模型的安全设置。</p>
         <p>如对处理结果有异议，可发邮件至上述邮箱申诉，我们会重新审核。</p>
         <h2>价格、计费与取消</h2>
-        <p><a href="/pricing">价格页</a>列出轻揉免费档、醒发（¥39/30 天）和丰盛工坊（¥149/30 天）。仅登记开放通知不会扣款或开启续费。</p>
+        <p><a href="/pricing">价格页</a>列出抟土免费档、炼石（¥39/30 天）和天成（¥149/30 天）。仅登记开放通知不会扣款或开启续费。</p>
         <p>支付宝会员采用一次性付款，购买后使用 30 天，到期后可手动续购，不会自动扣款。付款入口是否开放以价格页实际显示为准。若日后开通银行卡自动续费，结账前会显示计费周期、续费条件及取消方式。</p>
-        <p>TA 的截图识别可单次购买（¥9.9 一次，每次最多 20 张截图），购买的次数不会过期，识别失败不扣次数。付费的丰盛工坊会员每周可免费使用 10 次。</p>
+        <p>TA 的截图识别可单次购买（¥9.9 一次，每次最多 20 张截图），购买的次数不会过期，识别失败不扣次数。付费的天成会员每周可免费使用 10 次。</p>
         <h2 id="invitations">邀请码与活动</h2>
         <p>邀请码和活动权益没有现金价值，不能转让、出售或兑换现金。我们可以随时调整或结束活动。发现批量注册、刷码或其他滥用行为时，我们可以收回相关权益并限制账户。</p>
         <h2>退款</h2>
@@ -85,7 +85,7 @@ export default function TermsPage() {
         <hr />
         <section id="english" lang="en" aria-labelledby="english-title">
           <h2 id="english-title">Terms of Service</h2>
-          <p className="legal-en">Last updated: November 20, 2026</p>
+          <p className="legal-en">Last updated: November 21, 2026</p>
           <p className="legal-en">AlreaDough is currently a private beta for adults 18 and over. It offers AI conversation, imaginative practice, stories, Revision, audio practice, and vision-board tools. It is not a medical, therapy, legal, financial, or crisis service, and it does not guarantee any outcome or timing. Users must have the right to use uploaded content and may not use the product for unlawful, infringing, coercive, harassing, privacy-invasive, or harmful conduct. You can stop using the service and export or clear your practice data in My Space. See the Privacy Notice for data handling and deletion.</p>
           <p className="legal-en">See <a href="/en/trust">AI &amp; Safety</a> for permitted uses and how requests involving unlawful activity are handled.</p>
           <h3 id="prohibited-content-en">Prohibited content</h3>
@@ -125,9 +125,9 @@ export default function TermsPage() {
           <h3 id="account-en">Your account</h3>
           <p className="legal-en">Keep your email and sign-in method secure; you are responsible for activity under your account. Tell us promptly if someone else is using it. We may ask you to verify your identity again for security.</p>
           <h3>Pricing, billing and cancellation</h3>
-          <p className="legal-en">The <a href="/en/pricing">pricing page</a> lists Soft Start (free), Deep Practice (CNY 39 for 30 days), and Dough Atelier (CNY 149 for 30 days). Signing up for a launch notice does not charge you or start a subscription.</p>
+          <p className="legal-en">The <a href="/en/pricing">pricing page</a> lists Kaolin (free), Celadon (CNY 39 for 30 days), and Porcelain (CNY 149 for 30 days). Signing up for a launch notice does not charge you or start a subscription.</p>
           <p className="legal-en">Alipay memberships use a one-time payment for 30 days. You may renew manually; there is no automatic charge. The pricing page shows whether checkout is currently open. If automatically renewing card subscriptions become available, checkout will show the billing period, renewal terms, and how to cancel.</p>
-          <p className="legal-en">Screenshot import for TA can be bought one use at a time (CNY 9.9 per use, up to 20 screenshots each). Bought uses do not expire, and a failed read is not counted. Paid Dough Atelier members get 10 uses a week at no extra charge.</p>
+          <p className="legal-en">Screenshot import for TA can be bought one use at a time (CNY 9.9 per use, up to 20 screenshots each). Bought uses do not expire, and a failed read is not counted. Paid Porcelain members get 10 uses a week at no extra charge.</p>
           <h3>Refunds</h3>
           <p className="legal-en">A free reservation involves no payment. Email <a href={`mailto:${SITE_RECORD.contactEmail}`}>{SITE_RECORD.contactEmail}</a> with your order number and a description if you are charged twice or if we cannot provide the access you paid for. After verification, we refund the duplicate amount or the payment for access we could not provide. Other refund requests are reviewed based on the order circumstances. Approved refunds are sent back through the original payment method. Your statutory rights still apply.</p>
           <h3 id="invitations-en">Invitation codes and promotions</h3>

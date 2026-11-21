@@ -2,10 +2,10 @@ import { beginBetaRequest } from "./beta-guard";
 import { memberAccount } from "./member-auth";
 import { isUnlimitedAccount, memberState, membershipEnabled } from "./membership";
 
-// TA is a Dough Atelier feature. With membership switched off (local dev) everyone may use it.
+// TA is a Porcelain (atelier) feature. With membership switched off (local dev) everyone may use it.
 
 export const PERSONA_MESSAGES: Record<string, Record<"zh" | "en", string>> = {
-  ATELIER_REQUIRED: { zh: "和 TA 对话是丰盛工坊的功能。", en: "Talking with TA is part of Dough Atelier." },
+  ATELIER_REQUIRED: { zh: "和 TA 对话是天成的功能。", en: "Talking with TA is part of Porcelain." },
   SIGN_IN_REQUIRED: { zh: "无法识别这台设备，请刷新页面后再试。", en: "This device could not be identified. Please refresh and try again." },
   MEMBERSHIP_SIGN_IN_REQUIRED: { zh: "请先到会员页用邮箱登录。", en: "Sign in with email on the membership page first." },
   MEMBERSHIP_LIMIT: { zh: "当前会员用量已经用完，可到会员页查看恢复时间。", en: "Your current allowance is used up. Check the membership page for its reset time." },
