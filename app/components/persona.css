@@ -26,6 +26,16 @@
 .persona-group summary small { margin-left: auto; color: var(--app-muted); font-size: var(--type-label); }
 .persona-group[open] .persona-grid { margin-top: 14px; }
 
+.persona-howto { border-radius: var(--app-radius-control); background: var(--app-bg); }
+.persona-howto summary { display: flex; justify-content: space-between; padding: 12px 14px; cursor: pointer; font-size: var(--type-body); list-style: none; }
+.persona-howto summary::-webkit-details-marker { display: none; }
+.persona-howto summary::after { content: "+"; color: var(--app-muted); margin-left: 10px; }
+.persona-howto[open] summary::after { content: "–"; }
+.persona-howto-ways { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px 24px; padding: 2px 14px 16px; }
+.persona-howto-ways h4 { margin: 0 0 6px; }
+.persona-howto-ways ol { display: grid; gap: 6px; margin: 0; padding-left: 1.3em; list-style: decimal; font-size: var(--type-button); line-height: 1.6; color: var(--app-ink); }
+.persona-howto-ways li::marker { color: var(--app-muted); }
+
 .persona-inline { display: flex; gap: 8px; align-items: flex-start; }
 .persona-inline .space-outline { flex: none; }
 .persona-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }

@@ -471,6 +471,7 @@ function PersonaImport({ lang, sessionId, persona, update, onDone, onOpenMembers
   return (
     <section className="persona-card">
       <p className="persona-lead">{t("贴进你们的聊天记录，会整理出 TA 说话的样子、TA 的原话和你们之间的事，你挑过之后再加进资料。记录本身读完就丢掉，不会保存。", "Paste your chat. It is turned into how TA texts, TA's own words and your shared moments for you to pick from. The chat itself is discarded once read.")}</p>
+      <WeChatExportHowTo lang={lang} />
       <div className="persona-grid">
         <Field label={t("记录里 TA 的名字", "TA's name in the chat")} value={taName} max={40} onChange={setTaName} />
         <Field label={t("记录里你的名字", "Your name in the chat")} value={herName} max={40} onChange={setHerName} />
@@ -485,6 +486,33 @@ function PersonaImport({ lang, sessionId, persona, update, onDone, onOpenMembers
       </div>
       {error && <div className="persona-error" role="alert"><span>{error.message}</span>{error.code === "ATELIER_REQUIRED" && onOpenMembership && <button type="button" className="space-outline" onClick={onOpenMembership}>{t("看看丰盛工坊", "See Dough Atelier")}</button>}</div>}
     </section>
+  );
+}
+
+function WeChatExportHowTo({ lang }: { lang: Lang }) {
+  const t = (zh: string, en: string) => (lang === "zh" ? zh : en);
+  return (
+    <details className="persona-howto">
+      <summary>{t("怎么导出微信聊天记录", "How to get your WeChat chat out")}</summary>
+      <div className="persona-howto-ways">
+        <div>
+          <h4>{t("手机微信", "WeChat on your phone")}</h4>
+          <ol>
+            <li>{t("打开和 TA 的聊天，长按一条消息，点「多选」，勾上想导入的消息，点底部「收藏」", "Open your chat with TA, long-press a message, tap Multi-Select, tick the messages you want, then tap Favorite at the bottom")}</li>
+            <li>{t("去「我 → 收藏」，打开刚收藏的聊天记录，点右上角「···」→「转存为笔记」", "Go to Me → Favorites, open the chat you just saved, tap ··· at the top right → Save as Note")}</li>
+            <li>{t("在笔记里长按文字 →「全选」→「复制」，回到这里粘贴", "In the note, long-press the text → Select All → Copy, then paste it here")}</li>
+          </ol>
+        </div>
+        <div>
+          <h4>{t("电脑微信", "WeChat on your computer")}</h4>
+          <ol>
+            <li>{t("先在手机上照手机微信的第 1、2 步，把聊天记录转存为笔记", "On your phone, follow phone steps 1 and 2 to save the chat as a note")}</li>
+            <li>{t("打开电脑微信左侧的「收藏」，点开这条笔记", "On your computer, open Favorites in WeChat's left bar and open that note")}</li>
+            <li>{t("按 Ctrl+A 全选（Mac 按 ⌘A），复制，回到这里粘贴", "Press Ctrl+A (⌘A on a Mac) to select all, copy, then paste it here")}</li>
+          </ol>
+        </div>
+      </div>
+    </details>
   );
 }
 
