@@ -91,8 +91,8 @@ export async function POST(request: Request) {
     quotes: (Array.isArray(parsed.quotes) ? parsed.quotes : []).slice(0, 40)
       .map((q) => ({ text: str((q as { text?: unknown })?.text ?? q, 400), topic: str((q as { topic?: unknown })?.topic, 40) }))
       .filter((q) => q.text),
-    taNameForHer: str(nick.ta_calls_her, 40),
-    herNameForTa: str(nick.she_calls_ta, 40),
+    taNameForHer: str(nick.ta_calls_her, PERSONA_LIMITS.field),
+    herNameForTa: str(nick.she_calls_ta, PERSONA_LIMITS.field),
     facts,
     memories: (Array.isArray(parsed.memories) ? parsed.memories : []).slice(0, 20).map((m) => str(m, 600)).filter(Boolean),
   }, { headers: { "Cache-Control": "no-store" } });

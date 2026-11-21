@@ -18,6 +18,11 @@
 .persona-field input:focus, .persona-field textarea:focus, .persona-field select:focus, .persona-inline input:focus, .persona-inline textarea:focus, .persona-list textarea:focus, .persona-correct textarea:focus, .persona-composer textarea:focus { outline: none; border-color: var(--app-accent); }
 .persona-log { min-height: 200px; font-size: var(--type-button) !important; }
 
+/* live character count, just under each box at its right edge (never over the text) */
+.persona-counted { display: grid; gap: 4px; flex: 1 1 auto; min-width: 0; }
+.persona-count { justify-self: end; padding-right: 2px; color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); line-height: 1; font-variant-numeric: tabular-nums; }
+.persona-count.full { color: var(--app-accent); }
+
 .persona-group { border-top: 1px solid var(--app-line); padding-top: 12px; }
 .persona-group summary { display: flex; justify-content: space-between; cursor: pointer; font-size: var(--type-body); list-style: none; }
 .persona-group summary::-webkit-details-marker { display: none; }

@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   // A crisis is answered plainly, outside the role.
   const country = readClientInfo(request.headers, (request as Request & { cf?: Record<string, unknown> }).cf).country;
   const herName = typeof body.herName === "string" ? body.herName.slice(0, 40) : "";
-  const safety = desirePreservingSafetyReply(last.text, lang, persona.taNameForHer || herName || (lang === "zh" ? "你" : "you"), country);
+  const safety = desirePreservingSafetyReply(last.text, lang, herName || (lang === "zh" ? "你" : "you"), country);
   if (safety) return new Response(safety, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "x-persona-route": "safety" } });
 
   const apiKey = process.env.OPENAI_API_KEY;

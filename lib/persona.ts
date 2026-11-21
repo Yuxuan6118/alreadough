@@ -121,6 +121,9 @@ export function emptyPersona(): Persona {
   };
 }
 
+/** Facts written in a big box on the profile page; the rest are one-line boxes. */
+export const LONG_FACTS: ReadonlySet<FactKey> = new Set<FactKey>(["family", "past", "personality"]);
+
 const clip = (value: unknown, max: number) => (typeof value === "string" ? value.trim().slice(0, max) : "");
 
 /** Accepts whatever the client sent and returns a persona with every field bounded. */
@@ -131,7 +134,7 @@ export function sanitizePersona(raw: unknown): Persona | null {
   if (!name) return null;
   const facts: Partial<Record<FactKey, string>> = {};
   for (const group of FACT_GROUPS) for (const [key] of group.fields) {
-    const value = clip(p.facts?.[key], PERSONA_LIMITS.field);
+    const value = clip(p.facts?.[key], LONG_FACTS.has(key) ? PERSONA_LIMITS.longField : PERSONA_LIMITS.field);
     if (value) facts[key] = value;
   }
   const list = <T,>(value: unknown, max: number) => (Array.isArray(value) ? value.slice(0, max) as T[] : []);
@@ -140,8 +143,8 @@ export function sanitizePersona(raw: unknown): Persona | null {
     id: clip(p.id, 64) || crypto.randomUUID(),
     name,
     pronoun: p.pronoun === "他" || p.pronoun === "她" ? p.pronoun : "TA",
-    herNameForTa: clip(p.herNameForTa, 40),
-    taNameForHer: clip(p.taNameForHer, 40),
+    herNameForTa: clip(p.herNameForTa, PERSONA_LIMITS.field),
+    taNameForHer: clip(p.taNameForHer, PERSONA_LIMITS.field),
     facts,
     styleSummary: clip(p.styleSummary, PERSONA_LIMITS.longField),
     neverSays: clip(p.neverSays, PERSONA_LIMITS.field * 2),
@@ -214,7 +217,8 @@ function factLines(persona: Persona, lang: PersonaLang) {
 
 export function buildPersonaSystem(persona: Persona, lang: PersonaLang, herName: string, recent: string, turn: number) {
   const ta = persona.name;
-  const her = persona.taNameForHer || herName || (lang === "zh" ? "你" : "you");
+  // her account name, used inside fixed sentences; what TA actually calls her goes in as her own words below
+  const her = herName || (lang === "zh" ? "她" : "her");
   const memories = pickMemories(persona, recent);
   const quotes = pickQuotes(persona, recent, turn);
   const facts = factLines(persona, lang);
@@ -230,6 +234,10 @@ export function buildPersonaSystem(persona: Persona, lang: PersonaLang, herName:
       section(`${ta} would never`, persona.neverSays),
       section(`${her} corrected you before`, persona.corrections.map((c) => `- ${c}`).join("\n")),
       section(`Who ${ta} is`, facts),
+      section("What you call each other", [
+        persona.herNameForTa && `What ${her} calls you: ${persona.herNameForTa}`,
+        persona.taNameForHer && `What you call ${her}: ${persona.taNameForHer}`,
+      ].filter(Boolean).join("\n")),
       section("How they met", persona.howMet),
       section("Things you both remember", memories.map((m) => `- ${m.text}`).join("\n")),
       section("More from her", persona.other),
@@ -252,6 +260,10 @@ export function buildPersonaSystem(persona: Persona, lang: PersonaLang, herName:
     section(`${ta}绝不会这样`, persona.neverSays),
     section(`${her}之前纠正过你`, persona.corrections.map((c) => `- ${c}`).join("\n")),
     section(`${ta}是谁`, facts),
+    section("你们怎么称呼对方", [
+      persona.herNameForTa && `${her}平时怎么叫你：${persona.herNameForTa}`,
+      persona.taNameForHer && `你平时怎么叫${her}：${persona.taNameForHer}`,
+    ].filter(Boolean).join("\n")),
     section("你们怎么认识的", persona.howMet),
     section("你们都记得的事", memories.map((m) => `- ${m.text}`).join("\n")),
     section("她补充的", persona.other),

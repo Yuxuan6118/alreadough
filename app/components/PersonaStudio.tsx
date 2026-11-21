@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowClockwise, BookmarkSimple, ChatCircleText, ImageSquare, PaperPlaneTilt, Plus, PushPin, SpeakerHigh, Trash, UploadSimple, X } from "@phosphor-icons/react";
 import SpacePage from "./SpacePage";
 import { PersonaIcon } from "./NavIcons";
@@ -8,7 +8,7 @@ import DoughHop from "./DoughHop";
 import { askConfirm } from "./ConfirmHost";
 import { readStored, writeStored } from "@/lib/safe-storage";
 import { screenshotPieces } from "@/lib/screenshot-tiles";
-import { FACT_GROUPS, PERSONA_LIMITS, emptyPersona, type Persona, type PersonaMemory, type PersonaMessage } from "@/lib/persona";
+import { FACT_GROUPS, LONG_FACTS, PERSONA_LIMITS, emptyPersona, type Persona, type PersonaMemory, type PersonaMessage } from "@/lib/persona";
 import "./persona.css";
 
 type Lang = "zh" | "en";
@@ -129,7 +129,7 @@ function NewPersona({ lang, adult, onAdult, onCreate }: { lang: Lang; adult: boo
       <p className="persona-note">{t("这里的 TA 由你写下的资料生成，是你心里那一版的 TA。", "This TA is made from what you write: the TA in your own imagination.")}</p>
       <label className="persona-field">
         <span>{t("TA 的名字", "TA's name")}</span>
-        <input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder={t("你平时怎么叫 TA", "What you call TA")} />
+        <Counted value={name} max={40}><input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder={t("你平时怎么叫 TA", "What you call TA")} /></Counted>
       </label>
       {!adult && <label className="persona-check"><input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />{t("我已年满 18 岁", "I am 18 or older")}</label>}
       <div className="space-card-actions">
@@ -264,7 +264,7 @@ function PersonaChat({ lang, sessionId, herName, persona, messages, setMessages,
             </div>
             {correcting === message.id && (
               <div className="persona-correct">
-                <textarea value={correction} maxLength={300} rows={2} onChange={(e) => setCorrection(e.target.value)} placeholder={t("哪里不像？TA 会怎么说？可以不填", "What's off? How would TA say it? Optional")} />
+                <Counted value={correction} max={300}><textarea value={correction} maxLength={300} rows={2} onChange={(e) => setCorrection(e.target.value)} placeholder={t("哪里不像？TA 会怎么说？可以不填", "What's off? How would TA say it? Optional")} /></Counted>
                 <div className="space-card-actions">
                   <button type="button" className="persona-primary" onClick={() => saveCorrection(index)}>{t("记下并重写", "Save and rewrite")}</button>
                   <button type="button" className="space-outline" onClick={() => setCorrecting(null)}>{t("取消", "Cancel")}</button>
@@ -283,7 +283,7 @@ function PersonaChat({ lang, sessionId, herName, persona, messages, setMessages,
         <div ref={endRef} />
       </div>
       <div className="persona-composer">
-        <textarea value={input} rows={2} maxLength={2000} onChange={(e) => setInput(e.target.value)} onKeyDown={onKey} placeholder={t(`发给 ${persona.name}`, `Message ${persona.name}`)} />
+        <Counted value={input} max={2000}><textarea value={input} rows={2} maxLength={2000} onChange={(e) => setInput(e.target.value)} onKeyDown={onKey} placeholder={t(`发给 ${persona.name}`, `Message ${persona.name}`)} /></Counted>
         <button type="button" className="persona-send" disabled={!input.trim() || busy} onClick={send} aria-label={t("发送", "Send")}><PaperPlaneTilt size={20} /></button>
       </div>
       <p className="persona-ai-note">{t(`${persona.name}是 AI 扮演的角色，不是真人。`, `${persona.name} is a character played by AI, not a real person.`)}</p>
@@ -294,13 +294,26 @@ function PersonaChat({ lang, sessionId, herName, persona, messages, setMessages,
 
 // ---------- profile ----------
 
-function Field({ label, value, onChange, long, placeholder, max }: { label: string; value: string; onChange: (v: string) => void; long?: boolean; placeholder?: string; max?: number }) {
+/** A text box with its live character count, out of the box's limit, in the bottom-right corner. */
+function Counted({ value, max, children }: { value: string; max: number; children: ReactNode }) {
+  return (
+    <div className="persona-counted">
+      {children}
+      <small className={value.length >= max ? "persona-count full" : "persona-count"} aria-hidden="true">{value.length}/{max}</small>
+    </div>
+  );
+}
+
+function Field({ label, value, onChange, long, rows = 3, placeholder, max }: { label: string; value: string; onChange: (v: string) => void; long?: boolean; rows?: number; placeholder?: string; max?: number }) {
+  const limit = max ?? (long ? PERSONA_LIMITS.longField : PERSONA_LIMITS.field);
   return (
     <label className="persona-field">
       <span>{label}</span>
-      {long
-        ? <textarea value={value} rows={3} maxLength={max ?? PERSONA_LIMITS.longField} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
-        : <input value={value} maxLength={max ?? PERSONA_LIMITS.field} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />}
+      <Counted value={value} max={limit}>
+        {long
+          ? <textarea value={value} rows={rows} maxLength={limit} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+          : <input value={value} maxLength={limit} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />}
+      </Counted>
     </label>
   );
 }
@@ -329,7 +342,7 @@ function PersonaProfile({ lang, persona, hasVoice, update, onDelete }: { lang: L
             <summary>{lang === "zh" ? group.zh : group.en}<small>{filled(group.fields.map(([k]) => k))}/{group.fields.length}</small></summary>
             <div className="persona-grid">
               {group.fields.map(([key, zh, en]) => (
-                <Field key={key} label={lang === "zh" ? zh : en} value={persona.facts[key] || ""} long={key === "past" || key === "family" || key === "personality"}
+                <Field key={key} label={lang === "zh" ? zh : en} value={persona.facts[key] || ""} long={LONG_FACTS.has(key)}
                   onChange={(v) => update((p) => ({ ...p, facts: { ...p.facts, [key]: v } }))} />
               ))}
             </div>
@@ -350,7 +363,7 @@ function PersonaProfile({ lang, persona, hasVoice, update, onDelete }: { lang: L
             ))}
           </ul>
           <div className="persona-inline">
-            <input value={quote} maxLength={400} onChange={(e) => setQuote(e.target.value)} placeholder={t("一句 TA 真的说过的话", "Something TA really said")} />
+            <Counted value={quote} max={400}><input value={quote} maxLength={400} onChange={(e) => setQuote(e.target.value)} placeholder={t("一句 TA 真的说过的话", "Something TA really said")} /></Counted>
             <button type="button" className="space-outline" disabled={!quote.trim() || persona.quotes.length >= PERSONA_LIMITS.quotes} onClick={() => { update((p) => ({ ...p, quotes: [...p.quotes, { id: uid(), text: quote.trim() }] })); setQuote(""); }}><Plus size={14} />{t("加一句", "Add")}</button>
           </div>
         </div>
@@ -369,11 +382,12 @@ function PersonaProfile({ lang, persona, hasVoice, update, onDelete }: { lang: L
       <section className="persona-card">
         <h3>{t("你们的故事", "Your story")}</h3>
         <div className="persona-grid">
-          <Field label={t("你怎么叫 TA", "What you call TA")} value={persona.herNameForTa} max={40} onChange={set("herNameForTa")} />
-          <Field label={t("TA 怎么叫你", "What TA calls you")} value={persona.taNameForHer} max={40} onChange={set("taNameForHer")} />
+          <Field long rows={2} label={t("你怎么叫 TA", "What you call TA")} value={persona.herNameForTa} max={PERSONA_LIMITS.field} onChange={set("herNameForTa")} />
+          <Field long rows={2} label={t("TA 怎么叫你", "What TA calls you")} value={persona.taNameForHer} max={PERSONA_LIMITS.field} onChange={set("taNameForHer")} />
         </div>
         <Field long label={t("你们怎么认识的", "How you met")} value={persona.howMet} onChange={set("howMet")} />
-        <Field long label={t("还想让 TA 知道的", "Anything else")} value={persona.other} onChange={set("other")} />
+        <Field long label={t("还想补充的", "Anything else")} value={persona.other} onChange={set("other")}
+          placeholder={t("比如你最近在忙什么、你的作息、难过时希望 TA 怎么回你", "e.g. what you're busy with lately, your daily rhythm, how you'd like TA to answer when you're down")} />
       </section>
 
       <section className="persona-card">
@@ -589,13 +603,13 @@ function PersonaMemories({ lang, persona, update }: { lang: Lang; persona: Perso
     <section className="persona-card">
       <p className="persona-lead">{t("你们之间的趣事、约定、只有你们懂的梗。钉住的每次都会记得，其余的聊到相关话题时想起来。", "Funny moments, promises, inside jokes. Pinned ones are always remembered; the rest come back when the topic does.")}</p>
       <div className="persona-inline">
-        <textarea value={draft} rows={2} maxLength={600} onChange={(e) => setDraft(e.target.value)} placeholder={t("你记得你们之间有什么趣事吗？", "Any funny moment between you two?")} />
+        <Counted value={draft} max={600}><textarea value={draft} rows={2} maxLength={600} onChange={(e) => setDraft(e.target.value)} placeholder={t("你记得你们之间有什么趣事吗？", "Any funny moment between you two?")} /></Counted>
         <button type="button" className="space-outline" disabled={!draft.trim()} onClick={add}><Plus size={14} />{t("记下", "Add")}</button>
       </div>
       <ul className="persona-list">
         {sorted.map((m) => (
           <li key={m.id} className={m.pinned ? "pinned" : ""}>
-            <textarea value={m.text} rows={2} maxLength={600} aria-label={t("记忆", "Memory")} onChange={(e) => update((p) => ({ ...p, memories: p.memories.map((x) => (x.id === m.id ? { ...x, text: e.target.value } : x)) }))} />
+            <Counted value={m.text} max={600}><textarea value={m.text} rows={2} maxLength={600} aria-label={t("记忆", "Memory")} onChange={(e) => update((p) => ({ ...p, memories: p.memories.map((x) => (x.id === m.id ? { ...x, text: e.target.value } : x)) }))} /></Counted>
             <button type="button" aria-pressed={m.pinned} aria-label={m.pinned ? t("取消钉住", "Unpin") : t("钉住", "Pin")} onClick={() => update((p) => ({ ...p, memories: p.memories.map((x) => (x.id === m.id ? { ...x, pinned: !x.pinned } : x)) }))}><PushPin size={15} weight={m.pinned ? "fill" : "regular"} /></button>
             <button type="button" aria-label={t("删除", "Delete")} onClick={() => update((p) => ({ ...p, memories: p.memories.filter((x) => x.id !== m.id) }))}><X size={14} /></button>
           </li>
