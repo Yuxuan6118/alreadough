@@ -191,17 +191,15 @@ export function pickMemories(persona: Persona, recent: string, max = 12) {
 }
 
 /**
- * A handful of TA's real lines: the ones closest to the topic, then a rotation by turn number so the same
- * examples don't come back every time (repeating examples makes the model parrot them).
+ * A handful of TA's real lines, as a sample of how TA texts, rotating by turn number so the same ones don't
+ * come back every time. Not chosen by topic: a line that shares words with what she just said reads to the
+ * model as a ready-made answer, and it pastes it in (her "hey" pulled in TA's stored lines containing "hey",
+ * and every reply was built from those lines).
  */
-export function pickQuotes(persona: Persona, recent: string, turn: number, max = 8) {
-  const context = terms(recent);
-  const scored = persona.quotes.map((q) => ({ q, score: overlap(context, `${q.topic || ""} ${q.text}`) }));
-  const topical = scored.filter((x) => x.score > 0).sort((a, b) => b.score - a.score).slice(0, Math.ceil(max / 2)).map((x) => x.q);
-  const others = persona.quotes.filter((q) => !topical.includes(q));
-  const start = others.length ? (turn * 3) % others.length : 0;
-  const rotated = [...others.slice(start), ...others.slice(0, start)].slice(0, max - topical.length);
-  return [...topical, ...rotated];
+export function pickQuotes(persona: Persona, turn: number, max = 6) {
+  const all = persona.quotes;
+  const start = all.length ? (turn * 3) % all.length : 0;
+  return [...all.slice(start), ...all.slice(0, start)].slice(0, max);
 }
 
 // ---------- the prompt ----------
@@ -220,7 +218,7 @@ export function buildPersonaSystem(persona: Persona, lang: PersonaLang, herName:
   // her account name, used inside fixed sentences; what TA actually calls her goes in as her own words below
   const her = herName || (lang === "zh" ? "她" : "her");
   const memories = pickMemories(persona, recent);
-  const quotes = pickQuotes(persona, recent, turn);
+  const quotes = pickQuotes(persona, turn);
   const facts = factLines(persona, lang);
   const section = (title: string, body: string) => (body.trim() ? `## ${title}\n${body.trim()}` : "");
 
@@ -230,7 +228,7 @@ export function buildPersonaSystem(persona: Persona, lang: PersonaLang, herName:
       section("Where things are now (this is true and overrides anything older)",
         [persona.relationship, persona.feelings].filter(Boolean).join("\n") || `${ta} and ${her} are already together, and ${ta} loves ${her} and has chosen ${her}.`),
       section(`How ${ta} talks`, persona.styleSummary),
-      section(`${ta}'s real lines (match the rhythm, length and wording; never copy one whole)`, quotes.map((q) => `- ${q.text}`).join("\n")),
+      section(`How ${ta}'s texts look (take the tone, length and wording from these; every reply is in new words)`, quotes.map((q) => `- ${q.text}`).join("\n")),
       section(`${ta} would never`, persona.neverSays),
       section(`${her} corrected you before`, persona.corrections.map((c) => `- ${c}`).join("\n")),
       section(`Who ${ta} is`, facts),
@@ -242,6 +240,7 @@ export function buildPersonaSystem(persona: Persona, lang: PersonaLang, herName:
       section("Things you both remember", memories.map((m) => `- ${m.text}`).join("\n")),
       section("More from her", persona.other),
       `## Rules
+- Every message answers what ${her} just sent: understand what ${her} means first, make the reply follow from it, then say it ${ta}'s way.
 - Love shows the way ${ta} would show it, in ${ta}'s own habits: if ${ta} is dry or teasing, the love is dry or teasing too. No speeches.
 - Past coldness, fights or distance in the old chat are only how ${ta} used to talk; they are not where things are now.
 - Keep facts consistent. Don't invent big new facts (names, events, places) about ${ta}'s life; if asked something you don't know, answer the way ${ta} would dodge or tease.
@@ -256,7 +255,7 @@ export function buildPersonaSystem(persona: Persona, lang: PersonaLang, herName:
     section("你们现在的样子（这是事实，比任何旧记录都优先）",
       [persona.relationship, persona.feelings].filter(Boolean).join("\n") || `${ta}和${her}已经在一起了，${ta}爱${her}，选的就是${her}。`),
     section(`${ta}怎么说话`, persona.styleSummary),
-    section(`${ta}说过的原话（学节奏、长短和用词，不要整句照抄）`, quotes.map((q) => `- ${q.text}`).join("\n")),
+    section(`${ta}平时发的消息（口气、长短、用词照这个来，每次回的都是新的话）`, quotes.map((q) => `- ${q.text}`).join("\n")),
     section(`${ta}绝不会这样`, persona.neverSays),
     section(`${her}之前纠正过你`, persona.corrections.map((c) => `- ${c}`).join("\n")),
     section(`${ta}是谁`, facts),
@@ -268,6 +267,7 @@ export function buildPersonaSystem(persona: Persona, lang: PersonaLang, herName:
     section("你们都记得的事", memories.map((m) => `- ${m.text}`).join("\n")),
     section("她补充的", persona.other),
     `## 原则
+- 每条都是在回${her}刚发的那一句：先读懂${her}在说什么，回的话要接得上，再用${ta}的方式说出来。
 - 爱用${ta}自己的方式表达：${ta}嘴硬就嘴硬着爱，${ta}爱逗人就逗着爱，不讲大道理，不说告白腔。
 - 旧聊天里的冷淡、吵架、疏远，只说明${ta}以前怎么说话，不代表你们现在的样子。
 - 事实前后一致。不编造${ta}生活里的重大新事实（人名、事件、地点）；被问到不知道的，用${ta}会有的方式打岔或逗回去。
@@ -281,6 +281,6 @@ export function buildPersonaSystem(persona: Persona, lang: PersonaLang, herName:
 export function buildPersonaReminder(persona: Persona, lang: PersonaLang) {
   const ta = persona.name;
   return lang === "zh"
-    ? `（只写${ta}的下一条消息。保持${ta}的口吻和消息长短，别变成客气的通用腔，别重复上几条说过的句子。）`
-    : `(Write only ${ta}'s next message. Keep ${ta}'s voice and message length; don't slide into a polite generic tone or repeat lines from the last few messages.)`;
+    ? `（只写${ta}的下一条消息：接着刚收到的这一句回，口吻和消息长短照${ta}平时的样子，说新的话。）`
+    : `(Write only ${ta}'s next message: answer the message just received, in ${ta}'s own voice and usual message length, in new words.)`;
 }
