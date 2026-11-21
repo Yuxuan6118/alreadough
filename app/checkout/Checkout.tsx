@@ -74,7 +74,7 @@ export default function Checkout({ initialLang }: { initialLang: Lang }) {
         if (data.action && data.fields) { submitCheckoutForm(data.action, data.fields); return; }
       }
       if (path.endsWith("/verify")) { setCode(""); setCodeSent(false); }
-      if (path.endsWith("/referral")) { setReferral(""); setShowReferral(false); setNotice(zh ? "已开通 7 天丰盛工坊。" : "7 days of Dough Atelier added."); }
+      if (path.endsWith("/referral")) { setReferral(""); setShowReferral(false); setNotice(zh ? "已加上 30 天丰盛工坊。" : "30 days of Dough Atelier added."); }
       await refresh();
     } catch (failure) {
       setError(memberErrorText(failure instanceof Error ? failure.message : "", lang));
@@ -166,7 +166,7 @@ export default function Checkout({ initialLang }: { initialLang: Lang }) {
                   <div><input id="checkout-referral" type="text" maxLength={32} value={referral} onChange={(event) => setReferral(event.target.value)} />
                     <button type="button" disabled={busy || !referral.trim()} onClick={() => void act("/api/member/referral", { code: referral.trim() })}>{zh ? "使用" : "Apply"}</button></div>
                 </div>
-              ) : <button type="button" className="checkout-link" onClick={() => setShowReferral(true)}>{zh ? "有邀请码？免费体验 7 天" : "Have an invitation code? 7 days free"}</button>)}
+              ) : <button type="button" className="checkout-link" onClick={() => setShowReferral(true)}>{zh ? "有邀请码？免费体验 30 天" : "Have an invitation code? 30 days free"}</button>)}
 
               <p className="checkout-account">{zh ? "已登录" : "Signed in"}<button type="button" className="checkout-link" disabled={busy} onClick={() => void act("/api/member/auth/logout")}>{zh ? "退出" : "Sign out"}</button></p>
             </>}

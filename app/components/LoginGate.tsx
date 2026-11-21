@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import DoughHop from "./DoughHop";
+import WelcomeGift from "./WelcomeGift";
 import { Capacitor } from "@capacitor/core";
 import SiteFooter from "./SiteFooter";
 import home from "../home.module.css";
@@ -81,6 +82,7 @@ export default function LoginGate({ children }: { children: ReactNode }) {
   const [codeSent, setCodeSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ErrorKey | null>(null);
+  const emailInput = useRef<HTMLInputElement>(null);
   const t = copy[lang];
 
   useEffect(() => {
@@ -153,7 +155,7 @@ export default function LoginGate({ children }: { children: ReactNode }) {
                     <div className="login-gate-or"><span>{t.or}</span></div>
                   </>}
                   <form onSubmit={submit}>
-                    <label><span>{t.email}</span><input type="email" autoComplete="email" value={email} disabled={codeSent || busy} onChange={(event) => { setEmail(event.target.value); setError(null); }} placeholder="you@example.com" /></label>
+                    <label><span>{t.email}</span><input ref={emailInput} type="email" autoComplete="email" value={email} disabled={codeSent || busy} onChange={(event) => { setEmail(event.target.value); setError(null); }} placeholder="you@example.com" /></label>
                     {/* eslint-disable-next-line jsx-a11y/no-autofocus -- the code box appears right after she asks for the code */}
                     {codeSent && <label><span>{t.code}</span><input type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={code} disabled={busy} autoFocus onChange={(event) => { setCode(event.target.value.replace(/\D/g, "")); setError(null); }} /></label>}
                     <button type="submit" disabled={busy || !email.trim() || (codeSent && code.length < 6)}>{busy ? <span className="dough-loading"><DoughHop size="xs"/>{t.wait}</span> : codeSent ? t.verify : t.send}</button>
@@ -170,6 +172,7 @@ export default function LoginGate({ children }: { children: ReactNode }) {
             </section>
           </main>
           <SiteFooter lang={lang} />
+          <WelcomeGift lang={lang} onSignIn={() => emailInput.current?.focus()} />
         </>}
       </div>
     </>

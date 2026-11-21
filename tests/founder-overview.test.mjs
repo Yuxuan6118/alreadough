@@ -28,7 +28,7 @@ test("members, revenue, features, voice, content and audience are counted", asyn
   await run("INSERT INTO member_accounts (provider_id, account_id, created_at) VALUES ('p1','a1',?), ('p2','a2',?)", now - 40 * DAY, now - DAY);
   await run("INSERT INTO member_state (account_id, plan, period_end_ms, trial_end_ms, updated_at_ms) VALUES ('a1','deep',?,NULL,?), ('a2','soft',NULL,?,?)", now + 20 * DAY, now, now + 3 * DAY, now);
   await run("INSERT INTO member_orders (order_id, account_id, plan, amount_fen, status, provider_trade_no, created_at_ms, paid_at_ms) VALUES ('o1','a1','deep',3900,'paid','TRADE123456',?,?), ('o2','a2','atelier',14900,'pending',NULL,?,NULL)", now - DAY, now - DAY, now - 3600_000);
-  await run("INSERT INTO member_referrals (account_id, code, redeemed_at_ms) VALUES ('a2','X',?)", now - DAY);
+  await run("INSERT INTO member_codes (account_id, kind, code, starts_at_ms, ends_at_ms, redeemed_at_ms) VALUES ('a2','invite','X',?,?,?)", now - DAY, now + 29 * DAY, now - DAY);
   // AI calls: two chat, one persona (feature tag in prompt_version)
   for (const [mode, tag, user] of [["chat", "v1", "u1"], ["chat", "v1", "u2"], ["chat", "persona", "u1"]]) {
     await run("INSERT INTO beta_events (id, user_hash, event_type, mode, prompt_version, total_tokens, latency_ms, created_at) VALUES (?, ?, 'ai_response', ?, ?, 100, 2000, ?)", crypto.randomUUID(), user, mode, tag, iso);

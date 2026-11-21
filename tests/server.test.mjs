@@ -85,6 +85,35 @@ test("allowance: a free account gets its chat and story limits, and failed repli
   assert.equal(await membership.reserveStory("app:old"), false);
 });
 
+test("invitation code: 30 days of Atelier once per account, starting after the Atelier days she already has", async () => {
+  const now = Date.now();
+  assert.equal(membership.isReferralCode(" 20260910 "), true);
+  assert.equal(membership.isReferralCode("AlreaDough2026"), false);
+  const codeRow = (accountId) => env.DB.prepare("SELECT starts_at_ms AS start, ends_at_ms AS end FROM member_codes WHERE account_id = ? AND kind = 'invite'").bind(accountId).first();
+  // a brand-new account: the 30 days wait behind its first week
+  await env.DB.prepare("INSERT INTO member_accounts (provider_id, account_id, created_at) VALUES ('new', 'app:new', ?), ('old', 'app:old', ?), ('wk', 'app:wk', ?)")
+    .bind(now, now - 60 * DAY, now - 60 * DAY).run();
+  const fresh = await membership.redeemReferral("app:new", "20260910");
+  assert.equal(fresh.ok, true);
+  near((await codeRow("app:new")).start, now + 7 * DAY, "starts when the first week ends");
+  assert.equal(fresh.membership.plan, "atelier");
+  near(fresh.membership.referralEndMs, now + 37 * DAY, "the panel shows the last Atelier day");
+  assert.equal(fresh.membership.referralUsed, true);
+  assert.deepEqual(await membership.redeemReferral("app:new", "20260910"), { ok: false, error: "REFERRAL_USED" });
+  assert.equal((await membership.memberState("app:new", now + 20 * DAY)).plan, "atelier", "inside the 30 days");
+  assert.equal((await membership.memberState("app:new", now + 38 * DAY)).plan, "soft", "back on the free plan after");
+  // an old free account whose 7-day code ran out long ago: that code does not block this one, which starts now
+  await env.DB.prepare("INSERT INTO member_codes (account_id, kind, code, starts_at_ms, ends_at_ms, redeemed_at_ms) VALUES ('app:old', 'trial', '20260910', ?, ?, ?), ('app:wk', 'trial', '20260910', ?, ?, ?)")
+    .bind(now - 20 * DAY, now - 13 * DAY, now - 20 * DAY, now - 4 * DAY, now + 3 * DAY, now - 4 * DAY).run();
+  const old = await membership.redeemReferral("app:old", "20260910");
+  assert.equal(old.ok, true);
+  assert.equal(old.membership.referral, true);
+  near((await codeRow("app:old")).start, now, "starts now");
+  // a 7-day code still running: the 30 days follow it
+  await membership.redeemReferral("app:wk", "20260910");
+  near((await codeRow("app:wk")).start, now + 3 * DAY, "starts when the 7-day code ends");
+});
+
 test("sign-in codes: one email a minute per address", async () => {
   const request = new Request("https://alreadough.com/api/member/auth/otp", { headers: { "cf-connecting-ip": "1.2.3.4" } });
   assert.equal(await auth.claimAuthLimit(request, "a@example.test", "send"), true);

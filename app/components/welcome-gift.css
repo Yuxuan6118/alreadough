@@ -1,0 +1,9 @@
+/* The sign-in gift popup (WelcomeGift.tsx). It reuses the confirm dialog from space.css and the pet-confetti keyframes from already.css. */
+.welcome-gift-mark { position: relative; display: block; width: 40px; height: 40px; margin-bottom: 14px; color: var(--app-accent); }
+.welcome-gift-mark > svg { display: block; width: 100%; height: 100%; }
+/* the desk pet's confetti (.pet-celebration): 7x12 pills in accent / panel-strong / gold, out from the dough in .9s */
+.welcome-gift-confetti { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
+.welcome-gift-confetti i { position: absolute; left: 0; top: 0; width: 7px; height: 12px; border-radius: 999px; background: var(--app-accent); transform-origin: 0 0; animation: pet-confetti .9s cubic-bezier(.16,1,.3,1) forwards; }
+.welcome-gift-confetti i:nth-child(3n) { background: var(--app-panel-strong); }
+.welcome-gift-confetti i:nth-child(3n + 1) { background: #d5b982; }
+@media (prefers-reduced-motion: reduce) { .welcome-gift-confetti { display: none; } }

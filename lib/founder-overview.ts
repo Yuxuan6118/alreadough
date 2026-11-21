@@ -39,7 +39,7 @@ export async function founderOverview() {
         SUM(CASE WHEN plan = 'atelier' AND period_end_ms > ? THEN 1 ELSE 0 END) AS atelier,
         SUM(CASE WHEN NOT (plan IN ('deep','atelier') AND period_end_ms > ?) AND trial_end_ms > ? THEN 1 ELSE 0 END) AS trial
        FROM member_state`, now, now, now, now, now),
-    first<{ n: number; recent: number }>("SELECT COUNT(*) AS n, SUM(CASE WHEN redeemed_at_ms >= ? THEN 1 ELSE 0 END) AS recent FROM member_referrals", since7Ms),
+    first<{ n: number; recent: number }>("SELECT COUNT(*) AS n, SUM(CASE WHEN redeemed_at_ms >= ? THEN 1 ELSE 0 END) AS recent FROM member_codes", since7Ms),
     first<{ n: number; fen: number; n7: number; fen7: number; buyers: number }>(
       `SELECT COUNT(*) AS n, SUM(amount_fen) AS fen, SUM(CASE WHEN paid_at_ms >= ? THEN 1 ELSE 0 END) AS n7,
         SUM(CASE WHEN paid_at_ms >= ? THEN amount_fen ELSE 0 END) AS fen7, COUNT(DISTINCT account_id) AS buyers

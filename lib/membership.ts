@@ -15,8 +15,11 @@ export const STORY_LIMITS: Record<MemberPlan, number> = { soft: 3, deep: 15, ate
 const welcomeMs = 7 * 24 * 60 * 60 * 1000;
 const fiveHoursMs = 5 * 60 * 60 * 1000;
 const monthMs = 30 * 24 * 60 * 60 * 1000;
-const referralMs = 7 * 24 * 60 * 60 * 1000;
-/** Invitation code: 7 days of Dough Atelier, once per account. */
+const referralMs = monthMs;
+/**
+ * Invitation code: 30 days of Dough Atelier, once per account. The founder hands it out by hand to people who
+ * posted about AlreaDough on two platforms and brought a friend who signed in. (Until 2026-11-20 the same code gave 7 days.)
+ */
 const REFERRAL_CODES = new Set(["20260910"]);
 /** Accounts with no allowance at all (the founder's own account, for testing). */
 const UNLIMITED_ACCOUNTS = new Set(["app:d4b537ab-a8d5-4feb-936d-e1596d083750"]);
@@ -35,24 +38,34 @@ export function weekWindow(now: number) {
 export function fiveHourWindow(now: number) { return Math.floor(now / fiveHoursMs) * fiveHoursMs; }
 
 type StateRow = { plan: MemberPlan; periodEndMs: number | null; trialEndMs: number | null };
-export async function memberState(accountId: string, now = Date.now()) {
-  const [row, referralRow, accountRow] = await Promise.all([
+type CodeRow = { kind: string; startsAtMs: number; endsAtMs: number };
+async function readMember(accountId: string, now: number) {
+  const [row, codes, accountRow] = await Promise.all([
     env.DB.prepare("SELECT plan, period_end_ms AS periodEndMs, trial_end_ms AS trialEndMs FROM member_state WHERE account_id = ?").bind(accountId).first() as Promise<StateRow | null>,
-    env.DB.prepare("SELECT redeemed_at_ms AS redeemedAtMs FROM member_referrals WHERE account_id = ?").bind(accountId).first<{ redeemedAtMs: number }>(),
+    env.DB.prepare("SELECT kind, starts_at_ms AS startsAtMs, ends_at_ms AS endsAtMs FROM member_codes WHERE account_id = ?").bind(accountId).all<CodeRow>().then((result) => result.results),
     env.DB.prepare("SELECT MIN(created_at) AS createdAt FROM member_accounts WHERE account_id = ?").bind(accountId).first<{ createdAt: number | null }>().catch(() => null),
   ]);
   const paid = !!row?.periodEndMs && row.periodEndMs > now && (row.plan === "deep" || row.plan === "atelier");
   const trial = !paid && !!row?.trialEndMs && row.trialEndMs > now;
-  // The invitation is a temporary overlay: Atelier while it lasts, then the account's own plan again.
-  const referralEndMs = referralRow ? referralRow.redeemedAtMs + referralMs : null;
-  const referral = !!referralEndMs && referralEndMs > now;
+  // Code days are a temporary overlay: Atelier while one of their windows runs, then the account's own plan again.
+  const referral = codes.some((code) => code.startsAtMs <= now && now < code.endsAtMs);
+  const codesEndMs = Math.max(0, ...codes.map((code) => code.endsAtMs));
   // A new account's first seven days are Dough Atelier, unless a paid plan already covers them.
   const welcomeEndMs = accountRow?.createdAt ? accountRow.createdAt + welcomeMs : null;
   const welcome = !paid && !!welcomeEndMs && welcomeEndMs > now;
   const ownPlan: MemberPlan = paid ? row!.plan : welcome ? "atelier" : trial ? "deep" : "soft";
   const plan: MemberPlan = referral ? "atelier" : ownPlan;
-  return { plan, trial: trial || welcome, welcome, referral, referralUsed: !!referralRow, referralEndMs: referral ? referralEndMs : null,
+  const state = { plan, trial: trial || welcome, welcome, referral, referralUsed: codes.some((code) => code.kind === "invite"),
+    // the last day of code-given Atelier, also while those days are still waiting behind her first week or a paid month
+    referralEndMs: codesEndMs > now ? codesEndMs : null,
     periodEndMs: paid ? row!.periodEndMs : welcome ? welcomeEndMs : trial ? row!.trialEndMs : null };
+  // When the Atelier days she already has run out; days from a new code start there instead of overlapping them.
+  const atelierEndMs = Math.max(now, paid && row!.plan === "atelier" ? row!.periodEndMs! : 0, welcome ? welcomeEndMs! : 0, codesEndMs);
+  return { state, atelierEndMs };
+}
+
+export async function memberState(accountId: string, now = Date.now()) {
+  return (await readMember(accountId, now)).state;
 }
 
 export async function createMemberOrder(accountId: string, plan: PaidPlan) {
@@ -170,15 +183,18 @@ export function isReferralCode(value: unknown) {
 }
 
 /**
- * Seven days of Dough Atelier from the moment of redemption, once per account. Nothing in member_state
- * changes, so when the seven days end the account is back on its own plan (free, or its paid period).
+ * Thirty days of Dough Atelier, once per account (the table's key). They begin when the Atelier days she already
+ * has end (her first week, a paid Atelier month, the old 7-day code), so none are lost. Nothing in member_state
+ * changes, so when they end the account is back on its own plan (free, or its paid period).
  */
 export async function redeemReferral(accountId: string, code: string) {
   const now = Date.now();
+  const { atelierEndMs } = await readMember(accountId, now);
   try {
-    await env.DB.prepare("INSERT INTO member_referrals (account_id, code, redeemed_at_ms) VALUES (?, ?, ?)").bind(accountId, code.trim(), now).run();
+    await env.DB.prepare("INSERT INTO member_codes (account_id, kind, code, starts_at_ms, ends_at_ms, redeemed_at_ms) VALUES (?, 'invite', ?, ?, ?, ?)")
+      .bind(accountId, code.trim(), atelierEndMs, atelierEndMs + referralMs, now).run();
   } catch {
-    const used = await env.DB.prepare("SELECT 1 AS used FROM member_referrals WHERE account_id = ?").bind(accountId).first();
+    const used = await env.DB.prepare("SELECT 1 AS used FROM member_codes WHERE account_id = ? AND kind = 'invite'").bind(accountId).first();
     if (used) return { ok: false as const, error: "REFERRAL_USED" };
     throw new Error("REFERRAL_FAILED");
   }

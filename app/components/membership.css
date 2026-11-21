@@ -54,6 +54,9 @@
 .membership-section .setting-hint a, .usage-link { color: var(--app-accent); }
 .usage-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 10px; font-weight: 600; text-decoration: none; }
 .member-signin input, .member-referral input { max-width: 420px; }
+.member-referral-steps { margin: 0; padding-left: 1.3em; list-style: decimal outside; color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); line-height: 1.7; }
+.member-referral-steps li + li { margin-top: 4px; }
+.member-referral-steps a { color: var(--app-accent); }
 .member-signin input + input { margin-top: 10px; }
 .member-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 16px; }
 .member-actions .primary { width: auto; min-width: 150px; min-height: 44px; padding: 0 22px; border-radius: 999px; }

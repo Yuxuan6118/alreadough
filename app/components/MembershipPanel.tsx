@@ -6,6 +6,7 @@ import DoughLineMark from "./DoughLineMark";
 import { askConfirm } from "./ConfirmHost";
 import { useCallback, useEffect, useRef, useState } from "react";
 import DoughHop from "./DoughHop";
+import { SITE_RECORD } from "@/lib/site-info";
 import {
   exhaustedWindow, fetchMemberStatus, MEMBER_PLANS, memberErrorText, memberPost, planName, resetLabel,
   submitCheckoutForm, usagePercent, type Membership, type MemberStatus,
@@ -163,7 +164,7 @@ export default function MembershipPanel({ lang, member, onRefresh }: { lang: Lan
       else if (path.endsWith("/checkout") && data.url) { window.location.href = data.url; return; }
       else if (path.endsWith("/checkout") && data.action && data.fields) { submitCheckoutForm(data.action, data.fields); return; }
       else {
-        if (path.endsWith("/referral")) { setReferral(""); setNotice(zh ? "已开通 7 天丰盛工坊。" : "7 days of Dough Atelier added."); }
+        if (path.endsWith("/referral")) { setReferral(""); setNotice(zh ? "已加上 30 天丰盛工坊。" : "30 days of Dough Atelier added."); }
         // Signing in or out changes whose space the app shows: start again from a fresh load.
         if (path.endsWith("/verify") || path.endsWith("/logout")) { window.location.reload(); return; }
         await onRefresh();
@@ -249,7 +250,12 @@ export default function MembershipPanel({ lang, member, onRefresh }: { lang: Lan
 
         {!membership.referralUsed && <section className="profile-card member-referral">
           <h3>{zh ? "邀请码" : "Invitation code"}</h3>
-          <p className="profile-sub">{zh ? "填邀请码可以免费体验 7 天丰盛工坊，每个账户一次。" : "An invitation code gives 7 days of Dough Atelier, once per account."}</p>
+          <p className="profile-sub">{zh ? "填邀请码可以免费体验 30 天丰盛工坊，每个账户一次。" : "An invitation code gives 30 days of Dough Atelier, once per account."}</p>
+          <ol className="member-referral-steps" aria-label={zh ? "怎么拿到邀请码" : "How to get a code"}>
+            <li>{zh ? "在小红书、抖音、B站、微博、朋友圈中任选两个，公开发布 AlreaDough 的推荐，并截图。" : "Post about AlreaDough publicly on any two of Xiaohongshu, Douyin, Bilibili, Weibo and WeChat Moments, and take screenshots."}</li>
+            <li>{zh ? "邀请至少一位朋友注册并登录 AlreaDough。" : "Invite at least one friend to sign up and sign in to AlreaDough."}</li>
+            <li>{zh ? <>把截图和朋友的登录邮箱发到 <a href={`mailto:${SITE_RECORD.contactEmail}`}>{SITE_RECORD.contactEmail}</a>，或微信发给创始人，就会收到邀请码。</> : <>Send the screenshots and your friend&apos;s sign-in email to <a href={`mailto:${SITE_RECORD.contactEmail}`}>{SITE_RECORD.contactEmail}</a>, or to the founder on WeChat, and you&apos;ll get the code.</>}</li>
+          </ol>
           <div className="profile-topic-add"><input type="text" value={referral} maxLength={32} placeholder={zh ? "邀请码" : "Code"} aria-label={zh ? "邀请码" : "Invitation code"} onChange={(event) => setReferral(event.target.value)} /><button type="button" className="profile-topic-plus" disabled={busy || !referral.trim()} onClick={() => void act("/api/member/referral", { code: referral.trim() })}>{zh ? "使用" : "Use"}</button></div>
         </section>}
 
