@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
 import type { FounderOverview } from "@/lib/founder-overview";
 import FounderNav from "./FounderNav";
+import MailComposer from "./MailComposer";
 import "./beta.css";
 
 type Snapshot = { day: string; enabled: boolean; totalUsers: number; activeToday: number; requestsToday: number; tokensToday: number; failedToday: number; feedbackCount: number; helpfulRate: number | null; ratingCount: number; averageChange: number | null; understoodAverage: number | null; returnIntentAverage: number | null; topFeature: string | null; globalLimits: { requests: number; tokens: number } };
@@ -17,6 +18,7 @@ export default function FounderBetaPage() {
   const [data, setData] = useState<Snapshot | null>(null);
   const [overview, setOverview] = useState<FounderOverview | null>(null);
   const [loadedAt, setLoadedAt] = useState("");
+  const [mailState, setMailState] = useState<{ ready: boolean; subscribed: number } | null>(null);
   const [error, setError] = useState("");
   const [token, setToken] = useState<string | null>(null);
 
@@ -48,6 +50,11 @@ export default function FounderBetaPage() {
       .then(async (response) => response.ok ? response.json() as Promise<FounderOverview> : null)
       .then((next) => { if (next) setOverview(next); setLoadedAt(new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })); })
       .catch(() => undefined);
+    // the writing box needs to know whether mail is set up and how many people a mass mailing reaches
+    fetch("/api/beta/mail", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" })
+      .then(async (response) => response.ok ? response.json() as Promise<{ ready: boolean; subscribed: number }> : null)
+      .then((next) => { if (next) setMailState({ ready: next.ready, subscribed: next.subscribed }); })
+      .catch(() => undefined);
   }, [token]);
 
   useEffect(() => { load(); }, [load]);
@@ -77,7 +84,7 @@ export default function FounderBetaPage() {
       <section className="beta-switch"><div><small>AI SERVICE</small><strong>{data.enabled ? "正在运行" : "已暂停"}</strong></div><button className={data.enabled ? "on" : ""} onClick={toggle}>{data.enabled ? "紧急暂停" : "恢复服务"}</button></section>
       <h2 className="beta-section">今天</h2>
       <section className="beta-grid"><article><small>今日活跃用户</small><strong>{data.activeToday}</strong><span>累计 {data.totalUsers}</span></article><article><small>今日 AI 请求</small><strong>{data.requestsToday}</strong><span>上限 {data.globalLimits.requests}</span></article><article><small>今日 Tokens</small><strong>{data.tokensToday.toLocaleString()}</strong><span>上限 {data.globalLimits.tokens.toLocaleString()}</span></article><article><small>单条回复懂我率</small><strong>{data.helpfulRate == null ? "—" : `${data.helpfulRate}%`}</strong><span>{data.feedbackCount} 次评价</span></article><article><small>10 分钟后稳定感变化</small><strong>{data.averageChange == null ? "—" : `${data.averageChange > 0 ? "+" : ""}${data.averageChange}`}</strong><span>{data.ratingCount} 份问卷</span></article><article><small>被理解程度</small><strong>{data.understoodAverage == null ? "—" : `${data.understoodAverage}/5`}</strong><span>不否定愿望</span></article><article><small>再次打开意愿</small><strong>{data.returnIntentAverage == null ? "—" : `${data.returnIntentAverage}/5`}</strong><span>下次动摇时</span></article><article><small>最有帮助的功能</small><strong>{data.topFeature || "—"}</strong><span>10 分钟问卷</span></article><article><small>今日失败请求</small><strong>{data.failedToday}</strong><span>{data.day}</span></article></section>
-      {overview ? <Overview data={overview} /> : <p className="beta-note">正在读取会员、功能和趋势…</p>}
+      {overview ? <Overview data={overview} composer={token && mailState ? <MailComposer token={token} ready={mailState.ready} subscribed={mailState.subscribed} onSent={load} /> : null} /> : <p className="beta-note">正在读取会员、功能和趋势…</p>}
       <footer>这个汇总面板不显示昵称、愿望、聊天原文、照片或音频。<a href="/beta/chats" style={{ marginLeft: 12, textDecoration: "underline" }}>查看对话记录</a><button onClick={exportConversations} style={{ marginLeft: 12 }}>导出内测对话样本 (JSONL)</button></footer>
     </>}
   </main>;
@@ -106,7 +113,7 @@ function List({ title, rows }: { title: string; rows: Array<{ label: string; n: 
   return <article><small>{title}</small><ul className="beta-list">{rows.length ? rows.map((row) => <li key={row.label}><span>{row.label}</span><i><s style={{ width: pct(row.n, total) }} /></i><b>{row.n}</b></li>) : <li><span>还没有数据</span></li>}</ul></article>;
 }
 
-function Overview({ data }: { data: FounderOverview }) {
+function Overview({ data, composer }: { data: FounderOverview; composer: ReactNode }) {
   const { members, revenue, voice, content, audience, mail } = data;
   const featureCalls = data.features.reduce((sum, row) => sum + row.calls, 0);
   return <>
@@ -125,8 +132,9 @@ function Overview({ data }: { data: FounderOverview }) {
     <h2 className="beta-section">用户留下的内容</h2>
     <section className="beta-grid"><article><small>云端同步空间</small><strong>{content.total}</strong><span>近 7 天有更新 {content.active7} · 愿望 {content.goals}</span></article><article><small>愿景板</small><strong>{content.boardItems}</strong><span>{content.withBoard} 人在用（{pct(content.withBoard, content.total)}）</span></article><article><small>剧本库</small><strong>{content.stories}</strong><span>{content.withStories} 人存了剧本（{pct(content.withStories, content.total)}）</span></article><article><small>练习打卡</small><strong>{content.checkIns}</strong><span>{content.withCheckIns} 人打过卡（{pct(content.withCheckIns, content.total)}）</span></article><article><small>转念记录</small><strong>{content.revisions}</strong><span>{content.withRevisions} 人改写过（{pct(content.withRevisions, content.total)}）</span></article><article><small>聊过天的空间</small><strong>{content.withChats}</strong><span>占同步用户 {pct(content.withChats, content.total)}</span></article></section>
 
-    <h2 className="beta-section">邮件与来信 <a className="beta-section-link" href="/beta/mail">去写信 →</a></h2>
-    <section className="beta-grid"><a className="beta-card-link" href="/beta/mail"><small>邮件订阅</small><strong>{mail.subscribed}</strong><span>共 {mail.contacts} 个邮箱 · {mail.linked} 个已绑定账号</span><em>去写信 →</em></a><a className="beta-card-link" href="/beta/mail"><small>上一封群发邮件</small><strong className="beta-small-strong">{mail.last ? mail.last.subject : "—"}</strong><span>{mail.last ? `${short(mail.last.createdAt)} · 送达 ${mail.last.delivered}/${mail.last.recipients}` : "还没有发过"}</span><em>查看发信记录 →</em></a><a className="beta-card-link" href="/beta/mail"><small>站内来信</small><strong>{mail.letters}</strong><span>{mail.lastLetter ? `最新：${mail.lastLetter.subject || "（无标题）"} · ${short(mail.lastLetter.createdAt)}` : "还没有发过站内信"}</span><em>管理来信 →</em></a></section>
+    <h2 className="beta-section">邮件与来信</h2>
+    <section className="beta-grid"><article><small>邮件订阅</small><strong>{mail.subscribed}</strong><span>共 {mail.contacts} 个邮箱 · {mail.linked} 个已绑定账号</span></article><a className="beta-card-link" href="/beta/mail"><small>上一封群发邮件</small><strong className="beta-small-strong">{mail.last ? mail.last.subject : "—"}</strong><span>{mail.last ? `${short(mail.last.createdAt)} · 送达 ${mail.last.delivered}/${mail.last.recipients}` : "还没有发过"}</span><em>查看发信记录 →</em></a><a className="beta-card-link" href="/beta/mail"><small>站内来信</small><strong>{mail.letters}</strong><span>{mail.lastLetter ? `最新：${mail.lastLetter.subject || "（无标题）"} · ${short(mail.lastLetter.createdAt)}` : "还没有发过站内信"}</span><em>管理来信 →</em></a></section>
+    {composer}
     <section className="beta-charts"><div className="beta-table"><small>最近发信</small>{mail.sends.length ? <div className="beta-scroll"><table><thead><tr><th>时间</th><th>类型</th><th>标题</th><th>送达</th></tr></thead><tbody>{mail.sends.map((row, index) => <tr key={`${row.createdAt}-${index}`} className={row.audience === "all" ? "paid" : ""}><td>{short(row.createdAt)}</td><td>{row.audience === "all" ? "群发" : "测试"}</td><td>{row.subject}</td><td>{row.delivered}/{row.recipients}</td></tr>)}</tbody></table></div> : <p>还没有发过信。</p>}</div><div className="beta-table"><small>站内来信</small>{mail.letterList.length ? <div className="beta-scroll"><table><thead><tr><th>时间</th><th>标题</th></tr></thead><tbody>{mail.letterList.map((row, index) => <tr key={`${row.createdAt}-${index}`} className="paid"><td>{short(row.createdAt)}</td><td>{row.subject || "（无标题）"}</td></tr>)}</tbody></table></div> : <p>还没有站内来信。</p>}</div></section>
 
     <h2 className="beta-section">用户从哪里来</h2>
