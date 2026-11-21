@@ -76,6 +76,7 @@ a.persona-primary { display: inline-flex; align-items: center; text-decoration: 
 .persona-bubble.her { justify-self: end; }
 .persona-bubble.her p { background: var(--app-panel-strong); color: var(--app-ink); border-bottom-right-radius: 6px; }
 .persona-bubble.pending p { color: var(--app-muted); }
+.persona-bubble.pending .persona-typing { display: flex; align-items: center; color: var(--app-accent); }
 .persona-bubble-actions { display: flex; flex-wrap: wrap; gap: 2px; opacity: .0; transition: opacity .15s ease; }
 .persona-bubble.her .persona-bubble-actions { justify-content: flex-end; }
 .persona-bubble:hover .persona-bubble-actions, .persona-bubble:focus-within .persona-bubble-actions, .persona-bubble:last-of-type .persona-bubble-actions { opacity: 1; }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent }
 import { ArrowClockwise, BookmarkSimple, ChatCircleText, ImageSquare, PaperPlaneTilt, Plus, PushPin, SpeakerHigh, Trash, UploadSimple, X } from "@phosphor-icons/react";
 import SpacePage from "./SpacePage";
 import { PersonaIcon } from "./NavIcons";
+import DoughHop from "./DoughHop";
 import { askConfirm } from "./ConfirmHost";
 import { readStored, writeStored } from "@/lib/safe-storage";
 import { screenshotPieces } from "@/lib/screenshot-tiles";
@@ -272,7 +273,7 @@ function PersonaChat({ lang, sessionId, herName, persona, messages, setMessages,
             )}
           </article>
         ))}
-        {busy && <article className="persona-bubble ta pending"><p>{streaming || "…"}</p></article>}
+        {busy && <article className="persona-bubble ta pending">{streaming ? <p>{streaming}</p> : <p className="persona-typing" role="status" aria-label={t("正在回复", "Replying")}><DoughHop size="xs" /></p>}</article>}
         {error && (
           <div className="persona-error" role="alert">
             <span>{error.message}</span>
@@ -521,7 +522,7 @@ function PersonaImport({ lang, sessionId, persona, update, onDone, onOpenMembers
       </label>
       <div className="space-card-actions">
         {shots && (shots.mode !== "buy" ? (
-          <label className="space-outline persona-file" aria-disabled={reading || busy || !taName.trim()}><ImageSquare size={15} />
+          <label className="space-outline persona-file" aria-disabled={reading || busy || !taName.trim()}>{reading ? <DoughHop size="xs" /> : <ImageSquare size={15} />}
             {reading ? t("正在识别…", "Reading…") : shots.mode === "credit" ? t(`选择截图 · 剩 ${shots.credits} 次`, `Choose screenshots · ${shots.credits} left`) : t("选择截图", "Choose screenshots")}
             <input type="file" accept="image/*" multiple disabled={reading || busy || !taName.trim()} onChange={(e) => { void readShots(e.target.files); e.target.value = ""; }} />
           </label>
@@ -529,7 +530,7 @@ function PersonaImport({ lang, sessionId, persona, update, onDone, onOpenMembers
           <button type="button" className="space-outline" aria-expanded={showBuy} onClick={() => setShowBuy((open) => !open)}><ImageSquare size={15} />{t("选择截图", "Choose screenshots")}</button>
         ))}
         <label className="space-outline persona-file"><UploadSimple size={15} />{t("选择 .txt 文件", "Choose a .txt file")}<input type="file" accept=".txt,.csv,.md,text/plain" onChange={(e) => readFile(e.target.files?.[0])} /></label>
-        <button type="button" className="persona-primary" disabled={busy || reading || !taName.trim() || log.trim().length < 40} onClick={run}>{busy ? t("正在整理…", "Reading…") : t("整理", "Read it")}</button>
+        <button type="button" className="persona-primary" disabled={busy || reading || !taName.trim() || log.trim().length < 40} onClick={run}>{busy ? <span className="dough-loading"><DoughHop size="xs" />{t("正在整理…", "Reading…")}</span> : t("整理", "Read it")}</button>
       </div>
       {showBuy && onOpenMembership && (
         <div className="persona-buy">
