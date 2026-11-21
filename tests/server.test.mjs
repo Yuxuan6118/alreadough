@@ -377,3 +377,29 @@ test("the founder log keeps 睡前肯定语 and 首次引导 under their own nam
   const modes = (await guard.listConversations(10)).map((row) => row.mode).sort();
   assert.deepEqual(modes, ["affirm", "chat", "onboarding"]);
 });
+
+test("TA chats: each turn is kept with which TA it was with, shown per user and per TA; the main-chat wish direction is untouched", async () => {
+  const { recordConversation, listPersonaChats, listConversations, listProfiles } = await import("../lib/beta-guard.ts");
+  const her = { userId: "device-her", userHash: "a".repeat(64), day: "2026-11-21", mode: "chat" };
+  await touchProfile(new Request("https://alreadough.com/api/beta/status", { headers: { "x-already-session-id": "44444444-4444-4444-8444-444444444444" } }));
+  await env.DB.prepare("UPDATE beta_profiles SET user_hash = ?").bind(her.userHash).run();
+  await recordConversation(her, { lang: "zh", coachMode: "gentle", wishCategory: "love", context: [], userText: "主聊天", aiReply: "教练回复" });
+  await recordConversation(her, { mode: "persona", lang: "zh", persona: { id: "p1", name: "阿林" }, context: [], userText: "在吗", aiReply: "在呀" });
+  await recordConversation(her, { mode: "persona", lang: "zh", persona: { id: "p1", name: "林" }, context: [{ role: "user", text: "在吗" }, { role: "ai", text: "在呀" }], userText: "想你了", aiReply: "我也是" });
+  await recordConversation(her, { mode: "persona", lang: "zh", persona: { id: "p2", name: "小周" }, context: [], userText: "hi", aiReply: "hey" });
+
+  const [user] = await listPersonaChats();
+  assert.equal(user.label, "aaaaaaaa");
+  assert.equal(user.turnCount, 3);
+  const lin = user.personas.find((item) => item.id === "p1");
+  assert.equal(lin.name, "林", "a renamed TA shows its current name");
+  assert.deepEqual(lin.turns.map((turn) => [turn.her, turn.ta]), [["在吗", "在呀"], ["想你了", "我也是"]], "oldest turn first");
+  assert.equal(user.personas.length, 2);
+
+  const live = await listConversations();
+  assert.equal(live.length, 4, "the live list of AI replies has the TA turns too");
+  assert.equal(live.find((row) => row.user_text === "hi").persona_name, "小周");
+  const [profile] = await listProfiles();
+  assert.equal(profile.wish_category, "love", "a TA turn does not blank the wish direction");
+  assert.equal(profile.coach_mode, "gentle");
+});

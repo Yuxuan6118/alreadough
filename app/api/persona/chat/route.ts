@@ -1,12 +1,12 @@
 import { desirePreservingSafetyReply } from "@/lib/already-ai";
-import { finishMemberRequest, settleBetaRequest, type TokenUsage } from "@/lib/beta-guard";
+import { finishMemberRequest, recordConversation, settleBetaRequest, type TokenUsage } from "@/lib/beta-guard";
 import { readClientInfo } from "@/lib/client-info";
 import { OPENAI_BASE_URL, chatUsage } from "@/lib/openai-base";
 import { PERSONA_LIMITS, buildPersonaReminder, buildPersonaSystem, sanitizePersona, type PersonaLang } from "@/lib/persona";
 import { beginPersonaRequest, personaError, personaModel } from "@/lib/persona-gate";
 
-// One message from TA, streamed as plain text. Her persona and chat live on her device; the server keeps neither,
-// and these turns are not written to the beta conversation log.
+// One message from TA, streamed as plain text. Her persona and chat live on her device. Like the main chat, each turn
+// (her message, TA's reply, a few lines before it, which TA) is kept in the beta conversation log for the founder chat page.
 
 type Body = {
   lang?: unknown;
@@ -75,6 +75,7 @@ export async function POST(request: Request) {
   const encoder = new TextEncoder();
   let usage: TokenUsage = null;
   let wrote = false;
+  let reply = "";
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       let buffer = "";
@@ -91,7 +92,7 @@ export async function POST(request: Request) {
             try {
               const chunk = JSON.parse(data) as { choices?: Array<{ delta?: { content?: string } }>; usage?: unknown };
               const text = chunk.choices?.[0]?.delta?.content;
-              if (text) { controller.enqueue(encoder.encode(text)); wrote = true; }
+              if (text) { controller.enqueue(encoder.encode(text)); wrote = true; reply += text; }
               if (chunk.usage) usage = chatUsage(chunk as Parameters<typeof chatUsage>[0]);
             } catch { /* a partial or keep-alive line */ }
           }
@@ -101,6 +102,15 @@ export async function POST(request: Request) {
       } finally {
         await settleBetaRequest(gate.ticket, usage, { success: wrote, latencyMs: Date.now() - startedAt, feature: "persona" }).catch(() => undefined);
         await finishMemberRequest(gate.ticket, usage, wrote).catch(() => undefined);
+        if (wrote) await recordConversation(gate.ticket, {
+          mode: "persona",
+          lang,
+          persona: { id: persona.id, name: persona.name },
+          context: messages.slice(0, -1).map((m) => ({ role: m.role === "her" ? "user" : "ai", text: m.text })),
+          userText: last.text,
+          aiReply: reply,
+          model,
+        });
         controller.close();
       }
     },

@@ -1,7 +1,7 @@
 import { listPayments } from "@/lib/payments-db";
 import { founderAuthorized as authorized } from "@/lib/founder-auth";
 import { founderOverview } from "@/lib/founder-overview";
-import { founderSnapshot, listConversations, listProfiles, listReports, listUserChats, setBetaEnabled, setReportStatus } from "@/lib/beta-guard";
+import { founderSnapshot, listConversations, listPersonaChats, listProfiles, listReports, listUserChats, setBetaEnabled, setReportStatus } from "@/lib/beta-guard";
 
 export async function GET(request: Request) {
   if (!authorized(request)) return Response.json({ error: "FOUNDER_ACCESS_REQUIRED" }, { status: 403 });
@@ -9,6 +9,7 @@ export async function GET(request: Request) {
   const view = new URL(request.url).searchParams.get("view");
   // Readable views for the founder chat page: full threads per user, and the rated reply samples.
   if (view === "chats") return Response.json({ users: await listUserChats() }, { headers: { "Cache-Control": "no-store" } });
+  if (view === "persona") return Response.json({ users: await listPersonaChats() }, { headers: { "Cache-Control": "no-store" } });
   if (view === "overview") return Response.json(await founderOverview(), { headers: { "Cache-Control": "no-store" } });
   if (view === "payments") return Response.json(await listPayments(), { headers: { "Cache-Control": "no-store" } });
   if (view === "reports") return Response.json({ reports: await listReports() }, { headers: { "Cache-Control": "no-store" } });

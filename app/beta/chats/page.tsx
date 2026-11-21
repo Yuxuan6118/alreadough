@@ -8,7 +8,9 @@ import "./chats.css";
 type Message = { role: "user" | "ai"; text: string };
 type Conversation = { id: string; title: string; createdAt: string; messages: Message[] };
 type ChatUser = { label: string; updatedAt: string; messageCount: number; conversations: Conversation[] };
-type Sample = { id: string; user: string; created_at: string; mode: string; coach_mode: string | null; context: Message[]; user_text: string; ai_reply: string; feedback: string | null };
+type PersonaThread = { id: string; name: string; updatedAt: string; turns: Array<{ at: string; her: string; ta: string }> };
+type PersonaUser = { label: string; updatedAt: string; turnCount: number; personas: PersonaThread[] };
+type Sample = { id: string; user: string; created_at: string; mode: string; coach_mode: string | null; context: Message[]; user_text: string; ai_reply: string; feedback: string | null; persona_name?: string | null };
 
 type Report = { id: string; user: string; reason: string; detail: string | null; replyExcerpt: string | null; lang: string | null; status: string; createdAt: string; handledAt: string | null };
 const REASON_LABEL: Record<string, string> = { illegal: "违法违规", sexual: "色情低俗", violence: "暴力血腥", minors: "涉及未成年人", harassment: "辱骂骚扰", self_harm: "自伤自残", other: "其他" };
@@ -18,13 +20,16 @@ type Profile = { user: string; first_seen_at: string; last_seen_at: string; visi
 const FOUNDER_KEY_STORAGE = "already-founder-key";
 // Every AI feature that writes to the server log, by the mode it is stored under.
 const MODE_LABEL: Record<string, string> = { chat: "陪伴对话", revision: "转念", story: "剧本", affirm: "睡前肯定语", onboarding: "首次引导", persona: "TA 对话" };
-const VIEW_OF = { threads: "chats", samples: "samples", profiles: "profiles", reports: "reports" } as const;
+const VIEW_OF = { threads: "chats", persona: "persona", samples: "samples", profiles: "profiles", reports: "reports" } as const;
 const when = (iso: string) => (iso ? new Date(iso).toLocaleString("zh-CN", { hour12: false }) : "");
 
 export default function FounderChatsPage() {
   const [token, setToken] = useState<string | null>(null);
-  const [tab, setTab] = useState<"threads" | "samples" | "profiles" | "reports">("threads");
+  const [tab, setTab] = useState<"threads" | "persona" | "samples" | "profiles" | "reports">("threads");
   const [users, setUsers] = useState<ChatUser[] | null>(null);
+  const [personaUsers, setPersonaUsers] = useState<PersonaUser[] | null>(null);
+  const [personaSelected, setPersonaSelected] = useState("");
+  const [openPersona, setOpenPersona] = useState(0);
   const [samples, setSamples] = useState<Sample[] | null>(null);
   const [profiles, setProfiles] = useState<Profile[] | null>(null);
   const [reports, setReports] = useState<Report[] | null>(null);
@@ -43,7 +48,7 @@ export default function FounderChatsPage() {
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const load = useCallback(async (view: "chats" | "samples" | "profiles" | "reports") => {
+  const load = useCallback(async (view: "chats" | "persona" | "samples" | "profiles" | "reports") => {
     if (!token) return;
     try {
       const response = await fetch(`/api/beta/admin?view=${view}`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
@@ -52,6 +57,7 @@ export default function FounderChatsPage() {
       setError("");
       setLoadedAt(new Date().toLocaleTimeString("zh-CN", { hour12: false }));
       if (view === "chats") { setUsers(data.users || []); setSelected((current) => current || data.users?.[0]?.label || ""); }
+      else if (view === "persona") { const list = (data.users || []) as unknown as PersonaUser[]; setPersonaUsers(list); setPersonaSelected((current) => current || list[0]?.label || ""); }
       else if (view === "profiles") setProfiles(data.profiles || []);
       else if (view === "reports") setReports(data.reports || []);
       else setSamples(data.samples || []);
@@ -59,7 +65,7 @@ export default function FounderChatsPage() {
   }, [token]);
 
   /* eslint-disable react-hooks/set-state-in-effect -- fetch on tab change */
-  useEffect(() => { if (tab === "threads" && users === null) void load("chats"); if (tab === "samples" && samples === null) void load("samples"); if (tab === "profiles" && profiles === null) void load("profiles"); if (tab === "reports" && reports === null) void load("reports"); }, [tab, users, samples, profiles, reports, load]);
+  useEffect(() => { if (tab === "threads" && users === null) void load("chats"); if (tab === "persona" && personaUsers === null) void load("persona"); if (tab === "samples" && samples === null) void load("samples"); if (tab === "profiles" && profiles === null) void load("profiles"); if (tab === "reports" && reports === null) void load("reports"); }, [tab, users, personaUsers, samples, profiles, reports, load]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // Read the database again every 20 seconds while the page is on screen, and as soon as you come back to it.
@@ -80,11 +86,13 @@ export default function FounderChatsPage() {
   const conversation = current?.conversations[Math.min(openConversation, (current?.conversations.length || 1) - 1)];
   const sampleModes = useMemo(() => Array.from(new Set((samples || []).map((sample) => sample.mode))), [samples]);
   const shownSamples = (samples || []).filter((sample) => (filter === "all" || sample.feedback === filter) && (modeFilter === "all" || sample.mode === modeFilter));
+  const personaUser = useMemo(() => personaUsers?.find((user) => user.label === personaSelected), [personaUsers, personaSelected]);
+  const personaThread = personaUser?.personas[Math.min(openPersona, (personaUser?.personas.length || 1) - 1)];
 
   return <main className="chat-viewer">
     <header><div><p>ALREADOUGH · FOUNDER</p><h1>对话记录</h1></div><FounderNav current="chats">{token ? <button onClick={() => void load(VIEW_OF[tab])}>刷新{loadedAt ? ` · ${loadedAt}` : ""}</button> : null}</FounderNav></header>
     {token === null ? <p>正在验证访问权限…</p> : !token ? <section className="viewer-error"><h2>还没有访问密钥</h2><p>此页面限授权访问。</p></section> : <>
-      <nav className="viewer-tabs"><button className={tab === "threads" ? "active" : ""} onClick={() => setTab("threads")}>完整对话（按用户）</button><button className={tab === "samples" ? "active" : ""} onClick={() => setTab("samples")}>全部 AI 回复（实时）</button><button className={tab === "profiles" ? "active" : ""} onClick={() => setTab("profiles")}>用户画像</button><button className={tab === "reports" ? "active" : ""} onClick={() => setTab("reports")}>举报与反馈{reports ? `（${reports.filter((item) => item.status === "new").length} 待处理）` : ""}</button></nav>
+      <nav className="viewer-tabs"><button className={tab === "threads" ? "active" : ""} onClick={() => setTab("threads")}>完整对话（按用户）</button><button className={tab === "persona" ? "active" : ""} onClick={() => setTab("persona")}>TA 对话</button><button className={tab === "samples" ? "active" : ""} onClick={() => setTab("samples")}>全部 AI 回复（实时）</button><button className={tab === "profiles" ? "active" : ""} onClick={() => setTab("profiles")}>用户画像</button><button className={tab === "reports" ? "active" : ""} onClick={() => setTab("reports")}>举报与反馈{reports ? `（${reports.filter((item) => item.status === "new").length} 待处理）` : ""}</button></nav>
       {error && <p className="viewer-error-line">{error}</p>}
       {tab === "threads" && (users === null ? <p>正在读取…</p> : !users.length ? <p>还没有同步的对话。</p> : <div className="viewer-split">
         <aside>{users.map((user) => <button key={user.label} className={user.label === selected ? "active" : ""} onClick={() => { setSelected(user.label); setOpenConversation(0); }}><strong>用户 {user.label}</strong><small>{user.messageCount} 条消息 · {user.conversations.length} 段对话</small><small>最后活跃 {when(user.updatedAt)}</small></button>)}</aside>
@@ -93,13 +101,23 @@ export default function FounderChatsPage() {
           <div className="viewer-thread">{conversation?.messages.map((message, index) => <div key={index} className={`bubble ${message.role}`}><small>{message.role === "user" ? "用户" : "AI"}</small><p>{message.text}</p></div>)}</div>
         </section>
       </div>)}
+      {tab === "persona" && (personaUsers === null ? <p>正在读取…</p> : !personaUsers.length ? <p>还没有 TA 对话。</p> : <div className="viewer-split">
+        <aside>{personaUsers.map((user) => <button key={user.label} className={user.label === personaSelected ? "active" : ""} onClick={() => { setPersonaSelected(user.label); setOpenPersona(0); }}><strong>用户 {user.label}</strong><small>{user.turnCount} 轮 · {user.personas.length} 个 TA</small><small>最后活跃 {when(user.updatedAt)}</small></button>)}</aside>
+        <section>
+          {personaUser && <div className="viewer-conversations">{personaUser.personas.map((item, index) => <button key={`${item.id}-${index}`} className={index === openPersona ? "active" : ""} onClick={() => setOpenPersona(index)}>{item.name} · {item.turns.length} 轮 · {when(item.updatedAt)}</button>)}</div>}
+          <div className="viewer-thread">{personaThread?.turns.flatMap((turn, index) => [
+            <div key={`${index}-her`} className="bubble user"><small>用户 · {when(turn.at)}</small><p>{turn.her}</p></div>,
+            <div key={`${index}-ta`} className="bubble ai"><small>{personaThread.name}</small><p>{turn.ta}</p></div>,
+          ])}</div>
+        </section>
+      </div>)}
       {tab === "samples" && (samples === null ? <p>正在读取…</p> : <>
         <div className="viewer-filter">{["all", ...sampleModes].map((value) => <button key={value} className={modeFilter === value ? "active" : ""} onClick={() => setModeFilter(value)}>{value === "all" ? "全部功能" : MODE_LABEL[value] || value}</button>)}</div>
         <div className="viewer-filter">{(["all", "missed", "helpful"] as const).map((value) => <button key={value} className={filter === value ? "active" : ""} onClick={() => setFilter(value)}>{value === "all" ? "全部" : value === "missed" ? "👎 不适合" : "👍 懂我"}</button>)}<small>{shownSamples.length} 条</small></div>
         {!shownSamples.length ? <p>暂无。</p> : shownSamples.map((sample) => <article className="viewer-sample" key={sample.id}>
           <header><small>用户 {sample.user} · {sample.coach_mode || "—"} · {MODE_LABEL[sample.mode] || sample.mode} · {when(sample.created_at)}</small>{sample.feedback && <b className={sample.feedback}>{sample.feedback === "helpful" ? "👍" : "👎"}</b>}</header>
           <div className="bubble user"><small>用户</small><p>{sample.user_text}</p></div>
-          <div className="bubble ai"><small>AI</small><p>{sample.ai_reply}</p></div>
+          <div className="bubble ai"><small>{sample.persona_name || "AI"}</small><p>{sample.ai_reply}</p></div>
         </article>)}
       </>)}
       {tab === "reports" && (reports === null ? <p>正在读取…</p> : !reports.length ? <p>还没有收到举报。</p> : <div className="viewer-reports">{reports.map((item) => <article key={item.id} className={item.status === "handled" ? "handled" : ""}>

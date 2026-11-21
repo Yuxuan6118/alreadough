@@ -189,13 +189,19 @@ export async function founderSnapshot() {
 
 const clipText = (value: string, max: number) => value.trim().slice(0, max);
 
-/** Store one beta conversation turn (no desire card, name, or beliefs — only the turn itself). `mode` names features that share the chat ticket (affirm, onboarding). Never throws. */
-export async function recordConversation(ticket: BetaTicket, entry: { lang: string; coachMode?: string; wishCategory?: string; context: Array<{ role: string; text: string }>; userText: string; aiReply: string; model?: string; mode?: string }) {
+/** Store one beta conversation turn (no desire card, name, or beliefs — only the turn itself). `mode` names features that share the chat ticket (affirm, onboarding, persona). Never throws. */
+export async function recordConversation(ticket: BetaTicket, entry: { lang: string; mode?: string; coachMode?: string; wishCategory?: string; persona?: { id: string; name: string }; context: Array<{ role: string; text: string }>; userText: string; aiReply: string; model?: string }) {
   try {
     const id = crypto.randomUUID();
     const context = JSON.stringify(entry.context.slice(-6).map((item) => ({ role: item.role, text: clipText(item.text, 600) })));
-    await env.DB.prepare("INSERT INTO beta_conversations (id, user_hash, created_at, mode, coach_mode, wish_category, lang, context, user_text, ai_reply, model) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      .bind(id, ticket.userHash, new Date().toISOString(), entry.mode || ticket.mode, entry.coachMode || null, entry.wishCategory || null, entry.lang, context, clipText(entry.userText, 4000), clipText(entry.aiReply, 6000), entry.model || null).run();
+    const values = [id, ticket.userHash, new Date().toISOString(), entry.mode || ticket.mode, entry.coachMode || null, entry.wishCategory || null, entry.lang, context, clipText(entry.userText, 4000), clipText(entry.aiReply, 6000), entry.model || null];
+    // a TA turn also says which TA it was with
+    const statement = entry.persona
+      ? env.DB.prepare("INSERT INTO beta_conversations (id, user_hash, created_at, mode, coach_mode, wish_category, lang, context, user_text, ai_reply, model, persona_id, persona_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .bind(...values, clipText(entry.persona.id, 64), clipText(entry.persona.name, 40))
+      : env.DB.prepare("INSERT INTO beta_conversations (id, user_hash, created_at, mode, coach_mode, wish_category, lang, context, user_text, ai_reply, model) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .bind(...values);
+    await statement.run();
     return id;
   } catch (error) {
     console.error("recordConversation failed", String(error));
@@ -211,11 +217,33 @@ export async function markConversationFeedback(request: Request, sessionId: stri
   return Boolean(result.meta?.changes);
 }
 
-type ConversationRow = { id: string; user_hash: string; created_at: string; mode: string; coach_mode: string | null; wish_category: string | null; lang: string | null; context: string | null; user_text: string; ai_reply: string; model: string | null; feedback: string | null };
+type ConversationRow = { id: string; user_hash: string; created_at: string; mode: string; coach_mode: string | null; wish_category: string | null; lang: string | null; context: string | null; user_text: string; ai_reply: string; model: string | null; feedback: string | null; persona_name: string | null };
 
 export async function listConversations(limit = 500) {
-  const rows = await env.DB.prepare("SELECT id, user_hash, created_at, mode, coach_mode, wish_category, lang, context, user_text, ai_reply, model, feedback FROM beta_conversations ORDER BY created_at DESC LIMIT ?").bind(Math.max(1, Math.min(2000, limit))).all<ConversationRow>();
+  const rows = await env.DB.prepare("SELECT id, user_hash, created_at, mode, coach_mode, wish_category, lang, context, user_text, ai_reply, model, feedback, persona_name FROM beta_conversations ORDER BY created_at DESC LIMIT ?").bind(Math.max(1, Math.min(2000, limit))).all<ConversationRow>();
   return (rows.results || []).map(({ user_hash, ...row }: ConversationRow) => ({ ...row, user: user_hash.slice(0, 8), context: row.context ? JSON.parse(row.context) as Array<{ role: string; text: string }> : [] }));
+}
+
+export type PersonaThread = { id: string; name: string; updatedAt: string; turns: Array<{ at: string; her: string; ta: string }> };
+export type PersonaChatUser = { label: string; updatedAt: string; turnCount: number; personas: PersonaThread[] };
+
+/** TA chats for the founder chat page: per user (same 8-char label as the other views), then per TA, oldest turn first. */
+export async function listPersonaChats(limit = 3000): Promise<PersonaChatUser[]> {
+  const rows = (await env.DB.prepare("SELECT user_hash, created_at, persona_id, persona_name, user_text, ai_reply FROM beta_conversations WHERE mode = 'persona' ORDER BY created_at DESC LIMIT ?")
+    .bind(Math.max(1, Math.min(5000, limit))).all<{ user_hash: string; created_at: string; persona_id: string | null; persona_name: string | null; user_text: string; ai_reply: string }>()).results || [];
+  const users = new Map<string, PersonaChatUser>();
+  for (const row of rows) {
+    let user = users.get(row.user_hash);
+    if (!user) { user = { label: row.user_hash.slice(0, 8), updatedAt: row.created_at, turnCount: 0, personas: [] }; users.set(row.user_hash, user); }
+    const key = row.persona_id || row.persona_name || "";
+    let thread = user.personas.find((item) => item.id === key);
+    // newest row first, so a renamed TA shows its current name
+    if (!thread) { thread = { id: key, name: row.persona_name || "TA", updatedAt: row.created_at, turns: [] }; user.personas.push(thread); }
+    thread.turns.push({ at: row.created_at, her: row.user_text, ta: row.ai_reply });
+    user.turnCount += 1;
+  }
+  for (const user of users.values()) for (const thread of user.personas) thread.turns.reverse();
+  return [...users.values()];
 }
 
 /** Every synced user's chat threads (chat turns only). The label is the first 8 chars of the same hash used in beta_conversations. */
@@ -260,8 +288,8 @@ export async function listProfiles(limit = 500) {
       (SELECT COUNT(DISTINCT substr(c.created_at, 1, 10)) FROM beta_conversations c WHERE c.user_hash = p.user_hash) AS active_days,
       (SELECT COUNT(*) FROM beta_conversations c WHERE c.user_hash = p.user_hash AND c.feedback = 'helpful') AS helpful,
       (SELECT COUNT(*) FROM beta_conversations c WHERE c.user_hash = p.user_hash AND c.feedback = 'missed') AS missed,
-      (SELECT c.wish_category FROM beta_conversations c WHERE c.user_hash = p.user_hash ORDER BY c.created_at DESC LIMIT 1) AS wish_category,
-      (SELECT c.coach_mode FROM beta_conversations c WHERE c.user_hash = p.user_hash ORDER BY c.created_at DESC LIMIT 1) AS coach_mode
+      (SELECT c.wish_category FROM beta_conversations c WHERE c.user_hash = p.user_hash AND c.wish_category IS NOT NULL ORDER BY c.created_at DESC LIMIT 1) AS wish_category,
+      (SELECT c.coach_mode FROM beta_conversations c WHERE c.user_hash = p.user_hash AND c.coach_mode IS NOT NULL ORDER BY c.created_at DESC LIMIT 1) AS coach_mode
     FROM beta_profiles p ORDER BY p.last_seen_at DESC LIMIT ?`).bind(Math.max(1, Math.min(1000, limit))).all<ProfileRow>();
   return (rows.results || []).map(({ user_hash, ...row }: ProfileRow) => ({ ...row, user: user_hash.slice(0, 8) }));
 }
