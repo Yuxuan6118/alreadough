@@ -7,6 +7,9 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
 
+  // Daily housekeeping (lib/maintenance.ts): expired sign-in sessions, old limit counters, crash reports past 30 days.
+  "triggers": { "crons": ["17 3 * * *"] },
+
   // D1 database. Run `wrangler d1 create alreadough` once, then replace the
   // placeholder id below with the printed database_id (it is not a secret).
   "d1_databases": [

@@ -232,3 +232,54 @@ test("crisis: feeling like a burden reaches the crisis card first, even in a lon
   assert.equal(first("sp 三个月没回消息，3D 一点没动，钱也欠着，工作也丢了，没有我大家会更好"), "crisis_suicidal");
   assert.notEqual(first("没有我想要的那种感觉"), "crisis_suicidal");
 });
+
+const crashReports = await import("../lib/client-errors.ts");
+const { deleteBetaRecords, touchProfile } = await import("../lib/beta-guard.ts");
+const { dailyCleanup } = await import("../lib/maintenance.ts");
+
+test("page crashes: stored with page and device kind, nothing about the person; one address cannot flood it", async () => {
+  const report = (message, ip = "9.9.9.9") => crashReports.recordClientError(new Request(`https://alreadough.com/api/client-error?m=${encodeURIComponent(message)}&s=at%20x&u=%2Fapp`, {
+    headers: { "cf-connecting-ip": ip, "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1" },
+  }));
+  assert.equal(await report(""), false, "an empty report is ignored");
+  assert.equal(await report("TypeError: x is undefined"), true);
+  const row = await env.DB.prepare("SELECT * FROM client_errors").first();
+  assert.equal(row.message, "TypeError: x is undefined");
+  assert.equal(row.path, "/app");
+  assert.deepEqual([row.device, row.os, row.browser], ["mobile", "iOS", "Safari"]);
+  for (let i = 1; i < 20; i += 1) await report(`crash ${i}`);
+  assert.equal(await report("one too many"), false, "20 an hour per address");
+  assert.equal(await report("another address", "8.8.8.8"), true);
+  const shown = await crashReports.recentClientErrors();
+  assert.equal(shown.last7, 21);
+  assert.ok(shown.recent.length <= 20);
+});
+
+test("clear everything: removes what every device of the account left behind, and nobody else's", async () => {
+  const { cookie } = await signIn("clearer");
+  const phone = "11111111-1111-4111-8111-111111111111", laptop = "22222222-2222-4222-8222-222222222222", stranger = "33333333-3333-4333-8333-333333333333";
+  // the account opens the app on two devices; someone else uses a third
+  await touchProfile(new Request("https://alreadough.com/api/beta/status", { headers: { cookie, "x-already-session-id": phone } }));
+  await touchProfile(new Request("https://alreadough.com/api/beta/status", { headers: { cookie, "x-already-session-id": laptop } }));
+  await touchProfile(new Request("https://alreadough.com/api/beta/status", { headers: { "x-already-session-id": stranger } }));
+  assert.equal(await env.DB.prepare("SELECT COUNT(*) AS n FROM beta_profiles").first("n"), 3);
+  assert.equal(await env.DB.prepare("SELECT COUNT(*) AS n FROM account_devices").first("n"), 2);
+
+  const result = await deleteBetaRecords(new Request("https://alreadough.com/api/space", { method: "DELETE", headers: { cookie, "x-already-session-id": phone } }));
+  assert.equal(result.devices, 2);
+  assert.equal(await env.DB.prepare("SELECT COUNT(*) AS n FROM beta_profiles").first("n"), 1, "only the stranger's profile is left");
+  assert.equal(await env.DB.prepare("SELECT COUNT(*) AS n FROM account_devices").first("n"), 0);
+});
+
+test("daily cleanup: drops expired sessions, unused limit counters and month-old crash reports, keeps the rest", async () => {
+  const now = Date.now(), day = 86_400_000;
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO member_sessions (token_hash, account_id, expires_at) VALUES ('old', 'app:a', ?), ('live', 'app:a', ?)").bind(now - 1000, now + day),
+    env.DB.prepare("INSERT INTO member_auth_limits (key, window_start, count, updated_at_ms) VALUES ('legacy', 1, 1, NULL), ('stale', 1, 1, ?), ('fresh', 1, 1, ?)").bind(now - 3 * day, now - 1000),
+    env.DB.prepare("INSERT INTO client_errors (id, created_at_ms, message) VALUES ('c-old', ?, 'old'), ('c-new', ?, 'new')").bind(now - 31 * day, now - day),
+  ]);
+  assert.deepEqual(await dailyCleanup(now), { sessions: 1, limits: 2, crashes: 1 });
+  assert.deepEqual((await env.DB.prepare("SELECT token_hash AS t FROM member_sessions").all()).results.map((r) => r.t), ["live"]);
+  assert.deepEqual((await env.DB.prepare("SELECT key FROM member_auth_limits").all()).results.map((r) => r.key), ["fresh"]);
+  assert.deepEqual((await env.DB.prepare("SELECT id FROM client_errors").all()).results.map((r) => r.id), ["c-new"]);
+});

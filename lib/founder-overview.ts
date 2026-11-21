@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { recentClientErrors } from "./client-errors";
 
 /**
  * Founder cockpit: counts and sums only, from the tables each feature already writes.
@@ -90,6 +91,9 @@ export async function founderOverview() {
     all<{ subject: string; createdAt: number }>("SELECT subject, created_at AS createdAt FROM letters ORDER BY created_at DESC LIMIT 10"),
   ]);
 
+  // Page crashes reported by browsers (message, page, kind of device; nothing about the person).
+  const crashes = await recentClientErrors(now).catch(() => ({ last7: 0, recent: [] }));
+
   const days: string[] = [];
   for (let i = 13; i >= 0; i -= 1) days.push(dayKey(now - i * DAY_MS));
   const byDay = <T extends { day: string }>(rows: T[]) => new Map(rows.map((row) => [row.day, row]));
@@ -115,6 +119,7 @@ export async function founderOverview() {
     mail: { subscribed: mail?.subscribed || 0, contacts: mail?.total || 0, linked: mail?.linked || 0, last: lastMail || null, letters: letterCount?.n || 0, lastLetter: lastLetter || null, sends, letterList },
     reportsNew: reportsNew?.n || 0,
     trend,
+    crashes,
   };
 }
 

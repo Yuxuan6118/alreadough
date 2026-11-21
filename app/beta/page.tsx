@@ -137,6 +137,9 @@ function Overview({ data, composer }: { data: FounderOverview; composer: ReactNo
     {composer}
     <section className="beta-charts"><div className="beta-table"><small>最近发信</small>{mail.sends.length ? <div className="beta-scroll"><table><thead><tr><th>时间</th><th>类型</th><th>标题</th><th>送达</th></tr></thead><tbody>{mail.sends.map((row, index) => <tr key={`${row.createdAt}-${index}`} className={row.audience === "all" ? "paid" : ""}><td>{short(row.createdAt)}</td><td>{row.audience === "all" ? "群发" : "测试"}</td><td>{row.subject}</td><td>{row.delivered}/{row.recipients}</td></tr>)}</tbody></table></div> : <p>还没有发过信。</p>}</div><div className="beta-table"><small>站内来信</small>{mail.letterList.length ? <div className="beta-scroll"><table><thead><tr><th>时间</th><th>标题</th></tr></thead><tbody>{mail.letterList.map((row, index) => <tr key={`${row.createdAt}-${index}`} className="paid"><td>{short(row.createdAt)}</td><td>{row.subject || "（无标题）"}</td></tr>)}</tbody></table></div> : <p>还没有站内来信。</p>}</div></section>
 
+    <h2 className="beta-section">页面崩溃 · 近 7 天 {data.crashes.last7}</h2>
+    <section className="beta-table"><small>最近的崩溃</small>{data.crashes.recent.length ? <div className="beta-scroll"><table><thead><tr><th>时间</th><th>错误</th><th>页面</th><th>设备</th></tr></thead><tbody>{data.crashes.recent.map((row) => <tr key={`${row.createdAt}-${row.message}`}><td>{short(row.createdAt)}</td><td>{row.message}</td><td>{row.path || "—"}</td><td>{[row.device, row.os, row.browser].filter(Boolean).join(" · ")}</td></tr>)}</tbody></table></div> : <p className="beta-note">还没有收到崩溃报告。</p>}</section>
+
     <h2 className="beta-section">用户从哪里来</h2>
     <section className="beta-grid"><article><small>近 7 天访客</small><strong>{audience.visitors7}</strong><span>其中新访客 {audience.new7}</span></article><List title="国家 / 地区" rows={audience.countries} /><List title="设备" rows={audience.devices} /><List title="语言" rows={audience.langs} /></section>
   </>;

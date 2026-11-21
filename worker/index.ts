@@ -1,6 +1,7 @@
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
+import { dailyCleanup } from "../lib/maintenance";
 
 interface Env {
   ASSETS: Fetcher;
@@ -50,6 +51,12 @@ function withSecurityHeaders(response: Response) {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     return withSecurityHeaders(await route(request, env, ctx));
+  },
+  /** Daily at 03:17 UTC (wrangler.jsonc "triggers"): remove expired sessions, old limit counters and old crash reports. */
+  async scheduled(_controller: unknown, _env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(dailyCleanup()
+      .then((removed) => console.log("daily cleanup", removed))
+      .catch((error) => console.error("daily cleanup failed", String(error))));
   },
 };
 

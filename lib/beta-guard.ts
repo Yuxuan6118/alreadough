@@ -71,6 +71,16 @@ export async function betaStatus(request: Request, sessionId?: string) {
   };
 }
 
+/** Remember that this account uses this device, so "clear everything" can reach what every device left behind. Never throws. */
+async function linkDevice(accountId: string | null, userId: string | null) {
+  if (!accountId || !userId) return;
+  try {
+    await env.DB.prepare("INSERT OR IGNORE INTO account_devices (account_id, device_key, first_seen_ms) VALUES (?, ?, ?)").bind(accountId, userId, Date.now()).run();
+  } catch (error) {
+    console.error("linkDevice failed", String(error));
+  }
+}
+
 export async function beginBetaRequest(request: Request, sessionId: string, mode: BetaMode) {
   const memberAccountId = membershipEnabled() ? await memberAccount(request) : null;
   if (membershipEnabled() && !memberAccountId) return { ok: false as const, code: "MEMBERSHIP_SIGN_IN_REQUIRED" };
@@ -78,6 +88,7 @@ export async function beginBetaRequest(request: Request, sessionId: string, mode
   if (!status.authenticated) return { ok: false as const, code: "SIGN_IN_REQUIRED" };
   if (!status.enabled) return { ok: false as const, code: "AI_PAUSED" };
   const userId = requestIdentity(request, sessionId)!;
+  await linkDevice(memberAccountId, userId);
   const day = dayKey();
   const global = await env.DB.prepare("SELECT request_count, total_tokens FROM beta_global_daily WHERE usage_date = ?").bind(day).first<GlobalRow>();
   if ((global?.request_count || 0) >= LIMITS.globalRequests || (global?.total_tokens || 0) >= LIMITS.globalTokens) return { ok: false as const, code: "BETA_BUDGET_PAUSED" };
@@ -223,6 +234,7 @@ export async function touchProfile(request: Request, sessionId?: string) {
   try {
     const userId = requestIdentity(request, sessionId);
     if (!userId) return;
+    await linkDevice(await memberAccount(request), userId);
     const info = readClientInfo(request.headers, (request as unknown as { cf?: Record<string, unknown> }).cf);
     const now = new Date().toISOString();
     await env.DB.prepare("INSERT INTO beta_profiles (user_hash, first_seen_at, last_seen_at, visits, country, region, city, timezone, lang, device, os, browser) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_hash) DO UPDATE SET last_seen_at = excluded.last_seen_at, visits = visits + 1, country = COALESCE(excluded.country, country), region = COALESCE(excluded.region, region), city = COALESCE(excluded.city, city), timezone = COALESCE(excluded.timezone, timezone), lang = COALESCE(excluded.lang, lang), device = excluded.device, os = excluded.os, browser = excluded.browser")
@@ -282,21 +294,34 @@ export async function setReportStatus(id: string, status: "new" | "handled") {
 export { LIMITS };
 
 /**
- * "Delete my data": removes everything we keep about this device beyond the synced space itself:
- * her chats, her profile row, usage events, reports she sent, and her usage counters.
+ * "Delete my data": removes everything we keep beyond the synced space itself: her chats, her profile rows,
+ * usage events, reports she sent, and her usage counters. These are recorded per device, so with an account it
+ * covers every device the account has been used on (account_devices), not only the one she is holding.
  * Payment records are left alone on purpose (a paid plan must keep working and be refundable).
  */
 export async function deleteBetaRecords(request: Request) {
-  const userId = requestIdentity(request);
-  if (!userId) return { deleted: false as const };
-  const userHash = await sha256(userId);
-  await env.DB.batch([
-    env.DB.prepare("DELETE FROM beta_conversations WHERE user_hash = ?").bind(userHash),
-    env.DB.prepare("DELETE FROM beta_profiles WHERE user_hash = ?").bind(userHash),
-    env.DB.prepare("DELETE FROM beta_events WHERE user_hash = ?").bind(userHash),
-    env.DB.prepare("DELETE FROM beta_reports WHERE user_hash = ?").bind(userHash),
-    env.DB.prepare("DELETE FROM beta_usage_daily WHERE user_id = ?").bind(userId),
-    env.DB.prepare("DELETE FROM beta_users WHERE user_id = ?").bind(userId),
-  ]);
-  return { deleted: true as const };
+  const current = requestIdentity(request);
+  const accountId = await memberAccount(request);
+  const linked = accountId
+    ? ((await env.DB.prepare("SELECT device_key AS deviceKey FROM account_devices WHERE account_id = ?").bind(accountId).all<{ deviceKey: string }>()).results || []).map((row) => row.deviceKey)
+    : [];
+  const devices = [...new Set([current, ...linked].filter((id): id is string => Boolean(id)))];
+  if (!devices.length) return { deleted: false as const };
+  const statements = [];
+  for (const userId of devices) {
+    const userHash = await sha256(userId);
+    statements.push(
+      env.DB.prepare("DELETE FROM beta_conversations WHERE user_hash = ?").bind(userHash),
+      env.DB.prepare("DELETE FROM beta_profiles WHERE user_hash = ?").bind(userHash),
+      env.DB.prepare("DELETE FROM beta_events WHERE user_hash = ?").bind(userHash),
+      env.DB.prepare("DELETE FROM beta_reports WHERE user_hash = ?").bind(userHash),
+      env.DB.prepare("DELETE FROM beta_usage_daily WHERE user_id = ?").bind(userId),
+      env.DB.prepare("DELETE FROM beta_users WHERE user_id = ?").bind(userId),
+      env.DB.prepare("DELETE FROM voice_usage_daily WHERE user_id = ?").bind(userId),
+      env.DB.prepare("DELETE FROM user_spaces WHERE user_id = ?").bind(userId),
+    );
+  }
+  if (accountId) statements.push(env.DB.prepare("DELETE FROM account_devices WHERE account_id = ?").bind(accountId));
+  await env.DB.batch(statements);
+  return { deleted: true as const, devices: devices.length };
 }

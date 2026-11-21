@@ -79,11 +79,13 @@ export async function claimAuthLimit(request: Request, email: string, action: "s
 /** Counts one use of `label` in the current fixed window; false once `max` uses were already counted. */
 export async function claimWindow(label: string, windowMs: number, max: number) {
   const key = await sha256(label);
-  const result = await env.DB.prepare(`INSERT INTO member_auth_limits (key, window_start, count) VALUES (?, ?, 1)
+  const now = Date.now();
+  const result = await env.DB.prepare(`INSERT INTO member_auth_limits (key, window_start, count, updated_at_ms) VALUES (?, ?, 1, ?)
     ON CONFLICT(key) DO UPDATE SET window_start = excluded.window_start,
-    count = CASE WHEN member_auth_limits.window_start = excluded.window_start THEN member_auth_limits.count + 1 ELSE 1 END
+    count = CASE WHEN member_auth_limits.window_start = excluded.window_start THEN member_auth_limits.count + 1 ELSE 1 END,
+    updated_at_ms = excluded.updated_at_ms
     WHERE member_auth_limits.window_start != excluded.window_start OR member_auth_limits.count < ?`)
-    .bind(key, Math.floor(Date.now() / windowMs), max).run();
+    .bind(key, Math.floor(now / windowMs), now, max).run();
   return Boolean(result.meta.changes);
 }
 
