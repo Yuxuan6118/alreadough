@@ -102,4 +102,3 @@ a.persona-primary { display: inline-flex; align-items: center; text-decoration: 
   .persona-thread { max-height: none; min-height: 40dvh; }
   .persona-inline { flex-direction: column; align-items: stretch; }
 }
-.persona-ai-note { margin: 6px 0 0; text-align: center; color: var(--app-muted); font-size: calc(13px * var(--fs, 1)); line-height: 1.5; }
