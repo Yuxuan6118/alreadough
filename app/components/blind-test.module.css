@@ -1,0 +1,97 @@
+/* Public blind test (/test). Light like the other public pages; colours and the display face come from the site tokens in already.css.
+   Layout: one reading column, each question a panel with the two replies side by side (stacked on phones), a sticky submit bar. */
+.page {
+  --gold: #c9a86a;
+  --wash: color-mix(in srgb, var(--app-accent) 7%, var(--app-panel));
+  min-height: 100%;
+  background: var(--app-bg);
+  color: var(--app-ink);
+  overflow-x: clip;
+}
+
+.wrap {
+  width: min(1080px, 100%);
+  margin-inline: auto;
+  padding-block: 32px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid;
+  gap: 22px;
+}
+
+.head { display: grid; gap: 10px; max-width: 46rem; }
+.brand { width: max-content; color: var(--app-accent); font: 500 20px/1 var(--font-display); letter-spacing: -.03em; text-decoration: none; }
+.eyebrow { margin: 14px 0 0; color: var(--app-accent); font-size: 12px; font-weight: 720; letter-spacing: .12em; }
+.head h1 { margin: 0; font: 500 clamp(30px, 6vw, 44px)/1.15 var(--font-display); letter-spacing: -.02em; text-wrap: balance; }
+.intro { margin: 0; color: var(--app-muted); font-size: 15px; line-height: 1.8; }
+.loading { color: var(--app-muted); }
+
+.items { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
+.card { padding: 20px clamp(14px, 3vw, 24px); border: 1px solid var(--app-line); border-radius: 22px; background: var(--app-panel); }
+
+.qTitle { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin: 0 0 12px; font: 500 19px/1.4 var(--font-display); }
+.qNum { min-width: 28px; height: 28px; display: inline-grid; place-items: center; border-radius: 999px; background: var(--wash); color: var(--app-accent); font: 700 13px/1 system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+.qKind { padding: 3px 9px; border-radius: 999px; background: var(--wash); color: var(--app-accent); font: 700 11px/1.4 system-ui, sans-serif; letter-spacing: .04em; }
+.note { margin: 0 0 12px; padding: 8px 12px; border-radius: 12px; background: var(--wash); color: var(--app-muted); font-size: 13px; }
+
+.prompt { display: grid; gap: 10px; margin-bottom: 14px; }
+.before { padding: 10px 14px; border-left: 2px solid var(--app-line); color: var(--app-muted); font-size: 13px; line-height: 1.7; }
+.before p { margin: 0 0 6px; }
+.beforeLabel { font-weight: 700; letter-spacing: .04em; }
+.said { margin: 0; font-size: 16px; line-height: 1.75; }
+.said b, .before b { font-weight: 700; }
+
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 760px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+.side { min-width: 0; padding: 14px 16px; border: 1px solid var(--app-line); border-radius: 16px; background: var(--app-bg); transition: border-color .15s ease, box-shadow .15s ease; }
+.picked { border-color: var(--app-accent); box-shadow: 0 0 0 1px var(--app-accent); }
+.sideLabel { margin: 0 0 8px; color: var(--app-accent); font: 700 14px/1.2 var(--font-display); }
+.sideLabel span { color: var(--app-muted); font-family: system-ui, sans-serif; font-weight: 600; font-size: 12px; }
+.reply { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 15px; line-height: 1.85; }
+.thread { display: grid; gap: 14px; }
+.turn { display: grid; gap: 6px; }
+.turnUser { margin: 0; color: var(--app-muted); font-size: 13px; line-height: 1.6; }
+
+.choices { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.choices button { min-height: 40px; padding: 0 16px; border: 1px solid var(--app-line); border-radius: 12px; background: var(--app-panel); color: var(--app-ink); font: inherit; font-size: 14px; cursor: pointer; }
+.choices button:hover { border-color: color-mix(in srgb, var(--app-accent) 55%, var(--app-line)); }
+.choices button.on { border-color: var(--app-accent); background: var(--app-accent); color: var(--app-accent-ink); }
+
+.bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px 16px;
+  padding-block: 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  border-top: 1px solid var(--app-line);
+  background: color-mix(in srgb, var(--app-panel) 88%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.progress { color: var(--app-muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.submit { min-height: 44px; padding: 0 22px; border: 0; border-radius: 12px; background: var(--app-accent); color: var(--app-accent-ink); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+.submit:disabled { opacity: .45; cursor: default; }
+.error { flex-basis: 100%; text-align: center; color: var(--app-accent); font-size: 13px; }
+
+.summary { display: grid; gap: 12px; padding: 20px clamp(14px, 3vw, 24px); border: 1px solid color-mix(in srgb, var(--app-accent) 35%, var(--app-line)); border-radius: 22px; background: var(--wash); }
+.summary h2 { margin: 0; font: 500 22px/1.3 var(--font-display); }
+.summaryLead { margin: 0; color: var(--app-muted); font-size: 14px; line-height: 1.7; }
+.result { display: grid; gap: 6px; }
+.track { display: flex; height: 12px; overflow: hidden; border-radius: 999px; background: var(--app-line); }
+.track i { display: block; height: 100%; }
+.segM1 { background: var(--app-accent); }
+.segTie { background: color-mix(in srgb, var(--app-muted) 45%, var(--app-line)); }
+.segM2 { background: var(--gold); }
+.counts { margin: 0; color: var(--app-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.perItem summary { cursor: pointer; color: var(--app-accent); font-weight: 700; font-size: 14px; }
+.perItem ul { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 12px; }
+.perItem li p { margin: 0 0 4px; font-size: 14px; }
+.yours { margin-left: 10px; color: var(--app-muted); font-size: 12px; }
+
+@media (prefers-reduced-motion: reduce) { .side { transition: none; } }

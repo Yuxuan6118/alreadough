@@ -59,6 +59,16 @@ test("no shipped source file carries the founder's names (prompts, placeholders,
   assert.deepEqual(offenders, []);
 });
 
+test("the public blind test page opens without sign-in and names no model", async () => {
+  const response = await render("/test");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /你更想收到哪一条/);
+  assert.match(html, /<footer class="public-site-footer">/);
+  assert.doesNotMatch(html, /access-gate|Opening AlreaDough/);
+  assert.doesNotMatch(html, /qwen|kimi|deepseek|minimax|瑄瑄/i);
+});
+
 test("renders the public storefront and policies without the beta prompt", async () => {
   for (const [path, content] of [
     ["/about", /一个愿望，几种练习方式/],
