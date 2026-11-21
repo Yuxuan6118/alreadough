@@ -1,7 +1,8 @@
 import { useId, type CSSProperties, type ReactNode } from "react";
+import { COVER_SCENES, CoverScene } from "./CoverScenes";
 
 // Built-in story covers ("面团封面"): white line prints on a soft colour, like a phone's own wallpapers.
-// A story keeps one as `print:<id>` in cover.image; no cover at all shows the first one (dough on rose).
+// A story keeps one as `print:<id>` in cover.image (the landscapes in CoverScenes.tsx too); no cover at all shows the dough on rose.
 // Drawing language follows SpaceIcons: plump outline, dot eyes, nose dash, no mouth, round caps.
 // Colours come from CSS (.cover-print), so dark mode follows on its own.
 
@@ -146,10 +147,15 @@ export function DoughIcon({ size = 16 }: { size?: number }) {
   </svg>;
 }
 
+/** Everything the 面团封面 tab offers, in order: the landscapes first, then the prints. */
+export const COVER_OPTIONS = [...COVER_SCENES, ...COVER_PRINTS].map(({ id, name }) => ({ id, name }));
+
 /** One built-in cover, filling its (positioned) parent. Unknown or missing id: the dough on rose. */
 export default function CoverPrint({ id }: { id?: string }) {
-  const print = COVER_PRINTS.find((item) => item.id === id) ?? COVER_PRINTS[0];
   const uid = `cover-print-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+  const scene = COVER_SCENES.find((item) => item.id === id);
+  if (scene) return <CoverScene scene={scene} />;
+  const print = COVER_PRINTS.find((item) => item.id === id) ?? COVER_PRINTS[0];
   return (
     <span className={`cover-print${print.tone === "night" ? " is-night" : ""}`} style={{ "--print-bg": TONES[print.tone] } as CSSProperties} aria-hidden="true">
       <svg>

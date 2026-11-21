@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import DoughHop from "./DoughHop";
 import { Check, ImageSquare, MagnifyingGlass, Trash, UploadSimple, X } from "@phosphor-icons/react";
 import { saveLocalCover } from "@/lib/cover-store";
-import CoverPrint, { COVER_PRINTS, DoughIcon, isPrintCover, PRINT_COVER_PREFIX } from "./CoverPrints";
+import CoverPrint, { COVER_OPTIONS, COVER_PRINTS, DoughIcon, isPrintCover, PRINT_COVER_PREFIX } from "./CoverPrints";
 
 // phones and tablets open the photo library; computers open a file window
 const subscribe = () => () => {};
@@ -100,7 +100,7 @@ export default function StoryCoverPicker({ lang, title, initialQuery, board, has
       </div>
       {uploadError && <p className="cover-picker-note is-error" role="alert">{uploadError}</p>}
       {tab === "prints" ? <div className="cover-picker-scroll"><div className="cover-picker-grid">
-        {COVER_PRINTS.map((print) => {
+        {COVER_OPTIONS.map((print) => {
           const on = print.id === currentPrint;
           return <button type="button" key={print.id} className={on ? "is-current" : undefined} aria-label={zh ? print.name[0] : print.name[1]} aria-current={on || undefined} onClick={() => onPick({ image: PRINT_COVER_PREFIX + print.id })}>
             <CoverPrint id={print.id}/>{on && <span className="cover-print-check"><Check size={13} weight="bold"/></span>}

@@ -406,6 +406,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .cover-print .band-line { fill: currentColor; opacity: .5; }
 .app-shell[data-theme="dark"] .cover-print { --print-ground: color-mix(in srgb,var(--print-bg) 40%,#2c2626); color: rgba(239,226,214,.5); }
 .app-shell[data-theme="dark"] .cover-print.is-night { --print-ground: color-mix(in srgb,var(--print-bg) 70%,#2c2626); color: rgba(239,226,214,.42); }
+/* Landscape covers (CoverScenes.tsx): each colour is drawn as color-mix(colour var(--scene-<role>), deep shade); at 100% it is the light drawing. */
+.cover-scene { --scene-sky: 100%; --scene-ground: 100%; --scene-dough: 100%; --scene-ink: 100%; --scene-cloud: 100%; --scene-line: 100%; --scene-night: #211d1d; --scene-halo-1: .18; --scene-halo-2: .22; --scene-cloud-dim: 1; position: absolute; inset: 0; display: block; overflow: hidden; }
+.cover-scene > svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.app-shell[data-theme="dark"] .cover-scene { --scene-sky: 56%; --scene-ground: 46%; --scene-dough: 94%; --scene-ink: 72%; --scene-cloud: 62%; --scene-line: 75%; --scene-halo-1: .22; --scene-halo-2: .26; --scene-cloud-dim: .8; }
+.app-shell[data-theme="dark"] .cover-scene.is-night { --scene-sky: 82%; --scene-ground: 80%; }
 .story-tile-text { position: absolute; left: 18px; right: 18px; bottom: 18px; z-index: 1; display: grid; gap: 6px; }
 .story-tile-text small { font-size: calc(12px * var(--fs, 1)); opacity: .86; }
 .story-tile-text strong { display: -webkit-box; overflow: hidden; font: 500 calc(21px * var(--fs, 1))/1.25 var(--font-display); -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
