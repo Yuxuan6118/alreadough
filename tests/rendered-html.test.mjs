@@ -137,7 +137,7 @@ test("shows one anonymous survey after ten minutes of active use", async () => {
 test("keeps the chosen vision-board color connected to the live canvas", async () => {
   const studio = await readFile(new URL("../app/components/VisionCanvasStudio.tsx", import.meta.url), "utf8");
   // the board on screen and the exported picture both paint the chosen backdrop
-  assert.match(studio, /className="vb-board" style=\{\{[^\n]*background: settings\.background/);
+  assert.match(studio, /className=\{`vb-board[^\n]*style=\{\{[^\n]*background: settings\.background/);
   assert.match(studio, /context\.fillStyle = settings\.background;/);
 });
 
