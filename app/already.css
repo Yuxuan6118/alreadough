@@ -511,7 +511,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .cover-print-check { position: absolute; right: 8px; bottom: 8px; z-index: 2; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; color: var(--app-accent-ink); background: var(--app-accent); }
 .cover-picker-note { margin: 0 24px 14px; color: var(--app-muted); font-size: calc(14px * var(--fs, 1)); line-height: 1.7; }
 .cover-picker-note.is-error { color: #b4474f; }
-.story-editor-modal .cover-picker-foot { justify-content: flex-start; margin: 0; padding: 12px 18px; border-top: 1px solid var(--app-line); background: var(--app-bg); }
 
 .sp-name-card > small { display: block; margin-top: 10px; color: var(--app-muted); font-size: calc(12px * var(--fs, 1)); line-height: 1.65; }
 .sp-name-card input[aria-invalid="true"] { border-color: var(--app-accent); }
@@ -931,7 +930,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .cover-picker > * { margin-left: 16px; margin-right: 16px; }
   .cover-picker-note { margin-left: 16px; margin-right: 16px; }
   .story-editor-modal .cover-picker-head { padding: 18px 16px 14px; }
-  .story-editor-modal .cover-picker-foot { flex-direction: row; padding: 10px 12px; }
   /* the backdrop is fixed inside the app shell, which is sized to the visible area, so 100% keeps the sheet above the keyboard */
   .story-editor-backdrop { align-items: end; overflow: hidden; padding: 0; }
   .story-editor-modal { width: 100%; max-height: calc(100% - 12px - env(safe-area-inset-top)); overscroll-behavior: contain; padding: 24px 18px calc(24px + env(safe-area-inset-bottom)); border-radius: 26px 26px 0 0; }

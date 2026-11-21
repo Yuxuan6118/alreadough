@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import DoughHop from "./DoughHop";
-import { Check, ImageSquare, MagnifyingGlass, Trash, UploadSimple, X } from "@phosphor-icons/react";
+import { Check, ImageSquare, MagnifyingGlass, UploadSimple, X } from "@phosphor-icons/react";
 import { saveLocalCover } from "@/lib/cover-store";
 import CoverPrint, { COVER_OPTIONS, COVER_PRINTS, DoughIcon, isPrintCover, PRINT_COVER_PREFIX } from "./CoverPrints";
 
@@ -16,7 +16,7 @@ type SearchImage = { title: string; image: string; source: string; credit: strin
 type BoardPhoto = { image: string; title: string; source: string };
 
 /** Choose a story's cover: her own photo (kept on this device), a licensed photo from search, one from the vision board, or a built-in dough print. */
-export default function StoryCoverPicker({ lang, title, initialQuery, board, hasCover, current, onPick, onRemove, onClose }: {
+export default function StoryCoverPicker({ lang, title, initialQuery, board, hasCover, current, onPick, onClose }: {
   lang: Lang;
   title: string;
   initialQuery: string;
@@ -25,7 +25,6 @@ export default function StoryCoverPicker({ lang, title, initialQuery, board, has
   /** The story's cover image now, to tick the built-in print it uses. */
   current?: string;
   onPick: (cover: Cover, downloadLocation?: string) => void;
-  onRemove: () => void;
   onClose: () => void;
 }) {
   const zh = lang === "zh";
@@ -119,7 +118,6 @@ export default function StoryCoverPicker({ lang, title, initialQuery, board, has
         {!board.length && <p className="cover-picker-note">{zh ? "愿景里还没有收藏的图片。在「愿景」里收藏的照片会出现在这里。" : "Nothing on your vision board yet. Photos you keep in Vision show up here."}</p>}
         {grid(board.map((item, index) => ({ key: `${index}-${item.source}`, image: item.image, label: item.title, pick: () => onPick({ image: item.image, source: item.source }) })))}
       </>}
-      {hasCover && <footer className="cover-picker-foot"><button type="button" className="wish-delete" onClick={onRemove}><Trash size={16}/> {zh ? "换成默认封面" : "Use the default cover"}</button></footer>}
     </section>
   </div>;
 }

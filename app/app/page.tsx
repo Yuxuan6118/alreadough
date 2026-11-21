@@ -1434,7 +1434,6 @@ export default function Home() {
           hasCover={Boolean(story.cover?.image)}
           current={story.cover?.image}
           onPick={(cover, downloadLocation) => { setStoryCover(story.id, cover); reportPhotoUse(downloadLocation); setCoverPickerId(null); }}
-          onRemove={() => { setStoryCover(story.id, null); setCoverPickerId(null); }}
           onClose={() => setCoverPickerId(null)}
         />;
       })()}
