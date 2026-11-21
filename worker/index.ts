@@ -53,8 +53,8 @@ const worker = {
     return withSecurityHeaders(await route(request, env, ctx));
   },
   /** Daily at 03:17 UTC (wrangler.jsonc "triggers"): remove expired sessions, old limit counters and old crash reports. */
-  async scheduled(_controller: unknown, _env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(dailyCleanup()
+  async scheduled(_controller: unknown, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(dailyCleanup(env.DB)
       .then((removed) => console.log("daily cleanup", removed))
       .catch((error) => console.error("daily cleanup failed", String(error))));
   },

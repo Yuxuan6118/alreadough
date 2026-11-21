@@ -278,7 +278,7 @@ test("daily cleanup: drops expired sessions, unused limit counters and month-old
     env.DB.prepare("INSERT INTO member_auth_limits (key, window_start, count, updated_at_ms) VALUES ('legacy', 1, 1, NULL), ('stale', 1, 1, ?), ('fresh', 1, 1, ?)").bind(now - 3 * day, now - 1000),
     env.DB.prepare("INSERT INTO client_errors (id, created_at_ms, message) VALUES ('c-old', ?, 'old'), ('c-new', ?, 'new')").bind(now - 31 * day, now - day),
   ]);
-  assert.deepEqual(await dailyCleanup(now), { sessions: 1, limits: 2, crashes: 1 });
+  assert.deepEqual(await dailyCleanup(env.DB, now), { sessions: 1, limits: 2, crashes: 1 });
   assert.deepEqual((await env.DB.prepare("SELECT token_hash AS t FROM member_sessions").all()).results.map((r) => r.t), ["live"]);
   assert.deepEqual((await env.DB.prepare("SELECT key FROM member_auth_limits").all()).results.map((r) => r.key), ["fresh"]);
   assert.deepEqual((await env.DB.prepare("SELECT id FROM client_errors").all()).results.map((r) => r.id), ["c-new"]);
