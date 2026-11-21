@@ -367,3 +367,13 @@ test("voice reading allowance follows the plan: free is the smallest, Porcelain 
   assert.equal(remainingToday(250, 0, 100, VOICE_DAILY_BY_PLAN.deep).allowed, true);
   assert.equal(remainingToday(0, 0, 100).allowed, true);
 });
+
+test("the founder log keeps 睡前肯定语 and 首次引导 under their own names, other turns under the request mode", async () => {
+  const guard = await import("../lib/beta-guard.ts");
+  const ticket = { userHash: "h".repeat(64), mode: "chat" };
+  await guard.recordConversation(ticket, { mode: "affirm", lang: "zh", context: [], userText: "（按愿望生成）", aiReply: "我已经被爱着。" });
+  await guard.recordConversation(ticket, { mode: "onboarding", lang: "zh", context: [], userText: "他叫阿哲", aiReply: "阿哲，记下了。" });
+  await guard.recordConversation(ticket, { lang: "zh", context: [], userText: "你好", aiReply: "我在。" });
+  const modes = (await guard.listConversations(10)).map((row) => row.mode).sort();
+  assert.deepEqual(modes, ["affirm", "chat", "onboarding"]);
+});

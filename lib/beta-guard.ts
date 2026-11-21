@@ -189,13 +189,13 @@ export async function founderSnapshot() {
 
 const clipText = (value: string, max: number) => value.trim().slice(0, max);
 
-/** Store one beta conversation turn (no desire card, name, or beliefs — only the turn itself). Never throws. */
-export async function recordConversation(ticket: BetaTicket, entry: { lang: string; coachMode?: string; wishCategory?: string; context: Array<{ role: string; text: string }>; userText: string; aiReply: string; model?: string }) {
+/** Store one beta conversation turn (no desire card, name, or beliefs — only the turn itself). `mode` names features that share the chat ticket (affirm, onboarding). Never throws. */
+export async function recordConversation(ticket: BetaTicket, entry: { lang: string; coachMode?: string; wishCategory?: string; context: Array<{ role: string; text: string }>; userText: string; aiReply: string; model?: string; mode?: string }) {
   try {
     const id = crypto.randomUUID();
     const context = JSON.stringify(entry.context.slice(-6).map((item) => ({ role: item.role, text: clipText(item.text, 600) })));
     await env.DB.prepare("INSERT INTO beta_conversations (id, user_hash, created_at, mode, coach_mode, wish_category, lang, context, user_text, ai_reply, model) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      .bind(id, ticket.userHash, new Date().toISOString(), ticket.mode, entry.coachMode || null, entry.wishCategory || null, entry.lang, context, clipText(entry.userText, 4000), clipText(entry.aiReply, 6000), entry.model || null).run();
+      .bind(id, ticket.userHash, new Date().toISOString(), entry.mode || ticket.mode, entry.coachMode || null, entry.wishCategory || null, entry.lang, context, clipText(entry.userText, 4000), clipText(entry.aiReply, 6000), entry.model || null).run();
     return id;
   } catch (error) {
     console.error("recordConversation failed", String(error));

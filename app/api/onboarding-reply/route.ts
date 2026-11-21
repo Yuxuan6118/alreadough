@@ -1,5 +1,5 @@
 import { desirePreservingSafetyReply } from "@/lib/already-ai";
-import { beginBetaRequest, finishMemberRequest, settleBetaRequest } from "@/lib/beta-guard";
+import { beginBetaRequest, finishMemberRequest, recordConversation, settleBetaRequest } from "@/lib/beta-guard";
 import { readClientInfo } from "@/lib/client-info";
 import { OPENAI_BASE_URL, chatContent, chatUsage, type ChatCompletion } from "@/lib/openai-base";
 import { isReplyStep, onboardingSystem, onboardingUser, sanitizeOnboardingReply } from "@/lib/onboarding-ai";
@@ -67,6 +67,7 @@ export async function POST(request: Request) {
     const reply = sanitizeOnboardingReply(chatContent(data), lang, name);
     const accepted = reply && !hasContrastFrame(reply) ? reply : "";
     await finishMemberRequest(gate.ticket, chatUsage(data), !!accepted);
+    if (accepted) await recordConversation(gate.ticket, { mode: "onboarding", lang, context: [], userText: answer, aiReply: accepted, model });
     return json({ reply: accepted });
   } catch {
     await settleBetaRequest(gate.ticket, null, { success: false, latencyMs: Date.now() - startedAt, feature: "onboarding" }).catch(() => undefined);

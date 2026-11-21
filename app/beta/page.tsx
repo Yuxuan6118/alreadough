@@ -48,7 +48,7 @@ export default function FounderBetaPage() {
       .catch((reason) => setError(reason.message));
     fetch("/api/beta/admin?view=overview", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" })
       .then(async (response) => response.ok ? response.json() as Promise<FounderOverview> : null)
-      .then((next) => { if (next) setOverview(next); setLoadedAt(new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })); })
+      .then((next) => { if (next) setOverview(next); setLoadedAt(new Date().toLocaleTimeString("zh-CN", { hour12: false })); })
       .catch(() => undefined);
     // the writing box needs to know whether mail is set up and how many people a mass mailing reaches
     fetch("/api/beta/mail", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" })
@@ -58,6 +58,13 @@ export default function FounderBetaPage() {
   }, [token]);
 
   useEffect(() => { load(); }, [load]);
+  // Read again every 30 seconds while the page is on screen, and as soon as you come back to it.
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === "visible") load(); };
+    const timer = window.setInterval(refresh, 30_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
+  }, [load]);
 
   const exportConversations = async () => {
     if (!token) return;

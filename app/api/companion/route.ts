@@ -208,6 +208,7 @@ export async function POST(request: Request) {
       const lines = upstream.ok ? affirmLines(chatContent(data), payload.lang) : [];
       await settleBetaRequest(gate.ticket, usage, { wishCategory: payload.goal.wishCategory, coachMode: payload.goal.coachMode, feature: "affirm", success: lines.length > 0, latencyMs: Date.now() - startedAt });
       await finishMemberRequest(gate.ticket, lines.length ? usage : null, lines.length > 0);
+      if (lines.length) await recordConversation(gate.ticket, { mode: "affirm", lang: payload.lang, coachMode: payload.goal.coachMode, wishCategory: payload.goal.wishCategory, context: [], userText: from || (payload.lang === "zh" ? "（按愿望生成）" : "(from the wish)"), aiReply: lines.join("\n"), model });
       return lines.length ? json({ reply: lines.join("\n") }) : failed();
     } catch (error) {
       console.error("affirmations failed", String(error));
