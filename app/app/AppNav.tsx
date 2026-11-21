@@ -41,7 +41,7 @@ export function SwipeSidebar({ lang, view, items, navLabel, unreadCount, compani
       </nav>
       <div className="swipe-history">
         <small>{lang === "zh" ? "对话记录" : "Conversations"}</small>
-        {conversations.length ? conversations.map((conversation) => <button type="button" key={conversation.id} className={conversation.id === conversationId ? "is-open" : ""} aria-current={conversation.id === conversationId ? "true" : undefined} onClick={() => { onPickConversation(conversation); onClose(); }}><span>{conversation.title}</span><small>{conversation.id === conversationId ? (lang === "zh" ? "正在聊" : "Open now") : new Date(conversation.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US")}</small></button>) : <p>{lang === "zh" ? "完成第一段对话后，它会出现在这里。" : "Your first conversation will appear here."}</p>}
+        {conversations.length ? conversations.map((conversation) => <button type="button" key={conversation.id} className={conversation.id === conversationId ? "is-open" : ""} aria-current={conversation.id === conversationId ? "true" : undefined} onClick={() => { onPickConversation(conversation); onClose(); }}><span>{conversation.title}</span><small>{new Date(conversation.createdAt).toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US")}</small></button>) : <p>{lang === "zh" ? "完成第一段对话后，它会出现在这里。" : "Your first conversation will appear here."}</p>}
       </div>
       <footer><button type="button" onClick={() => { onOpenSpace(); onClose(); }}><DoughLineMark className="avatar-mark avatar-mark-lg" /><span>{companionName || (lang === "zh" ? "我的空间" : "My space")}</span><GearSix size={24} className="swipe-gear" aria-hidden="true"/></button></footer>
     </aside>
