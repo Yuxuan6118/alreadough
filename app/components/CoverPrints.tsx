@@ -4,7 +4,7 @@ import { COVER_SCENES, CoverScene } from "./CoverScenes";
 // Built-in story covers ("面团封面"): white line prints on a soft colour, like a phone's own wallpapers.
 // A story keeps one as `print:<id>` in cover.image (the landscapes in CoverScenes.tsx too); no cover at all shows the dough on rose.
 // Drawing language follows SpaceIcons: plump outline, dot eyes, nose dash, no mouth, round caps.
-// Colours come from CSS (.cover-print), so dark mode follows on its own.
+// Colours come from CSS (.cover-print) and stay the same in dark mode.
 
 export const PRINT_COVER_PREFIX = "print:";
 export const isPrintCover = (image?: string) => Boolean(image?.startsWith(PRINT_COVER_PREFIX));
