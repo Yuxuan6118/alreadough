@@ -234,6 +234,21 @@ test("crisis: feeling like a burden reaches the crisis card first, even in a lon
   assert.notEqual(first("没有我想要的那种感觉"), "crisis_suicidal");
 });
 
+test("celebrity SP: fans, concerts and not having met him reach the celebrity situation and its cards", async () => {
+  const { matchSituations } = await import("../lib/coach-corpus.ts");
+  const { pickCoachCards, shortExamplesBlock } = await import("../lib/coach-cards.ts");
+  const first = (text) => matchSituations(text, "")[0]?.id;
+  assert.equal(first("其他粉丝也在显化他怎么办"), "sp_celebrity");
+  assert.equal(first("他是明星，我们根本不认识"), "sp_celebrity");
+  assert.equal(first("下个月去他的演唱会，好紧张"), "sp_celebrity");
+  assert.equal(pickCoachCards("assumption", "下个月去他的演唱会，好紧张")[0].id, "a_offline_as_partner");
+  assert.equal(pickCoachCards("assumption", "看到那么多粉丝喜欢他好焦虑")[0].id, "a_fans_popular");
+  assert.equal(pickCoachCards("assumption", "最近突然没那么想他了，我是不是麻木了")[0].id, "a_calm_or_numb");
+  // an idea already used in a recent reply is not offered again
+  assert.ok(!pickCoachCards("assumption", "下个月去他的演唱会", "", 3, ["去看看我家那位今天的舞台。"]).some((card) => card.id === "a_offline_as_partner"));
+  assert.match(shortExamplesBlock("zh", "assumption", "显化名人和普通人有区别吗"), /他也是人/);
+});
+
 const crashReports = await import("../lib/client-errors.ts");
 const { deleteBetaRecords, touchProfile } = await import("../lib/beta-guard.ts");
 const { dailyCleanup } = await import("../lib/maintenance.ts");
