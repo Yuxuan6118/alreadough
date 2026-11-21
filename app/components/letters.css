@@ -10,6 +10,7 @@
 .letter-body { padding: 4px 24px 24px 68px; }
 .letter-body p { margin: 0 0 16px; font-size: calc(16px * var(--fs, 1)); line-height: 1.85; color: var(--app-ink); text-wrap: pretty; }
 .letter-body .letter-sign { margin: 22px 0 0; font-family: var(--font-display); color: var(--app-accent); }
+.letter-body a { color: var(--app-accent); text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
 .letters-empty { display: grid; justify-items: center; gap: 14px; padding: 48px 16px; color: var(--app-muted); text-align: center; }
 .letters-empty-mark { width: 48px; height: 48px; color: var(--app-accent); opacity: .7; }
 .letters-empty p { margin: 0; max-width: 320px; line-height: 1.7; }

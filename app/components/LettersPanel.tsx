@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
+import { letterParts } from "@/lib/letter-links";
 import DoughLineMark from "./DoughLineMark";
 import "./letters.css";
 
@@ -28,7 +29,7 @@ export default function LettersPanel({ lang, letters, unread }: Props) {
               {unread.has(letter.id) && <i className="letter-dot" aria-label={lang === "zh" ? "未读" : "Unread"} />}
             </button>
             {isOpen && <div className="letter-body">
-              {letter.body.trim() && letter.body.trim().split(/\n\s*\n/).map((block, index) => <p key={index}>{block.split("\n").map((line, i) => <span key={i}>{i > 0 && <br />}{line}</span>)}</p>)}
+              {letter.body.trim() && letter.body.trim().split(/\n\s*\n/).map((block, index) => <p key={index}>{block.split("\n").map((line, i) => <span key={i}>{i > 0 && <br />}{letterParts(line).map((part, j) => part.href ? <a key={j} href={part.href} target="_blank" rel="noopener noreferrer">{part.text}</a> : <Fragment key={j}>{part.text}</Fragment>)}</span>)}</p>)}
               <p className="letter-sign">AlreaDough</p>
             </div>}
           </article>

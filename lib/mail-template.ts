@@ -1,15 +1,22 @@
 // The look of every letter to users. Email clients ignore most CSS, so this is table layout
 // with inline styles only; fonts fall back to the reader's system serif / sans.
 
+import { letterParts } from "./letter-links";
+
 const SITE = "https://alreadough.com";
 const LOGO = `${SITE}/brand/alreadough-line-mark-mail.png`;
 
 const escapeHtml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+/** One line of a letter, with its web addresses as links. */
+const lineHtml = (line: string) => letterParts(line).map(part => part.href
+  ? `<a href="${escapeHtml(part.href)}" style="color:#9b625f;text-decoration:underline">${escapeHtml(part.text)}</a>`
+  : escapeHtml(part.text)).join("");
+
 /** Blank lines start a new paragraph; single line breaks stay inside it. */
 function paragraphs(body: string) {
   return body.trim().split(/\n\s*\n/).map(block =>
-    `<p style="margin:0 0 18px;font-size:16px;line-height:1.85;color:#3a312d">${escapeHtml(block.trim()).replace(/\n/g, "<br>")}</p>`,
+    `<p style="margin:0 0 18px;font-size:16px;line-height:1.85;color:#3a312d">${block.trim().split("\n").map(lineHtml).join("<br>")}</p>`,
   ).join("");
 }
 
